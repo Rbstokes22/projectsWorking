@@ -17,8 +17,8 @@ void Net::startServer(IDisplay &OLED) {
     auto handleWAPsubmit = [this, &OLED]() {
         if (this->prevServerType == WAP_SETUP) {
             if (server.hasArg("plain")) {
-                char jsonData[100];
-                char buffer[100];
+                char jsonData[100] = "";
+                char buffer[100] = "";
                 const char* plain = server.arg("plain").c_str();
                 size_t plainLength = strlen(plain);
 

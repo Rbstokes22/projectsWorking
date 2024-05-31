@@ -6,6 +6,7 @@ STAsettings::STAsettings(){
     memset(ssid, 0, SSID_MAX);
     memset(pass, 0, PASS_MAX);
     memset(phoneNum, 0, PHONE_MAX);
+    memset(WAPpass, 0, WAP_PASS_MAX);
 }
 
 // FIGURE OUT HOW TO REWRITE EEPROM TO HANDLE THE SINGLE CHANGES COMING IN AND 
@@ -15,74 +16,104 @@ STAsettings::STAsettings(){
 // FUTURE THE EEPROM KNOWS IT HAS BEEN WRITTEN.
 
 bool STAsettings::eepromWrite(const char* type, const char* buffer) {
-// bool STAsettings::eepromWrite(const String &ssid, const String &pass, const String &phone) {
-    int totalSize = ssid.length() + pass.length() + phone.length() + 3; // 3 for null term char
-    
-    EEPROM.begin(totalSize);
-    int addr = 0;
+    uint16_t address = 0;
 
-    for (int i = 0; i < ssid.length(); i++) {
-        EEPROM.write(addr++, ssid[i]);
+    // the added integer accounts for the null terminator, this sets the 
+    // beginning address of the block of data reserved for each item.
+    if (type == "ssid") address = 0;
+    if (type == "pass") address = SSID_MAX + 1;
+    if (type == "phone") address = SSID_MAX + PASS_MAX + 2;
+    if (type == "WAPpass") address = SSID_MAX + PASS_MAX + PHONE_MAX + 3;
+
+    // total size will not exceed 64
+    uint16_t totalSizeBuffer = strlen(buffer);
+    uint16_t totalSizeEEPROM = address + 30;
+
+    // write to EEPROM address the iterated buffer chars
+    EEPROM.begin(totalSizeEEPROM);
+    for (int i = 0; i < totalSizeBuffer; i++) {
+        EEPROM.write(address++, buffer[i]);
     }
-    EEPROM.write(addr++, '\0'); // place null terminating char between data
 
-    for (int i = 0; i < pass.length(); i++) {
-        EEPROM.write(addr++, pass[i]);
+    // Terminate the memory block with a null char
+    EEPROM.write(address, '\0');
+    EEPROM.commit();
+
+    // This is used to compare that the buffer was written to EEPROM correctly
+    if (type == "ssid") {
+        eepromRead(SSID_EEPROM, true);
+        if (buffer == this->ssid) return true;
+    } else if (type == "pass") {
+        eepromRead(PASS_EEPROM, true);
+        if (buffer == this->pass) return true;
+    } else if (type == "phone") {
+        eepromRead(PHONE_EEPROM, true);
+        if (buffer == this->phoneNum) return true;
+    } else if (type == "WAPpass") {
+        eepromRead(WAP_PASS_EEPROM, true);
+        if (buffer == this->WAPpass) return true;
     }
-    EEPROM.write(addr++, '\0');
 
-    for (int i = 0; i < phone.length(); i++) {
-        EEPROM.write(addr++, phone[i]);
-    }
-    EEPROM.write(addr++, '\0');
-
-    EEPROM.commit(); // commit to memory
-
-    eepromRead(1); // Will set the values to the private variables
-    
-    // Validates that the eeprom reads the same way it wrote
-    if (
-        ssid == this->ssid && pass == this->pass && phone == phoneNum) {
-        return 1;
-    } else {
-        return 0;
-    }
+    return false; // If it wasnt written correctly
 }
 
 // Doesnt return, just sets the class private variables to eeprom values
-void STAsettings::eepromRead(bool action) {
+void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
 
-    // The EEPROM will begin if call outside of the eepromWrite()
-    if (!action) {EEPROM.begin(128);}
+    // The EEPROM will begin if call outside of the eepromWrite(), this 
+    // prevents EEPROM from calling begin twice
+    if (!fromWrite) EEPROM.begin(200);
 
-    int addr = 0;
+    uint16_t address = 0;
 
-    for (int i = 0; i < SSID_MAX; i++) {
-        ssid[i] = EEPROM.read(addr++);
-        if (ssid[i] == '\0') {break;}
-    }
+    // Each of these are depedinging on the memory source passed to read. 
+    // They will sort thorough the entire array until the terminate or 
+    // hit a null terminator, and then set that memory to the class 
+    // variable.
+    if (source == SSID_EEPROM) {
+        address = 0;
+        for (int i = 0; i < SSID_MAX; i++) {
+            ssid[i] = EEPROM.read(address++);
+            if (ssid[i] == '\0') break;
+        }
 
-    for (int i = 0; i < PASS_MAX; i++) {
-        pass[i] = EEPROM.read(addr++);
-        if (pass[i] == '\0') {break;}
-    }
+    } else if (source == PASS_EEPROM) {
+        address = SSID_MAX + 1;
+        for (int i = 0; i < PASS_MAX; i++) {
+            pass[i] = EEPROM.read(address++);
+            if (pass[i] == '\0') break;
+        }
 
-    for (int i = 0; i < PHONE_MAX; i++) {
-        phoneNum[i] = EEPROM.read(addr++);
-        if (phoneNum[i] == '\0') {break;}
+    } else if (source == PHONE_EEPROM) {
+        address = SSID_MAX + PASS_MAX + 2;
+        for (int i = 0; i < PHONE_MAX; i++) {
+            phoneNum[i] = EEPROM.read(address++);
+            if (phoneNum[i] == '\0') break;
+        }
+
+    } else if (source == WAP_PASS_EEPROM) {
+        address = SSID_MAX + PASS_MAX + PHONE_MAX + 3;
+        for (int i = 0; i < WAP_PASS_MAX; i++) {
+            WAPpass[i] = EEPROM.read(address++);
+            if (WAPpass[i] == '\0') break;
+        }
     }
 
     EEPROM.end();
 }
 
 const char* STAsettings::getSSID() const {
-    return ssid;
+    return this->ssid;
 }
 
 const char* STAsettings::getPASS() const {
-    return pass;
+    return this->pass;
 }
 
 const char* STAsettings::getPhone() const {
-    return phoneNum;
+    return this->phoneNum;
+}
+
+const char* STAsettings::getWapPass() const {
+    return this->WAPpass;
 }

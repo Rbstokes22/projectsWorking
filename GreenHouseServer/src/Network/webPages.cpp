@@ -8,6 +8,10 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Greenhouse</title>
     <style>
+        body {
+                background-color: rgba(0, 255, 0, 0.3);
+        }
+
         h1 {
             text-align: center;
             font-weight: 900;
