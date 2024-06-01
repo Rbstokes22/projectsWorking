@@ -1,8 +1,7 @@
 #include "Network.h"
 #include <ArduinoJson.h>
-#include "eeprom.h"
 
-void Net::startServer(IDisplay &OLED) {
+void Net::startServer(IDisplay &OLED, STAsettings &STAeeprom) {
     auto handleIndex = [this]() {
         if (this->prevServerType == WAP_ONLY) {
             server.send(200, "text/html", "THIS IS WAP ONLY");
@@ -14,7 +13,7 @@ void Net::startServer(IDisplay &OLED) {
     };
 
     // ADD ENCRYPTION AS WELL AS HTTPS FOR WAPSETUP SERVER
-    auto handleWAPsubmit = [this, &OLED]() {
+    auto handleWAPsubmit = [this, &OLED, &STAeeprom]() {
         if (this->prevServerType == WAP_SETUP) {
             if (server.hasArg("plain")) {
                 char jsonData[100] = "";
@@ -33,7 +32,6 @@ void Net::startServer(IDisplay &OLED) {
                 
                 DynamicJsonDocument jsonDoc(100);
 
-                STAsettings writeToEEPROM;
                 DynamicJsonDocument res(64); // sends back to client
                 char response[64];
 
@@ -42,8 +40,8 @@ void Net::startServer(IDisplay &OLED) {
                     OLED.displayError(this->error); return; // prevents further issues
                 };
 
-                auto write = [&buffer, &writeToEEPROM, &res](const char* type){
-                    if (writeToEEPROM.eepromWrite(type, buffer)) {
+                auto write = [&buffer, &STAeeprom, &res](const char* type){
+                    if (STAeeprom.eepromWrite(type, buffer)) {
                         res["status"] = "Accepted";
                     } else {
                         res["status"] = "Not Accepted, Error Storing Data";

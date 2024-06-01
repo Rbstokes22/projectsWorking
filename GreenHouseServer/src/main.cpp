@@ -2,13 +2,14 @@
 // for controlling code. 
 
 #define VERSION 1.0
-#define MODEL GH1
+#define MODEL "GH-01"
 
 #include <Arduino.h>
 #include "Display.h"
 #include "Timing.h"
 #include "Network.h"
 #include "OTAupdates.h"
+#include "eeprom.h"
 
 // If changes to the servername are ever made, update the display printWAP 
 // const char SSID to match
@@ -18,6 +19,7 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 
 Display OLED(128, 64); // creates OLED class
 Net* Network; // dynamically allocates in order to support password issues
+STAsettings STAeeprom;
 
 Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
 Timer checkSensors(10000); // Check every 60 seconds (NEED TO BUILD)
@@ -26,6 +28,34 @@ Timer clearError(0);
 OTAupdates otaUpdates(OLED);
 
 size_t startupHeap = 0;
+
+// Used to setup on WAP mode's password upon start.
+void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
+  char eepromError[50];
+  switch (isDefault) {
+    case true:
+    Network = new Net(
+    SERVER_NAME, SERVER_PASS_DEFAULT, // WAP SSID & Pass
+    IPAddress(192, 168, 1, 1), // WAP localIP
+    IPAddress(192, 168, 1, 1), // WAP gateway
+    IPAddress(255, 255, 255, 0), // WAP subnet
+    80);
+    Network->setIsDefaultWAPpass(true);
+    if (sendMsg == true) {
+      strcpy(eepromError, errorMsg);
+      OLED.displayError(eepromError);
+    }
+
+    case false:
+    Network = new Net(
+      SERVER_NAME, STAeeprom.getWAPpass(), // WAP SSID & Pass
+      IPAddress(192, 168, 1, 1), // WAP localIP
+      IPAddress(192, 168, 1, 1), // WAP gateway
+      IPAddress(255, 255, 255, 0), // WAP subnet
+      80); 
+      Network->setIsDefaultWAPpass(false);
+  }
+}
 
 void setup() {
   Serial.begin(115200); // delete when finished
@@ -37,24 +67,51 @@ void setup() {
 
   OLED.init(); // starts the OLED and displays 
 
+// This will initialize or ensure that the eeprom has been initialized.
+  uint8_t eepromSetup = STAeeprom.initialSetup(261, 2, 263, 22, 200); 
+  
+  // Startup switch determines this mode. It is designed to read from the EEPROM.
+  // Upon a first start, the EEPROM will initialize and reset nullifying all 
+  // data block entries. It will then restart looking for a password for the WAP.
+  // If it is a '\0', it will start with the default password, and this is fine 
+  // if the client desires, or they can change their password. In the event they
+  // every forget their saved password, and want to restart, there is a switch 
+  // that they can hold upon startup. This will automatically start with a default
+  // password. Other than that, once the user saves a password successfully in the
+  // EEPROM, the WAP will begin with that password upon every read. If that data 
+  // is somehow corrupt, troubleshooting will be needed. Its doubtful with the 
+  // 100k - 1M write cycles an EEPROM can take, but there is always some probability
+  // for failure. In the event it doesnt start, the client can always use the default
+  // until fixed or replaced.
   switch(digitalRead(defaultWAP)) {
     case 0:
-    Network = new Net(
-    SERVER_NAME, SERVER_PASS_DEFAULT, // WAP SSID & Pass
-    IPAddress(192, 168, 1, 1), // WAP localIP
-    IPAddress(192, 168, 1, 1), // WAP gateway
-    IPAddress(255, 255, 255, 0), // WAP subnet
-    80
-    ); Network->setIsDefaultWAPpass(true); break;
+    Serial.println("DEFAULT WAP STARTED");
+    netConstructor(true, ""); break;
 
     case 1:
-    Network = new Net(
-    SERVER_NAME, "11111111", // WAP SSID & Pass
-    IPAddress(192, 168, 1, 1), // WAP localIP
-    IPAddress(192, 168, 1, 1), // WAP gateway
-    IPAddress(255, 255, 255, 0), // WAP subnet
-    80
-    ); Network->setIsDefaultWAPpass(false);
+    switch (eepromSetup) {
+      case EEPROM_UP:
+      STAeeprom.eepromRead(WAP_PASS_EEPROM);
+      if (STAeeprom.getWAPpass()[0] != '\0') {
+        Serial.println("EEPROM UP AND CONTAINS DATA");
+        netConstructor(false, ""); break;
+
+      } else {
+        Serial.println("EEPROM UP NO DATA");
+        netConstructor(true, "Default password, setup new password");
+        break;
+      }
+
+      case EEPROM_INITIALIZED:
+      Serial.println("EEPROM INITIALIZED");
+      netConstructor(true, "Ready to setup WAP Password", true);
+      delay(3000); ESP.restart();
+      break;
+
+      case EEPROM_INIT_FAILED:
+      Serial.println("EEPROM INIT FAILED");
+      netConstructor(true, "Issue with memory initialization", true);
+    }
   }
 }
 
@@ -106,7 +163,7 @@ void loop() {
 
     switch(wifiMode) { // 0 = WAP, 1 = WAP setup, 2 = STA
       case WAP_ONLY:
-      switch(Network->WAP(OLED)) {
+      switch(Network->WAP(OLED, STAeeprom)) {
         case true:
         OLED.printWAP(SERVER_NAME, IPADDR, "Yes", WAPtype, updatingStatus, heapHealth);
         break;
@@ -117,7 +174,7 @@ void loop() {
       break;
 
       case WAP_SETUP:
-      switch(Network->WAPSetup(OLED)) {
+      switch(Network->WAPSetup(OLED, STAeeprom)) {
         case true:
         OLED.printWAP(SERVER_NAME, IPADDR, "Yes", WAPtype, updatingStatus, heapHealth);
         break;
@@ -130,7 +187,7 @@ void loop() {
       case STA_ONLY:
       STAdetails details = Network->getSTADetails();
 
-      switch(Network->STA(OLED)) {
+      switch(Network->STA(OLED, STAeeprom)) {
         case WIFI_STARTING:
         OLED.printSTA(&details, "No", updatingStatus, heapHealth); 
         break;

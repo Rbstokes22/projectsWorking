@@ -1,20 +1,19 @@
 #include "Network.h"
 #include <ESPmDNS.h>
-#include "eeprom.h"
 #include <WiFi.h>
 
 // WIRELESS ACCESS POINT EXCLUSIVE. This will host the same exact page as the station
 // which is the main control for the device. It will just do so with the controlling
 // device connects to the device via wifi. Will not have any connection internet.
 
-bool Net::WAP(IDisplay &OLED) { 
+bool Net::WAP(IDisplay &OLED, STAsettings &STAeeprom) { 
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_ONLY) {
         prevServerType = WAP_ONLY;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(local_IP, gateway, subnet);
         WiFi.softAP(AP_SSID, AP_Pass, 1, 0, 4); // Allows 4 connections
-        if (!this->isServerRunning) startServer(OLED);
+        if (!this->isServerRunning) startServer(OLED, STAeeprom);
         if (MDNSrunning) {
             MDNS.end(); MDNSrunning = false;
         }
@@ -29,14 +28,14 @@ bool Net::WAP(IDisplay &OLED) {
 // for a twilio account altert systems. Once this is set up, the client can go 
 // to station mode.
 
-bool Net::WAPSetup(IDisplay &OLED) {
+bool Net::WAPSetup(IDisplay &OLED, STAsettings &STAeeprom) {
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_SETUP) {
         prevServerType = WAP_SETUP;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(local_IP, gateway, subnet);
         WiFi.softAP(AP_SSID, AP_Pass, 1, 0, 1); // Allows 1 connection for security
-        if (!this->isServerRunning) startServer(OLED);
+        if (!this->isServerRunning) startServer(OLED, STAeeprom);
         if (MDNSrunning) {
             MDNS.end(); MDNSrunning = false;
         }
@@ -50,7 +49,7 @@ bool Net::WAPSetup(IDisplay &OLED) {
 // webpage from any device connected to the LAN. This will also have access to the internet
 // for SMS updates and alerts, as well as to check for upgraded firmware. 
 
-uint8_t Net::STA(IDisplay &OLED) {
+uint8_t Net::STA(IDisplay &OLED, STAsettings &STAeeprom) {
     
     if (WiFi.getMode() != WIFI_STA || prevServerType != STA_ONLY) {
         WiFi.mode(WIFI_STA);
@@ -64,26 +63,36 @@ uint8_t Net::STA(IDisplay &OLED) {
         // primary. A reminder though, without EEPROM, the LAN login creds are volatile.
 
         if (this->ST_SSID[0] == '\0' || this->ST_PASS[0] == '\0') {
-            STAsettings readEEPROM; // reads eeprom to get stored vals up creation
-            readEEPROM.eepromRead(0); // reads epprom data and sets class variables
+  
+            // Reads the eeprom values, and sets the private EEPROM variables
+            // which will be looked at below. If any of the entires are blank,
+            // they will do nothing.
+            STAeeprom.eepromRead(SSID_EEPROM); 
+            STAeeprom.eepromRead(PASS_EEPROM); 
+            STAeeprom.eepromRead(PHONE_EEPROM); 
 
             // The readEEPROM returns char pointers, which will go out of scope and 
             // cause issues after initialization in this function. To prevent that and 
             // store the class variables, we use these functions, and then have no 
-            // follow on issues. These need to be mutable.
-            strncpy(this->ST_SSID, readEEPROM.getSSID(), sizeof(this->ST_SSID) - 1);
+            // follow on issues. These need to be mutable. WAPpass is not included here 
+            // because it is passed in the constructor upon creation in the main.cpp
+            strncpy(this->ST_SSID, STAeeprom.getSSID(), sizeof(this->ST_SSID) - 1);
             this->ST_SSID[sizeof(this->ST_SSID) - 1] = '\0'; // Ensure null terminator exists
 
-            strncpy(this->ST_PASS, readEEPROM.getPASS(), sizeof(this->ST_PASS) - 1);
+            strncpy(this->ST_PASS, STAeeprom.getPASS(), sizeof(this->ST_PASS) - 1);
             this->ST_PASS[sizeof(this->ST_PASS) - 1] = '\0';
 
-            strncpy(this->phoneNum, readEEPROM.getPhone(), sizeof(this->phoneNum) - 1);
+            strncpy(this->phoneNum, STAeeprom.getPhone(), sizeof(this->phoneNum) - 1);
             this->phoneNum[sizeof(this->phoneNum) - 1] = '\0';
+
+            Serial.print("READ SSID: "); Serial.println(this->ST_SSID);
+            Serial.print("READ PASS: "); Serial.println(this->ST_PASS);
+            Serial.print("READ Phone: "); Serial.println(this->phoneNum);
         } 
         
         // Done need delay to wait for web, this is a non blocking begin.
         WiFi.begin(this->ST_SSID, this->ST_PASS);
-        if (!this->isServerRunning) startServer(OLED);
+        if (!this->isServerRunning) startServer(OLED, STAeeprom);
 
         if (WiFi.status() == WL_CONNECTED) {
             if (!MDNSrunning) {

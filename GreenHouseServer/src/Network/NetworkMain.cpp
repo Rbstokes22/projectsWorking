@@ -9,8 +9,6 @@ Net::Net(
     IPAddress subnet,
     uint16_t port) : 
 
-    // AP_SSID(AP_SSID),
-    // AP_Pass(AP_Pass),
     local_IP(local_IP),
     gateway(gateway),
     subnet(subnet),
@@ -23,7 +21,8 @@ Net::Net(
     isDefaultWAPpass(false)
     {
         // Set memory to all null for char arrays and copy the starting 
-        // network ssid and pass
+        // network ssid and pass. This helps for when the eeprom goes out 
+        // of scope and copies the value instead of the pointer garbage.
         strncpy(this->AP_SSID, AP_SSID, sizeof(this->AP_SSID) - 1);
         this->AP_SSID[sizeof(this->AP_SSID) - 1] = '\0';
         strncpy(this->AP_Pass, AP_Pass, sizeof(this->AP_Pass) - 1);

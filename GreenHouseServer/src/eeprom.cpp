@@ -9,14 +9,48 @@ STAsettings::STAsettings(){
     memset(WAPpass, 0, WAP_PASS_MAX);
 }
 
-// FIGURE OUT HOW TO REWRITE EEPROM TO HANDLE THE SINGLE CHANGES COMING IN AND 
-// APPROPRIATE ADDRESSING. ALSO WORK THIS IN THE BEGINNING TO START BY READING EEPROM
-// ALSO ANOTHER CONSIDERATION CAN BE A FIRST START EEPROM BY CHECKING 3 DIFFERENT 
-// ADDRESSES WITH KNOWN VALUES, IF THEY ARE NOT RIGHT, MAKE THEM RIGHT AND IN THE 
-// FUTURE THE EEPROM KNOWS IT HAS BEEN WRITTEN.
+// When initially starting, checks EEPROM for two known values at chosen
+// addresses. If they do not exist, system knows the EEPROM is being started
+// for the first time, it will then null out your dataBlock and write the 
+// chosen values at the chosen addresses. This will allow Network cred validation
+// to see if a null char exists as the expected address and know which password
+// to begin for the WAP setting.
+uint8_t STAsettings::initialSetup(
+    uint16_t addr1, 
+    uint8_t expVal1, 
+    uint16_t addr2, 
+    uint8_t expVal2,
+    uint16_t dataBlockSize) {
+
+    uint16_t totalSize = 0;
+    addr2 > addr1 ? totalSize = addr2 + 5: totalSize = addr1 + 5; // + 5 pad
+
+    EEPROM.begin(totalSize);
+    Serial.println("EEPROM INITIALIZATION");
+
+    if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
+        return EEPROM_UP;
+    } else {
+        EEPROM.write(addr1, expVal1);
+        EEPROM.write(addr2, expVal2);
+
+        for (int i = 0; i < dataBlockSize; i++) { // Nullifies
+            EEPROM.write(i, '\0');
+        }
+
+        EEPROM.commit();
+
+        if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
+            return EEPROM_INITIALIZED;
+        } else {
+            return EEPROM_INIT_FAILED;
+        }
+    }
+}
 
 bool STAsettings::eepromWrite(const char* type, const char* buffer) {
     uint16_t address = 0;
+    Serial.println("EEPROM WRITE");
 
     // the added integer accounts for the null terminator, this sets the 
     // beginning address of the block of data reserved for each item.
@@ -59,6 +93,7 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
 
 // Doesnt return, just sets the class private variables to eeprom values
 void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
+    Serial.println("EEPROM READ");
 
     // The EEPROM will begin if call outside of the eepromWrite(), this 
     // prevents EEPROM from calling begin twice
@@ -73,29 +108,29 @@ void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
     if (source == SSID_EEPROM) {
         address = 0;
         for (int i = 0; i < SSID_MAX; i++) {
-            ssid[i] = EEPROM.read(address++);
-            if (ssid[i] == '\0') break;
+            this->ssid[i] = EEPROM.read(address++);
+            if (this->ssid[i] == '\0') break;
         }
 
     } else if (source == PASS_EEPROM) {
         address = SSID_MAX + 1;
         for (int i = 0; i < PASS_MAX; i++) {
-            pass[i] = EEPROM.read(address++);
-            if (pass[i] == '\0') break;
+            this->pass[i] = EEPROM.read(address++);
+            if (this->pass[i] == '\0') break;
         }
 
     } else if (source == PHONE_EEPROM) {
         address = SSID_MAX + PASS_MAX + 2;
         for (int i = 0; i < PHONE_MAX; i++) {
-            phoneNum[i] = EEPROM.read(address++);
-            if (phoneNum[i] == '\0') break;
+            this->phoneNum[i] = EEPROM.read(address++);
+            if (this->phoneNum[i] == '\0') break;
         }
 
     } else if (source == WAP_PASS_EEPROM) {
         address = SSID_MAX + PASS_MAX + PHONE_MAX + 3;
         for (int i = 0; i < WAP_PASS_MAX; i++) {
-            WAPpass[i] = EEPROM.read(address++);
-            if (WAPpass[i] == '\0') break;
+            this->WAPpass[i] = EEPROM.read(address++);
+            if (this->WAPpass[i] == '\0') break;
         }
     }
 
@@ -114,6 +149,6 @@ const char* STAsettings::getPhone() const {
     return this->phoneNum;
 }
 
-const char* STAsettings::getWapPass() const {
+const char* STAsettings::getWAPpass() const {
     return this->WAPpass;
 }

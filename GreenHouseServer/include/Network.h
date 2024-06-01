@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <WiFiClientSecure.h>
 #include "IDisplay.h"
+#include "eeprom.h"
 
 // This is an unsecure web network meant to run on the LAN. The risk is not worth
 // the overhead of working this to be an https server. In normal operation the 
@@ -64,15 +65,15 @@ class Net {
         );
 
     void loadCertificates();
-    bool WAP(IDisplay &OLED);
-    bool WAPSetup(IDisplay &OLED); // Setup LAN setting from WAP
-    uint8_t STA(IDisplay &OLED);
-    void startServer(IDisplay &OLED);
+    bool WAP(IDisplay &OLED, STAsettings &STAeeprom);
+    bool WAPSetup(IDisplay &OLED, STAsettings &STAeeprom); // Setup LAN setting from WAP
+    uint8_t STA(IDisplay &OLED, STAsettings &STAeeprom);
+    void startServer(IDisplay &OLED, STAsettings &STAeeprom);
     STAdetails getSTADetails(); // returns the struct STAdetails
     void handleServer();
     bool isSTAconnected(); // used to start OTA updates
     void setIsDefaultWAPpass(bool value);
-    bool getIsDefaultWAPpass();
+    bool getIsDefaultWAPpass(); // used to show OLED display of (DEF)
 };
 
 uint8_t wifiModeSwitch(); // Checks the 3-way switch positon for the correct mode
