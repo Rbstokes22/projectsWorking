@@ -52,9 +52,9 @@ class Net {
     char error[40];
     bool isServerRunning;
     bool connectedToSTA;
-    bool isDefaultWAPpass; // Depends if button is pushed in startup
 
     public:
+    // Network/NetworkMain.cpp
     Net(
         const char* AP_SSID, 
         const char* AP_Pass,
@@ -64,19 +64,36 @@ class Net {
         uint16_t port
         );
 
-    void loadCertificates();
+    STAdetails getSTADetails(); // returns the struct STAdetails
+    const char* getWAPpass();
+
+    // Network/NetworkSetup.cpp
     bool WAP(IDisplay &OLED, STAsettings &STAeeprom);
     bool WAPSetup(IDisplay &OLED, STAsettings &STAeeprom); // Setup LAN setting from WAP
     uint8_t STA(IDisplay &OLED, STAsettings &STAeeprom);
+
+    // Network/Server/ServerStart.cpp
     void startServer(IDisplay &OLED, STAsettings &STAeeprom);
-    STAdetails getSTADetails(); // returns the struct STAdetails
+    void handleNotFound();
     void handleServer();
     bool isSTAconnected(); // used to start OTA updates
-    void setIsDefaultWAPpass(bool value);
-    bool getIsDefaultWAPpass(); // used to show OLED display of (DEF)
+
+    // Network/Server/ServerMain.cpp
+    void handleIndex();
+
+    // Network/Server/ServerWapSubmit.cpp
+    void handleWAPsubmit(IDisplay &OLED, STAsettings &STAeeprom);
+    void eepromWriteRespond(
+        const char* type, 
+        STAsettings &STAeeprom,
+        char* buffer);
+    void handleJson(IDisplay &OLED, STAsettings &STAeeprom);
 };
 
+// Network/NetworkMain.cpp
 uint8_t wifiModeSwitch(); // Checks the 3-way switch positon for the correct mode
+
+// Network/webPages.cpp
 extern const char WAPsetup[] PROGMEM;
 
 #endif // NETWORK_H

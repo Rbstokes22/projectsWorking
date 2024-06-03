@@ -26,23 +26,35 @@ uint8_t STAsettings::initialSetup(
     addr2 > addr1 ? totalSize = addr2 + 5: totalSize = addr1 + 5; // + 5 pad
 
     EEPROM.begin(totalSize);
-    Serial.println("EEPROM INITIALIZATION");
+        Serial.println("EEPROM PRINTOUTS");
+        Serial.println(EEPROM.read(addr1));
+        Serial.println(expVal1);
+        Serial.println(EEPROM.read(addr2));
+        Serial.println(expVal2);
+
 
     if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
+        EEPROM.end();
         return EEPROM_UP;
     } else {
-        EEPROM.write(addr1, expVal1);
-        EEPROM.write(addr2, expVal2);
+        
 
         for (int i = 0; i < dataBlockSize; i++) { // Nullifies
-            EEPROM.write(i, '\0');
+            // EEPROM.write(i, '\0');
         }
 
+        EEPROM.write(addr1, expVal1);
+        EEPROM.write(addr2, expVal2);
         EEPROM.commit();
 
+        
+
         if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
+           
+            EEPROM.end();
             return EEPROM_INITIALIZED;
         } else {
+            EEPROM.end();
             return EEPROM_INIT_FAILED;
         }
     }
@@ -76,16 +88,16 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
     // This is used to compare that the buffer was written to EEPROM correctly
     if (type == "ssid") {
         eepromRead(SSID_EEPROM, true);
-        if (buffer == this->ssid) return true;
+        if (strcmp(buffer, this->ssid) == 0) return true;
     } else if (type == "pass") {
         eepromRead(PASS_EEPROM, true);
-        if (buffer == this->pass) return true;
+        if (strcmp(buffer, this->pass) == 0) return true;
     } else if (type == "phone") {
         eepromRead(PHONE_EEPROM, true);
-        if (buffer == this->phoneNum) return true;
+        if (strcmp(buffer, this->phoneNum) == 0) return true;
     } else if (type == "WAPpass") {
         eepromRead(WAP_PASS_EEPROM, true);
-        if (buffer == this->WAPpass) return true;
+        if (strcmp(buffer, this->WAPpass) == 0) return true;
     }
 
     return false; // If it wasnt written correctly

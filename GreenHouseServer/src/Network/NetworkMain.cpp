@@ -17,8 +17,7 @@ Net::Net(
     prevServerType(NO_WIFI),
     MDNSrunning(false),
     isServerRunning(false),
-    connectedToSTA(false),
-    isDefaultWAPpass(false)
+    connectedToSTA(false)
     {
         // Set memory to all null for char arrays and copy the starting 
         // network ssid and pass. This helps for when the eeprom goes out 
@@ -42,12 +41,8 @@ STAdetails Net::getSTADetails() {
     return details;
 }   
 
-void Net::setIsDefaultWAPpass(bool value) {
-    this->isDefaultWAPpass = value;
-}
-
-bool Net::getIsDefaultWAPpass() {
-    return this->isDefaultWAPpass;
+const char* Net::getWAPpass() {
+    return this->AP_Pass;
 }
 
 // Checks 3-way switch position and starts the appropriate network

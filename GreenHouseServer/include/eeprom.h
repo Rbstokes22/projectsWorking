@@ -15,7 +15,6 @@
 #define EEPROM_INITIALIZED 1
 #define EEPROM_INIT_FAILED 2
 
-
 #include <EEPROM.h>
 #include <Arduino.h>
 
@@ -35,7 +34,6 @@ class STAsettings {
         uint8_t expVal2,
         uint16_t dataBlockSize);
     bool eepromWrite(const char* type, const char* buffer);
-    // bool eepromWrite(const String &ssid, const String &pass, const String &phone);
     void eepromRead(uint8_t source, bool fromWrite = false);
     const char* getSSID() const;
     const char* getPASS() const;

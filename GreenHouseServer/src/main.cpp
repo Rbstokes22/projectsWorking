@@ -40,20 +40,19 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
     IPAddress(192, 168, 1, 1), // WAP gateway
     IPAddress(255, 255, 255, 0), // WAP subnet
     80);
-    Network->setIsDefaultWAPpass(true);
     if (sendMsg == true) {
       strcpy(eepromError, errorMsg);
       OLED.displayError(eepromError);
     }
+    break;
 
-    case false:
+    case false: // being called
     Network = new Net(
-      SERVER_NAME, STAeeprom.getWAPpass(), // WAP SSID & Pass
-      IPAddress(192, 168, 1, 1), // WAP localIP
-      IPAddress(192, 168, 1, 1), // WAP gateway
-      IPAddress(255, 255, 255, 0), // WAP subnet
-      80); 
-      Network->setIsDefaultWAPpass(false);
+    SERVER_NAME, STAeeprom.getWAPpass(), // WAP SSID & Pass
+    IPAddress(192, 168, 1, 1), // WAP localIP
+    IPAddress(192, 168, 1, 1), // WAP gateway
+    IPAddress(255, 255, 255, 0), // WAP subnet
+    80); 
   }
 }
 
@@ -68,7 +67,7 @@ void setup() {
   OLED.init(); // starts the OLED and displays 
 
 // This will initialize or ensure that the eeprom has been initialized.
-  uint8_t eepromSetup = STAeeprom.initialSetup(261, 2, 263, 22, 200); 
+  uint8_t eepromSetup = STAeeprom.initialSetup(240, 2, 241, 22, 200); 
   
   // Startup switch determines this mode. It is designed to read from the EEPROM.
   // Upon a first start, the EEPROM will initialize and reset nullifying all 
@@ -105,7 +104,7 @@ void setup() {
       case EEPROM_INITIALIZED:
       Serial.println("EEPROM INITIALIZED");
       netConstructor(true, "Ready to setup WAP Password", true);
-      delay(3000); ESP.restart();
+      // delay(3000); ESP.restart();
       break;
 
       case EEPROM_INIT_FAILED:
@@ -136,7 +135,9 @@ void loop() {
     // who need to do a reset because they forgot their password for their 
     // WAP.
     char WAPtype[20];
-    bool isWapDef = Network->getIsDefaultWAPpass(); // default WAP password
+
+    // is the WAP password Default?
+    bool isWapDef = (strcmp(Network->getWAPpass(), SERVER_PASS_DEFAULT) == 0);
     uint8_t wifiMode = wifiModeSwitch();
 
     if (wifiMode == WAP_ONLY) {

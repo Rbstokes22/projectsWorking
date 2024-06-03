@@ -9,9 +9,8 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
     <title>Project Greenhouse</title>
     <style>
         body {
-                background-color: rgba(0, 255, 0, 0.3);
+            background-color: rgba(0, 255, 0, 0.3);
         }
-
         h1 {
             text-align: center;
             font-weight: 900;
@@ -71,6 +70,7 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
                 status.innerText = "Input cannot be subbmited blank";
                 return false;
             } else if (inputID === "ssid" || inputID === "pass") {
+                temp.style.border = "2px solid black";
                 return true;
             }
 
@@ -78,6 +78,7 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
             // the WAP password and phone number
             if (inputID === "WAPpass") {
                 if (temp.value.length >= 8 && temp.value.length <= 63) {
+                    temp.style.border = "2px solid black";
                     return true;
                 } else {
                     status.innerText = "Password must be between 8 & 63 chars";
@@ -100,6 +101,7 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
                     status.innerText = "Phone Num must be 10 digits exactly";
                     return false;
                 } else {
+                    temp.style.border = "2px solid black";
                     return true;
                 }
             }
@@ -121,8 +123,11 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
                 .then(response => {
                     status.innerText = response.status;
                     temp.value = "";
-                    temp.style.border = "4px solid green";
-
+                    if (response.status == "Accepted" || 
+                        response.status == "Accepted, Reconnect to WiFi"
+                    ) {
+                        temp.style.border = "4px solid green";
+                    }
                 })
                 .catch(err => {
                     status.innerText = err.message;
