@@ -54,6 +54,56 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
   }
 }
 
+void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
+  const char* mode = (wifiMode == WAP_ONLY) ? "WAP" : "WAP_SETUP";
+  const char* suffix = (isWapDef) ? "(DEF)" : "";
+  sprintf(WAPtype, "%s%s", mode, suffix);
+}
+
+void displayWAPstatus(Display &OLED, bool conStat, const char* WAPtype, bool updatingStatus, const char* heapHealth) {
+  char conStatus[4];
+  (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
+  OLED.printWAP(SERVER_NAME, IPADDR, conStatus, WAPtype, updatingStatus, heapHealth);
+}
+
+void displaySTAstatus(Display &OLED, bool conStat, STAdetails details, bool updatingStatus, const char* heapHealth) {
+  char conStatus[4];
+  (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
+  OLED.printSTA(&details, conStatus, updatingStatus, heapHealth);
+}
+
+void getHeapHealth(char* heapHealth) {
+  size_t freeHeap = (ESP.getFreeHeap() * 100 ) / startupHeap; // percentage
+  sprintf(heapHealth, "%d%%", freeHeap);
+}
+
+void handleWifiMode(Net* Network, Display &OLED) {
+  char WAPtype[20];
+  char heapHealth[10];
+  bool isWapDef = (strcmp(Network->getWAPpass(), SERVER_PASS_DEFAULT) == 0);
+  uint8_t wifiMode = wifiModeSwitch(); // checks toggle position
+  bool updatingStatus = otaUpdates.isUpdating(); 
+  bool conStat = false;
+
+  setWAPtype(WAPtype, wifiMode, isWapDef);
+  getHeapHealth(heapHealth);
+
+  switch(wifiMode) {
+    case WAP_ONLY:
+    conStat = Network->WAP(OLED, STAeeprom);
+    displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
+
+    case WAP_SETUP:
+    conStat = Network->WAPSetup(OLED, STAeeprom);
+    displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
+
+    case STA_ONLY:
+    conStat = Network->STA(OLED, STAeeprom);
+    STAdetails details = Network->getSTADetails();
+    displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
+  }
+}
+
 void setup() {
   Serial.begin(115200); // delete when finished
   startupHeap = ESP.getFreeHeap(); 
@@ -105,77 +155,9 @@ void loop() {
 
   switch(checkWifiModeSwitch.isReady()) {
     case true:
-
-    // If the default WAP password button is held, or dropped to ground upon 
-    // initialization, this will display to the OLED that it is in whichever
-    // WAP mode, however the default password applies. This is for those 
-    // who need to do a reset because they forgot their password for their 
-    // WAP.
-    char WAPtype[20];
-
-    // is the WAP password Default?
-    bool isWapDef = (strcmp(Network->getWAPpass(), SERVER_PASS_DEFAULT) == 0);
-    uint8_t wifiMode = wifiModeSwitch();
-
-    if (wifiMode == WAP_ONLY) {
-      if (isWapDef == true) {
-        strcpy(WAPtype, "WAP (DEF)");
-      } else {
-        strcpy(WAPtype, "WAP");
-      }
-    } else if (wifiMode == WAP_SETUP) {
-      if (isWapDef == true) {
-        strcpy(WAPtype, "WAP SETUP (DEF)");
-      } else {
-        strcpy(WAPtype, "WAP SETUP");
-      }
-    }
-
-    // overrides typical wifi OLED display when updating OTA
-    bool updatingStatus = otaUpdates.isUpdating(); 
-
-
-    char heapHealth[10];
-    size_t freeHeap = (ESP.getFreeHeap() * 100 ) / startupHeap; // percentage
-    sprintf(heapHealth, "%d%%", freeHeap);
-
-    switch(wifiMode) { // 0 = WAP, 1 = WAP setup, 2 = STA
-      case WAP_ONLY:
-      switch(Network->WAP(OLED, STAeeprom)) {
-        case true:
-        OLED.printWAP(SERVER_NAME, IPADDR, "Yes", WAPtype, updatingStatus, heapHealth);
-        break;
-
-        case false:
-        OLED.printWAP(SERVER_NAME, IPADDR, "No", WAPtype, updatingStatus, heapHealth);
-      }
-      break;
-
-      case WAP_SETUP:
-      switch(Network->WAPSetup(OLED, STAeeprom)) {
-        case true:
-        OLED.printWAP(SERVER_NAME, IPADDR, "Yes", WAPtype, updatingStatus, heapHealth);
-        break;
-
-        case false:
-        OLED.printWAP(SERVER_NAME, IPADDR, "No", WAPtype, updatingStatus, heapHealth);
-      }
-      break;
-
-      case STA_ONLY:
-      STAdetails details = Network->getSTADetails();
-
-      switch(Network->STA(OLED, STAeeprom)) {
-        case WIFI_STARTING:
-        OLED.printSTA(&details, "No", updatingStatus, heapHealth); 
-        break;
-
-        case WIFI_RUNNING:
-        OLED.printSTA(&details, "Yes", updatingStatus, heapHealth);
-      }
-    }
+    handleWifiMode(Network, OLED);
   }
-  
+
   // This serves to clear errors displayed on the OLED. Typically the OLED
   // displays the network data and free memory. In the event of an error, that 
   // will be blocked, and if the override status == true, this will set a reminder
