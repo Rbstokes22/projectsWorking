@@ -1,8 +1,10 @@
 #include <EEPROM.h>
-#include "eeprom.h"
+#include "Creds.h"
 #include <cstring> // memset use
 
-STAsettings::STAsettings(){
+Credentials::Credentials(uint16_t size) : EEPROMsize(size)
+
+{
     // sets the arrays to all 0's for the length of the MAX or array length
     memset(ssid, 0, SSID_MAX);
     memset(pass, 0, PASS_MAX);
@@ -16,30 +18,25 @@ STAsettings::STAsettings(){
 // chosen values at the chosen addresses. This will allow Network cred validation
 // to see if a null char exists as the expected address and know which password
 // to begin for the WAP setting.
-uint8_t STAsettings::initialSetup(
+uint8_t Credentials::initialSetup(
     uint16_t addr1, 
     uint8_t expVal1, 
     uint16_t addr2, 
     uint8_t expVal2,
     uint16_t dataBlockSize) {
 
-    uint16_t totalSize = 0;
-    addr2 > addr1 ? totalSize = addr2 + 5: totalSize = addr1 + 5; // + 5 padding
-
-    EEPROM.begin(totalSize);
-        Serial.println(totalSize);
-        uint8_t firstInt = EEPROM.read(addr1);
-        uint8_t secondInt = EEPROM.read(addr2);
-        Serial.println(firstInt);
-        Serial.println(secondInt);
+    EEPROM.begin(this->EEPROMsize);
+    uint8_t firstInt = EEPROM.read(addr1);
+    uint8_t secondInt = EEPROM.read(addr2);
+    Serial.println(firstInt);
+    Serial.println(secondInt);
 
     if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
-        EEPROM.end();
         return EEPROM_UP;
     } else {
         
         for (int i = 0; i < dataBlockSize; i++) { // Nullifies
-            // EEPROM.write(i, '\0');
+            EEPROM.write(i, '\0');
         }
 
         EEPROM.write(addr1, expVal1);
@@ -47,17 +44,14 @@ uint8_t STAsettings::initialSetup(
         EEPROM.commit(); 
 
         if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
-            
-            EEPROM.end();
             return EEPROM_INITIALIZED;
         } else {
-            EEPROM.end();
             return EEPROM_INIT_FAILED;
         }
     }
 }
 
-bool STAsettings::eepromWrite(const char* type, const char* buffer) {
+bool Credentials::eepromWrite(const char* type, const char* buffer) {
     uint16_t address = 0;
 
     // the added integer accounts for the null terminator, this sets the 
@@ -69,10 +63,10 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
 
     // total size will not exceed 64
     uint16_t totalSizeBuffer = strlen(buffer);
-    uint16_t totalSizeEEPROM = address + 30;
+    // uint16_t totalSizeEEPROM = address + 30;
 
     // write to EEPROM address the iterated buffer chars
-    EEPROM.begin(totalSizeEEPROM);
+    // EEPROM.begin(512);
     for (int i = 0; i < totalSizeBuffer; i++) {
         EEPROM.write(address++, buffer[i]);
     }
@@ -100,11 +94,11 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
 }
 
 // Doesnt return, just sets the class private variables to eeprom values
-void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
+void Credentials::eepromRead(uint8_t source, bool fromWrite) {
 
     // The EEPROM will begin if call outside of the eepromWrite(), this 
     // prevents EEPROM from calling begin twice
-    if (!fromWrite) EEPROM.begin(200);
+    // if (!fromWrite) EEPROM.begin(512);
 
     uint16_t address = 0;
 
@@ -141,21 +135,21 @@ void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
         }
     }
 
-    EEPROM.end();
+    // EEPROM.end();
 }
 
-const char* STAsettings::getSSID() const {
+const char* Credentials::getSSID() const {
     return this->ssid;
 }
 
-const char* STAsettings::getPASS() const {
+const char* Credentials::getPASS() const {
     return this->pass;
 }
 
-const char* STAsettings::getPhone() const {
+const char* Credentials::getPhone() const {
     return this->phoneNum;
 }
 
-const char* STAsettings::getWAPpass() const {
+const char* Credentials::getWAPpass() const {
     return this->WAPpass;
 }

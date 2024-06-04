@@ -1,8 +1,8 @@
 #include "Network.h"
 
-void Net::startServer(IDisplay &OLED, STAsettings &STAeeprom) {
+void Net::startServer(IDisplay &OLED, Credentials &EEPROMcreds) {
     server.on("/", [this](){handleIndex();});
-    server.on("/WAPsubmit", [this, &OLED, &STAeeprom](){handleWAPsubmit(OLED, STAeeprom);});
+    server.on("/WAPsubmit", [this, &OLED, &EEPROMcreds](){handleWAPsubmit(OLED, EEPROMcreds);});
     server.onNotFound([this](){handleNotFound();});
     server.begin(); 
     this->isServerRunning = true;

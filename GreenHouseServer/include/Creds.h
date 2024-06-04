@@ -1,5 +1,8 @@
-#ifndef EEPROM_H
-#define EEPROM_H
+#ifndef CREDS_H
+#define CREDS_H
+
+// CHANGE FROM EEPROM TO CREDS OR SOMETHING LIKE THAT
+// CHANGE STAsettings as well
 
 #define SSID_MAX 32 
 #define PASS_MAX 64 
@@ -17,15 +20,16 @@
 
 #include <Arduino.h>
 
-class STAsettings {
+class Credentials {
     private:
     char ssid[SSID_MAX];
     char pass[PASS_MAX];
     char phoneNum[PHONE_MAX];
     char WAPpass[WAP_PASS_MAX];
+    uint16_t EEPROMsize;
 
     public:
-    STAsettings();
+    Credentials(uint16_t size);
     uint8_t initialSetup(
         uint16_t addr1, // pick an address beyond the data block
         uint8_t expVal1, 
@@ -40,4 +44,4 @@ class STAsettings {
     const char* getWAPpass() const;
 };
 
-#endif // EEPROM_H
+#endif // CREDS_H

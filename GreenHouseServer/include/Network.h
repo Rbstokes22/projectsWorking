@@ -5,7 +5,7 @@
 #include <WebServer.h>
 #include <WiFiClientSecure.h>
 #include "IDisplay.h"
-#include "eeprom.h"
+#include "Creds.h"
 
 // This is an unsecure web network meant to run on the LAN. The risk is not worth
 // the overhead of working this to be an https server. In normal operation the 
@@ -68,12 +68,12 @@ class Net {
     const char* getWAPpass();
 
     // Network/NetworkSetup.cpp
-    bool WAP(IDisplay &OLED, STAsettings &STAeeprom);
-    bool WAPSetup(IDisplay &OLED, STAsettings &STAeeprom); // Setup LAN setting from WAP
-    uint8_t STA(IDisplay &OLED, STAsettings &STAeeprom);
+    bool WAP(IDisplay &OLED, Credentials &EEPROMcreds);
+    bool WAPSetup(IDisplay &OLED, Credentials &EEPROMcreds); // Setup LAN setting from WAP
+    uint8_t STA(IDisplay &OLED, Credentials &EEPROMcreds);
 
     // Network/Server/ServerStart.cpp
-    void startServer(IDisplay &OLED, STAsettings &STAeeprom);
+    void startServer(IDisplay &OLED, Credentials &EEPROMcreds);
     void handleNotFound();
     void handleServer();
     bool isSTAconnected(); // used to start OTA updates
@@ -82,12 +82,12 @@ class Net {
     void handleIndex();
 
     // Network/Server/ServerWapSubmit.cpp
-    void handleWAPsubmit(IDisplay &OLED, STAsettings &STAeeprom);
+    void handleWAPsubmit(IDisplay &OLED, Credentials &EEPROMcreds);
     void eepromWriteRespond(
         const char* type, 
-        STAsettings &STAeeprom,
+        Credentials &EEPROMcreds,
         char* buffer);
-    void handleJson(IDisplay &OLED, STAsettings &STAeeprom);
+    void handleJson(IDisplay &OLED, Credentials &EEPROMcreds);
 };
 
 // Network/NetworkMain.cpp

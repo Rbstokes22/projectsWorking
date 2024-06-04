@@ -9,7 +9,8 @@
 #include "Timing.h"
 #include "Network.h"
 #include "OTAupdates.h"
-#include "eeprom.h"
+#include "Creds.h"
+
 
 // If changes to the servername are ever made, update the display printWAP 
 // const char SSID to match
@@ -19,7 +20,7 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 
 Display OLED(128, 64); // creates OLED class
 Net* Network; // dynamically allocates in order to support password issues
-STAsettings STAeeprom;
+Credentials EEPROMcreds(275);
 Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
 Timer checkSensors(10000); // Check every 60 seconds (NEED TO BUILD)
 Timer clearError(0); // Used to clear OLED screen after errors
@@ -46,7 +47,7 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
 
     case false: // being called
     Network = new Net(
-    SERVER_NAME, STAeeprom.getWAPpass(), // WAP SSID & Pass
+    SERVER_NAME, EEPROMcreds.getWAPpass(), // WAP SSID & Pass
     IPAddress(192, 168, 1, 1), // WAP localIP
     IPAddress(192, 168, 1, 1), // WAP gateway
     IPAddress(255, 255, 255, 0), // WAP subnet
@@ -56,7 +57,7 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
 
 void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
   const char* mode = (wifiMode == WAP_ONLY) ? "WAP" : "WAP_SETUP";
-  const char* suffix = (isWapDef) ? "(DEF)" : "";
+  const char* suffix = (isWapDef) ? " (DEF)" : "";
   sprintf(WAPtype, "%s%s", mode, suffix);
 }
 
@@ -90,15 +91,15 @@ void handleWifiMode(Net* Network, Display &OLED) {
 
   switch(wifiMode) {
     case WAP_ONLY:
-    conStat = Network->WAP(OLED, STAeeprom);
+    conStat = Network->WAP(OLED, EEPROMcreds);
     displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
 
     case WAP_SETUP:
-    conStat = Network->WAPSetup(OLED, STAeeprom);
+    conStat = Network->WAPSetup(OLED, EEPROMcreds);
     displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
 
     case STA_ONLY:
-    conStat = Network->STA(OLED, STAeeprom);
+    conStat = Network->STA(OLED, EEPROMcreds);
     STAdetails details = Network->getSTADetails();
     displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
   }
@@ -115,8 +116,10 @@ void setup() {
   OLED.init(); // starts the OLED and displays 
 
 // This will initialize or ensure that the eeprom has been initialized.
-  uint8_t eepromSetup = STAeeprom.initialSetup(240, 2, 241, 22, 200); 
+  uint8_t eepromSetup = EEPROMcreds.initialSetup(250, 2, 252, 22, 200); 
 
+
+  // Clean this up TOMORROW
   switch(digitalRead(defaultWAPSwitch)) {
     case 0:
     Serial.println("DEFAULT WAP STARTED");
@@ -125,16 +128,16 @@ void setup() {
     case 1:
     switch (eepromSetup) {
       case EEPROM_UP:
-      STAeeprom.eepromRead(WAP_PASS_EEPROM);
-      if (STAeeprom.getWAPpass()[0] != '\0') {
+      EEPROMcreds.eepromRead(WAP_PASS_EEPROM);
+      if (EEPROMcreds.getWAPpass()[0] != '\0') {
         Serial.println("EEPROM UP AND CONTAINS DATA");
-        netConstructor(false, ""); break;
+        netConstructor(false, ""); 
 
       } else {
         Serial.println("EEPROM UP NO DATA");
         netConstructor(true, "Default password, setup new password");
-        break;
       }
+      break;
 
       case EEPROM_INITIALIZED:
       Serial.println("EEPROM INITIALIZED"); 
@@ -152,7 +155,7 @@ void setup() {
 void loop() { 
 
   otaUpdates.manageOTA(Network);
-
+  
   switch(checkWifiModeSwitch.isReady()) {
     case true:
     handleWifiMode(Network, OLED);

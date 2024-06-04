@@ -2,11 +2,11 @@
 #include <ArduinoJson.h>
 
 // Writes to EEPROM and sends response to client. 
-void Net::eepromWriteRespond(const char* type, STAsettings &STAeeprom, char* buffer) {
+void Net::eepromWriteRespond(const char* type, Credentials &EEPROMcreds, char* buffer) {
     char response[64];
     JsonDocument res; // sends back to client
-    Serial.println(buffer);
-    if (STAeeprom.eepromWrite(type, buffer)) {
+
+    if (EEPROMcreds.eepromWrite(type, buffer)) {
         // This looks to see if the WAP password has been changed. If so,
         // it sends a different response and resets the wifi below with 
         // the new password.
@@ -31,7 +31,7 @@ void Net::eepromWriteRespond(const char* type, STAsettings &STAeeprom, char* buf
     }
 }
 
-void Net::handleJson(IDisplay &OLED, STAsettings &STAeeprom) {
+void Net::handleJson(IDisplay &OLED, Credentials &STAeeprom) {
     // Never expect any single element coming through to exceed 75 char.
     char jsonData[100] = "";
     char buffer[100] = "";
@@ -89,9 +89,9 @@ void Net::handleJson(IDisplay &OLED, STAsettings &STAeeprom) {
     }
 }
 
-void Net::handleWAPsubmit(IDisplay &OLED, STAsettings &STAeeprom) {
+void Net::handleWAPsubmit(IDisplay &OLED, Credentials &EEPROMcreds) {
     if (this->prevServerType == WAP_SETUP) {
-        this->handleJson(OLED, STAeeprom);
+        this->handleJson(OLED, EEPROMcreds);
     } else {
         server.send(404, "text/html", "UNAUTHORIZED FROM SERVER");
     }

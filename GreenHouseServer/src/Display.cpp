@@ -124,7 +124,7 @@ void Display::displayError(char* error) {  // doesnt need to repeate overide, de
     display.setTextColor(WHITE);
     display.setTextSize(2);
     display.setCursor(0, 0);
-    display.println("Error: ");
+    display.println("Err/Msg: ");
     display.setTextSize(1);
     display.setCursor(0, 20);
     display.println(error);
