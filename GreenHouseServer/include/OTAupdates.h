@@ -2,6 +2,7 @@
 #define OTAUPDATES_H
 
 #include "Display.h"
+#include "Network.h"
 
 class OTAupdates {
     private:
@@ -17,6 +18,7 @@ class OTAupdates {
     bool isUpdating() const;
     bool getHasStarted();
     void setHasStarted(bool value);
+    void manageOTA(Net* Network);
 };
 
 // For an OTAupdate, you need to include <ESP8266mDNS.h> and run 

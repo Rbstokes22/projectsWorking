@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include "eeprom.h"
 #include <cstring> // memset use
 
@@ -23,34 +24,30 @@ uint8_t STAsettings::initialSetup(
     uint16_t dataBlockSize) {
 
     uint16_t totalSize = 0;
-    addr2 > addr1 ? totalSize = addr2 + 5: totalSize = addr1 + 5; // + 5 pad
+    addr2 > addr1 ? totalSize = addr2 + 5: totalSize = addr1 + 5; // + 5 padding
 
     EEPROM.begin(totalSize);
-        Serial.println("EEPROM PRINTOUTS");
-        Serial.println(EEPROM.read(addr1));
-        Serial.println(expVal1);
-        Serial.println(EEPROM.read(addr2));
-        Serial.println(expVal2);
-
+        Serial.println(totalSize);
+        uint8_t firstInt = EEPROM.read(addr1);
+        uint8_t secondInt = EEPROM.read(addr2);
+        Serial.println(firstInt);
+        Serial.println(secondInt);
 
     if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
         EEPROM.end();
         return EEPROM_UP;
     } else {
         
-
         for (int i = 0; i < dataBlockSize; i++) { // Nullifies
             // EEPROM.write(i, '\0');
         }
 
         EEPROM.write(addr1, expVal1);
         EEPROM.write(addr2, expVal2);
-        EEPROM.commit();
-
-        
+        EEPROM.commit(); 
 
         if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
-           
+            
             EEPROM.end();
             return EEPROM_INITIALIZED;
         } else {
@@ -62,7 +59,6 @@ uint8_t STAsettings::initialSetup(
 
 bool STAsettings::eepromWrite(const char* type, const char* buffer) {
     uint16_t address = 0;
-    Serial.println("EEPROM WRITE");
 
     // the added integer accounts for the null terminator, this sets the 
     // beginning address of the block of data reserved for each item.
@@ -82,7 +78,7 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
     }
 
     // Terminate the memory block with a null char
-    EEPROM.write(address, '\0');
+    EEPROM.write(address, '\0'); 
     EEPROM.commit();
 
     // This is used to compare that the buffer was written to EEPROM correctly
@@ -105,7 +101,6 @@ bool STAsettings::eepromWrite(const char* type, const char* buffer) {
 
 // Doesnt return, just sets the class private variables to eeprom values
 void STAsettings::eepromRead(uint8_t source, bool fromWrite) {
-    Serial.println("EEPROM READ");
 
     // The EEPROM will begin if call outside of the eepromWrite(), this 
     // prevents EEPROM from calling begin twice

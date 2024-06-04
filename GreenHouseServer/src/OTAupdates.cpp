@@ -77,3 +77,16 @@ bool OTAupdates::getHasStarted() {
 void OTAupdates::setHasStarted(bool value) {
     this->hasStarted = value;
 }
+
+void OTAupdates::manageOTA(Net* Network) {
+
+    // Safety that only allows the ota updates to begin when connected
+    // to the station. Once started it doesn't stop until the end of the
+    // program, but will not handle any updates unless station connected.
+    if (Network->isSTAconnected() && !this->getHasStarted()) {
+        this->start();
+        this->setHasStarted(true); 
+    } else if(Network->isSTAconnected() && this->getHasStarted()) {
+        this->handle(); // checks for firmware 
+    }
+}

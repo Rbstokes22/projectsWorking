@@ -20,11 +20,9 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 Display OLED(128, 64); // creates OLED class
 Net* Network; // dynamically allocates in order to support password issues
 STAsettings STAeeprom;
-
 Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
 Timer checkSensors(10000); // Check every 60 seconds (NEED TO BUILD)
-Timer clearError(0);
-
+Timer clearError(0); // Used to clear OLED screen after errors
 OTAupdates otaUpdates(OLED);
 
 size_t startupHeap = 0;
@@ -62,27 +60,14 @@ void setup() {
 
   pinMode(WAPswitch, INPUT_PULLUP);  // Wireless Access Point
   pinMode(STAswitch, INPUT_PULLUP); // Station
-  pinMode(defaultWAP, INPUT_PULLUP); // default password override
+  pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
 
   OLED.init(); // starts the OLED and displays 
 
 // This will initialize or ensure that the eeprom has been initialized.
   uint8_t eepromSetup = STAeeprom.initialSetup(240, 2, 241, 22, 200); 
-  
-  // Startup switch determines this mode. It is designed to read from the EEPROM.
-  // Upon a first start, the EEPROM will initialize and reset nullifying all 
-  // data block entries. It will then restart looking for a password for the WAP.
-  // If it is a '\0', it will start with the default password, and this is fine 
-  // if the client desires, or they can change their password. In the event they
-  // every forget their saved password, and want to restart, there is a switch 
-  // that they can hold upon startup. This will automatically start with a default
-  // password. Other than that, once the user saves a password successfully in the
-  // EEPROM, the WAP will begin with that password upon every read. If that data 
-  // is somehow corrupt, troubleshooting will be needed. Its doubtful with the 
-  // 100k - 1M write cycles an EEPROM can take, but there is always some probability
-  // for failure. In the event it doesnt start, the client can always use the default
-  // until fixed or replaced.
-  switch(digitalRead(defaultWAP)) {
+
+  switch(digitalRead(defaultWAPSwitch)) {
     case 0:
     Serial.println("DEFAULT WAP STARTED");
     netConstructor(true, ""); break;
@@ -102,9 +87,9 @@ void setup() {
       }
 
       case EEPROM_INITIALIZED:
-      Serial.println("EEPROM INITIALIZED");
+      Serial.println("EEPROM INITIALIZED"); 
       netConstructor(true, "Ready to setup WAP Password", true);
-      // delay(3000); ESP.restart();
+      delay(3000); ESP.restart();
       break;
 
       case EEPROM_INIT_FAILED:
@@ -116,15 +101,7 @@ void setup() {
 
 void loop() { 
 
-  // Safety that only allows the ota updates to begin when connected
-  // to the station. Once started it doesn't stop until the end of the
-  // program, but will not handle any updates unless station connected.
-  if (Network->isSTAconnected() && !otaUpdates.getHasStarted()) {
-    otaUpdates.start();
-    otaUpdates.setHasStarted(true); 
-  } else if(Network->isSTAconnected() && otaUpdates.getHasStarted()) {
-    otaUpdates.handle(); // checks for firmware 
-  }
+  otaUpdates.manageOTA(Network);
 
   switch(checkWifiModeSwitch.isReady()) {
     case true:
@@ -157,9 +134,9 @@ void loop() {
     // overrides typical wifi OLED display when updating OTA
     bool updatingStatus = otaUpdates.isUpdating(); 
 
-    // Handles heap free memory
-    size_t freeHeap = (ESP.getFreeHeap() * 100 ) / startupHeap; // percentage
+
     char heapHealth[10];
+    size_t freeHeap = (ESP.getFreeHeap() * 100 ) / startupHeap; // percentage
     sprintf(heapHealth, "%d%%", freeHeap);
 
     switch(wifiMode) { // 0 = WAP, 1 = WAP setup, 2 = STA

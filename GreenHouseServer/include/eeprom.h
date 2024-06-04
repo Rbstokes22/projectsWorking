@@ -15,7 +15,6 @@
 #define EEPROM_INITIALIZED 1
 #define EEPROM_INIT_FAILED 2
 
-#include <EEPROM.h>
 #include <Arduino.h>
 
 class STAsettings {

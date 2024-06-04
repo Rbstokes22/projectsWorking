@@ -19,7 +19,7 @@
 // Switches
 #define WAPswitch 16 // Wireless Access Point
 #define STAswitch 17 // Station
-#define defaultWAP 4 // button to start WAP with default password
+#define defaultWAPSwitch 4 // button to start WAP with default password
 
 // Keywords
 #define WAP_ONLY 0
