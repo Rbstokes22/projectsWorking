@@ -3,7 +3,6 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WiFiClientSecure.h>
 #include "IDisplay.h"
 #include "Creds.h"
 
@@ -41,7 +40,7 @@ class Net {
     char AP_Pass[64];
     char ST_SSID[32];
     char ST_PASS[64];
-    char phoneNum[15];
+    char phone[15];
     IPAddress local_IP;
     IPAddress gateway;
     IPAddress subnet;
@@ -68,12 +67,12 @@ class Net {
     const char* getWAPpass();
 
     // Network/NetworkSetup.cpp
-    bool WAP(IDisplay &OLED, Credentials &EEPROMcreds);
-    bool WAPSetup(IDisplay &OLED, Credentials &EEPROMcreds); // Setup LAN setting from WAP
-    uint8_t STA(IDisplay &OLED, Credentials &EEPROMcreds);
+    bool WAP(IDisplay &OLED, Credentials &Creds);
+    bool WAPSetup(IDisplay &OLED, Credentials &Creds); // Setup LAN setting from WAP
+    uint8_t STA(IDisplay &OLED, Credentials &Creds);
 
     // Network/Server/ServerStart.cpp
-    void startServer(IDisplay &OLED, Credentials &EEPROMcreds);
+    void startServer(IDisplay &OLED, Credentials &Creds);
     void handleNotFound();
     void handleServer();
     bool isSTAconnected(); // used to start OTA updates
@@ -82,12 +81,12 @@ class Net {
     void handleIndex();
 
     // Network/Server/ServerWapSubmit.cpp
-    void handleWAPsubmit(IDisplay &OLED, Credentials &EEPROMcreds);
-    void eepromWriteRespond(
+    void handleWAPsubmit(IDisplay &OLED, Credentials &Creds);
+    void commitAndRespond(
         const char* type, 
-        Credentials &EEPROMcreds,
+        Credentials &Creds,
         char* buffer);
-    void handleJson(IDisplay &OLED, Credentials &EEPROMcreds);
+    void handleJson(IDisplay &OLED, Credentials &Creds);
 };
 
 // Network/NetworkMain.cpp
@@ -97,3 +96,4 @@ uint8_t wifiModeSwitch(); // Checks the 3-way switch positon for the correct mod
 extern const char WAPsetup[] PROGMEM;
 
 #endif // NETWORK_H
+

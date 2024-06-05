@@ -6,14 +6,14 @@
 // which is the main control for the device. It will just do so with the controlling
 // device connects to the device via wifi. Will not have any connection internet.
 
-bool Net::WAP(IDisplay &OLED, Credentials &EEPROMcreds) { 
+bool Net::WAP(IDisplay &OLED, Credentials &Creds) { 
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_ONLY) {
         prevServerType = WAP_ONLY;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(local_IP, gateway, subnet);
         WiFi.softAP(AP_SSID, AP_Pass, 1, 0, 4); // Allows 4 connections
-        if (!this->isServerRunning) startServer(OLED, EEPROMcreds);
+        if (!this->isServerRunning) startServer(OLED, Creds);
         if (MDNSrunning) {
             MDNS.end(); MDNSrunning = false;
         }
@@ -28,14 +28,14 @@ bool Net::WAP(IDisplay &OLED, Credentials &EEPROMcreds) {
 // for a twilio account altert systems. Once this is set up, the client can go 
 // to station mode.
 
-bool Net::WAPSetup(IDisplay &OLED, Credentials &EEPROMcreds) {
+bool Net::WAPSetup(IDisplay &OLED, Credentials &Creds) {
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_SETUP) {
         prevServerType = WAP_SETUP;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(local_IP, gateway, subnet);
         WiFi.softAP(AP_SSID, AP_Pass, 1, 0, 1); // Allows 1 connection for security
-        if (!this->isServerRunning) startServer(OLED, EEPROMcreds);
+        if (!this->isServerRunning) startServer(OLED, Creds);
         if (MDNSrunning) {
             MDNS.end(); MDNSrunning = false;
         }
@@ -49,50 +49,39 @@ bool Net::WAPSetup(IDisplay &OLED, Credentials &EEPROMcreds) {
 // webpage from any device connected to the LAN. This will also have access to the internet
 // for SMS updates and alerts, as well as to check for upgraded firmware. 
 
-uint8_t Net::STA(IDisplay &OLED, Credentials &EEPROMcreds) {
+uint8_t Net::STA(IDisplay &OLED, Credentials &Creds) {
     
     if (WiFi.getMode() != WIFI_STA || prevServerType != STA_ONLY) {
         WiFi.mode(WIFI_STA);
         this->prevServerType = STA_ONLY;
 
         // Checks if this has already been created by the WAP setup page. This will
-        // happen upon attempting a write to the EEPROM of the SSID, PASS, and phone.
-        // This serves as a catch for an EEPROM failure. This allows the user to 
+        // happen upon attempting a write to the NVS of the SSID, PASS, and phone.
+        // This serves as a catch for an NVS failure. This allows the user to 
         // sign in at the WAP setup page, which stores the variables, and then will
-        // connect. The EEPROM serves to provide this data upon startup and is the 
-        // primary. A reminder though, without EEPROM, the LAN login creds are volatile.
+        // connect. The NVS serves to provide this data upon startup and is the 
+        // primary. A reminder though, without NVS, the LAN login creds are volatile.
 
         if (this->ST_SSID[0] == '\0' || this->ST_PASS[0] == '\0') {
-  
-            // Reads the eeprom values, and sets the private EEPROM variables
-            // which will be looked at below. If any of the entires are blank,
-            // they will do nothing.
-            EEPROMcreds.eepromRead(SSID_EEPROM); 
-            EEPROMcreds.eepromRead(PASS_EEPROM); 
-            EEPROMcreds.eepromRead(PHONE_EEPROM); 
 
-            // The readEEPROM returns char pointers, which will go out of scope and 
-            // cause issues after initialization in this function. To prevent that and 
-            // store the class variables, we use these functions, and then have no 
-            // follow on issues. These need to be mutable. WAPpass is not included here 
-            // because it is passed in the constructor upon creation in the main.cpp
-            strncpy(this->ST_SSID, EEPROMcreds.getSSID(), sizeof(this->ST_SSID) - 1);
+            Creds.read("ssid"); Creds.read("pass"); Creds.read("phone");
+
+            // I copy the ssid, pass, and phone to the actual network variables. This
+            // work with the above logic with the WAP setup page and serves as a
+            // redundancy and eases some logic.
+            strncpy(this->ST_SSID, Creds.getSSID(), sizeof(this->ST_SSID) - 1);
             this->ST_SSID[sizeof(this->ST_SSID) - 1] = '\0'; // Ensure null terminator exists
 
-            strncpy(this->ST_PASS, EEPROMcreds.getPASS(), sizeof(this->ST_PASS) - 1);
+            strncpy(this->ST_PASS, Creds.getPASS(), sizeof(this->ST_PASS) - 1);
             this->ST_PASS[sizeof(this->ST_PASS) - 1] = '\0';
 
-            strncpy(this->phoneNum, EEPROMcreds.getPhone(), sizeof(this->phoneNum) - 1);
-            this->phoneNum[sizeof(this->phoneNum) - 1] = '\0';
-
-            Serial.print("READ SSID: "); Serial.println(this->ST_SSID);
-            Serial.print("READ PASS: "); Serial.println(this->ST_PASS);
-            Serial.print("READ Phone: "); Serial.println(this->phoneNum);
+            strncpy(this->phone, Creds.getPhone(), sizeof(this->phone) - 1);
+            this->phone[sizeof(this->phone) - 1] = '\0';
         } 
         
         // Done need delay to wait for web, this is a non blocking begin.
         WiFi.begin(this->ST_SSID, this->ST_PASS);
-        if (!this->isServerRunning) startServer(OLED, EEPROMcreds);
+        if (!this->isServerRunning) startServer(OLED, Creds);
 
         if (WiFi.status() == WL_CONNECTED) {
             if (!MDNSrunning) {

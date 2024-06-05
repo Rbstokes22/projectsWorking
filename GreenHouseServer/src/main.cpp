@@ -20,7 +20,10 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 
 Display OLED(128, 64); // creates OLED class
 Net* Network; // dynamically allocates in order to support password issues
-Credentials EEPROMcreds(275);
+
+// Credentials Creds(200);
+Credentials Creds("Network", OLED);
+
 Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
 Timer checkSensors(10000); // Check every 60 seconds (NEED TO BUILD)
 Timer clearError(0); // Used to clear OLED screen after errors
@@ -47,11 +50,34 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
 
     case false: // being called
     Network = new Net(
-    SERVER_NAME, EEPROMcreds.getWAPpass(), // WAP SSID & Pass
+    SERVER_NAME, Creds.getWAPpass(), // WAP SSID & Pass
     IPAddress(192, 168, 1, 1), // WAP localIP
     IPAddress(192, 168, 1, 1), // WAP gateway
     IPAddress(255, 255, 255, 0), // WAP subnet
     80); 
+  }
+}
+
+// Checks for button pressing during startup to go into default WAP password mode.
+// If not pushed, checks EEPROM for an actual WAP password, if exists, starts normally.
+// If it does not exist and the value is '\0', default WAP password will be in place 
+// until changed.
+void initializeNet(bool defaultSwitch) {
+
+  // To erase eeprom, change one of the expVals
+  // uint8_t eepromSetup = Creds.initialSetup(2, 22);
+  switch (defaultSwitch) {
+    case false:
+    netConstructor(true, "Default Mode"); break;
+
+    // INIT THE WAP PASS HERE Using CREDS
+    case true:
+    Creds.read("WAPpass"); // sets the WAPpass array
+    if (Creds.getWAPpass()[0] != '\0') {
+      netConstructor(false, "");
+    } else {
+      netConstructor(true, "Set WAP Pass");
+    }
   }
 }
 
@@ -91,15 +117,15 @@ void handleWifiMode(Net* Network, Display &OLED) {
 
   switch(wifiMode) {
     case WAP_ONLY:
-    conStat = Network->WAP(OLED, EEPROMcreds);
+    conStat = Network->WAP(OLED, Creds);
     displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
 
     case WAP_SETUP:
-    conStat = Network->WAPSetup(OLED, EEPROMcreds);
+    conStat = Network->WAPSetup(OLED, Creds);
     displayWAPstatus(OLED, conStat, WAPtype, updatingStatus, heapHealth); break;
 
     case STA_ONLY:
-    conStat = Network->STA(OLED, EEPROMcreds);
+    conStat = Network->STA(OLED, Creds);
     STAdetails details = Network->getSTADetails();
     displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
   }
@@ -114,42 +140,7 @@ void setup() {
   pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
 
   OLED.init(); // starts the OLED and displays 
-
-// This will initialize or ensure that the eeprom has been initialized.
-  uint8_t eepromSetup = EEPROMcreds.initialSetup(250, 2, 252, 22, 200); 
-
-
-  // Clean this up TOMORROW
-  switch(digitalRead(defaultWAPSwitch)) {
-    case 0:
-    Serial.println("DEFAULT WAP STARTED");
-    netConstructor(true, ""); break;
-
-    case 1:
-    switch (eepromSetup) {
-      case EEPROM_UP:
-      EEPROMcreds.eepromRead(WAP_PASS_EEPROM);
-      if (EEPROMcreds.getWAPpass()[0] != '\0') {
-        Serial.println("EEPROM UP AND CONTAINS DATA");
-        netConstructor(false, ""); 
-
-      } else {
-        Serial.println("EEPROM UP NO DATA");
-        netConstructor(true, "Default password, setup new password");
-      }
-      break;
-
-      case EEPROM_INITIALIZED:
-      Serial.println("EEPROM INITIALIZED"); 
-      netConstructor(true, "Ready to setup WAP Password", true);
-      delay(3000); ESP.restart();
-      break;
-
-      case EEPROM_INIT_FAILED:
-      Serial.println("EEPROM INIT FAILED");
-      netConstructor(true, "Issue with memory initialization", true);
-    }
-  }
+  initializeNet(digitalRead(defaultWAPSwitch));
 }
 
 void loop() { 

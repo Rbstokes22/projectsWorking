@@ -24,11 +24,13 @@ Net::Net(
         // of scope and copies the value instead of the pointer garbage.
         strncpy(this->AP_SSID, AP_SSID, sizeof(this->AP_SSID) - 1);
         this->AP_SSID[sizeof(this->AP_SSID) - 1] = '\0';
+
         strncpy(this->AP_Pass, AP_Pass, sizeof(this->AP_Pass) - 1);
         this->AP_Pass[sizeof(this->AP_Pass) - 1] = '\0';
+        
         memset(this->ST_SSID, 0, sizeof(this->ST_SSID));
         memset(this->ST_PASS, 0, sizeof(this->ST_PASS));
-        memset(this->phoneNum, 0, sizeof(this->phoneNum));
+        memset(this->phone, 0, sizeof(this->phone));
         memset(this->error, 0, sizeof(this->error));
     } 
 

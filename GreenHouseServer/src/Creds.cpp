@@ -1,142 +1,103 @@
-#include <EEPROM.h>
+
 #include "Creds.h"
 #include <cstring> // memset use
 
-Credentials::Credentials(uint16_t size) : EEPROMsize(size)
+Credentials::Credentials(const char* nameSpace, IDisplay &OLED) : 
+    nameSpace(nameSpace), OLED(OLED) {
 
-{
     // sets the arrays to all 0's for the length of the MAX or array length
     memset(ssid, 0, SSID_MAX);
     memset(pass, 0, PASS_MAX);
-    memset(phoneNum, 0, PHONE_MAX);
+    memset(phone, 0, PHONE_MAX);
     memset(WAPpass, 0, WAP_PASS_MAX);
 }
 
-// When initially starting, checks EEPROM for two known values at chosen
-// addresses. If they do not exist, system knows the EEPROM is being started
-// for the first time, it will then null out your dataBlock and write the 
-// chosen values at the chosen addresses. This will allow Network cred validation
-// to see if a null char exists as the expected address and know which password
-// to begin for the WAP setting.
-uint8_t Credentials::initialSetup(
-    uint16_t addr1, 
-    uint8_t expVal1, 
-    uint16_t addr2, 
-    uint8_t expVal2,
-    uint16_t dataBlockSize) {
-
-    EEPROM.begin(this->EEPROMsize);
-    uint8_t firstInt = EEPROM.read(addr1);
-    uint8_t secondInt = EEPROM.read(addr2);
-    Serial.println(firstInt);
-    Serial.println(secondInt);
-
-    if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
-        return EEPROM_UP;
-    } else {
-        
-        for (int i = 0; i < dataBlockSize; i++) { // Nullifies
-            EEPROM.write(i, '\0');
-        }
-
-        EEPROM.write(addr1, expVal1);
-        EEPROM.write(addr2, expVal2);
-        EEPROM.commit(); 
-
-        if (EEPROM.read(addr1) == expVal1 && EEPROM.read(addr2) == expVal2) {
-            return EEPROM_INITIALIZED;
-        } else {
-            return EEPROM_INIT_FAILED;
-        }
-    }
+// Writes the key value pair to the NVS.
+bool Credentials::write(const char* type, const char* buffer) {
+    this->prefs.begin(this->nameSpace);
+    uint16_t bytesWritten = 0;
+    bytesWritten = this->prefs.putString(type, buffer);
+    this->setChecksum(); // Will end in the checksum block
+  
+    // returns true if written bytes match the strlen
+    return (bytesWritten == strlen(buffer));
 }
 
-bool Credentials::eepromWrite(const char* type, const char* buffer) {
-    uint16_t address = 0;
+// Reads the value of the provided key and copies it to the private class
+// arrays.
+void Credentials::read(const char* type) {
+    this->prefs.begin(this->nameSpace);
+    char error[30] = "Possible Corrupt Data";
 
-    // the added integer accounts for the null terminator, this sets the 
-    // beginning address of the block of data reserved for each item.
-    if (type == "ssid") address = 0;
-    if (type == "pass") address = SSID_MAX + 1;
-    if (type == "phone") address = SSID_MAX + PASS_MAX + 2;
-    if (type == "WAPpass") address = SSID_MAX + PASS_MAX + PHONE_MAX + 3;
-
-    // total size will not exceed 64
-    uint16_t totalSizeBuffer = strlen(buffer);
-    // uint16_t totalSizeEEPROM = address + 30;
-
-    // write to EEPROM address the iterated buffer chars
-    // EEPROM.begin(512);
-    for (int i = 0; i < totalSizeBuffer; i++) {
-        EEPROM.write(address++, buffer[i]);
+    if (!this->getChecksum()) {
+        OLED.displayError(error);
     }
 
-    // Terminate the memory block with a null char
-    EEPROM.write(address, '\0'); 
-    EEPROM.commit();
+    // Copies what is stored in prefs to the actual arrays stored by the class.
+    // This is beneficial when the prefs goes out of scope.
+    auto Copy = [this, type](char* array, uint16_t size) {
+        strncpy(array, this->prefs.getString(type, "").c_str(), size - 1);
+        array[size - 1] = '\0';
+    };
 
-    // This is used to compare that the buffer was written to EEPROM correctly
-    if (type == "ssid") {
-        eepromRead(SSID_EEPROM, true);
-        if (strcmp(buffer, this->ssid) == 0) return true;
-    } else if (type == "pass") {
-        eepromRead(PASS_EEPROM, true);
-        if (strcmp(buffer, this->pass) == 0) return true;
-    } else if (type == "phone") {
-        eepromRead(PHONE_EEPROM, true);
-        if (strcmp(buffer, this->phoneNum) == 0) return true;
-    } else if (type == "WAPpass") {
-        eepromRead(WAP_PASS_EEPROM, true);
-        if (strcmp(buffer, this->WAPpass) == 0) return true;
-    }
+    if (strcmp(type, "ssid") == 0) Copy(this->ssid, sizeof(this->ssid));
+    if (strcmp(type, "pass") == 0) Copy(this->pass, sizeof(this->pass));
+    if (strcmp(type, "phone") == 0) Copy(this->phone, sizeof(this->phone));
+    if (strcmp(type, "WAPpass") == 0) Copy(this->WAPpass, sizeof(this->WAPpass));
 
-    return false; // If it wasnt written correctly
+    this->prefs.end();
 }
 
-// Doesnt return, just sets the class private variables to eeprom values
-void Credentials::eepromRead(uint8_t source, bool fromWrite) {
+// Iterates all the values
+void Credentials::setChecksum() {
+    this->prefs.begin(this->nameSpace);
+    uint32_t totalSize = 0;
+    char buffer[75];
+    const char* keys[] = {"ssid", "pass", "phone", "WAPpass"};
+    size_t numKeys = sizeof(keys) / sizeof(keys[0]);
+    size_t bufferMax = sizeof(buffer) - 1;
 
-    // The EEPROM will begin if call outside of the eepromWrite(), this 
-    // prevents EEPROM from calling begin twice
-    // if (!fromWrite) EEPROM.begin(512);
+    for (size_t i = 0; i < numKeys; i++) {
+        strncpy(buffer, this->prefs.getString(keys[i], "").c_str(), bufferMax);
+        buffer[bufferMax] = '\0';
+        size_t length = strlen(buffer);
 
-    uint16_t address = 0;
-
-    // Each of these are depedinging on the memory source passed to read. 
-    // They will sort thorough the entire array until the terminate or 
-    // hit a null terminator, and then set that memory to the class 
-    // variable.
-    if (source == SSID_EEPROM) {
-        address = 0;
-        for (int i = 0; i < SSID_MAX; i++) {
-            this->ssid[i] = EEPROM.read(address++);
-            if (this->ssid[i] == '\0') break;
-        }
-
-    } else if (source == PASS_EEPROM) {
-        address = SSID_MAX + 1;
-        for (int i = 0; i < PASS_MAX; i++) {
-            this->pass[i] = EEPROM.read(address++);
-            if (this->pass[i] == '\0') break;
-        }
-
-    } else if (source == PHONE_EEPROM) {
-        address = SSID_MAX + PASS_MAX + 2;
-        for (int i = 0; i < PHONE_MAX; i++) {
-            this->phoneNum[i] = EEPROM.read(address++);
-            if (this->phoneNum[i] == '\0') break;
-        }
-
-    } else if (source == WAP_PASS_EEPROM) {
-        address = SSID_MAX + PASS_MAX + PHONE_MAX + 3;
-        for (int i = 0; i < WAP_PASS_MAX; i++) {
-            this->WAPpass[i] = EEPROM.read(address++);
-            if (this->WAPpass[i] == '\0') break;
+        for (int j = 0; j < length; j++) {
+            totalSize += static_cast<unsigned char>(buffer[j]);
         }
     }
 
-    // EEPROM.end();
+    this->prefs.putUInt("checksum", totalSize % 256);
+    this->prefs.end();
 }
+
+bool Credentials::getChecksum() {
+    this->prefs.begin(this->nameSpace);
+    uint32_t totalSize = 0;
+    uint8_t checksum = 0;
+    uint8_t storedChecksum = 0;
+    char buffer[75];
+    const char* keys[] = {"ssid", "pass", "phone", "WAPpass"};
+    size_t numKeys = sizeof(keys) / sizeof(keys[0]);
+    size_t bufferMax = sizeof(buffer) - 1;
+
+    for (size_t i = 0; i < numKeys; i++) {
+        strncpy(buffer, this->prefs.getString(keys[i], "").c_str(), bufferMax);
+        buffer[bufferMax] = '\0';
+        size_t length = strlen(buffer);
+
+        for (int j = 0; j < length; j++) {
+            totalSize += static_cast<unsigned char>(buffer[j]);
+        }
+    }
+
+    checksum = totalSize % 256;
+    storedChecksum = this->prefs.getUInt("checksum", 0);
+ 
+    return checksum == storedChecksum;
+}
+
+
 
 const char* Credentials::getSSID() const {
     return this->ssid;
@@ -147,7 +108,7 @@ const char* Credentials::getPASS() const {
 }
 
 const char* Credentials::getPhone() const {
-    return this->phoneNum;
+    return this->phone;
 }
 
 const char* Credentials::getWAPpass() const {

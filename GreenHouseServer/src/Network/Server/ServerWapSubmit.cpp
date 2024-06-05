@@ -2,11 +2,11 @@
 #include <ArduinoJson.h>
 
 // Writes to EEPROM and sends response to client. 
-void Net::eepromWriteRespond(const char* type, Credentials &EEPROMcreds, char* buffer) {
+void Net::commitAndRespond(const char* type, Credentials &Creds, char* buffer) {
     char response[64];
     JsonDocument res; // sends back to client
 
-    if (EEPROMcreds.eepromWrite(type, buffer)) {
+    if (Creds.write(type, buffer)) {
         // This looks to see if the WAP password has been changed. If so,
         // it sends a different response and resets the wifi below with 
         // the new password.
@@ -31,18 +31,24 @@ void Net::eepromWriteRespond(const char* type, Credentials &EEPROMcreds, char* b
     }
 }
 
-void Net::handleJson(IDisplay &OLED, Credentials &STAeeprom) {
+void Net::handleJson(IDisplay &OLED, Credentials &Creds) {
     // Never expect any single element coming through to exceed 75 char.
     char jsonData[100] = "";
     char buffer[100] = "";
     JsonDocument jsonDoc;
 
-    auto getJson = [this, &buffer, &jsonDoc, &STAeeprom](const char* type) {
+    auto getJson = [this, &buffer, &jsonDoc, &Creds](const char* type) {
         strncpy(
             buffer, 
             jsonDoc[type].as<const char*>(), 
             sizeof(buffer) - 1);
         buffer[sizeof(buffer) - 1] = '\0';
+
+        // These strncpy's serve as a redundancy in the event the NVS fails.
+        // This data when received from the WAP, is automatically copied to the 
+        // required Network variables, which are ultimately used to begin the 
+        // connection. If the Network variables are empty, it will default to 
+        // checking the NVS, usually this happens upon starting.
         if (strcmp(type, "ssid") == 0) {
             strncpy(this->ST_SSID, buffer, sizeof(this->ST_SSID) - 1);
             this->ST_SSID[sizeof(this->ST_SSID) - 1] = '\0';
@@ -50,14 +56,14 @@ void Net::handleJson(IDisplay &OLED, Credentials &STAeeprom) {
             strncpy(this->ST_PASS, buffer, sizeof(this->ST_PASS) - 1);
             this->ST_PASS[sizeof(this->ST_PASS) - 1] = '\0';
         } else if (strcmp(type, "phone") == 0) {
-            strncpy(this->phoneNum, buffer, sizeof(this->phoneNum) - 1);
-            this->phoneNum[sizeof(this->phoneNum) - 1] = '\0';
+            strncpy(this->phone, buffer, sizeof(this->phone) - 1);
+            this->phone[sizeof(this->phone) - 1] = '\0';
         } else if (strcmp(type, "WAPpass") == 0) {
             strncpy(this->AP_Pass, buffer, sizeof(this->AP_Pass) - 1);
             this->AP_Pass[sizeof(this->AP_Pass) - 1] = '\0';
         }
 
-        this->eepromWriteRespond(type, STAeeprom, buffer);
+        this->commitAndRespond(type, Creds, buffer);
     };
 
     if (server.hasArg("plain")) {
@@ -89,9 +95,9 @@ void Net::handleJson(IDisplay &OLED, Credentials &STAeeprom) {
     }
 }
 
-void Net::handleWAPsubmit(IDisplay &OLED, Credentials &EEPROMcreds) {
+void Net::handleWAPsubmit(IDisplay &OLED, Credentials &Creds) {
     if (this->prevServerType == WAP_SETUP) {
-        this->handleJson(OLED, EEPROMcreds);
+        this->handleJson(OLED, Creds);
     } else {
         server.send(404, "text/html", "UNAUTHORIZED FROM SERVER");
     }
