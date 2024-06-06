@@ -1,7 +1,7 @@
 // IDEAS: Twilio updates, changes, PWA to purchase as well as offer converters 
 // for controlling code. 
 
-#define VERSION 1.0
+#define FIRMWARE_VERSION 1.0
 #define MODEL "GH-01"
 
 #include <Arduino.h>
@@ -82,19 +82,19 @@ void initializeNet(bool defaultSwitch) {
 }
 
 void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
-  const char* mode = (wifiMode == WAP_ONLY) ? "WAP" : "WAP_SETUP";
+  const char* mode = (wifiMode == WAP_ONLY) ? "WAP" : "WAP SETUP";
   const char* suffix = (isWapDef) ? " (DEF)" : "";
   sprintf(WAPtype, "%s%s", mode, suffix);
 }
 
 void displayWAPstatus(Display &OLED, bool conStat, const char* WAPtype, bool updatingStatus, const char* heapHealth) {
-  char conStatus[4];
+  char conStatus[4]; // connected status
   (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
   OLED.printWAP(SERVER_NAME, IPADDR, conStatus, WAPtype, updatingStatus, heapHealth);
 }
 
 void displaySTAstatus(Display &OLED, bool conStat, STAdetails details, bool updatingStatus, const char* heapHealth) {
-  char conStatus[4];
+  char conStatus[4]; // connected status
   (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
   OLED.printSTA(&details, conStatus, updatingStatus, heapHealth);
 }
@@ -107,10 +107,14 @@ void getHeapHealth(char* heapHealth) {
 void handleWifiMode(Net* Network, Display &OLED) {
   char WAPtype[20];
   char heapHealth[10];
+
+  // compares to the current set WAP password, if it == the default, then 
+  // the OLED will display the (DEF) follwoing the WAP type. This will disappear
+  // when the AP_Pass is reset. It allows dynamic chaning.
   bool isWapDef = (strcmp(Network->getWAPpass(), SERVER_PASS_DEFAULT) == 0);
   uint8_t wifiMode = wifiModeSwitch(); // checks toggle position
   bool updatingStatus = otaUpdates.isUpdating(); 
-  bool conStat = false;
+  bool conStat = false; // connected status to the WAP or STA
 
   setWAPtype(WAPtype, wifiMode, isWapDef);
   getHeapHealth(heapHealth);
@@ -155,7 +159,7 @@ void loop() {
   // This serves to clear errors displayed on the OLED. Typically the OLED
   // displays the network data and free memory. In the event of an error, that 
   // will be blocked, and if the override status == true, this will set a reminder
-  // to clear it in n amount of milli seconds to allow normal funtioning again.
+  // to clear it in n amount of milliseconds to allow normal funtioning again.
   if (OLED.getOverrideStat() == true) {
     if(clearError.setReminder(5000) == true) {
       OLED.setOverrideStat(false);

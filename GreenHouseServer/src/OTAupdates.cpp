@@ -14,6 +14,8 @@ void OTAupdates::start(){
     ArduinoOTA.onStart([&]() {
         this->OTAisUpdating = true;
 
+        // This will differentiate between updating on your pc, and firmware
+        // udpates downloaded online.
         if (ArduinoOTA.getCommand() == U_FLASH) {
             strcpy(this->buffer, "updating sketch");
         } else { // U_SPIFFS to store in filesystem
@@ -66,10 +68,14 @@ void OTAupdates::handle(){
     ArduinoOTA.handle(); // Handle updates
 }
 
+// Serves to block the typical OLED display during an update to show
+// status.
 bool OTAupdates::isUpdating() const{ 
     return OTAisUpdating;
 }
 
+// Serves to show that the OTA start has been called. This 
+// happens only once.
 bool OTAupdates::getHasStarted() {
     return this->hasStarted;
 }

@@ -1,6 +1,10 @@
 #ifndef OTAUPDATES_H
 #define OTAUPDATES_H
 
+// FUTURE CODE: Enable https client in order to download the firmware 
+// via web. This will be controllable via web interface to get the update
+// and then like a daily check for updates.
+
 #include "Display.h"
 #include "Network.h"
 
