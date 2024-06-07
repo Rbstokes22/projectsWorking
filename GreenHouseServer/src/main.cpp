@@ -10,6 +10,7 @@
 #include "Network.h"
 #include "OTAupdates.h"
 #include "Creds.h"
+#include "Sensors.h"
 
 
 // If changes to the servername are ever made, update the display printWAP 
@@ -142,6 +143,9 @@ void setup() {
   pinMode(WAPswitch, INPUT_PULLUP);  // Wireless Access Point
   pinMode(STAswitch, INPUT_PULLUP); // Station
   pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
+  pinMode(Relay_1, OUTPUT);
+  pinMode(Soil_1, INPUT);
+  pinMode(Photoresistor, INPUT);
 
   OLED.init(); // starts the OLED and displays 
   initializeNet(digitalRead(defaultWAPSwitch));
