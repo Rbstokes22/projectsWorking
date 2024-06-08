@@ -1,4 +1,3 @@
-
 #include "Creds.h"
 #include <cstring> // memset use
 

@@ -5,13 +5,13 @@
 #define MODEL "GH-01"
 
 #include <Arduino.h>
+#include <Wire.h>
 #include "Display.h"
 #include "Timing.h"
 #include "Network.h"
 #include "OTAupdates.h"
 #include "Creds.h"
-#include "Sensors.h"
-
+#include "Peripherals.h"
 
 // If changes to the servername are ever made, update the display printWAP 
 // const char SSID to match
@@ -19,16 +19,15 @@ char SERVER_NAME[20] = "PJ Greenhouse";
 char SERVER_PASS_DEFAULT[10] = "12345678";
 #define IPADDR "192.168.1.1" // Will also set below in IPAddress
 
-Display OLED(128, 64); // creates OLED class
+// ALL OBJECTS
+Display OLED(128, 64); 
 Net* Network; // dynamically allocates in order to support password issues
-
-// Credentials Creds(200);
 Credentials Creds("Network", OLED);
-
 Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
-Timer checkSensors(10000); // Check every 60 seconds (NEED TO BUILD)
+Timer checkSensors(1000); // Check every 60 seconds
 Timer clearError(0); // Used to clear OLED screen after errors
-OTAupdates otaUpdates(OLED);
+Threads sensorThread(checkSensors);
+OTAupdates otaUpdates(OLED, sensorThread);
 
 size_t startupHeap = 0;
 
@@ -137,24 +136,31 @@ void handleWifiMode(Net* Network, Display &OLED) {
 }
 
 void setup() {
-  Serial.begin(115200); // delete when finished
-  startupHeap = ESP.getFreeHeap(); 
-
   pinMode(WAPswitch, INPUT_PULLUP);  // Wireless Access Point
   pinMode(STAswitch, INPUT_PULLUP); // Station
   pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
-  pinMode(Relay_1, OUTPUT);
-  pinMode(Soil_1, INPUT);
-  pinMode(Photoresistor, INPUT);
+  pinMode(Relay_1_PIN, OUTPUT);
+  pinMode(Soil_1_PIN, INPUT);
+  pinMode(Photoresistor_PIN, INPUT);
 
+  Wire.begin(); // Setup the i2c bus. 
+  Serial.begin(115200); // delete when finished
+
+  sensorThread.setupThread();
+
+  dht.begin(); // MAKE CLASS TO MAKE THIS EASIER//////////////////////
+  as7341.begin();
+
+  startupHeap = ESP.getFreeHeap(); 
   OLED.init(); // starts the OLED and displays 
   initializeNet(digitalRead(defaultWAPSwitch));
 }
 
+
 void loop() { 
 
   otaUpdates.manageOTA(Network);
-  
+
   switch(checkWifiModeSwitch.isReady()) {
     case true:
     handleWifiMode(Network, OLED);

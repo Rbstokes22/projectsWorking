@@ -7,16 +7,22 @@
 
 #include "Display.h"
 #include "Network.h"
+#include "Peripherals.h"
 
 class OTAupdates {
     private:
+
+    // volatile is used for variables that can be modified by different 
+    // threads or what not. It ensures that the value is checked at use 
+    // instead of relying on cached data.
     volatile bool OTAisUpdating;
     Display &OLED; // reference to OLED from main
+    Threads &sensorThread;
     char buffer[32];
     bool hasStarted;
 
     public:
-    OTAupdates(Display &OLED);
+    OTAupdates(Display &OLED, Threads &sensorThread);
     void start();
     void handle();
     bool isUpdating() const;

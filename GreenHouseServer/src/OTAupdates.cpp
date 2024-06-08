@@ -3,17 +3,21 @@
 #include <WiFiUdp.h>
 
 // Send OLED reference to update the 
-OTAupdates::OTAupdates(Display &OLED) : 
-OTAisUpdating(false), OLED(OLED), hasStarted(false){
+OTAupdates::OTAupdates(Display &OLED, Threads &sensorThread) : 
+OTAisUpdating(false), 
+OLED(OLED), 
+sensorThread(sensorThread),
+hasStarted(false) {
     memset(buffer, 0, sizeof(buffer));
 }
 
 void OTAupdates::start(){
 
     // Initialize the handlers
-    ArduinoOTA.onStart([&]() {
+    ArduinoOTA.onStart([this]() {
         this->OTAisUpdating = true;
-
+        this->sensorThread.suspendTask(); // Stops thread to prevent interference
+        
         // This will differentiate between updating on your pc, and firmware
         // udpates downloaded online.
         if (ArduinoOTA.getCommand() == U_FLASH) {
@@ -37,6 +41,7 @@ void OTAupdates::start(){
         strcpy(this->buffer, "Complete");
         OLED.printUpdates(this->buffer); 
         this->OTAisUpdating = false;
+        this->sensorThread.resumeTask();
     });
 
     ArduinoOTA.onError([&](ota_error_t error) {
@@ -59,6 +64,7 @@ void OTAupdates::start(){
 
         OLED.printUpdates(buffer);
         this->OTAisUpdating = false;
+        this->sensorThread.resumeTask();
     });
 
     ArduinoOTA.begin();

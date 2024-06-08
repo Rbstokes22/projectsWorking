@@ -5,6 +5,9 @@
 
 class OTAupdates {
     private:
+
+    // volatile ensures that the program checks the value when using it as 
+    // opposed to relaying on cached data.
     volatile bool OTAisUpdating;
     Display &OLED; // reference to OLED from main
     char buffer[32];
