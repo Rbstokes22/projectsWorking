@@ -1,6 +1,8 @@
 #include "Network.h"
 
-void Net::startServer(IDisplay &OLED, Credentials &Creds) {
+namespace Comms {
+
+void Net::startServer(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     server.on("/", [this](){handleIndex();});
     server.on("/WAPsubmit", [this, &OLED, &Creds](){handleWAPsubmit(OLED, Creds);});
     server.onNotFound([this](){handleNotFound();});
@@ -21,4 +23,5 @@ void Net::handleServer() {
 // Used to start the OTA updates
 bool Net::isSTAconnected() {
     return this->connectedToSTA;
+}
 }

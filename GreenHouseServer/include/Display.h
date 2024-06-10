@@ -6,6 +6,9 @@
 #include "Network.h" // used for the WAPdetails
 #include "IDisplay.h"
 
+// All user interface data and functions
+namespace UI {
+	
 class Display : public IDisplay {
     private:
     Adafruit_SSD1306 display;
@@ -25,7 +28,7 @@ class Display : public IDisplay {
 		bool updating,
 		const char heap[10]);
 	void printSTA(
-		STAdetails* details, 
+		Comms::STAdetails* details, 
 		const char status[4], 
 		bool updating,
 		const char heap[10]);
@@ -103,5 +106,7 @@ const unsigned char GHlogo[] PROGMEM = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
+}
+
 
 #endif // DISPLAY_H

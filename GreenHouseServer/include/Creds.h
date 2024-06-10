@@ -10,10 +10,13 @@
 #include <Preferences.h>
 #include "IDisplay.h"
 
+// FlashWrite
+namespace FlashWrite {
+
 class Credentials {
     private:
     Preferences prefs;
-    IDisplay &OLED;
+    UI::IDisplay &OLED;
     char ssid[SSID_MAX];
     char pass[PASS_MAX];
     char phone[PHONE_MAX];
@@ -21,7 +24,7 @@ class Credentials {
     const char* nameSpace;
 
     public:
-    Credentials(const char* nameSpace, IDisplay &OLED);
+    Credentials(const char* nameSpace, UI::IDisplay &OLED);
     bool write(const char* type, const char* buffer);
     void read(const char* type);
     void setChecksum();
@@ -31,5 +34,6 @@ class Credentials {
     const char* getPhone() const;
     const char* getWAPpass() const;
 };
+}
 
 #endif // CREDS_H

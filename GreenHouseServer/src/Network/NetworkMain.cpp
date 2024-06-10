@@ -1,6 +1,8 @@
 #include "Network.h"
 #include <WiFi.h>
 
+namespace Comms {
+
 Net::Net(
     const char* AP_SSID, 
     const char* AP_Pass, 
@@ -47,7 +49,6 @@ const char* Net::getWAPpass() {
     return this->AP_Pass;
 }
 
-// Checks 3-way switch position and starts the appropriate network
 uint8_t wifiModeSwitch() {
     // 0 = WAP exclusive, 1 = WAP Program, 2 = Station
     uint8_t WAP = digitalRead(WAPswitch);
@@ -62,4 +63,5 @@ uint8_t wifiModeSwitch() {
     } else {
         return NO_WIFI; // standard error throughout this program
     }
+}
 }

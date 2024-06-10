@@ -1,7 +1,9 @@
 #include "Creds.h"
 #include <cstring> // memset use
 
-Credentials::Credentials(const char* nameSpace, IDisplay &OLED) : 
+namespace FlashWrite {
+
+Credentials::Credentials(const char* nameSpace, UI::IDisplay &OLED) : 
     nameSpace(nameSpace), OLED(OLED) {
 
     // sets the arrays to all 0's for the length of the MAX or array length
@@ -112,4 +114,5 @@ const char* Credentials::getPhone() const {
 
 const char* Credentials::getWAPpass() const {
     return this->WAPpass;
+}
 }

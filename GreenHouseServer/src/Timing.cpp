@@ -1,6 +1,8 @@
 #include "Timing.h"
 #include <Arduino.h>
 
+namespace Clock {
+
 Timer::Timer(unsigned long interval) : 
 previousMillis(millis()), 
 interval(interval),
@@ -37,4 +39,6 @@ bool Timer::setReminder(unsigned long milliseconds) {
 
 void Timer::changeInterval(unsigned long newInterval) {
   this->interval = newInterval;
+}
+
 }

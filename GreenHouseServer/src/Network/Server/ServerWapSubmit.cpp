@@ -1,8 +1,13 @@
 #include "Network.h"
 #include <ArduinoJson.h>
 
+namespace Comms {
+
 // Writes to EEPROM and sends response to client. 
-void Net::commitAndRespond(const char* type, Credentials &Creds, char* buffer) {
+void Net::commitAndRespond(
+    const char* type, 
+    FlashWrite::Credentials &Creds, 
+    char* buffer) {
     char response[64];
     JsonDocument res; // sends back to client
 
@@ -31,7 +36,7 @@ void Net::commitAndRespond(const char* type, Credentials &Creds, char* buffer) {
     }
 }
 
-void Net::handleJson(IDisplay &OLED, Credentials &Creds) {
+void Net::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     // Never expect any single element coming through to exceed 75 char.
     char jsonData[100] = "";
     char buffer[100] = "";
@@ -95,10 +100,11 @@ void Net::handleJson(IDisplay &OLED, Credentials &Creds) {
     }
 }
 
-void Net::handleWAPsubmit(IDisplay &OLED, Credentials &Creds) {
+void Net::handleWAPsubmit(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     if (this->prevServerType == WAP_SETUP) {
         this->handleJson(OLED, Creds);
     } else {
         server.send(404, "text/html", "UNAUTHORIZED FROM SERVER");
     }
 };
+}

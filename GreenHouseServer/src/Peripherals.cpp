@@ -4,12 +4,14 @@ DHT dht(DHT_PIN, DHT22);
 Adafruit_AS7341 as7341;
 // TaskHandle_t taskHandle = NULL; // This is just the entry, or handle to the thread
 
-Threads::Threads(Timer &checkSensors) : 
+namespace Threads {
+
+SensorThread::SensorThread(Clock::Timer &checkSensors) : 
     taskHandle(NULL), 
     checkSensors(checkSensors),
     isThreadSuspended(false) {}
 
-void Threads::setupThread() {
+void SensorThread::setupThread() {
     xTaskCreate(
         sensorTask, // function to be tasked by freeRTOS
         "Sensor Task", // Name used for debugging
@@ -20,8 +22,8 @@ void Threads::setupThread() {
     );
 }
 
-void Threads::sensorTask(void* parameter) {
-    Timer* checkSensors = (Timer*) parameter;
+void SensorThread::sensorTask(void* parameter) {
+    Clock::Timer* checkSensors = (Clock::Timer*) parameter;
     while (true) {
         if (checkSensors->isReady()) {
             handleSensors();
@@ -30,14 +32,15 @@ void Threads::sensorTask(void* parameter) {
     }
 }
 
-void Threads::suspendTask() { // Called by OTA updates
+void SensorThread::suspendTask() { // Called by OTA updates
     Serial.println("Task suspended");
     vTaskSuspend(taskHandle);
 }
 
-void Threads::resumeTask() {
+void SensorThread::resumeTask() {
     Serial.println("Task resumed");
     vTaskResume(taskHandle);
+}
 }
 
 void handleSensors() {

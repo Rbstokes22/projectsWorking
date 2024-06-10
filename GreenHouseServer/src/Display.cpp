@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <WiFi.h> // used for ESP.restart()
 
+namespace UI {
 // Constructor 
 Display::Display(uint8_t width, uint8_t height) :
     display(width, height, &Wire, -1), 
@@ -66,7 +67,7 @@ void Display::printWAP(
 }
 
 void Display::printSTA(
-    STAdetails* details, 
+    Comms::STAdetails* details, 
     const char status[4], 
     bool updating,
     const char heap[10]) {
@@ -139,5 +140,4 @@ void Display::setOverrideStat(bool setting) {
     this->displayOverride = setting;
 }
 
-
-
+}

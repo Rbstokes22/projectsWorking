@@ -1,5 +1,7 @@
 #include "Network.h"
 
+namespace Comms {
+    
 const char WAPsetup[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -138,3 +140,4 @@ const char WAPsetup[] PROGMEM = R"rawliteral(
 </body>
 </html>
 )rawliteral";
+}

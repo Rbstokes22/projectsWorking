@@ -27,21 +27,23 @@
 #define Soil_1_PIN 34
 #define Photoresistor_PIN 35
 
-class Threads {
+namespace Threads {
+
+class SensorThread {
     private:
     TaskHandle_t taskHandle;
-    Timer &checkSensors;
+    Clock::Timer &checkSensors;
     bool isThreadSuspended;
     
     public:
-    Threads(Timer &checkSensors);
+    SensorThread(Clock::Timer &checkSensors);
     void setupThread();
     static void sensorTask(void* parameter);
     void suspendTask();
     void resumeTask();
 };
 
-
+}
 
 
 extern DHT dht;

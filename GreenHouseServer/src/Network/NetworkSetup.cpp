@@ -2,11 +2,13 @@
 #include <ESPmDNS.h>
 #include <WiFi.h>
 
+namespace Comms {
+
 // WIRELESS ACCESS POINT EXCLUSIVE. This will host the same exact page as the station
 // which is the main control for the device. It will just do so with the controlling
 // device connects to the device via wifi. Will not have any connection internet.
 
-bool Net::WAP(IDisplay &OLED, Credentials &Creds) { 
+bool Net::WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) { 
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_ONLY) {
         prevServerType = WAP_ONLY;
@@ -28,7 +30,7 @@ bool Net::WAP(IDisplay &OLED, Credentials &Creds) {
 // for a twilio account altert systems. Once this is set up, the client can go 
 // to station mode.
 
-bool Net::WAPSetup(IDisplay &OLED, Credentials &Creds) {
+bool Net::WAPSetup(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     // check if already in AP mode, setup if not
     if (WiFi.getMode() != WIFI_AP || prevServerType != WAP_SETUP) {
         prevServerType = WAP_SETUP;
@@ -49,7 +51,7 @@ bool Net::WAPSetup(IDisplay &OLED, Credentials &Creds) {
 // webpage from any device connected to the LAN. This will also have access to the internet
 // for SMS updates and alerts, as well as to check for upgraded firmware. 
 
-uint8_t Net::STA(IDisplay &OLED, Credentials &Creds) {
+uint8_t Net::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     
     if (WiFi.getMode() != WIFI_STA || prevServerType != STA_ONLY) {
         WiFi.mode(WIFI_STA);
@@ -105,4 +107,5 @@ uint8_t Net::STA(IDisplay &OLED, Credentials &Creds) {
             return WIFI_STARTING;
         }
     }
+}
 }

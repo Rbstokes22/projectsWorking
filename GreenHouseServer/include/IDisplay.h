@@ -6,12 +6,15 @@
 // and Network.h. Display.h depends on Network.h, but Network.h needs to be passed 
 // the OLED reference from Display.h in order to print errors.
 
+namespace UI {
+    
 class IDisplay {
     public:
     // Makes this an abstract class
     virtual void displayError(char* error) = 0;
     virtual ~IDisplay() {}
 };
+}
 
 #endif // IDISPLAY_H
 

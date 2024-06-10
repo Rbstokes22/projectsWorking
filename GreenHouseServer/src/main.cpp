@@ -20,15 +20,16 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 #define IPADDR "192.168.1.1" // Will also set below in IPAddress
 
 // ALL OBJECTS
-Display OLED(128, 64); 
-Net* Network; // dynamically allocates in order to support password issues
-Credentials Creds("Network", OLED);
-Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
-Timer checkSensors(1000); // Check every 60 seconds
-Timer clearError(0); // Used to clear OLED screen after errors
-Threads sensorThread(checkSensors);
-OTAupdates otaUpdates(OLED, sensorThread);
+UI::Display OLED(128, 64); 
+Comms::Net* Network = nullptr; // dynamically allocates in order to support password issues
+FlashWrite::Credentials Creds("Network", OLED);
+Clock::Timer checkWifiModeSwitch(1000); // 3 second intervals to check network switch
+Clock::Timer checkSensors(1000); // Check every 60 seconds
+Clock::Timer clearError(0); // Used to clear OLED screen after errors
+Threads::SensorThread sensorThread(checkSensors);
+UpdateSystem::OTAupdates otaUpdates(OLED, sensorThread);
 
+namespace networkManager { // Used to initialize and manage network
 size_t startupHeap = 0;
 
 // Used to setup on WAP mode's password upon start.
@@ -36,7 +37,7 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
   char eepromError[50];
   switch (isDefault) {
     case true:
-    Network = new Net(
+    Network = new Comms::Net(
     SERVER_NAME, SERVER_PASS_DEFAULT, // WAP SSID & Pass
     IPAddress(192, 168, 1, 1), // WAP localIP
     IPAddress(192, 168, 1, 1), // WAP gateway
@@ -49,7 +50,7 @@ void netConstructor(bool isDefault, const char* errorMsg, bool sendMsg = true) {
     break;
 
     case false: // being called
-    Network = new Net(
+    Network = new Comms::Net(
     SERVER_NAME, Creds.getWAPpass(), // WAP SSID & Pass
     IPAddress(192, 168, 1, 1), // WAP localIP
     IPAddress(192, 168, 1, 1), // WAP gateway
@@ -87,13 +88,13 @@ void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
   sprintf(WAPtype, "%s%s", mode, suffix);
 }
 
-void displayWAPstatus(Display &OLED, bool conStat, const char* WAPtype, bool updatingStatus, const char* heapHealth) {
+void displayWAPstatus(UI::Display &OLED, bool conStat, const char* WAPtype, bool updatingStatus, const char* heapHealth) {
   char conStatus[4]; // connected status
   (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
   OLED.printWAP(SERVER_NAME, IPADDR, conStatus, WAPtype, updatingStatus, heapHealth);
 }
 
-void displaySTAstatus(Display &OLED, bool conStat, STAdetails details, bool updatingStatus, const char* heapHealth) {
+void displaySTAstatus(UI::Display &OLED, bool conStat, Comms::STAdetails details, bool updatingStatus, const char* heapHealth) {
   char conStatus[4]; // connected status
   (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
   OLED.printSTA(&details, conStatus, updatingStatus, heapHealth);
@@ -104,7 +105,7 @@ void getHeapHealth(char* heapHealth) {
   sprintf(heapHealth, "%d%%", freeHeap);
 }
 
-void handleWifiMode(Net* Network, Display &OLED) {
+void handleWifiMode(Comms::Net* Network, UI::Display &OLED) {
   char WAPtype[20];
   char heapHealth[10];
 
@@ -112,7 +113,7 @@ void handleWifiMode(Net* Network, Display &OLED) {
   // the OLED will display the (DEF) follwoing the WAP type. This will disappear
   // when the AP_Pass is reset. It allows dynamic chaning.
   bool isWapDef = (strcmp(Network->getWAPpass(), SERVER_PASS_DEFAULT) == 0);
-  uint8_t wifiMode = wifiModeSwitch(); // checks toggle position
+  uint8_t wifiMode = Comms::wifiModeSwitch(); // checks toggle position
   bool updatingStatus = otaUpdates.isUpdating(); 
   bool conStat = false; // connected status to the WAP or STA
 
@@ -130,12 +131,14 @@ void handleWifiMode(Net* Network, Display &OLED) {
 
     case STA_ONLY:
     conStat = Network->STA(OLED, Creds);
-    STAdetails details = Network->getSTADetails();
+    Comms::STAdetails details = Network->getSTADetails();
     displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
   }
 }
+}
 
 void setup() {
+  networkManager::startupHeap = ESP.getFreeHeap(); 
   pinMode(WAPswitch, INPUT_PULLUP);  // Wireless Access Point
   pinMode(STAswitch, INPUT_PULLUP); // Station
   pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
@@ -151,19 +154,18 @@ void setup() {
   dht.begin(); // MAKE CLASS TO MAKE THIS EASIER//////////////////////
   as7341.begin();
 
-  startupHeap = ESP.getFreeHeap(); 
+  
   OLED.init(); // starts the OLED and displays 
-  initializeNet(digitalRead(defaultWAPSwitch));
+  networkManager::initializeNet(digitalRead(defaultWAPSwitch));
 }
 
-
 void loop() { 
-
+  
   otaUpdates.manageOTA(Network);
 
   switch(checkWifiModeSwitch.isReady()) {
     case true:
-    handleWifiMode(Network, OLED);
+    networkManager::handleWifiMode(Network, OLED);
   }
 
   // This serves to clear errors displayed on the OLED. Typically the OLED

@@ -1,5 +1,7 @@
 #include "Network.h"
 
+namespace Comms {
+    
 void Net::handleIndex() {
     if (this->prevServerType == WAP_ONLY) {
         server.send(200, "text/html", "THIS IS WAP ONLY");
@@ -8,4 +10,5 @@ void Net::handleIndex() {
     } else if (this->prevServerType == STA_ONLY) {
         server.send(200, "text/html", "THIS IS STATION ONLY");
     }
+}
 }

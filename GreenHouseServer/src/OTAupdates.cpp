@@ -2,8 +2,11 @@
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 
-// Send OLED reference to update the 
-OTAupdates::OTAupdates(Display &OLED, Threads &sensorThread) : 
+namespace UpdateSystem {
+
+// The reference to the sensorThread is passed to suspend the thread during 
+// OTA updates
+OTAupdates::OTAupdates(UI::Display &OLED, Threads::SensorThread &sensorThread) : 
 OTAisUpdating(false), 
 OLED(OLED), 
 sensorThread(sensorThread),
@@ -90,7 +93,7 @@ void OTAupdates::setHasStarted(bool value) {
     this->hasStarted = value;
 }
 
-void OTAupdates::manageOTA(Net* Network) {
+void OTAupdates::manageOTA(Comms::Net* Network) {
 
     // Safety that only allows the ota updates to begin when connected
     // to the station. Once started it doesn't stop until the end of the
@@ -101,4 +104,5 @@ void OTAupdates::manageOTA(Net* Network) {
     } else if(Network->isSTAconnected() && this->getHasStarted()) {
         this->handle(); // checks for firmware 
     }
+}
 }

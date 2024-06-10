@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include "IDisplay.h"
 #include "Creds.h"
+#include <pgmspace.h>
 
 // This is an unsecure web network meant to run on the LAN. The risk is not worth
 // the overhead of working this to be an https server. In normal operation the 
@@ -27,6 +28,8 @@
 #define NO_WIFI 255
 #define WIFI_STARTING 4
 #define WIFI_RUNNING 5
+
+namespace Comms {
 
 struct STAdetails {
     char SSID[32];
@@ -67,12 +70,12 @@ class Net {
     const char* getWAPpass();
 
     // Network/NetworkSetup.cpp
-    bool WAP(IDisplay &OLED, Credentials &Creds);
-    bool WAPSetup(IDisplay &OLED, Credentials &Creds); // Setup LAN setting from WAP
-    uint8_t STA(IDisplay &OLED, Credentials &Creds);
+    bool WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
+    bool WAPSetup(UI::IDisplay &OLED, FlashWrite::Credentials &Creds); // Setup LAN setting from WAP
+    uint8_t STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
 
     // Network/Server/ServerStart.cpp
-    void startServer(IDisplay &OLED, Credentials &Creds);
+    void startServer(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
     void handleNotFound();
     void handleServer();
     bool isSTAconnected(); // used to start OTA updates
@@ -81,19 +84,21 @@ class Net {
     void handleIndex();
 
     // Network/Server/ServerWapSubmit.cpp
-    void handleWAPsubmit(IDisplay &OLED, Credentials &Creds);
+    void handleWAPsubmit(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
     void commitAndRespond(
         const char* type, 
-        Credentials &Creds,
+        FlashWrite::Credentials &Creds,
         char* buffer);
-    void handleJson(IDisplay &OLED, Credentials &Creds);
+    void handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
 };
-
-// Network/NetworkMain.cpp
-uint8_t wifiModeSwitch(); // Checks the 3-way switch positon for the correct mode
 
 // Network/webPages.cpp
 extern const char WAPsetup[] PROGMEM;
+
+// Network/NetworkMain.cpp
+uint8_t wifiModeSwitch();
+
+}
 
 #endif // NETWORK_H
 

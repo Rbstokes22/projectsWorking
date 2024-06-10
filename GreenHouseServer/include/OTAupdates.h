@@ -9,6 +9,9 @@
 #include "Network.h"
 #include "Peripherals.h"
 
+// Used for system updates.
+namespace UpdateSystem {
+
 class OTAupdates {
     private:
 
@@ -16,20 +19,21 @@ class OTAupdates {
     // threads or what not. It ensures that the value is checked at use 
     // instead of relying on cached data.
     volatile bool OTAisUpdating;
-    Display &OLED; // reference to OLED from main
-    Threads &sensorThread;
+    UI::Display &OLED; // reference to OLED from main
+    Threads::SensorThread &sensorThread;
     char buffer[32];
     bool hasStarted;
 
     public:
-    OTAupdates(Display &OLED, Threads &sensorThread);
+    OTAupdates(UI::Display &OLED, Threads::SensorThread &sensorThread);
     void start();
     void handle();
     bool isUpdating() const;
     bool getHasStarted();
     void setHasStarted(bool value);
-    void manageOTA(Net* Network);
+    void manageOTA(Comms::Net* Network);
 };
+}
 
 // For an OTAupdate, you need to include <ESP8266mDNS.h> and run 
 // MDNS.begin("hostname") right after WiFi.begin(ssid, pass) is connected. In this 
