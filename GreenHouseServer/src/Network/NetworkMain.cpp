@@ -49,6 +49,11 @@ const char* Net::getWAPpass() {
     return this->AP_Pass;
 }
 
+void Net::setWAPpass(const char* pass) {
+    strncpy(this->AP_Pass, pass, sizeof(this->AP_Pass) - 1);
+    this->AP_Pass[sizeof(this->AP_Pass) - 1] = '\0';
+}
+
 uint8_t wifiModeSwitch() {
     // 0 = WAP exclusive, 1 = WAP Program, 2 = Station
     uint8_t WAP = digitalRead(WAPswitch);

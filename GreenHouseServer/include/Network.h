@@ -68,6 +68,7 @@ class Net {
 
     STAdetails getSTADetails(); // returns the struct STAdetails
     const char* getWAPpass();
+    void setWAPpass(const char* pass);
 
     // Network/NetworkSetup.cpp
     bool WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
