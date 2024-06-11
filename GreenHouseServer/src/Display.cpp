@@ -67,7 +67,7 @@ void Display::printWAP(
 }
 
 void Display::printSTA(
-    Comms::STAdetails* details, 
+    Comms::STAdetails &details, 
     const char status[4], 
     bool updating,
     const char heap[10]) {
@@ -78,16 +78,16 @@ void Display::printSTA(
         display.setCursor(0, 0);
         display.print("SSID/Network:");
         display.setCursor(0, 10);
-        display.println(details->SSID);
+        display.println(details.SSID);
         display.setCursor(0, 20);
         display.print("IP: ");
-        display.println(details->IPADDR);
+        display.println(details.IPADDR);
         display.setCursor(0, 30);
         display.print("Connected: ");
         display.println(status);
         display.setCursor(0, 40);
         display.print("Sig: ");
-        display.println(details->signalStrength);
+        display.println(details.signalStrength);
         display.setCursor(0, 50);
         display.print("Free Mem: ");
         display.println(heap);

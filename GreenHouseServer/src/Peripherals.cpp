@@ -45,14 +45,14 @@ void SensorThread::resumeTask() {
 
 void handleSensors() {
     as7341.readAllChannels();
-    Serial.println("================================");
-    Serial.print("Photo: "); Serial.println(analogRead(Photoresistor_PIN));
-    Serial.print("TEMP: "); Serial.println(dht.readTemperature());
-    Serial.print("HUM: "); Serial.println(dht.readHumidity());
-    Serial.print("Soil1: "); Serial.println((analogRead(Soil_1_PIN)));
+    // Serial.println("================================");
+    // Serial.print("Photo: "); Serial.println(analogRead(Photoresistor_PIN));
+    // Serial.print("TEMP: "); Serial.println(dht.readTemperature());
+    // Serial.print("HUM: "); Serial.println(dht.readHumidity());
+    // Serial.print("Soil1: "); Serial.println((analogRead(Soil_1_PIN)));
 
 
-    Serial.print("F1: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
+    // Serial.print("F1: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
     // Serial.print("F2: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_445nm_F2));
     // Serial.print("F3: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_480nm_F3));
     // Serial.print("F4: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_515nm_F4));

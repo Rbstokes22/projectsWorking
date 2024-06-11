@@ -11,55 +11,35 @@ namespace networkManager {
 
 extern size_t startupHeap;
 
-void netConstructor(
-    bool isDefault, 
-    Comms::Net &Network,
-    UI::Display &OLED,
-    FlashWrite::Credentials &Creds,
-    const char* errorMsg, 
-    bool sendMsg = true
-    );
-
-void initializeNet(
-    bool defaultSwitch,
-    FlashWrite::Credentials &Creds, 
-    Comms::Net &Network, 
+void initializeWAP(
+    bool defaultSwitch, FlashWrite::Credentials &Creds, 
+    Comms::WirelessAP &wirelessAP, Comms::Station &startion,
     UI::Display &OLED
     );
 
+// Alerts the display if the WAP password is normal or default.
 void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef);
 
 void displayWAPstatus(
-    UI::Display &OLED, 
-    const char* serverName,
-    const char* ipaddr,
-    bool conStat, 
-    const char* WAPtype, 
-    bool updatingStatus, 
-    const char* heapHealth
+    UI::Display &OLED, const char* serverName,
+    const char* ipaddr, bool conStat, const char* WAPtype, 
+    bool updatingStatus, const char* heapHealth
 );
 
 void displaySTAstatus(
-    UI::Display &OLED, 
-    bool conStat, 
-    Comms::STAdetails details, 
-    bool updatingStatus, 
+    UI::Display &OLED, bool conStat, 
+    Comms::STAdetails &details, bool updatingStatus, 
     const char* heapHealth
     );
 
 void getHeapHealth(char* heapHealth);
 
 void handleWifiMode(
-    Comms::Net &Network, 
-    UI::Display &OLED,
-    UpdateSystem::OTAupdates &otaUpdates,
-    FlashWrite::Credentials &Creds,
-    const char* serverPassDefault,
-    const char* serverName,
-    const char* ipaddr
+    Comms::WirelessAP &wirelessAP, Comms::Station &station,
+    UI::Display &OLED, UpdateSystem::OTAupdates &otaUpdates,
+    FlashWrite::Credentials &Creds, const char* serverPassDefault,
+    const char* serverName, const char* ipaddr
     );
-
-
 }
 
 #endif // NETWORKMANAGER_H

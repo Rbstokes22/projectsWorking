@@ -22,13 +22,17 @@ char SERVER_PASS_DEFAULT[10] = "12345678";
 
 // ALL OBJECTS
 UI::Display OLED(128, 64); 
-Comms::Net Network(
+
+// Created with default password, will set password during init if 
+// one is saved in the NVS, or if one is passed in WAPSetup mode.
+Comms::WirelessAP wirelessAP(
     SERVER_NAME, SERVER_PASS_DEFAULT, // WAP SSID & Pass
     IPAddress(192, 168, 1, 1), // WAP localIP
     IPAddress(192, 168, 1, 1), // WAP gateway
-    IPAddress(255, 255, 255, 0), // WAP subnet
-    80
-    );
+    IPAddress(255, 255, 255, 0) // WAP subnet
+);
+
+Comms::Station station;
 
 FlashWrite::Credentials Creds("Network", OLED);
 
@@ -36,7 +40,9 @@ FlashWrite::Credentials Creds("Network", OLED);
 Clock::Timer checkWifiModeSwitch(1000); 
 Clock::Timer checkSensors(1000); 
 Clock::Timer clearError(0); // Used to clear OLED screen after errors
+
 Threads::SensorThread sensorThread(checkSensors);
+
 UpdateSystem::OTAupdates otaUpdates(OLED, sensorThread);
 
 size_t networkManager::startupHeap = 0;
@@ -53,50 +59,40 @@ void setup() {
   Wire.begin(); // Setup the i2c bus. 
   Serial.begin(115200); // delete when finished
 
-  sensorThread.setupThread();
-
-  dht.begin(); // MAKE CLASS TO MAKE THIS EASIER//////////////////////
+  dht.begin(); // DELTE MAKE CLASS TO MAKE THIS EASIER//////////////////////
   as7341.begin();
 
-  
   OLED.init(); // starts the OLED and displays 
+  sensorThread.setupThread();
 
-  networkManager::initializeNet(
-    digitalRead(defaultWAPSwitch), 
-    Creds, 
-    Network, 
-    OLED);
+  networkManager::initializeWAP(
+    digitalRead(defaultWAPSwitch), Creds, 
+    wirelessAP, station, OLED
+    );
 }
 
 void loop() { 
   
-  otaUpdates.manageOTA(&Network);
+  otaUpdates.manageOTA(station);
 
   switch(checkWifiModeSwitch.isReady()) {
     case true:;
 
     networkManager::handleWifiMode(
-      Network, 
-      OLED,
-      otaUpdates,
-      Creds,
-      SERVER_PASS_DEFAULT,
-      SERVER_NAME,
-      IPADDR
+      wirelessAP, station,
+      OLED, otaUpdates, Creds,
+      SERVER_PASS_DEFAULT, SERVER_NAME, IPADDR
       );
   }
 
-  // This serves to clear errors displayed on the OLED. Typically the OLED
-  // displays the network data and free memory. In the event of an error, that 
-  // will be blocked, and if the override status == true, this will set a reminder
-  // to clear it in n amount of milliseconds to allow normal funtioning again.
+  // Sets timer to clear OLED error after 5 second display.
   if (OLED.getOverrideStat() == true) {
     if(clearError.setReminder(5000) == true) {
       OLED.setOverrideStat(false);
     } 
   }
 
-  Network.handleServer();
+  station.handleServer();
 }
 
 

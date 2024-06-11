@@ -31,7 +31,7 @@ class OTAupdates {
     bool isUpdating() const;
     bool getHasStarted();
     void setHasStarted(bool value);
-    void manageOTA(Comms::Net* Network);
+    void manageOTA(Comms::Station &station);
 };
 }
 

@@ -3,54 +3,34 @@
 
 namespace networkManager {
 
-void netConstructor(
-    bool isDefault, 
-    Comms::Net &Network,
-    UI::Display &OLED,
-    FlashWrite::Credentials &Creds,
-    const char* errorMsg, 
-    bool sendMsg
-    ) {
-    char error[50];
-    switch (isDefault) {
-        case true:
-
-            if (sendMsg == true) {
-            strcpy(error, errorMsg);
-            OLED.displayError(error);
-            }
-            break;
-
-        case false:
-        Network.setWAPpass(Creds.getWAPpass());
-    }
-}
-
-void initializeNet(
-    bool defaultSwitch, 
-    FlashWrite::Credentials &Creds, 
-    Comms::Net &Network, 
+void initializeWAP(
+    bool defaultSwitch, FlashWrite::Credentials &Creds, 
+    Comms::WirelessAP &wirelessAP, Comms::Station &station,
     UI::Display &OLED
-) {
+    ) {    
+    
+    char msg[50];
     switch (defaultSwitch) {
         case false:
-        netConstructor(
-            true, 
-            Network,
-            OLED,
-            Creds,
-            "Default Mode"
-            ); break;
+        strcpy(msg, "Default Mode");
+        OLED.displayError(msg); break;
 
-        // INIT THE WAP PASS HERE Using CREDS
         case true:
-        Creds.read("WAPpass"); // sets the WAPpass array
+        Creds.read("WAPpass"); 
+
+        // Changes default password if one is saved in the NVS.
         if (Creds.getWAPpass()[0] != '\0') {
-        netConstructor(false, Network, OLED, Creds, "");
+            wirelessAP.setWAPpass(Creds.getWAPpass());
+
         } else {
-        netConstructor(true, Network, OLED, Creds, "Set WAP Pass");
+            strcpy(msg, "Set WAP Pass");
+            OLED.displayError(msg);
         }
     }
+
+    // After initialization, sets up server routes
+    wirelessAP.setRoutes(OLED, Creds);
+    station.setRoutes(OLED, Creds);
 }
 
 void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
@@ -60,13 +40,10 @@ void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
 }
 
 void displayWAPstatus(
-    UI::Display &OLED, 
-    const char* serverName,
-    const char* ipaddr,
-    bool conStat, 
-    const char* WAPtype, 
-    bool updatingStatus, 
-    const char* heapHealth) {
+    UI::Display &OLED, const char* serverName,
+    const char* ipaddr, bool conStat, const char* WAPtype, 
+    bool updatingStatus, const char* heapHealth
+    ) {
 
     char conStatus[4]; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
@@ -74,15 +51,14 @@ void displayWAPstatus(
     }
 
 void displaySTAstatus(
-    UI::Display &OLED, 
-    bool conStat, 
-    Comms::STAdetails details, 
-    bool updatingStatus, 
-    const char* heapHealth) {
-    
+    UI::Display &OLED, bool conStat, 
+    Comms::STAdetails &details, bool updatingStatus, 
+    const char* heapHealth
+    ) {
+        
     char conStatus[4]; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
-    OLED.printSTA(&details, conStatus, updatingStatus, heapHealth);
+    OLED.printSTA(details, conStatus, updatingStatus, heapHealth);
     }
 
 void getHeapHealth(char* heapHealth) {
@@ -90,24 +66,26 @@ void getHeapHealth(char* heapHealth) {
     sprintf(heapHealth, "%d%%", freeHeap);
 }
 
+// Displays the current state of the wifi connection or broadcast. This is also
+// the function responsible for running the WAP, WAP Setup, or STA mode based on
+// the position of the toggle switch.
 void handleWifiMode(
-    Comms::Net &Network, 
-    UI::Display &OLED,
-    UpdateSystem::OTAupdates &otaUpdates,
-    FlashWrite::Credentials &Creds,
-    const char* serverPassDefault,
-    const char* serverName,
-    const char* ipaddr
+    Comms::WirelessAP &wirelessAP, Comms::Station &station,
+    UI::Display &OLED, UpdateSystem::OTAupdates &otaUpdates,
+    FlashWrite::Credentials &Creds, const char* serverPassDefault,
+    const char* serverName, const char* ipaddr
     ) {
+
     char WAPtype[20];
     char heapHealth[10];
 
     // compares to the current set WAP password, if it == the default, then 
     // the OLED will display the (DEF) follwoing the WAP type. This will disappear
     // when the AP_Pass is reset. It allows dynamic chaning.
-    bool isWapDef = (strcmp(Network.getWAPpass(), serverPassDefault) == 0);
+    bool isWapDef = (strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0);
+
     uint8_t wifiMode = Comms::wifiModeSwitch(); // checks toggle position
-    bool updatingStatus = otaUpdates.isUpdating(); 
+    bool updatingStatus = otaUpdates.isUpdating(); // checks if OTA is updating
     bool conStat = false; // connected status to the WAP or STA
 
     setWAPtype(WAPtype, wifiMode, isWapDef);
@@ -115,22 +93,17 @@ void handleWifiMode(
 
     switch(wifiMode) {
         case WAP_ONLY:
-        conStat = Network.WAP(OLED, Creds);
+        conStat = wirelessAP.WAP(OLED, Creds);
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
         case WAP_SETUP:
-        conStat = Network.WAPSetup(OLED, Creds);
+        conStat = wirelessAP.WAPSetup(OLED, Creds);
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
         case STA_ONLY:
-        conStat = Network.STA(OLED, Creds);
-        Comms::STAdetails details = Network.getSTADetails();
+        conStat = station.STA(OLED, Creds);
+        Comms::STAdetails details = station.getSTADetails();
         displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
     }
 }
-
-
-
-
-
 }

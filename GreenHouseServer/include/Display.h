@@ -28,12 +28,14 @@ class Display : public IDisplay {
 		bool updating,
 		const char heap[10]);
 	void printSTA(
-		Comms::STAdetails* details, 
+		Comms::STAdetails &details, 
 		const char status[4], 
 		bool updating,
 		const char heap[10]);
 	void printUpdates(char* update);
 	void updateProgress(char* progress);
+
+	// this is meant for errors, but can also be used for system messages
 	void displayError(char* error) override; // inherits from IDisplay
 	bool getOverrideStat();
 	void setOverrideStat(bool setting); // allows error display

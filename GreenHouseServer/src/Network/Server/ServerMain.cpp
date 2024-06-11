@@ -1,14 +1,17 @@
 #include "Network.h"
 
 namespace Comms {
-    
-void Net::handleIndex() {
-    if (this->prevServerType == WAP_ONLY) {
-        server.send(200, "text/html", "THIS IS WAP ONLY");
-    } else if (this->prevServerType == WAP_SETUP) {
-        server.send(200, "text/html", WAPsetup);
-    } else if (this->prevServerType == STA_ONLY) {
-        server.send(200, "text/html", "THIS IS STATION ONLY");
+
+// This is the main controller. This will serve roughly the same page for 
+// WAP_ONLY and STA_ONLY, with a few functionalities gone due to the 
+// connection to Internet.
+void NetMain::handleIndex() {
+    if (NetMain::prevServerType == WAP_ONLY) {
+        NetMain::server.send(200, "text/html", "THIS IS WAP ONLY");
+    } else if (NetMain::prevServerType == WAP_SETUP) {
+        NetMain::server.send(200, "text/html", WAPsetup);
+    } else if (NetMain::prevServerType == STA_ONLY) {
+        NetMain::server.send(200, "text/html", "THIS IS STATION ONLY");
     }
 }
 }
