@@ -86,10 +86,4 @@ uint8_t wifiModeSwitch() {
         return NO_WIFI; 
     }
 }
-
-
-
-
-
-
 }

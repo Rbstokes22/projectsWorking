@@ -40,10 +40,10 @@ void WirelessAP::commitAndRespond(
     if (strcmp(type, "WAPpass") == 0) {
         WiFi.disconnect(); // Resets after setting WAP password
         WiFi.mode(WIFI_AP);
-        WiFi.softAPConfig(local_IP, gateway, subnet);
+        WiFi.softAPConfig(this->local_IP, this->gateway, this->subnet);
 
         // Uses new pass setup in the handleJson method
-        WiFi.softAP(AP_SSID, AP_PASS, 1, 0, 1); // Allows 1 connection for security
+        WiFi.softAP(this->AP_SSID, this->AP_PASS, 1, 0, 1); // Allows 1 connection for security
     }
 }
 

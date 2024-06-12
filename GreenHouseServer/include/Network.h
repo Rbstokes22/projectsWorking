@@ -68,8 +68,11 @@ class NetMain { // Abstract class
     NetMain();
     virtual ~NetMain();
 
-    // Network/Server/ServerStart.cpp
+    // Network/Routes.cpp
     virtual void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) = 0;
+
+    // Network/Server/ServerStart.cpp
+    
     void startServer();
     void handleNotFound();
     void handleServer();
@@ -99,7 +102,7 @@ class WirelessAP : public NetMain {
     const char* getWAPpass();
     void setWAPpass(const char* pass);
     
-    // Network/Server/ServerStart.cpp
+    // Network/Routes.cpp
     void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) override;
 
     // Network/Server/ServerWapSubmit.cpp
@@ -124,8 +127,10 @@ class Station : public NetMain {
     // Network/NetworkMain.cpp
     Station();
 
-    // Network/Server/Server/ServerStart.cpp
+    // Network/Routes.cpp
     void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) override;
+
+    // Network/Server/Server/ServerStart.cpp
     STAdetails getSTADetails(); 
     uint8_t STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
     bool isSTAconnected(); // used to start OTA updates

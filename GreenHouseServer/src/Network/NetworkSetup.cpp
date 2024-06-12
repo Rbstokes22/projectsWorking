@@ -77,15 +77,15 @@ uint8_t Station::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
             strncpy(NetMain::ST_PASS, Creds.getPASS(), sizeof(NetMain::ST_PASS) - 1);
             NetMain::ST_PASS[sizeof(NetMain::ST_PASS) - 1] = '\0';
 
-            strncpy(this->phone, Creds.getPhone(), sizeof(this->phone) - 1);
-            this->phone[sizeof(this->phone) - 1] = '\0';
+            strncpy(NetMain::phone, Creds.getPhone(), sizeof(NetMain::phone) - 1);
+            NetMain::phone[sizeof(NetMain::phone) - 1] = '\0';
         } 
         
         // Non-blocking, if it doesnt connect, the OLED will show that. This
         // is to avoid a blocking station connection preventing access to the 
         // wireless AP.
-        WiFi.begin(this->ST_SSID, this->ST_PASS);
-        if (!this->isServerRunning) this->startServer();
+        WiFi.begin(NetMain::ST_SSID, NetMain::ST_PASS);
+        if (!NetMain::isServerRunning) this->startServer();
 
         if (WiFi.status() == WL_CONNECTED) {
             if (!MDNSrunning) {

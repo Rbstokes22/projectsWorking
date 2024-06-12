@@ -1,6 +1,5 @@
 #include "NetworkManager.h"
 
-
 namespace networkManager {
 
 void initializeWAP(
@@ -55,7 +54,7 @@ void displaySTAstatus(
     Comms::STAdetails &details, bool updatingStatus, 
     const char* heapHealth
     ) {
-        
+
     char conStatus[4]; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
     OLED.printSTA(details, conStatus, updatingStatus, heapHealth);
@@ -101,7 +100,8 @@ void handleWifiMode(
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
         case STA_ONLY:
-        conStat = station.STA(OLED, Creds);
+        // bool checks if it is running
+        conStat = (station.STA(OLED, Creds) == WIFI_RUNNING);
         Comms::STAdetails details = station.getSTADetails();
         displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
     }
