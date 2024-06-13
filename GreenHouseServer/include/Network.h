@@ -38,7 +38,6 @@ struct STAdetails {
     char SSID[32];
     char IPADDR[16];
     char signalStrength[16];
-    bool connectedToSTA;
 };
 
 // Most variables are declared as static since they must be shared between

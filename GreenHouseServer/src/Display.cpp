@@ -5,10 +5,10 @@
 namespace UI {
 // Constructor 
 Display::Display(uint8_t width, uint8_t height) :
-    display(width, height, &Wire, -1), 
-    displayOverride(false),
-    width(width), 
-    height(height){}
+    display{width, height, &Wire, -1}, 
+    displayOverride{false},
+    width{width}, 
+    height{height}{}
 
 // Initialization and startup
 void Display::init() {
@@ -133,7 +133,7 @@ void Display::displayError(char* error) {  // doesnt need to repeate overide, de
 }
 
 bool Display::getOverrideStat() {
-    return this-> displayOverride;
+    return this->displayOverride;
 }
 
 void Display::setOverrideStat(bool setting) {

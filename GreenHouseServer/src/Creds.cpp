@@ -4,7 +4,7 @@
 namespace FlashWrite {
 
 Credentials::Credentials(const char* nameSpace, UI::IDisplay &OLED) : 
-    nameSpace(nameSpace), OLED(OLED) {
+    nameSpace{nameSpace}, OLED{OLED} {
 
     // sets the arrays to all 0's for the length of the MAX or array length
     memset(ssid, 0, SSID_MAX);
@@ -16,7 +16,7 @@ Credentials::Credentials(const char* nameSpace, UI::IDisplay &OLED) :
 // Writes the key value pair to the NVS.
 bool Credentials::write(const char* type, const char* buffer) {
     this->prefs.begin(this->nameSpace);
-    uint16_t bytesWritten = 0;
+    uint16_t bytesWritten{0};
     bytesWritten = this->prefs.putString(type, buffer);
     this->setChecksum(); // Will end in the checksum block
   
@@ -28,7 +28,7 @@ bool Credentials::write(const char* type, const char* buffer) {
 // arrays.
 void Credentials::read(const char* type) {
     this->prefs.begin(this->nameSpace);
-    char error[30] = "Possible Corrupt Data";
+    char error[30]{"Possible Corrupt Data"};
 
     if (!this->getChecksum()) {
         OLED.displayError(error);
@@ -52,16 +52,16 @@ void Credentials::read(const char* type) {
 // Iterates all the values
 void Credentials::setChecksum() {
     this->prefs.begin(this->nameSpace);
-    uint32_t totalSize = 0;
-    char buffer[75];
-    const char* keys[] = {"ssid", "pass", "phone", "WAPpass"};
-    size_t numKeys = sizeof(keys) / sizeof(keys[0]);
-    size_t bufferMax = sizeof(buffer) - 1;
+    uint32_t totalSize{0};
+    char buffer[75]{};
+    const char* keys[]{"ssid", "pass", "phone", "WAPpass"};
+    size_t numKeys{sizeof(keys) / sizeof(keys[0])};
+    size_t bufferMax{sizeof(buffer) - 1};
 
     for (size_t i = 0; i < numKeys; i++) {
         strncpy(buffer, this->prefs.getString(keys[i], "").c_str(), bufferMax);
         buffer[bufferMax] = '\0';
-        size_t length = strlen(buffer);
+        size_t length{strlen(buffer)};
 
         for (int j = 0; j < length; j++) {
             totalSize += static_cast<unsigned char>(buffer[j]);
@@ -74,18 +74,18 @@ void Credentials::setChecksum() {
 
 bool Credentials::getChecksum() {
     this->prefs.begin(this->nameSpace);
-    uint32_t totalSize = 0;
-    uint8_t checksum = 0;
-    uint8_t storedChecksum = 0;
-    char buffer[75];
-    const char* keys[] = {"ssid", "pass", "phone", "WAPpass"};
-    size_t numKeys = sizeof(keys) / sizeof(keys[0]);
-    size_t bufferMax = sizeof(buffer) - 1;
+    uint32_t totalSize{0};
+    uint8_t checksum{0};
+    uint8_t storedChecksum{0};
+    char buffer[75]{};
+    const char* keys[]{"ssid", "pass", "phone", "WAPpass"};
+    size_t numKeys{sizeof(keys) / sizeof(keys[0])};
+    size_t bufferMax{sizeof(buffer) - 1};
 
     for (size_t i = 0; i < numKeys; i++) {
         strncpy(buffer, this->prefs.getString(keys[i], "").c_str(), bufferMax);
         buffer[bufferMax] = '\0';
-        size_t length = strlen(buffer);
+        size_t length{strlen(buffer)};
 
         for (int j = 0; j < length; j++) {
             totalSize += static_cast<unsigned char>(buffer[j]);

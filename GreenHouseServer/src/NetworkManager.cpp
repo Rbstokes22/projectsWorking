@@ -8,7 +8,7 @@ void initializeWAP(
     UI::Display &OLED
     ) {    
     
-    char msg[50];
+    char msg[50]{};
     switch (defaultSwitch) {
         case false:
         strcpy(msg, "Default Mode");
@@ -33,8 +33,8 @@ void initializeWAP(
 }
 
 void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
-    const char* mode = (wifiMode == WAP_ONLY) ? "WAP" : "WAP SETUP";
-    const char* suffix = (isWapDef) ? " (DEF)" : "";
+    const char* mode{(wifiMode == WAP_ONLY) ? "WAP" : "WAP SETUP"};
+    const char* suffix{(isWapDef) ? " (DEF)" : ""};
     sprintf(WAPtype, "%s%s", mode, suffix);
 }
 
@@ -44,7 +44,7 @@ void displayWAPstatus(
     bool updatingStatus, const char* heapHealth
     ) {
 
-    char conStatus[4]; // connected status
+    char conStatus[4]{}; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
     OLED.printWAP(serverName, ipaddr, conStatus, WAPtype, updatingStatus, heapHealth);
     }
@@ -55,13 +55,13 @@ void displaySTAstatus(
     const char* heapHealth
     ) {
 
-    char conStatus[4]; // connected status
+    char conStatus[4]{}; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
     OLED.printSTA(details, conStatus, updatingStatus, heapHealth);
     }
 
 void getHeapHealth(char* heapHealth) {
-    size_t freeHeap = (ESP.getFreeHeap() * 100 ) / startupHeap; // percentage
+    size_t freeHeap{(ESP.getFreeHeap() * 100 ) / startupHeap}; // percentage
     sprintf(heapHealth, "%d%%", freeHeap);
 }
 
@@ -75,17 +75,17 @@ void handleWifiMode(
     const char* serverName, const char* ipaddr
     ) {
 
-    char WAPtype[20];
-    char heapHealth[10];
+    char WAPtype[20]{};
+    char heapHealth[10]{};
 
     // compares to the current set WAP password, if it == the default, then 
     // the OLED will display the (DEF) follwoing the WAP type. This will disappear
     // when the AP_Pass is reset. It allows dynamic chaning.
-    bool isWapDef = (strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0);
+    bool isWapDef{(strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0)};
 
-    uint8_t wifiMode = Comms::wifiModeSwitch(); // checks toggle position
-    bool updatingStatus = otaUpdates.isUpdating(); // checks if OTA is updating
-    bool conStat = false; // connected status to the WAP or STA
+    uint8_t wifiMode{Comms::wifiModeSwitch()}; // checks toggle position
+    bool updatingStatus{otaUpdates.isUpdating()}; // checks if OTA is updating
+    bool conStat{false}; // connected status to the WAP or STA
 
     setWAPtype(WAPtype, wifiMode, isWapDef);
     getHeapHealth(heapHealth);
@@ -102,7 +102,7 @@ void handleWifiMode(
         case STA_ONLY:
         // bool checks if it is running
         conStat = (station.STA(OLED, Creds) == WIFI_RUNNING);
-        Comms::STAdetails details = station.getSTADetails();
+        Comms::STAdetails details{station.getSTADetails()};
         displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
     }
 }

@@ -7,10 +7,10 @@ namespace UpdateSystem {
 // The reference to the sensorThread is passed to suspend the thread during 
 // OTA updates
 OTAupdates::OTAupdates(UI::Display &OLED, Threads::SensorThread &sensorThread) : 
-OTAisUpdating(false), 
-OLED(OLED), 
-sensorThread(sensorThread),
-hasStarted(false) {
+OTAisUpdating{false}, 
+OLED{OLED}, 
+sensorThread{sensorThread},
+hasStarted{false} {
     memset(buffer, 0, sizeof(buffer));
 }
 
@@ -34,7 +34,7 @@ void OTAupdates::start(){
 
     // use sprint f for the integers into the char array
     ArduinoOTA.onProgress([&](unsigned int progress, unsigned int total) {
-        unsigned int percentage = (progress * 100) / total;
+        unsigned int percentage{(progress * 100) / total};
         sprintf(this->buffer, "%d%%", percentage);
         OLED.updateProgress(this->buffer);
     });

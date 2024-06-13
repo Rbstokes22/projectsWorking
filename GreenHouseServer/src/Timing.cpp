@@ -4,10 +4,10 @@
 namespace Clock {
 
 Timer::Timer(unsigned long interval) : 
-previousMillis(millis()), 
-interval(interval),
-reminderPreviousMillis(millis()),
-reminderToggle(false){};
+previousMillis{millis()}, 
+interval{interval},
+reminderPreviousMillis{millis()},
+reminderToggle{false}{};
 
 bool Timer::isReady() {
     unsigned long currentMillis = millis();

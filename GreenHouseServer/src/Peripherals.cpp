@@ -43,6 +43,66 @@ void SensorThread::resumeTask() {
 }
 }
 
+namespace Devices {
+
+TempHum::TempHum(uint8_t pin, uint8_t type) : 
+    dht{pin, type}
+{
+    this->dht.begin();
+}
+
+float TempHum::getTemp() {
+    return this->dht.readTemperature();
+}
+
+float TempHum::getHum() {
+    return this->dht.readTemperature();
+}
+
+
+
+
+Light::Light(uint8_t photoResistorPin) : 
+
+currentLight{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+lightAccumulation{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+photoResistorPin(photoResistorPin)
+
+{
+    this->as7341.begin();
+}
+
+
+LightComposition Light::getCurrent() {
+
+}
+
+LightComposition Light::getAccumulation() {
+
+}
+
+void Light::clearAccumulation() {
+    lightAccumulation = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+}
+
+uint16_t Light::getLightIntensity() {
+    return analogRead(this->photoResistorPin);
+}
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
 void handleSensors() {
     as7341.readAllChannels();
     // Serial.println("================================");

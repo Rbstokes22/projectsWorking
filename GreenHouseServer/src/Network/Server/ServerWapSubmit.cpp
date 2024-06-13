@@ -13,8 +13,8 @@ void WirelessAP::commitAndRespond(
     const char* type, FlashWrite::Credentials &Creds, char* buffer
     ) {
 
-    char response[64]; // Will never exceed this limit.
-    JsonDocument res; // this variable is sent back to client as response
+    char response[64]{}; // Will never exceed this limit.
+    JsonDocument res{}; // this variable is sent back to client as response
 
     if (Creds.write(type, buffer)) {
         // If the WAP password has been changed, alerts client to reconnect
@@ -50,9 +50,9 @@ void WirelessAP::commitAndRespond(
 void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     // The largest element coming though will be 64 char array with a 4 char 
     // key. Never expect it to exceed 75 bytes, 100 for padding.
-    char jsonData[100] = "";
-    char buffer[100] = "";
-    JsonDocument jsonDoc;
+    char jsonData[100]{};
+    char buffer[100]{};
+    JsonDocument jsonDoc{};
 
     // The type passed to this will determine which class variable the 
     // data will be assigned to, and copy the buffer data over to it.
@@ -93,8 +93,8 @@ void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) 
     // If this argument exists, it means the body contains JSON. 
     if (NetMain::server.hasArg("plain")) {
         
-        const char* plain = NetMain::server.arg("plain").c_str();
-        size_t plainLength = strlen(plain);
+        const char* plain{NetMain::server.arg("plain").c_str()};
+        size_t plainLength{strlen(plain)};
 
         // Redundancy, this should not ever be an issue for buffer 
         // overflow.
@@ -105,7 +105,7 @@ void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) 
             NetMain::server.send(413, "text/plain", "Payload too large");
         }
 
-        DeserializationError error = deserializeJson(jsonDoc, jsonData);
+        DeserializationError error{deserializeJson(jsonDoc, jsonData)};
 
         // JSON is deserialized and ready for use.
         if (error) { 

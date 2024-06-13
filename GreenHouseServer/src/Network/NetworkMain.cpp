@@ -8,13 +8,13 @@ namespace Comms {
 
 // STATIC VARIABLE DEFINITIONS
 WebServer NetMain::server(80);
-uint8_t NetMain::prevServerType = NO_WIFI;
-bool NetMain::isServerRunning = false;
-bool NetMain::MDNSrunning = false;
-char NetMain::ST_SSID[32];
-char NetMain::ST_PASS[64];
-char NetMain::phone[15];
-bool NetMain::mainServerSetup = false;
+uint8_t NetMain::prevServerType{NO_WIFI};
+bool NetMain::isServerRunning{false};
+bool NetMain::MDNSrunning{false};
+char NetMain::ST_SSID[32]{};
+char NetMain::ST_PASS[64]{};
+char NetMain::phone[15]{};
+bool NetMain::mainServerSetup{false};
 
 // NetMain 
 NetMain::NetMain() {
@@ -32,9 +32,10 @@ WirelessAP::WirelessAP(
     const char* AP_SSID, const char* AP_PASS,
     IPAddress local_IP, IPAddress gateway,
     IPAddress subnet) :
-    local_IP(local_IP),
-    gateway(gateway),
-    subnet(subnet)
+
+    local_IP{local_IP},
+    gateway{gateway},
+    subnet{subnet}
     {
     // Copy the SSID and PASS arguments of this function to the class
     // variables.
@@ -55,15 +56,15 @@ void WirelessAP::setWAPpass(const char* pass) {
 }
 
 // Station
-Station::Station() : connectedToSTA(false) {}
+Station::Station() : connectedToSTA{false} {}
 
 // Provides the OLED with all of the station details, and seems redundant.
 // It is not redundant because it will allow the client to see if there is 
 // an error or something was changed or corrupted.
 STAdetails Station::getSTADetails() {
-    STAdetails details;
+    STAdetails details{"", "", ""};
     strcpy(details.SSID, NetMain::ST_SSID);
-    IPAddress ip = WiFi.localIP();
+    IPAddress ip{WiFi.localIP()};
     sprintf(details.IPADDR, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
     sprintf(details.signalStrength, "%d dBm", WiFi.RSSI());
     return details;
