@@ -3,7 +3,7 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "Network.h" // used for the WAPdetails
+#include "Network/Network.h" // used for the WAPdetails
 #include "IDisplay.h"
 
 // All user interface data and functions

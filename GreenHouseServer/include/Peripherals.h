@@ -13,6 +13,8 @@
 // Soil sensor also needs a calibrator built in for dry and wet
 // Use preferences to store sensor data
 
+// BREAK INTO SEVERAL HEADERS AND SOURCE FILES IN DIR PERIPHERALS
+
 #include <DHT.h>
 #include <Wire.h>
 #include <Adafruit_AS7341.h>
@@ -20,43 +22,28 @@
 #include <freertos/task.h>
 #include "Timing.h"
 
-#define Relay_1_PIN 15
-#define DHT_PIN 25 
-#define Soil_1_PIN 34
-#define Photoresistor_PIN 35
-
-namespace Threads {
-
-class SensorThread {
-    private:
-    TaskHandle_t taskHandle;
-    Clock::Timer &checkSensors;
-    bool isThreadSuspended;
-    
-    public:
-    SensorThread(Clock::Timer &checkSensors);
-    void setupThread();
-    static void sensorTask(void* parameter);
-    void suspendTask();
-    void resumeTask();
+enum PeripheralPins {
+    Relay_1_PIN = 15,
+    DHT_PIN = 25,
+    Soil_1_PIN = 34,
+    Photoresistor_PIN = 35
 };
-
-}
 
 namespace Devices {
 
+// Measured in counts
 struct LightComposition { // hange to uint64_t
-    int violet; //F1 415nm
-    int indigo; //F2 445nm
-    int blue; // F3 480nm
-    int cyan; // F4 515nm
-    int green; // F5 555nm
-    int yellow; // F6 590nm
-    int orange; // F7 630nm
-    int red; // F8 680nm
-    float flicker; // flicker frequency in hz
-    int nir; // near infrared
-    int clear; // broad spectrum light measurement
+    uint64_t violet; //F1 415nm
+    uint64_t indigo; //F2 445nm
+    uint64_t blue; // F3 480nm
+    uint64_t cyan; // F4 515nm
+    uint64_t green; // F5 555nm
+    uint64_t yellow; // F6 590nm
+    uint64_t orange; // F7 630nm
+    uint64_t red; // F8 680nm
+    uint64_t nir; // near infrared
+    uint64_t clear; // broad spectrum light measurement
+    uint64_t flickerHz; // flicker frequency
     uint64_t sampleQuantity;
 };
 
@@ -79,8 +66,11 @@ class Light { // AS7341 & Photoresistor
 
     public:
     Light(uint8_t photoResistorPin);
-    LightComposition getCurrent();
-    LightComposition getAccumulation();
+    void begin();
+    void readAndSet();
+    uint64_t getColor(const char* color);
+    uint64_t getFlicker();
+    void getAccumulation();
     void clearAccumulation();
     uint16_t getLightIntensity();
 };
@@ -98,14 +88,23 @@ class Relay {
     public:
 };
 
+struct SensorObjects {
+  Devices::TempHum &tempHum;
+  Devices::Light &light;
+  Clock::Timer &checkSensors;
 
+  SensorObjects(
+    Devices::TempHum &tempHum, 
+    Devices::Light &light,
+    Clock::Timer &checkSensors);
+};
 
 }
 
 
-void handleSensors();
-
-
-
+void handleSensors(
+    Devices::TempHum &tempHum,
+    Devices::Light &light
+    );
 
 #endif // PERIPHERALS_H

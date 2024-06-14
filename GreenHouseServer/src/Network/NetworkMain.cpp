@@ -1,4 +1,4 @@
-#include "Network.h"
+#include "Network/Network.h"
 #include <WiFi.h>
 
 // This source file provides the general defintions of the NetMain superclass

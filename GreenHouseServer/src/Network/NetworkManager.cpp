@@ -1,4 +1,4 @@
-#include "NetworkManager.h"
+#include "Network/NetworkManager.h"
 
 namespace networkManager {
 
@@ -99,7 +99,7 @@ void handleWifiMode(
         conStat = wirelessAP.WAPSetup(OLED, Creds);
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
-        case STA_ONLY:
+        case WIFI::STA_ONLY:
         // bool checks if it is running
         conStat = (station.STA(OLED, Creds) == WIFI_RUNNING);
         Comms::STAdetails details{station.getSTADetails()};

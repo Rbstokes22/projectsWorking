@@ -6,8 +6,8 @@
 // and then like a daily check for updates.
 
 #include "Display.h"
-#include "Network.h"
-#include "Peripherals.h"
+#include "Network/Network.h"
+#include "Threads.h"
 
 // Used for system updates.
 namespace UpdateSystem {

@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include "Creds.h"
-#include "Network.h"
+#include "Network/Network.h"
 #include "Display.h"
 #include "OTAupdates.h"
 

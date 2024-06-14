@@ -17,17 +17,20 @@
 // quite low. 
 
 // Switches
-#define WAPswitch 16 // Wireless Access Point
-#define STAswitch 17 // Station
-#define defaultWAPSwitch 4 // button to start WAP with default password
+enum NetworkPins {
+    WAPswitch = 16, // Wireless Access Point
+    STAswitch = 17, // Station
+    defaultWAPSwitch = 4 // button to start WAP with default password
+};
 
-// Keywords
-#define WAP_ONLY 0
-#define WAP_SETUP 1
-#define STA_ONLY 2
-#define NO_WIFI 255
-#define WIFI_STARTING 4
-#define WIFI_RUNNING 5
+enum WIFI { // Wifi keywords
+    WAP_ONLY,
+    WAP_SETUP,
+    STA_ONLY,
+    NO_WIFI,
+    WIFI_STARTING,
+    WIFI_RUNNING
+};
 
 // Communications namespace applies to the Network and servers in this 
 // header and source files.

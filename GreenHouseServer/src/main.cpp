@@ -10,10 +10,11 @@
 #include <Wire.h>
 #include "Display.h"
 #include "Timing.h"
-#include "Network.h"
-#include "NetworkManager.h"
+#include "Network/Network.h"
+#include "Network/NetworkManager.h"
 #include "OTAupdates.h"
 #include "Creds.h"
+#include "Threads.h"
 #include "Peripherals.h"
 
 // If changes to the servername are ever made, update the display printWAP 
@@ -40,15 +41,19 @@ FlashWrite::Credentials Creds{"Network", OLED};
 
 // Timer objects pass in the interval of reset
 Clock::Timer checkWifiModeSwitch{1000}; 
-Clock::Timer checkSensors{1000}; 
+Clock::Timer checkSensors{10000}; 
 Clock::Timer clearError{0}; // Used to clear OLED screen after errors
 
-Threads::SensorThread sensorThread{checkSensors};
+// Devices and threads
+Devices::TempHum tempHum{DHT_PIN, DHT22};
+Devices::Light light{Photoresistor_PIN};  
+
+// Starts thread of sensors
+Devices::SensorObjects sensorObjects{tempHum, light, checkSensors};
+Threads::SensorThread sensorThread{sensorObjects};
 
 UpdateSystem::OTAupdates otaUpdates{OLED, sensorThread};
 
-Devices::TempHum thermo{DHT_PIN, DHT22};
-Devices::Light light{Photoresistor_PIN};
 
 size_t networkManager::startupHeap = 0;
 
@@ -62,6 +67,8 @@ void setup() {
   pinMode(Photoresistor_PIN, INPUT);
 
   Wire.begin(); // Setup the i2c bus. 
+  light.begin(); // must call after Wire.begin();
+
   Serial.begin(115200); // delete when finished
 
   OLED.init(); // starts the OLED and displays 
