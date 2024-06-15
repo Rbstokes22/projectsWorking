@@ -18,8 +18,6 @@
 #include <DHT.h>
 #include <Wire.h>
 #include <Adafruit_AS7341.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include "Timing.h"
 
 enum PeripheralPins {
@@ -47,17 +45,13 @@ struct LightComposition { // hange to uint64_t
     uint64_t sampleQuantity;
 };
 
-class TempHum { // DHT-22
-    private:
-    DHT dht;
-
+class Sensors {
     public:
-    TempHum(uint8_t pin, uint8_t type);
-    float getTemp();
-    float getHum();
+    virtual void handleSensors() = 0;
+    virtual ~Sensors();
 };
 
-class Light { // AS7341 & Photoresistor
+class Light : public Sensors { // AS7341 & Photoresistor
     private:
     Adafruit_AS7341 as7341;
     LightComposition currentLight;
@@ -73,6 +67,24 @@ class Light { // AS7341 & Photoresistor
     void getAccumulation();
     void clearAccumulation();
     uint16_t getLightIntensity();
+    void handleSensors() override;
+};
+
+class TempHum : public Sensors { // DHT-22
+    private:
+    DHT dht;
+    float Temp;
+    float Hum;
+    static const float ERR;
+    uint8_t maxRetries; // used for error handling in temp/hum
+
+    public:
+    TempHum(uint8_t pin, uint8_t type, uint8_t maxRetries);
+    void setTemp();
+    void setHum();
+    float getTemp(char tempUnits = 'C');
+    float getHum();
+    void handleSensors() override;
 };
 
 class Soil {
@@ -88,23 +100,7 @@ class Relay {
     public:
 };
 
-struct SensorObjects {
-  Devices::TempHum &tempHum;
-  Devices::Light &light;
-  Clock::Timer &checkSensors;
-
-  SensorObjects(
-    Devices::TempHum &tempHum, 
-    Devices::Light &light,
-    Clock::Timer &checkSensors);
-};
 
 }
-
-
-void handleSensors(
-    Devices::TempHum &tempHum,
-    Devices::Light &light
-    );
 
 #endif // PERIPHERALS_H

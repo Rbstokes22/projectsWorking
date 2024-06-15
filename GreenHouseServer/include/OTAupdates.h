@@ -20,12 +20,16 @@ class OTAupdates {
     // instead of relying on cached data.
     volatile bool OTAisUpdating;
     UI::Display &OLED; // reference to OLED from main
-    Threads::SensorThread &sensorThread;
+    Threads::SensorThread &tempHum;
     char buffer[32];
     bool hasStarted;
 
     public:
-    OTAupdates(UI::Display &OLED, Threads::SensorThread &sensorThread);
+    OTAupdates(
+        UI::Display &OLED, 
+        Threads::SensorThread &tempHum        
+        );
+    void handleThreads(bool suspend);
     void start();
     void handle();
     bool isUpdating() const;

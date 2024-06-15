@@ -4,18 +4,24 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "Peripherals.h"
+#include "Timing.h"
 
 namespace Threads {
+
+struct ThreadData {
+    Devices::Sensors &sensor;
+    Clock::Timer &sampleInterval;
+
+    ThreadData(Devices::Sensors &sensor, Clock::Timer &sampleInterval);
+};
 
 class SensorThread {
     private:
     TaskHandle_t taskHandle;
-    Devices::SensorObjects &sensorObjects;
-    bool isThreadSuspended;
     
     public:
-    SensorThread(Devices::SensorObjects &sensorObjects);
-    void setupThread();
+    SensorThread();
+    void initThread(ThreadData &data);
     static void sensorTask(void* parameter);
     void suspendTask();
     void resumeTask();

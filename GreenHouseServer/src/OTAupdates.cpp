@@ -6,12 +6,26 @@ namespace UpdateSystem {
 
 // The reference to the sensorThread is passed to suspend the thread during 
 // OTA updates
-OTAupdates::OTAupdates(UI::Display &OLED, Threads::SensorThread &sensorThread) : 
-OTAisUpdating{false}, 
-OLED{OLED}, 
-sensorThread{sensorThread},
-hasStarted{false} {
+OTAupdates::OTAupdates(
+    UI::Display &OLED, 
+    Threads::SensorThread &tempHum
+    ) : 
+    OTAisUpdating{false}, 
+    OLED{OLED}, 
+    tempHum{tempHum},
+    hasStarted{false} {
     memset(buffer, 0, sizeof(buffer));
+}
+
+void OTAupdates::handleThreads(bool suspend) {
+    switch(suspend) {
+        case true:
+        tempHum.suspendTask();
+        break;
+
+        case false:
+        tempHum.resumeTask();
+    }
 }
 
 void OTAupdates::start(){
@@ -19,7 +33,7 @@ void OTAupdates::start(){
     // Initialize the handlers
     ArduinoOTA.onStart([this]() {
         this->OTAisUpdating = true;
-        this->sensorThread.suspendTask(); // Stops thread to prevent interference
+        this->handleThreads(true); // suspend threads
         
         // This will differentiate between updating on your pc, and firmware
         // udpates downloaded online.
@@ -44,7 +58,7 @@ void OTAupdates::start(){
         strcpy(this->buffer, "Complete");
         OLED.printUpdates(this->buffer); 
         this->OTAisUpdating = false;
-        this->sensorThread.resumeTask();
+        this->handleThreads(false); // resumes thread tasks
     });
 
     ArduinoOTA.onError([&](ota_error_t error) {
@@ -67,7 +81,7 @@ void OTAupdates::start(){
 
         OLED.printUpdates(buffer);
         this->OTAisUpdating = false;
-        this->sensorThread.resumeTask();
+        this->handleThreads(false); // resumes thread tasks
     });
 
     ArduinoOTA.begin();

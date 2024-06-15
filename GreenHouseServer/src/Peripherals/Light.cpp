@@ -2,20 +2,6 @@
 
 namespace Devices {
 
-TempHum::TempHum(uint8_t pin, uint8_t type) : 
-    dht{pin, type}
-{
-    this->dht.begin();
-}
-
-float TempHum::getTemp() {
-    return this->dht.readTemperature();
-}
-
-float TempHum::getHum() {
-    return this->dht.readHumidity();
-}
-
 Light::Light(uint8_t photoResistorPin) : 
 
 currentLight{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -82,49 +68,9 @@ uint16_t Light::getLightIntensity() {
     return analogRead(this->photoResistorPin);
 }
 
-SensorObjects::SensorObjects(
-    Devices::TempHum &tempHum,
-    Devices::Light &light,
-    Clock::Timer &checkSensors) : 
-
-    tempHum{tempHum}, light{light}, checkSensors{checkSensors}{}
-
+void Light::handleSensors() {
+    
 }
 
-void handleSensors(
-    Devices::TempHum &tempHum, Devices::Light &light
-    ) { 
-    Serial.println("--------------------------");
-    light.readAndSet();
-    Serial.print("Temp: "); Serial.println(tempHum.getTemp());
-    Serial.print("Hum: "); Serial.println(tempHum.getHum());
-    Serial.print("Red: "); Serial.println(light.getColor("red"));
-    // light.readAndSet();
-    // Serial.print("red counts: "); Serial.println(light.getColor("red"));
-    // Serial.print("nir counts: "); Serial.println(light.getColor("nir"));
-    // Serial.print("Temp: "); Serial.println(tempHum.getTemp());
-    // Serial.print("Hum: "); Serial.println(tempHum.getHum());
-
-
-
-
-    // as7341.readAllChannels();
-    // Serial.println("================================");
-    // Serial.print("Photo: "); Serial.println(analogRead(Photoresistor_PIN));
-    // Serial.print("TEMP: "); Serial.println(dht.readTemperature());
-    // Serial.print("HUM: "); Serial.println(dht.readHumidity());
-    // Serial.print("Soil1: "); Serial.println((analogRead(Soil_1_PIN)));
-
-
-    // Serial.print("F1: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
-    // Serial.print("F2: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_445nm_F2));
-    // Serial.print("F3: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_480nm_F3));
-    // Serial.print("F4: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_515nm_F4));
-    // Serial.print("F5: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_555nm_F5));
-    // Serial.print("F6: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_590nm_F6));
-    // Serial.print("F7: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_630nm_F7));
-    // Serial.print("F8: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_680nm_F8));
-    // Serial.print("Clear: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_CLEAR));
-    // Serial.print("NIR: "); Serial.println(as7341.getChannel(AS7341_CHANNEL_NIR));
 
 }

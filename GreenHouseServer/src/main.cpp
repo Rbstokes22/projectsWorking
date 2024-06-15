@@ -41,18 +41,24 @@ FlashWrite::Credentials Creds{"Network", OLED};
 
 // Timer objects pass in the interval of reset
 Clock::Timer checkWifiModeSwitch{1000}; 
-Clock::Timer checkSensors{10000}; 
+Clock::Timer checkTempHum{10000};
+Clock::Timer checkLight{5000};
+// Clock::Timer checkSensors{10000}; 
 Clock::Timer clearError{0}; // Used to clear OLED screen after errors
 
 // Devices and threads
-Devices::TempHum tempHum{DHT_PIN, DHT22};
+Devices::TempHum tempHum{DHT_PIN, DHT22, 3};
 Devices::Light light{Photoresistor_PIN};  
 
-// Starts thread of sensors
-Devices::SensorObjects sensorObjects{tempHum, light, checkSensors};
-Threads::SensorThread sensorThread{sensorObjects};
+// Thread setups to keep sensors independent from eachother and main
+// ADD MUTEXS
+Threads::ThreadData THDATAtempHum{tempHum, checkTempHum};
+Threads::SensorThread THtempHum;
 
-UpdateSystem::OTAupdates otaUpdates{OLED, sensorThread};
+// Send all threads to OTA updates to suspend and resume threads during updates
+UpdateSystem::OTAupdates otaUpdates{
+  OLED, THtempHum
+  };
 
 
 size_t networkManager::startupHeap = 0;
@@ -72,7 +78,9 @@ void setup() {
   Serial.begin(115200); // delete when finished
 
   OLED.init(); // starts the OLED and displays 
-  sensorThread.setupThread();
+
+  // Initialize and start all threads
+  THtempHum.initThread(THDATAtempHum);
 
   networkManager::initializeWAP(
     digitalRead(defaultWAPSwitch), Creds, 
