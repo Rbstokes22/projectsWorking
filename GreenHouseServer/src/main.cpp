@@ -36,54 +36,57 @@ Comms::WirelessAP wirelessAP = {
 };
 
 Comms::Station station;
-
 FlashWrite::Credentials Creds{"Network", OLED};
-
-// Timer objects pass in the interval of reset
-Clock::Timer checkWifiModeSwitch{1000}; 
-Clock::Timer checkTempHum{10000};
-Clock::Timer checkLight{5000};
-// Clock::Timer checkSensors{10000}; 
+Clock::Timer checkWifiModeSwitch{1000}; // Wifi mode switch position
 Clock::Timer clearError{0}; // Used to clear OLED screen after errors
 
-// Devices and threads
-Devices::TempHum tempHum{DHT_PIN, DHT22, 3};
-Devices::Light light{Photoresistor_PIN};  
+// DEVICES AND THREADS
+Clock::Timer checkTempHum{10000};
+Devices::TempHum tempHum{DEVPIN::DHT, DHT22, 3};
+Threads::ThreadSetting THR_SETtempHum{tempHum, checkTempHum};
 
-// Thread setups to keep sensors independent from eachother and main
-// ADD MUTEXS
-Threads::ThreadData THDATAtempHum{tempHum, checkTempHum};
-Threads::SensorThread THtempHum;
+Clock::Timer checkLight{5000};
+Devices::Light light{DEVPIN::PHOTO, 3};  
+Threads::ThreadSetting THR_SETlight{light, checkLight};
 
-// Send all threads to OTA updates to suspend and resume threads during updates
-UpdateSystem::OTAupdates otaUpdates{
-  OLED, THtempHum
-  };
+Clock::Timer checkSoil{10000}; // WILL BE USED, NOT YET THOUGH
 
+// Struct with all of the created threads settings. This will allow the 
+// class's handleSensors to be called at the sampling rate chosen.
+Threads::ThreadSettingCompilation allThreadSettings{
+  THR_SETtempHum, THR_SETlight
+};
 
-size_t networkManager::startupHeap = 0;
+Threads::SensorThread sensorThread; // Master single thread
+
+// Send thread to OTA to be suspended during OTA updates
+UpdateSystem::OTAupdates otaUpdates{OLED, sensorThread};
+
+size_t networkManager::startupHeap{0};
 
 void setup() {
   networkManager::startupHeap = ESP.getFreeHeap(); 
-  pinMode(WAPswitch, INPUT_PULLUP);  // Wireless Access Point
-  pinMode(STAswitch, INPUT_PULLUP); // Station
-  pinMode(defaultWAPSwitch, INPUT_PULLUP); // default password override
-  pinMode(Relay_1_PIN, OUTPUT);
-  pinMode(Soil_1_PIN, INPUT);
-  pinMode(Photoresistor_PIN, INPUT);
+
+  pinMode(static_cast<int>(NETPIN::WAPswitch), INPUT_PULLUP);  // Wireless Access Point
+  pinMode(static_cast<int>(NETPIN::STAswitch), INPUT_PULLUP); // Station
+  pinMode(static_cast<int>(NETPIN::defaultWAPSwitch), INPUT_PULLUP); // default password override
+  pinMode(static_cast<int>(DEVPIN::RE1), OUTPUT);
+  pinMode(static_cast<int>(DEVPIN::S1), INPUT);
+  pinMode(static_cast<int>(DEVPIN::PHOTO), INPUT);
 
   Wire.begin(); // Setup the i2c bus. 
   light.begin(); // must call after Wire.begin();
+  tempHum.begin();
 
   Serial.begin(115200); // delete when finished
 
   OLED.init(); // starts the OLED and displays 
 
   // Initialize and start all threads
-  THtempHum.initThread(THDATAtempHum);
+  sensorThread.initThread(allThreadSettings);
 
   networkManager::initializeWAP(
-    digitalRead(defaultWAPSwitch), Creds, 
+    digitalRead(static_cast<int>(NETPIN::defaultWAPSwitch)), Creds, 
     wirelessAP, station, OLED
     );
 }

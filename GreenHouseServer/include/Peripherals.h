@@ -9,40 +9,62 @@
 // Photoresistor (To determine if it is day or night)
 
 // NOTES:
-// Set light threshold 400 for dark. make this adjustable. no calib needed
-// Soil sensor also needs a calibrator built in for dry and wet
-// Use preferences to store sensor data
+// For calibrations, show analog readings 0 to 4095. The clients can then
+// choose the value that they want for alerts and or/relay. This doesnt 
+// have to show a physical value, but rather a range graph where they can 
+// drag a slider to.
 
-// BREAK INTO SEVERAL HEADERS AND SOURCE FILES IN DIR PERIPHERALS
+// Create an alerts headers, like threads, that will send alerts on these
+// values. The alerts can be configured near the reading of the sensor,
+// unlike the relays which will be below and have modifiable conditions.
 
 #include <DHT.h>
 #include <Wire.h>
 #include <Adafruit_AS7341.h>
 #include "Timing.h"
 
-enum PeripheralPins {
-    Relay_1_PIN = 15,
-    DHT_PIN = 25,
-    Soil_1_PIN = 34,
-    Photoresistor_PIN = 35
+enum class DEVPIN : uint8_t { // Device pin
+    RE1 = 15, // Relay 1
+    DHT = 25, // DHT 22
+    S1 = 34, // Soil 1
+    PHOTO = 35 // Photo Resistor
 };
 
 namespace Devices {
 
-// Measured in counts
-struct LightComposition { // hange to uint64_t
-    uint64_t violet; //F1 415nm
-    uint64_t indigo; //F2 445nm
-    uint64_t blue; // F3 480nm
-    uint64_t cyan; // F4 515nm
-    uint64_t green; // F5 555nm
-    uint64_t yellow; // F6 590nm
-    uint64_t orange; // F7 630nm
-    uint64_t red; // F8 680nm
-    uint64_t nir; // near infrared
-    uint64_t clear; // broad spectrum light measurement
-    uint64_t flickerHz; // flicker frequency
-    uint64_t sampleQuantity;
+// Used for get color by color instead of index. Example: instead of saying
+// lightComp.data[1] = 33, You can use lightComp.data[INDIGO] = 33.
+enum class COLORINDEX : uint8_t { 
+    VIOLET, // F1 415nm #8B00FF
+    INDIGO, // F2 445nm #4B0082
+    BLUE, // F3 480nm #0000FF
+    CYAN, // F4 515nm #00FFFF
+    GREEN, // F5 555nm #00FF00
+    YELLOW, // F6 590nm #FFFF00
+    ORANGE, // F7 630nm #FFA500
+    RED, // F8 680nm #FF0000
+    NIR, // Near InfraRed #555555
+    CLEAR, // Broad Spectrum Light Measurement
+    FLICKERHZ, // fligher detetion frequency
+    SAMPLES, // Total amount of samples taken, for average accum
+    SIZE // last enum, gives to total count
+};
+
+// Channel map for iteration of the AS7341 channels.
+extern as7341_color_channel_t channelMap[
+    static_cast<uint8_t>(COLORINDEX::SIZE) - 2
+    ];
+
+struct LightComposition {
+    uint16_t data[
+        static_cast<uint8_t>(COLORINDEX::SIZE ) - 2
+        ]; // values from 0 - 65535
+    uint64_t dataAccum[static_cast<uint8_t>(COLORINDEX::SIZE)]; // accum of those values
+
+    LightComposition() {
+        memset(data, 0, static_cast<uint8_t>(COLORINDEX::SIZE) - 1);
+        memset(dataAccum, 0, static_cast<uint8_t>(COLORINDEX::SIZE));
+    }
 };
 
 class Sensors {
@@ -54,17 +76,20 @@ class Sensors {
 class Light : public Sensors { // AS7341 & Photoresistor
     private:
     Adafruit_AS7341 as7341;
-    LightComposition currentLight;
-    LightComposition lightAccumulation;
-    uint8_t photoResistorPin;
+    LightComposition lightComp;
+    DEVPIN photoResistorPin;
+    static const int ERR;
+    uint8_t maxRetries;
+    bool dataCorrupt;
+    bool anyDataCorrupt;
 
     public:
-    Light(uint8_t photoResistorPin);
+    Light(DEVPIN photoResistorPin, uint8_t maxRetries);
     void begin();
     void readAndSet();
-    uint64_t getColor(const char* color);
+    uint64_t getColor(COLORINDEX color);
     uint64_t getFlicker();
-    void getAccumulation();
+    float getAccumulation(COLORINDEX color);
     void clearAccumulation();
     uint16_t getLightIntensity();
     void handleSensors() override;
@@ -79,7 +104,8 @@ class TempHum : public Sensors { // DHT-22
     uint8_t maxRetries; // used for error handling in temp/hum
 
     public:
-    TempHum(uint8_t pin, uint8_t type, uint8_t maxRetries);
+    TempHum(DEVPIN pin, uint8_t type, uint8_t maxRetries);
+    void begin();
     void setTemp();
     void setHum();
     float getTemp(char tempUnits = 'C');
@@ -87,7 +113,7 @@ class TempHum : public Sensors { // DHT-22
     void handleSensors() override;
 };
 
-class Soil {
+class Soil : public Sensors { // Capacitive soil sensor
     private:
 
     public:

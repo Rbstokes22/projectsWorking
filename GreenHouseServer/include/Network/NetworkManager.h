@@ -18,7 +18,7 @@ void initializeWAP(
     );
 
 // Alerts the display if the WAP password is normal or default.
-void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef);
+void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef);
 
 void displayWAPstatus(
     UI::Display &OLED, const char* serverName,

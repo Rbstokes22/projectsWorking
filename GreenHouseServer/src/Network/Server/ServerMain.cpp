@@ -6,11 +6,11 @@ namespace Comms {
 // WAP_ONLY and STA_ONLY, with a few functionalities gone due to the 
 // connection to Internet.
 void NetMain::handleIndex() {
-    if (NetMain::prevServerType == WAP_ONLY) {
+    if (NetMain::prevServerType == WIFI::WAP_ONLY) {
         NetMain::server.send(200, "text/html", "THIS IS WAP ONLY");
-    } else if (NetMain::prevServerType == WAP_SETUP) {
+    } else if (NetMain::prevServerType == WIFI::WAP_SETUP) {
         NetMain::server.send(200, "text/html", WAPsetup);
-    } else if (NetMain::prevServerType == STA_ONLY) {
+    } else if (NetMain::prevServerType == WIFI::STA_ONLY) {
         NetMain::server.send(200, "text/html", "THIS IS STATION ONLY");
     }
 }

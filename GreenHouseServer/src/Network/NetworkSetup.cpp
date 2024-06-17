@@ -15,8 +15,8 @@ namespace Comms {
 // is not connected to the internet.
 bool WirelessAP::WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) { 
     // check if already in AP mode, setup if not
-    if (WiFi.getMode() != WIFI_AP || NetMain::prevServerType != WAP_ONLY) {
-        NetMain::prevServerType = WAP_ONLY;
+    if (WiFi.getMode() != WIFI_AP || NetMain::prevServerType != WIFI::WAP_ONLY) {
+        NetMain::prevServerType = WIFI::WAP_ONLY;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(this->local_IP, this->gateway, this->subnet);
         WiFi.softAP(this->AP_SSID, this->AP_PASS, 1, 0, 4); // Allows 4 connections
@@ -36,8 +36,8 @@ bool WirelessAP::WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
 // this in an unsecured network. 
 bool WirelessAP::WAPSetup(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     // check if already in AP mode, setup if not
-    if (WiFi.getMode() != WIFI_AP || NetMain::prevServerType != WAP_SETUP) {
-        NetMain::prevServerType = WAP_SETUP;
+    if (WiFi.getMode() != WIFI_AP || NetMain::prevServerType != WIFI::WAP_SETUP) {
+        NetMain::prevServerType = WIFI::WAP_SETUP;
         WiFi.mode(WIFI_AP);
         WiFi.softAPConfig(this->local_IP, this->gateway, this->subnet);
         WiFi.softAP(this->AP_SSID, this->AP_PASS, 1, 0, 1); // Allows 1 connection for security
@@ -54,11 +54,11 @@ bool WirelessAP::WAPSetup(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
 // STATION IS THE IDEAL MODE. This is deisgned to allow the user to view the controller
 // webpage from any device connected to the LAN. This will also have access to the internet
 // for SMS updates and alerts, as well as to check for updated firmware. 
-uint8_t Station::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
+WIFI Station::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
     
-    if (WiFi.getMode() != WIFI_STA || NetMain::prevServerType != STA_ONLY) {
+    if (WiFi.getMode() != WIFI_STA || NetMain::prevServerType != WIFI::STA_ONLY) {
         WiFi.mode(WIFI_STA);
-        NetMain::prevServerType = STA_ONLY;
+        NetMain::prevServerType = WIFI::STA_ONLY;
 
         // Checks if SSID/PASS have already been created on the WAP Setup page, which
         // will serve as a redundancy to allow station access if the NVS fails.
@@ -92,10 +92,10 @@ uint8_t Station::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
                 MDNS.begin("esp32"); MDNSrunning = true;
             }
             this->connectedToSTA = true;
-            return WIFI_RUNNING;
+            return WIFI::WIFI_RUNNING;
         } else {
             this->connectedToSTA = false;
-            return WIFI_STARTING;
+            return WIFI::WIFI_STARTING;
         }
     } else {
         // This is essential to the non-blocking WiFi begin. After being
@@ -106,10 +106,10 @@ uint8_t Station::STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
                 MDNS.begin("esp32"); MDNSrunning = true;
             }
             this->connectedToSTA = true;
-            return WIFI_RUNNING;
+            return WIFI::WIFI_RUNNING;
         } else {
             this->connectedToSTA = false;
-            return WIFI_STARTING;
+            return WIFI::WIFI_STARTING;
         }
     }
 }

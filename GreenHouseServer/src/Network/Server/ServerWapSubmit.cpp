@@ -133,7 +133,7 @@ void WirelessAP::handleWAPsubmit(
     UI::IDisplay &OLED, FlashWrite::Credentials &Creds
     ) {
 
-    if (NetMain::prevServerType == WAP_SETUP) {
+    if (NetMain::prevServerType == WIFI::WAP_SETUP) {
         WirelessAP::handleJson(OLED, Creds);
     } else {
         NetMain::server.send(404, "text/html", "UNAUTHORIZED FROM SERVER");

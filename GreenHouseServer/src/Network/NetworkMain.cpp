@@ -8,7 +8,7 @@ namespace Comms {
 
 // STATIC VARIABLE DEFINITIONS
 WebServer NetMain::server(80);
-uint8_t NetMain::prevServerType{NO_WIFI};
+WIFI NetMain::prevServerType{WIFI::NO_WIFI};
 bool NetMain::isServerRunning{false};
 bool NetMain::MDNSrunning{false};
 char NetMain::ST_SSID[32]{};
@@ -73,18 +73,18 @@ STAdetails Station::getSTADetails() {
 // General
 // Checks the position of the 3-way toggle to put the ESP into WAP exclusive,
 // WAP, or Station mode.
-uint8_t wifiModeSwitch() {
-    uint8_t WAP = digitalRead(WAPswitch);
-    uint8_t STA = digitalRead(STAswitch);  
+WIFI wifiModeSwitch() {
+    uint8_t WAP = digitalRead(static_cast<int>(NETPIN::WAPswitch));
+    uint8_t STA = digitalRead(static_cast<int>(NETPIN::STAswitch));  
 
     if (!WAP && STA) { // WAP Exclusive
-        return WAP_ONLY;
+        return WIFI::WAP_ONLY;
     } else if (WAP && STA) { // Middle position, WAP Program mode for STA
-        return WAP_SETUP;
+        return WIFI::WAP_SETUP;
     } else if (!STA && WAP) { // Station mode reading from NVS
-        return STA_ONLY;
+        return WIFI::STA_ONLY;
     } else {
-        return NO_WIFI; 
+        return WIFI::NO_WIFI; 
     }
 }
 }

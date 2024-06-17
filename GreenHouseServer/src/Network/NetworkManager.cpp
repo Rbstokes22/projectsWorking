@@ -32,8 +32,8 @@ void initializeWAP(
     station.setRoutes(OLED, Creds);
 }
 
-void setWAPtype(char* WAPtype, uint8_t wifiMode, bool isWapDef) {
-    const char* mode{(wifiMode == WAP_ONLY) ? "WAP" : "WAP SETUP"};
+void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef) {
+    const char* mode{(wifiMode == WIFI::WAP_ONLY) ? "WAP" : "WAP SETUP"};
     const char* suffix{(isWapDef) ? " (DEF)" : ""};
     sprintf(WAPtype, "%s%s", mode, suffix);
 }
@@ -83,7 +83,7 @@ void handleWifiMode(
     // when the AP_Pass is reset. It allows dynamic chaning.
     bool isWapDef{(strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0)};
 
-    uint8_t wifiMode{Comms::wifiModeSwitch()}; // checks toggle position
+    WIFI wifiMode{Comms::wifiModeSwitch()}; // checks toggle position
     bool updatingStatus{otaUpdates.isUpdating()}; // checks if OTA is updating
     bool conStat{false}; // connected status to the WAP or STA
 
@@ -91,17 +91,17 @@ void handleWifiMode(
     getHeapHealth(heapHealth);
 
     switch(wifiMode) {
-        case WAP_ONLY:
+        case WIFI::WAP_ONLY:
         conStat = wirelessAP.WAP(OLED, Creds);
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
-        case WAP_SETUP:
+        case WIFI::WAP_SETUP:
         conStat = wirelessAP.WAPSetup(OLED, Creds);
         displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
 
         case WIFI::STA_ONLY:
         // bool checks if it is running
-        conStat = (station.STA(OLED, Creds) == WIFI_RUNNING);
+        conStat = (station.STA(OLED, Creds) == WIFI::WIFI_RUNNING);
         Comms::STAdetails details{station.getSTADetails()};
         displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
     }

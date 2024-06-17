@@ -17,13 +17,13 @@
 // quite low. 
 
 // Switches
-enum NetworkPins {
+enum class NETPIN : uint8_t {
     WAPswitch = 16, // Wireless Access Point
     STAswitch = 17, // Station
     defaultWAPSwitch = 4 // button to start WAP with default password
 };
 
-enum WIFI { // Wifi keywords
+enum class WIFI : uint8_t { // WIFI variables to check connection
     WAP_ONLY,
     WAP_SETUP,
     STA_ONLY,
@@ -48,7 +48,7 @@ struct STAdetails {
 class NetMain { // Abstract class
     protected:
     static WebServer server;
-    static uint8_t prevServerType;
+    static WIFI prevServerType;
     static bool MDNSrunning;
     static bool isServerRunning;
 
@@ -134,12 +134,12 @@ class Station : public NetMain {
 
     // Network/Server/Server/ServerStart.cpp
     STAdetails getSTADetails(); 
-    uint8_t STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
+    WIFI STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
     bool isSTAconnected(); // used to start OTA updates
 };
 
 // Network/NetworkMain.cpp
-uint8_t wifiModeSwitch(); // 3-way toggle switch position
+WIFI wifiModeSwitch(); // 3-way toggle switch position
 
 // Network/webPages.cpp
 extern const char WAPsetup[] PROGMEM;
