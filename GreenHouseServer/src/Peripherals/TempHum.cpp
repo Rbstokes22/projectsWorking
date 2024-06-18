@@ -1,12 +1,12 @@
-#include "Peripherals.h"
+#include "Peripherals/TempHum.h"
 
-namespace Devices {
+namespace Peripheral {
 
 Sensors::~Sensors(){}; // define here, doesnt really matter where this is.
 
 const float TempHum::ERR = 999;
 
-TempHum::TempHum(DEVPIN pin, uint8_t type, uint8_t maxRetries) : 
+TempHum::TempHum(PERPIN pin, uint8_t type, uint8_t maxRetries) : 
     dht{static_cast<uint8_t>(pin), type}, maxRetries{maxRetries}{}
 
 void TempHum::begin() {

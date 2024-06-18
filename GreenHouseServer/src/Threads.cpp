@@ -2,14 +2,13 @@
 
 namespace Threads {
 
-ThreadSetting::ThreadSetting(Devices::Sensors &sensor, Clock::Timer &sampleInterval) : 
+ThreadSetting::ThreadSetting(Peripheral::Sensors &sensor, Clock::Timer &sampleInterval) : 
     sensor{sensor}, sampleInterval{sampleInterval}{}
 
 ThreadSettingCompilation::ThreadSettingCompilation (
-    ThreadSetting &tempHum, ThreadSetting &light
-        // ThreadSetting &soil1, ThreadSetting &soil2, // Dont exist yet
-        // ThreadSetting &soil3, ThreadSetting &soil4
-    ) : tempHum(tempHum), light(light){}
+    ThreadSetting &tempHum, ThreadSetting &light,
+    ThreadSetting &soil1
+    ) : tempHum(tempHum), light(light), soil1(soil1){}
 
 SensorThread::SensorThread() : 
     taskHandle{NULL}{}
@@ -37,12 +36,22 @@ void SensorThread::sensorTask(void* parameter) {
     
     while (true) { // FIX FOR EACH SENSOR
         if (settings->tempHum.sampleInterval.isReady()) {
+            settings->tempHum.sensor.lock(); // Mutex Lock
             settings->tempHum.sensor.handleSensors();
+            settings->tempHum.sensor.unlock();
             printFreeStack(); // just use in here to see periodic usage
         }
 
         if (settings->light.sampleInterval.isReady()) {
+            settings->light.sensor.lock(); // Mutex Lock
             settings->light.sensor.handleSensors();
+            settings->light.sensor.unlock();
+        }
+
+        if (settings->soil1.sampleInterval.isReady()) {
+            settings->soil1.sensor.lock();
+            settings->soil1.sensor.handleSensors();
+            settings->soil1.sensor.unlock();
         }
 
         vTaskDelay(pdMS_TO_TICKS(100)); // delays for 100 ms to prevent constant run
