@@ -6,7 +6,13 @@ Sensors::~Sensors(){}; // define here, doesnt really matter where this is.
 
 const float TempHum::ERR = 999;
 
-TempHum::TempHum(PERPIN pin, uint8_t type, uint8_t maxRetries) : 
+TempHum::TempHum(
+    PERPIN pin, 
+    uint8_t type, 
+    uint8_t maxRetries,
+    Messaging::MsgLogHandler &msglogerr) : 
+
+    Sensors(msglogerr),
     dht{static_cast<uint8_t>(pin), type}, maxRetries{maxRetries}{}
 
 void TempHum::begin() {
@@ -59,7 +65,8 @@ float TempHum::getHum() {
 
 void TempHum::handleSensors() {
     this->setTemp(); this->setHum();
-    printf("Temp: %f, Hum: %f\n", this->getTemp(), this->getHum());
+    
+    // printf("Temp: %f, Hum: %f\n", this->getTemp(), this->getHum());
 }
 
 }

@@ -12,7 +12,7 @@ namespace Comms {
 void WirelessAP::commitAndRespond(
     const char* type, FlashWrite::Credentials &Creds, char* buffer
     ) {
-
+        
     char response[64]{}; // Will never exceed this limit.
     JsonDocument res{}; // this variable is sent back to client as response
 
@@ -31,23 +31,28 @@ void WirelessAP::commitAndRespond(
     }
 
     // serialize JSON response and send it back to client.
-    serializeJson(res, response);
+    size_t bytesWritten = serializeJson(res, response);
+    if (bytesWritten == 0) {
+        this->msglogerr.handle(
+            Levels::ERROR,
+            "JSON not serialize for web response",
+            Method::SRL
+        );
+        strcpy(response, "{'status':'Error JSON serialization'}");
+    }
+
     NetMain::server.send(200, "application/json", response);
 
     // Restarts the WiFi connection upon a password change. This is because
     // the change takes place immediately to prevent any sort of security
-    // issue.
+    // issue. If issue, toggle switch should clear up, but look into errors
+    // during testing.
     if (strcmp(type, "WAPpass") == 0) {
-        WiFi.disconnect(); // Resets after setting WAP password
-        WiFi.mode(WIFI_AP);
-        WiFi.softAPConfig(this->local_IP, this->gateway, this->subnet);
-
-        // Uses new pass setup in the handleJson method
-        WiFi.softAP(this->AP_SSID, this->AP_PASS, 1, 0, 1); // Allows 1 connection for security
+        this->WAPconnect(1); // 1 client for security reasons
     }
 }
 
-void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
+void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
     // The largest element coming though will be 64 char array with a 4 char 
     // key. Never expect it to exceed 75 bytes, 100 for padding.
     char jsonData[100]{};
@@ -109,17 +114,27 @@ void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) 
 
         // JSON is deserialized and ready for use.
         if (error) { 
-            strcpy(NetMain::error, "JSON deserialization ERR");
-            OLED.displayError(NetMain::error); return; 
+            this->msglogerr.handle(
+                Levels::ERROR,
+                "JSON deserialization error submitting creds",
+                Method::OLED, Method::SRL
+            ); return; 
         };
 
         // Depending on the json key passed, this will get the data 
         // associated with that key. Only one key:val will be passed
         // at a time.
-        if (jsonDoc.containsKey("ssid")) getJson("ssid");
-        if (jsonDoc.containsKey("pass")) getJson("pass");
-        if (jsonDoc.containsKey("phone")) getJson("phone");
-        if (jsonDoc.containsKey("WAPpass")) getJson("WAPpass");
+        if (jsonDoc.containsKey("ssid")) {getJson("ssid");}
+        else if (jsonDoc.containsKey("pass")) {getJson("pass");}
+        else if (jsonDoc.containsKey("phone")) {getJson("phone");}
+        else if (jsonDoc.containsKey("WAPpass")) {getJson("WAPpass");}
+        else {
+            this->msglogerr.handle(
+                Levels::WARNING,
+                "Passed JSON key that wasnt recognized",
+                Method::SRL
+            );
+        }
 
     } else {
         NetMain::server.send(400, "text/plain", "Bad Request. No JSON payload!");
@@ -129,12 +144,10 @@ void WirelessAP::handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) 
 // Upon being called from the client, this controller will handle and decode 
 // the JSON data sent through in order to store it in NVS and change the 
 // class variables.
-void WirelessAP::handleWAPsubmit(
-    UI::IDisplay &OLED, FlashWrite::Credentials &Creds
-    ) {
+void WirelessAP::handleWAPsubmit(FlashWrite::Credentials &Creds) {
 
     if (NetMain::prevServerType == WIFI::WAP_SETUP) {
-        WirelessAP::handleJson(OLED, Creds);
+        WirelessAP::handleJson(Creds);
     } else {
         NetMain::server.send(404, "text/html", "UNAUTHORIZED FROM SERVER");
     }

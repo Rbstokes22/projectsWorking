@@ -14,11 +14,6 @@ namespace UpdateSystem {
 
 class OTAupdates {
     private:
-
-    // volatile is used for variables that can be modified by different 
-    // threads or what not. It ensures that the value is checked at use 
-    // instead of relying on cached data.
-    volatile bool OTAisUpdating;
     UI::Display &OLED; // reference to OLED from main
     Threads::SensorThread &sensorThread;
     char buffer[32];
@@ -31,7 +26,6 @@ class OTAupdates {
         );
     void start();
     void handle();
-    bool isUpdating() const;
     bool getHasStarted();
     void setHasStarted(bool value);
     void manageOTA(Comms::Station &station);

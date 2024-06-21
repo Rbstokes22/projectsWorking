@@ -2,8 +2,9 @@
 
 namespace Comms {
 
-// MAIN SERVER ROUTES THAT APPLY TO ALL
-void NetMain::setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
+// MAIN SERVER ROUTES THAT APPLY TO ALL. The NetMain routes will be 
+// called by each subclass, it will only be initialized once though.
+void NetMain::setRoutes(FlashWrite::Credentials &Creds) {
     if (NetMain::mainServerSetup == false) {
         NetMain::server.on("/", [this](){this->handleIndex();});
         NetMain::server.onNotFound([this](){this->handleNotFound();});
@@ -12,16 +13,16 @@ void NetMain::setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
 }
 
 // SERVER ROUTES EXCLUSIVE TO WIRELESS
-void WirelessAP::setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
-    NetMain::server.on("/WAPsubmit", [this, &OLED, &Creds](){
-        WirelessAP::handleWAPsubmit(OLED, Creds);
+void WirelessAP::setRoutes(FlashWrite::Credentials &Creds) {
+    NetMain::server.on("/WAPsubmit", [this, &Creds](){
+        WirelessAP::handleWAPsubmit(Creds);
         });
-    NetMain::setRoutes(OLED, Creds);
+    NetMain::setRoutes(Creds);
 }
 
 // SERVER ROUTES EXCLUSIVE TO WIRELESS (NONE AT THE MOMENT)
-void Station::setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) {
-    NetMain::setRoutes(OLED, Creds);
+void Station::setRoutes(FlashWrite::Credentials &Creds) {
+    NetMain::setRoutes(Creds);
 }
 
 }

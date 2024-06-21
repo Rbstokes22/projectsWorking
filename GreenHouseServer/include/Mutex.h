@@ -4,15 +4,17 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include "MsgLogHandler.h"
 
 namespace Threads {
 
 class Mutex {
     private:
     SemaphoreHandle_t xMutex;
+    Messaging::MsgLogHandler &msglogerr;
 
     public:
-    Mutex();
+    Mutex(Messaging::MsgLogHandler &msglogerr);
     void lock();
     void unlock();
     ~Mutex();

@@ -5,13 +5,13 @@
 namespace UpdateSystem {
 
 // The reference to the sensorThread is passed to suspend the thread during 
-// OTA updates
+// OTA updates. Upon an OTA update, the OLED display override will be set
+// to true to block the net display, until reset.
 OTAupdates::OTAupdates(
     UI::Display &OLED, 
     Threads::SensorThread &sensorThread
     ) : 
 
-    OTAisUpdating{false}, 
     OLED{OLED}, 
     sensorThread{sensorThread},
     hasStarted{false} {
@@ -22,21 +22,20 @@ void OTAupdates::start(){
 
     // Initialize the handlers
     ArduinoOTA.onStart([this]() {
-        this->OTAisUpdating = true;
+        OLED.setOverrideStat(true);
         this->sensorThread.suspendTask();
 
-        // This will differentiate between updating on your pc, and firmware
-        // udpates downloaded online.
+        // U_FLASH will be the primary means for both online and from you PC.
+        // SPIFFS is the other and will be used when updatingthe File System.
         if (ArduinoOTA.getCommand() == U_FLASH) {
-            strcpy(this->buffer, "updating sketch");
-        } else { // U_SPIFFS to store in filesystem
-            strcpy(this->buffer, "updating filesys");
+            strcpy(this->buffer, "Updating\nSketch"); // This will be the primary
+        } else { // U_SPIFFS is updates to the File System
+            strcpy(this->buffer, "Updating\nFile Sys");
         }
         
-        OLED.printUpdates(this->buffer);
+        OLED.printUpdates(this->buffer); delay(500); // delay to display
     });
 
-    // use sprint f for the integers into the char array
     ArduinoOTA.onProgress([&](unsigned int progress, unsigned int total) {
         unsigned int percentage{(progress * 100) / total};
         sprintf(this->buffer, "%d%%", percentage);
@@ -44,34 +43,33 @@ void OTAupdates::start(){
     });
 
     ArduinoOTA.onEnd([&]() {
-        // delay for viewing only
         strcpy(this->buffer, "Complete");
         OLED.printUpdates(this->buffer); 
-        this->OTAisUpdating = false;
+        OLED.setOverrideStat(false);
         this->sensorThread.resumeTask(); // resumes thread tasks
     });
 
     ArduinoOTA.onError([&](ota_error_t error) {
         switch(error) {
             case OTA_AUTH_ERROR:
-            strcpy(this->buffer, "Auth Failed"); break;
+            strcpy(this->buffer, "Auth\nFailed"); break;
 
             case OTA_BEGIN_ERROR:
-            strcpy(this->buffer, "Begin Failed"); break;
+            strcpy(this->buffer, "Begin\nFailed"); break;
 
             case OTA_CONNECT_ERROR:
-            strcpy(this->buffer, "Connect Failed"); break;
+            strcpy(this->buffer, "Connect\nFailed"); break;
 
             case OTA_RECEIVE_ERROR:
-            strcpy(this->buffer, "Receive Failed"); break;
+            strcpy(this->buffer, "Receive\nFailed"); break;
 
             case OTA_END_ERROR:
-            strcpy(this->buffer, "End Failed"); 
+            strcpy(this->buffer, "End\nFailed"); 
         }
 
         OLED.printUpdates(buffer);
-        this->OTAisUpdating = false;
-        this->sensorThread.resumeTask();; // resumes thread tasks
+        OLED.setOverrideStat(false);
+;       this->sensorThread.resumeTask();; // resumes thread tasks
     });
 
     ArduinoOTA.begin();
@@ -79,12 +77,6 @@ void OTAupdates::start(){
 
 void OTAupdates::handle(){
     ArduinoOTA.handle(); // Handle updates
-}
-
-// Serves to block the typical OLED display during an update to show
-// status.
-bool OTAupdates::isUpdating() const{ 
-    return OTAisUpdating;
 }
 
 // Serves to show that the OTA start has been called. This 

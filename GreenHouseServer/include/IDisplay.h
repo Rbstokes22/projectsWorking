@@ -10,8 +10,10 @@ namespace UI {
     
 class IDisplay {
     public:
-    // Makes this an abstract class
-    virtual void displayError(char* error) = 0;
+    // Makes this an abstract class.
+    virtual void displayMsg(char* error) = 0;
+    virtual bool getOverrideStat() = 0;
+	virtual void setOverrideStat(bool setting) = 0; // allows error display
     virtual ~IDisplay() {}
 };
 }
@@ -23,6 +25,6 @@ class IDisplay {
 // Display class implements the IDisplay interface, this means that Display provides
 // concrete implemntations for all virtual functions declared in IDisplay. This will 
 // only work for the virtual functions of course. This allows the superclass, IDisplay,
-// to reach down to display and use displayError, but it prevents us from including 
+// to reach down to display and use displayMsg, but it prevents us from including 
 // display on the network.h file, instead we can include IDisplay.h, but can only use 
 // that printError method.

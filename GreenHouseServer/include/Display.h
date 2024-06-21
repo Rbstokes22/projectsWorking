@@ -25,20 +25,21 @@ class Display : public IDisplay {
 		const char ipaddr[16], 
 		const char status[4], 
 		const char WAPtype[20], 
-		bool updating,
-		const char heap[10]);
+		const char heap[10],
+		const uint8_t clientsConnected);
 	void printSTA(
 		Comms::STAdetails &details, 
 		const char status[4], 
-		bool updating,
 		const char heap[10]);
 	void printUpdates(char* update);
 	void updateProgress(char* progress);
 
-	// this is meant for errors, but can also be used for system messages
-	void displayError(char* error) override; // inherits from IDisplay
-	bool getOverrideStat();
-	void setOverrideStat(bool setting); // allows error display
+	// this is meant for errors or runtime messaging
+	void displayMsg(char* msg) override; // inherits from IDisplay
+	bool getOverrideStat() override;
+	
+	// allows error display to take priority over net display.
+	void setOverrideStat(bool setting) override; 
 };
 
 // Greenhouse logo in startup

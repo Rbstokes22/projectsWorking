@@ -13,8 +13,11 @@ class Soil : public Sensors {
     uint16_t wetValue; // Lower value
 
     public:
-    Soil(PERPIN soilPin, uint8_t maxRetries);
-    void init();
+    Soil(
+        PERPIN soilPin, 
+        uint8_t maxRetries,
+        Messaging::MsgLogHandler &msglogerr);
+    void init(FlashWrite::PeripheralSettings &NVSsettings);
     uint16_t getMoisture();
     void handleSensors();
 };

@@ -3,14 +3,24 @@
 
 #include "Mutex.h"
 #include "Preferences.h"
+#include "MsgLogHandler.h"
 
 // ALL SENSOR SETTINGS HERE USE DEFAULT FOR NVS ISSUES. 
 namespace FlashWrite {
 
 class PeripheralSettings {
     private:
+    Preferences prefs;
+    Messaging::MsgLogHandler &msglogerr;
+    const char* nameSpace;
+    static const int16_t ERR;
 
     public:
+    PeripheralSettings(
+        const char* nameSpace, Messaging::MsgLogHandler &msglogerr
+        );
+    int16_t read(const char* key);
+    bool write(const char* key, int16_t value);
 
 };
 
@@ -28,8 +38,10 @@ namespace Peripheral {
 class Sensors {
     protected:
     Threads::Mutex mutex;
+    Messaging::MsgLogHandler &msglogerr;
 
     public:
+    Sensors(Messaging::MsgLogHandler &msglogerr);
     virtual void handleSensors() = 0;
     void lock();
     void unlock();

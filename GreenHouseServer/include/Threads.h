@@ -4,6 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include "MsgLogHandler.h"
 #include "Peripherals/Light.h"
 #include "Peripherals/TempHum.h"
 #include "Peripherals/Soil.h"
@@ -33,9 +34,10 @@ struct ThreadSettingCompilation {
 class SensorThread {
     private:
     TaskHandle_t taskHandle;
+    Messaging::MsgLogHandler &msglogerr;
     
     public:
-    SensorThread();
+    SensorThread(Messaging::MsgLogHandler &msglogerr);
     void initThread(ThreadSettingCompilation &settings);
     static void sensorTask(void* parameter);
     void suspendTask();

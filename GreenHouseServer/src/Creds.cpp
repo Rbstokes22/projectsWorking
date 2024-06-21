@@ -3,8 +3,11 @@
 
 namespace FlashWrite {
 
-Credentials::Credentials(const char* nameSpace, UI::IDisplay &OLED) : 
-    nameSpace{nameSpace}, OLED{OLED} {
+Credentials::Credentials(
+    const char* nameSpace, Messaging::MsgLogHandler &msglogerr
+    ) : 
+
+    nameSpace{nameSpace}, msglogerr(msglogerr) {
 
     // sets the arrays to all 0's for the length of the MAX or array length
     memset(ssid, 0, SSID_MAX);
@@ -13,29 +16,40 @@ Credentials::Credentials(const char* nameSpace, UI::IDisplay &OLED) :
     memset(WAPpass, 0, WAP_PASS_MAX);
 }
 
-// Writes the key value pair to the NVS.
+// Writes the key value pair to the NVS. Returns true if the bytes 
+// written match the size of the passed buffer.
 bool Credentials::write(const char* type, const char* buffer) {
-    this->prefs.begin(this->nameSpace);
-    uint16_t bytesWritten{0};
-    bytesWritten = this->prefs.putString(type, buffer);
+    if (!this->prefs.begin(this->nameSpace)) {
+        msglogerr.handle(
+            Levels::ERROR,
+            "NVS Creds did not begin during write",
+            Method::SRL
+        );
+    }
+    
+    uint16_t bytesWritten = this->prefs.putString(type, buffer);
     this->setChecksum(); // Will end in the checksum block
   
-    // returns true if written bytes match the strlen
-    return (bytesWritten == strlen(buffer));
+    return (bytesWritten == strlen(buffer)); 
 }
 
 // Reads the value of the provided key and copies it to the private class
-// arrays.
-void Credentials::read(const char* type) {
+// arrays. 
+void Credentials::read(const char* type) { /////////////////
     this->prefs.begin(this->nameSpace);
-    char error[30]{"Possible Corrupt Data"};
+    char error[75]{};
 
     if (!this->getChecksum()) {
-        OLED.displayError(error);
+        snprintf(error, sizeof(error), 
+        "Network creds (%s) checksum fail, potentially corrupt",
+        type
+        );
+
+        msglogerr.handle(Levels::ERROR, error, Method::OLED, Method::SRL);
     }
 
     // Copies what is stored in prefs to the actual arrays stored by the class.
-    // This is beneficial when the prefs goes out of scope.
+    // This is beneficial when the prefs go out of scope.
     auto Copy = [this, type](char* array, uint16_t size) {
         strncpy(array, this->prefs.getString(type, "").c_str(), size - 1);
         array[size - 1] = '\0';
@@ -49,12 +63,14 @@ void Credentials::read(const char* type) {
     this->prefs.end();
 }
 
-// Iterates all the values
+// Iterates all the values that have to do with network credentials and 
+// computes a checksum value. It will then set the checksum for this 
+// block of data. 
 void Credentials::setChecksum() {
-    this->prefs.begin(this->nameSpace);
+    // begin is called by write.
     uint32_t totalSize{0};
     char buffer[75]{};
-    const char* keys[]{"ssid", "pass", "phone", "WAPpass"};
+    const char* keys[]{"ssid", "pass", "phone", "WAPpass"}; // Add if needed
     size_t numKeys{sizeof(keys) / sizeof(keys[0])};
     size_t bufferMax{sizeof(buffer) - 1};
 
@@ -68,16 +84,28 @@ void Credentials::setChecksum() {
         }
     }
 
-    this->prefs.putUInt("checksum", totalSize % 256);
-    this->prefs.end();
+    uint16_t bytesWritten = 
+        this->prefs.putUInt("checksum", totalSize % 256);
+
+    if (bytesWritten != sizeof(int)) {
+        msglogerr.handle(
+            Levels::ERROR,
+            "Creds checksum write fail",
+            Method::SRL
+        );
+    }
+
+    this->prefs.end(); // ends the begin call from read.
 }
 
 bool Credentials::getChecksum() {
-    this->prefs.begin(this->nameSpace);
+    // begin and end is called by read.
     uint32_t totalSize{0};
     uint8_t checksum{0};
     uint8_t storedChecksum{0};
-    char buffer[75]{};
+    char buffer[75]{}; // buffer will never exceed this value
+
+    // use of pointers ensure that the quantity of elements is correct
     const char* keys[]{"ssid", "pass", "phone", "WAPpass"};
     size_t numKeys{sizeof(keys) / sizeof(keys[0])};
     size_t bufferMax{sizeof(buffer) - 1};
@@ -95,10 +123,8 @@ bool Credentials::getChecksum() {
     checksum = totalSize % 256;
     storedChecksum = this->prefs.getUInt("checksum", 0);
  
-    return checksum == storedChecksum;
+    return (checksum == storedChecksum);
 }
-
-
 
 const char* Credentials::getSSID() const {
     return this->ssid;

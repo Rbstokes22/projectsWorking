@@ -2,17 +2,23 @@
 
 namespace Threads {
 
+// This is the sensor and its corresponding timing object. Relatively const
 ThreadSetting::ThreadSetting(Peripheral::Sensors &sensor, Clock::Timer &sampleInterval) : 
     sensor{sensor}, sampleInterval{sampleInterval}{}
 
+// This is a compilation of each peripheral device's Thread setting
+// structures. Add or remove all changes in this struct.
 ThreadSettingCompilation::ThreadSettingCompilation (
     ThreadSetting &tempHum, ThreadSetting &light,
     ThreadSetting &soil1
     ) : tempHum(tempHum), light(light), soil1(soil1){}
 
-SensorThread::SensorThread() : 
-    taskHandle{NULL}{}
+// Single thread creation for this application.
+SensorThread::SensorThread(Messaging::MsgLogHandler &msglogerr) : 
+    taskHandle{NULL}, msglogerr(msglogerr) {}
 
+// Passes all thread setting compilations which include all sensors and 
+// their corresponding clock object. This will create the thread task.
 void SensorThread::initThread(ThreadSettingCompilation &settings) {
 
     xTaskCreate(
@@ -25,6 +31,11 @@ void SensorThread::initThread(ThreadSettingCompilation &settings) {
     );
 }
 
+// This thread task takes in the parameter which is all of the thread 
+// settings from the compilation. This will allow the sensors handle
+// sensor method to be called at whichever interval the clock object 
+// is set to. Each handle sensor will be locked with the mutex located
+// within its class to avoid corrupt data with the shared objects.
 void SensorThread::sensorTask(void* parameter) {
     ThreadSettingCompilation* settings{(ThreadSettingCompilation*) parameter};
 
@@ -33,13 +44,13 @@ void SensorThread::sensorTask(void* parameter) {
         uxTaskGetStackHighWaterMark(NULL);
         printf("Minimum stack free space: %lu words\n", uxHighWaterMark);
     };
-    
-    while (true) { // FIX FOR EACH SENSOR
+
+    while (true) { 
         if (settings->tempHum.sampleInterval.isReady()) {
             settings->tempHum.sensor.lock(); // Mutex Lock
             settings->tempHum.sensor.handleSensors();
             settings->tempHum.sensor.unlock();
-            printFreeStack(); // just use in here to see periodic usage
+            // printFreeStack(); // just use in here to see periodic usage
         }
 
         if (settings->light.sampleInterval.isReady()) {
@@ -59,12 +70,12 @@ void SensorThread::sensorTask(void* parameter) {
 }
 
 void SensorThread::suspendTask() { // Called by OTA updates
-    Serial.println("Task suspended");
+    msglogerr.handle(Levels::INFO, "Thread suspended", Method::SRL);
     vTaskSuspend(taskHandle);
 }
 
 void SensorThread::resumeTask() {
-    Serial.println("Task resumed");
+    msglogerr.handle(Levels::INFO, "Thread resumed", Method::SRL);
     vTaskResume(taskHandle);
 }
 

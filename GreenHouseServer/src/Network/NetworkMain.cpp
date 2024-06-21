@@ -14,15 +14,14 @@ bool NetMain::MDNSrunning{false};
 char NetMain::ST_SSID[32]{};
 char NetMain::ST_PASS[64]{};
 char NetMain::phone[15]{};
-bool NetMain::mainServerSetup{false};
+bool NetMain::mainServerSetup{false}; // Allows a single setup
 
 // NetMain 
-NetMain::NetMain() {
+NetMain::NetMain(Messaging::MsgLogHandler &msglogerr) :
+    msglogerr(msglogerr) {
+
     // Initialize the arrays with null chars
     memset(this->error, 0, sizeof(this->error));
-    memset(NetMain::ST_SSID, 0, sizeof(NetMain::ST_SSID));
-    memset(NetMain::ST_PASS, 0, sizeof(NetMain::ST_PASS));
-    memset(NetMain::phone, 0, sizeof(NetMain::phone));
 }
 
 NetMain::~NetMain(){}
@@ -31,11 +30,13 @@ NetMain::~NetMain(){}
 WirelessAP::WirelessAP(
     const char* AP_SSID, const char* AP_PASS,
     IPAddress local_IP, IPAddress gateway,
-    IPAddress subnet) :
+    IPAddress subnet, Messaging::MsgLogHandler &msglogerr) :
 
+    NetMain(msglogerr),
     local_IP{local_IP},
     gateway{gateway},
     subnet{subnet}
+
     {
     // Copy the SSID and PASS arguments of this function to the class
     // variables.
@@ -56,7 +57,8 @@ void WirelessAP::setWAPpass(const char* pass) {
 }
 
 // Station
-Station::Station() : connectedToSTA{false} {}
+Station::Station(Messaging::MsgLogHandler &msglogerr) : 
+    NetMain(msglogerr), connectedToSTA{false} {}
 
 // Provides the OLED with all of the station details, and seems redundant.
 // It is not redundant because it will allow the client to see if there is 

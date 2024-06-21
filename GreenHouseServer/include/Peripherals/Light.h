@@ -48,7 +48,11 @@ class Light : public Sensors { // AS7341 & Photoresistor
     as7341_gain_t GAIN; // Default 8X. Binary 2^-1 -> 2^8
 
     public:
-    Light(PERPIN photoResistorPin, uint8_t maxRetries);
+    Light(
+        PERPIN photoResistorPin, 
+        uint8_t maxRetries,
+        Messaging::MsgLogHandler &msglogerr);
+        
     void begin();
     void readAndSet();
     void setATIME(uint8_t ATIME);

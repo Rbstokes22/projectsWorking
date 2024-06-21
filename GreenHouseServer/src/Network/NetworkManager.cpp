@@ -5,14 +5,17 @@ namespace networkManager {
 void initializeWAP(
     bool defaultSwitch, FlashWrite::Credentials &Creds, 
     Comms::WirelessAP &wirelessAP, Comms::Station &station,
-    UI::Display &OLED
+    Messaging::MsgLogHandler &msglogerr
     ) {    
     
     char msg[50]{};
     switch (defaultSwitch) {
         case false:
-        strcpy(msg, "Default Mode");
-        OLED.displayError(msg); break;
+        msglogerr.handle(
+            Levels::INFO,
+            "Default Mode",
+            Method::OLED
+        ); break;
 
         case true:
         Creds.read("WAPpass"); 
@@ -22,14 +25,17 @@ void initializeWAP(
             wirelessAP.setWAPpass(Creds.getWAPpass());
 
         } else {
-            strcpy(msg, "Set WAP Pass");
-            OLED.displayError(msg);
+            msglogerr.handle(
+            Levels::INFO,
+            "Default Mode, set WAP password",
+            Method::OLED
+        );
         }
     }
 
     // After initialization, sets up server routes
-    wirelessAP.setRoutes(OLED, Creds);
-    station.setRoutes(OLED, Creds);
+    wirelessAP.setRoutes(Creds);
+    station.setRoutes(Creds);
 }
 
 void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef) {
@@ -41,23 +47,25 @@ void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef) {
 void displayWAPstatus(
     UI::Display &OLED, const char* serverName,
     const char* ipaddr, bool conStat, const char* WAPtype, 
-    bool updatingStatus, const char* heapHealth
+    const char* heapHealth, uint8_t clientsConnected
     ) {
 
     char conStatus[4]{}; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
-    OLED.printWAP(serverName, ipaddr, conStatus, WAPtype, updatingStatus, heapHealth);
+    OLED.printWAP(
+        serverName, ipaddr, conStatus, 
+        WAPtype, heapHealth, clientsConnected
+        );
     }
 
 void displaySTAstatus(
     UI::Display &OLED, bool conStat, 
-    Comms::STAdetails &details, bool updatingStatus, 
-    const char* heapHealth
+    Comms::STAdetails &details, const char* heapHealth
     ) {
 
     char conStatus[4]{}; // connected status
     (conStat) ? strcpy(conStatus, "yes") : strcpy(conStatus, "no");
-    OLED.printSTA(details, conStatus, updatingStatus, heapHealth);
+    OLED.printSTA(details, conStatus, heapHealth);
     }
 
 void getHeapHealth(char* heapHealth) {
@@ -84,26 +92,32 @@ void handleWifiMode(
     bool isWapDef{(strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0)};
 
     WIFI wifiMode{Comms::wifiModeSwitch()}; // checks toggle position
-    bool updatingStatus{otaUpdates.isUpdating()}; // checks if OTA is updating
     bool conStat{false}; // connected status to the WAP or STA
+    uint8_t clientsConnected = WiFi.softAPgetStationNum();
 
-    setWAPtype(WAPtype, wifiMode, isWapDef);
+    setWAPtype(WAPtype, wifiMode, isWapDef); // shows type and if default
     getHeapHealth(heapHealth);
 
     switch(wifiMode) {
         case WIFI::WAP_ONLY:
-        conStat = wirelessAP.WAP(OLED, Creds);
-        displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
+        conStat = wirelessAP.WAP(Creds);
+        displayWAPstatus(
+            OLED, serverName, ipaddr, conStat, 
+            WAPtype, heapHealth, clientsConnected
+            ); break;
 
         case WIFI::WAP_SETUP:
-        conStat = wirelessAP.WAPSetup(OLED, Creds);
-        displayWAPstatus(OLED, serverName, ipaddr, conStat, WAPtype, updatingStatus, heapHealth); break;
+        conStat = wirelessAP.WAPSetup(Creds);
+        displayWAPstatus(
+            OLED, serverName, ipaddr, conStat, 
+            WAPtype, heapHealth, clientsConnected
+            ); break;
 
         case WIFI::STA_ONLY:
         // bool checks if it is running
-        conStat = (station.STA(OLED, Creds) == WIFI::WIFI_RUNNING);
+        conStat = (station.STA(Creds) == WIFI::WIFI_RUNNING);
         Comms::STAdetails details{station.getSTADetails()};
-        displaySTAstatus(OLED, conStat, details, updatingStatus, heapHealth);
+        displaySTAstatus(OLED, conStat, details, heapHealth);
     }
 }
 }

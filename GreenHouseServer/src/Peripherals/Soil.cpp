@@ -3,11 +3,18 @@
 
 namespace Peripheral {
 
-Soil::Soil(PERPIN soilPin, uint8_t maxRetries) : 
-    soilPin(soilPin), maxRetries(maxRetries),
+Soil::Soil(
+    PERPIN soilPin, 
+    uint8_t maxRetries,
+    Messaging::MsgLogHandler &msglogerr) : 
+
+    Sensors(msglogerr), soilPin(soilPin), maxRetries(maxRetries),
     dryValue(2500), wetValue(1000) {}
 
-void Soil::init() {
+void Soil::init(FlashWrite::PeripheralSettings &NVSsettings) {
+    char buffer[32]{};
+    
+
     
 }
 
@@ -16,7 +23,7 @@ uint16_t Soil::getMoisture() {
 }
 
 void Soil::handleSensors() {
-    printf("Soil Reading: %d\n", this->getMoisture());
+    // printf("Soil Reading: %d\n", this->getMoisture());
 }
     
 }

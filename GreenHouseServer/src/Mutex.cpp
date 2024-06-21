@@ -3,10 +3,17 @@
 
 namespace Threads {
 
-Mutex::Mutex() : xMutex{xSemaphoreCreateMutex()}{
+Mutex::Mutex(Messaging::MsgLogHandler &msglogerr) : 
+    xMutex{xSemaphoreCreateMutex()}, msglogerr(msglogerr) {
     if (this->xMutex == NULL) {
-        Serial.println("MUTEX NOT CREATED");
-    } else {Serial.println("MUTEX CREATED");}
+        msglogerr.handle(
+            Levels::CRITICAL,
+            "Thread Mutex not created",
+            Method::SRL, Method::OLED
+        );
+    } else {
+        msglogerr.handle(Levels::INFO, "Thread Mutex created", Method::SRL);
+    }
 }
 
 void Mutex::lock() {

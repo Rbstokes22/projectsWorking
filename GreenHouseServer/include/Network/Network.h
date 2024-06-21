@@ -3,7 +3,7 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
-#include "IDisplay.h"
+#include "MsgLogHandler.h"
 #include "Creds.h"
 #include <pgmspace.h>
 
@@ -62,19 +62,22 @@ class NetMain { // Abstract class
     // that first calls it.
     static bool mainServerSetup;
 
-    char error[40]; // used for error/msg reporting to client
+    char error[168]; // 168 Cap at OLED 21 * 8 size 1
+    Messaging::MsgLogHandler &msglogerr;
     
     public:
 
     // Network/NetworkMain.cpp
-    NetMain();
+    NetMain(Messaging::MsgLogHandler &msglogerr);
     virtual ~NetMain();
 
+    // Network/NetworkSetup
+    void appendErr(const char* msg); // appends error for net connection errors
+
     // Network/Routes.cpp
-    virtual void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) = 0;
+    virtual void setRoutes(FlashWrite::Credentials &Creds) = 0;
 
     // Network/Server/ServerStart.cpp
-    
     void startServer();
     void handleNotFound();
     void handleServer();
@@ -98,26 +101,27 @@ class WirelessAP : public NetMain {
 
     // Network/NetworkMain.cpp
     WirelessAP(const char* AP_SSID, const char* AP_PASS,
-        IPAddress local_IP, IPAddress gateway, IPAddress subnet     
-        );
+        IPAddress local_IP, IPAddress gateway, IPAddress subnet,
+        Messaging::MsgLogHandler &msglogerr);
 
     const char* getWAPpass();
     void setWAPpass(const char* pass);
     
     // Network/Routes.cpp
-    void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) override;
+    void setRoutes(FlashWrite::Credentials &Creds) override;
 
     // Network/Server/ServerWapSubmit.cpp
-    void handleWAPsubmit(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
+    void handleWAPsubmit(FlashWrite::Credentials &Creds);
+        
     void commitAndRespond(
-        const char* type, FlashWrite::Credentials &Creds,char* buffer
-        );
+        const char* type, FlashWrite::Credentials &Creds,char* buffer);
 
-    void handleJson(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
+    void handleJson(FlashWrite::Credentials &Creds);
 
-    // Netowrk/NetworkSetup.cpp
-    bool WAP(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
-    bool WAPSetup(UI::IDisplay &OLED, FlashWrite::Credentials &Creds); // Setup LAN setting from WAP
+    // Network/NetworkSetup.cpp
+    void WAPconnect(uint8_t maxClients);
+    bool WAP(FlashWrite::Credentials &Creds);
+    bool WAPSetup(FlashWrite::Credentials &Creds); // Setup LAN setting from WAP
 };
 
 class Station : public NetMain {
@@ -127,14 +131,20 @@ class Station : public NetMain {
     public:
 
     // Network/NetworkMain.cpp
-    Station();
+    Station(Messaging::MsgLogHandler &msglogerr);
+    STAdetails getSTADetails(); 
+
+    // Network/NetworkSetup.cpp
+    void STAconnect(FlashWrite::Credentials &Creds);
+    void attemptReconnect(
+        FlashWrite::Credentials &Creds, uint8_t freqSec = 10
+        );
 
     // Network/Routes.cpp
-    void setRoutes(UI::IDisplay &OLED, FlashWrite::Credentials &Creds) override;
+    void setRoutes(FlashWrite::Credentials &Creds) override;
 
     // Network/Server/Server/ServerStart.cpp
-    STAdetails getSTADetails(); 
-    WIFI STA(UI::IDisplay &OLED, FlashWrite::Credentials &Creds);
+    WIFI STA(FlashWrite::Credentials &Creds);
     bool isSTAconnected(); // used to start OTA updates
 };
 

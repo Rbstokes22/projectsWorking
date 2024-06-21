@@ -15,7 +15,11 @@ class TempHum : public Sensors { // DHT-22
     uint8_t maxRetries; // used for error handling in temp/hum
 
     public:
-    TempHum(PERPIN pin, uint8_t type, uint8_t maxRetries);
+    TempHum(
+        PERPIN pin, 
+        uint8_t type, 
+        uint8_t maxRetries,
+        Messaging::MsgLogHandler &msglogerr);
     void begin();
     void setTemp();
     void setHum();
