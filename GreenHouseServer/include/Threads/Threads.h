@@ -4,11 +4,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
-#include "MsgLogHandler.h"
+#include "UI/MsgLogHandler.h"
 #include "Peripherals/Light.h"
 #include "Peripherals/TempHum.h"
 #include "Peripherals/Soil.h"
-#include "Timing.h"
+#include "Common/Timing.h"
  
 namespace Threads {
 

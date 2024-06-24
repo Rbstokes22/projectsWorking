@@ -1,14 +1,17 @@
-#include "Display.h"
+#include "UI/Display.h"
 #include <Wire.h>
 #include <WiFi.h> // used for ESP.restart()
 
 namespace UI {
+
 // Constructor 
 Display::Display(uint8_t width, uint8_t height) :
     display{width, height, &Wire, -1}, 
     displayOverride{false},
+    msgIndicies{0},
+    lastIndex{0},
     width{width}, 
-    height{height}{}
+    height{height}{memset(this->msgBuffer, 0, sizeof(this->msgBuffer));}
 
 // Initialization and startup
 void Display::init() {
@@ -77,7 +80,6 @@ void Display::printWAP(
 void Display::printSTA(
     Comms::STAdetails &details, 
     const char status[4], 
-    // bool updating,DELETE!!!!!!!!!!!!!!
     const char heap[10]) {
     if (!this->displayOverride) {
         display.clearDisplay();
@@ -129,18 +131,72 @@ void Display::updateProgress(char* progress) {
     }
 }
 
+void Display::removeMessage() {
+    uint8_t start = msgIndicies[1]; // beginning of the first msg after removal
+    uint8_t end = OLEDCapacity - start;
+    uint8_t numIndicies = sizeof(this->msgIndicies) / sizeof(this->msgIndicies[0]);
+
+    // This will move the data from the msgBuffer that we care about down to index
+    // 0. The rest of the data is untouched, so to nullify it, we will memset it 
+    // from where the good data ends, for the remaining bytes of the block.
+    memmove(this->msgBuffer, this->msgBuffer + start, end);
+    memset(this->msgBuffer + end, 0, OLEDCapacity - end);
+
+    // after deleting the first message, takes the starting address 
+    // of the next message and shifts it down 1 index value in the 
+    // msgIndicies array. This is because the first one is always 
+    // stripped.
+    uint8_t removedMsgSize = msgIndicies[1] - msgIndicies[0];
+    for (int i = 1; i < numIndicies; i++) {
+        msgIndicies[i - 1] = msgIndicies[i] - removedMsgSize;
+    }
+
+    this->lastIndex--;
+}
+
+// All error handling of messages that exceed the buffer length are handled in the MsgLogErr
+void Display::appendMessage(char* msg) {
+    char delimeter[] = ";   "; // separates the errors
+    char tempBuffer[OLEDCapacity]{'\0'};
+    size_t remaining = sizeof(this->msgBuffer) - strlen(this->msgBuffer);
+    uint16_t messageSize = strlen(msg) + strlen(delimeter) - 1;
+    uint8_t indicyCap = msgIndicyTotal - 2; // prevents overflow
+
+    auto manageRemoval = [this](size_t &remaining){
+        this->removeMessage();
+        remaining = sizeof(this->msgBuffer) - strlen(this->msgBuffer);
+    };
+
+    while(messageSize > remaining || lastIndex == indicyCap) {
+        manageRemoval(remaining);
+    }
+
+    Serial.println(this->msgBuffer);
+
+    this->msgIndicies[this->lastIndex] = strlen(this->msgBuffer);
+    this->lastIndex++;
+ 
+    // appends the delimiter to the message and sends it to a temp buffer
+    // to be concat to the message buffer.
+    sprintf(tempBuffer, "%s%s", msg, delimeter); 
+    strncat(this->msgBuffer, tempBuffer, remaining);
+}
+
 // displays err/msg if they occur during the normal functioning.
 // The reason that there isnt a check if this->displayOverride is 
 // set to true here, but nowhere else, is because the OTA updates
 // set it to true in the OTA source file. This will be reset to 
 // false when specified by the MsgLogHandler.
 void Display::displayMsg(char* msg) {  
+    if (msg == nullptr || *msg == '\0') return;
+
     this->displayOverride = true;
+    appendMessage(msg);
     display.clearDisplay();
     display.setTextColor(WHITE);
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.println(msg);
+    display.println(this->msgBuffer);
     display.display();
 }
 

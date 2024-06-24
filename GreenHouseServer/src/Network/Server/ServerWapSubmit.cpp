@@ -1,4 +1,4 @@
-#include "Network/Network.h"
+#include "Network/NetworkWAP.h"
 #include <ArduinoJson.h>
 
 // This source file handles the WAP submit JSON data that is passed
@@ -67,7 +67,7 @@ void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
             buffer, jsonDoc[type].as<const char*>(), sizeof(buffer) - 1
             );
 
-        buffer[sizeof(buffer) - 1] = '\0';
+        buffer[sizeof(buffer) - 1] = '\0'; // ensure null termination for storage
 
         // These strncpy's serve as a redundancy in the event the NVS fails.
         // This data when received from the WAP, is automatically copied to the 

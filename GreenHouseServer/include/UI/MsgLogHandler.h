@@ -2,8 +2,8 @@
 #define MSGLOGHANDLER_H
 
 #include <Arduino.h>
-#include "IDisplay.h"
-#include "Timing.h"
+#include "UI/IDisplay.h"
+#include "Common/Timing.h"
 
 enum class Levels : uint8_t {
 
@@ -43,24 +43,26 @@ class MsgLogHandler {
     UI::IDisplay &OLED;
     Clock::Timer &OLEDclear;
     bool serialOn;
+    uint32_t msgClearTime;
+    uint8_t msgClearSeconds;
+    bool isMsgReset;
     
     public:
     MsgLogHandler(
-        UI::IDisplay &OLED, Clock::Timer &OLEDclear, bool serialOn = false 
-        );
+        UI::IDisplay &OLED, uint8_t msgClearInterval = 5, bool serialOn = false);
     void writeSerial(Levels level, const char* message);
     void writeOLED(Levels level, const char* message);
     void writeLog(Levels level, const char* message);
     void prepMessage(Method method, Levels level, const char* message);
-    void OLEDMessageClear(uint8_t seconds);
+    void OLEDMessageCheck();
+    void safeString(char* copyTo, size_t size, const char* copyFrom);
 
 
     void handle(
         Levels level, const char* message,
         Method method1, 
         Method method2 = Method::NONE, 
-        Method method3 = Method::NONE
-        );
+        Method method3 = Method::NONE);
 };
 
 }

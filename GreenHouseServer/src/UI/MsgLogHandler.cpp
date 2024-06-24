@@ -1,4 +1,4 @@
-#include "MsgLogHandler.h"
+#include "UI/MsgLogHandler.h"
 
 namespace Messaging {
 
@@ -7,9 +7,13 @@ char LevelsMap[5][10]{
 };
 
 MsgLogHandler::MsgLogHandler(
-    UI::IDisplay &OLED, Clock::Timer &OLEDclear, bool serialOn) : 
-    OLED{OLED}, OLEDclear(OLEDclear), serialOn{serialOn}{}
+    UI::IDisplay &OLED, uint8_t msgClearSeconds, bool serialOn) : 
 
+    OLED{OLED}, OLEDclear(OLEDclear), serialOn{serialOn}, 
+    msgClearTime(0), msgClearSeconds{msgClearSeconds},
+    isMsgReset{true}{}
+
+// SERIAL HANDLING
 void MsgLogHandler::writeSerial(Levels level, const char* message) {
     if (this->serialOn) {
         printf("%s: %s\n", 
@@ -18,8 +22,9 @@ void MsgLogHandler::writeSerial(Levels level, const char* message) {
     }
 }
 
+// OLED HANDLING
 void MsgLogHandler::writeOLED(Levels level, const char* message) {
-    char msg[128]{}; // TEST TO SEE FOR TEXT WRAPPING
+    char msg[168]{}; // OLED has 168 char capacity.
     int writtenChars = snprintf(msg, sizeof(msg), "%s: %s",
     LevelsMap[static_cast<uint8_t>(level)], 
     message);
@@ -30,9 +35,13 @@ void MsgLogHandler::writeOLED(Levels level, const char* message) {
         OLED.displayMsg(msg);
     }
 
-    OLED.displayMsg(msg);
+    // Displays the message and sets timer to clear the last message.
+    OLED.displayMsg(msg); 
+    this->msgClearTime = (millis() + (this->msgClearSeconds * 1000)); 
+    this->isMsgReset = false;
 }
 
+// LOG HANDLING
 void MsgLogHandler::writeLog(Levels level, const char* message) {
     // BUILD
 }
@@ -48,15 +57,22 @@ void MsgLogHandler::prepMessage(Method method, Levels level, const char* message
     }
 }
 
-// called in main loop. Checks to see if the override status 
-// has been tripped. If it has, the message will be set to 
-// clear in the designated seconds.
-void MsgLogHandler::OLEDMessageClear(uint8_t seconds) {
-    if (OLED.getOverrideStat() == true) {
-    if(OLEDclear.setReminder(seconds * 1000) == true) {
-      OLED.setOverrideStat(false);
-    } 
-  }
+// Each time a new message is sent to the OLED using the logmsgerr, the 
+// isMsgReset will be set to false, which will trigger a clearning of the 
+// displayed message to the OLED.
+void MsgLogHandler::OLEDMessageCheck() {
+    if (millis() >= this->msgClearTime && this->isMsgReset == false) { 
+        OLED.setOverrideStat(false);
+        this->isMsgReset = true;
+    }
+}
+
+// Safestring is designed to prevent errors from copying a char array to 
+// another. It automatically enters the null terminator to prevent buffer
+// overflow.
+void MsgLogHandler::safeString(char* copyTo, size_t size, const char* copyFrom) {
+    strncpy(copyTo, copyFrom, size - 1);
+    copyTo[size - 1] = '\0';
 }
 
 void MsgLogHandler::handle(

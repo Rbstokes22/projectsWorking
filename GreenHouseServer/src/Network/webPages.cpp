@@ -1,8 +1,8 @@
-#include "Network/Network.h"
+#include "Network/NetworkWAP.h"
 
 namespace Comms {
     
-const char WAPsetup[] PROGMEM = R"rawliteral(
+const char WAPSetupPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>

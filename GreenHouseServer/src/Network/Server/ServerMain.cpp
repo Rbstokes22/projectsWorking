@@ -1,4 +1,4 @@
-#include "Network/Network.h"
+#include "Network/NetworkWAP.h"
 
 namespace Comms {
 
@@ -9,9 +9,10 @@ void NetMain::handleIndex() {
     if (NetMain::prevServerType == WIFI::WAP_ONLY) {
         NetMain::server.send(200, "text/html", "THIS IS WAP ONLY");
     } else if (NetMain::prevServerType == WIFI::WAP_SETUP) {
-        NetMain::server.send(200, "text/html", WAPsetup);
+        NetMain::server.send(200, "text/html", WAPSetupPage);
     } else if (NetMain::prevServerType == WIFI::STA_ONLY) {
         NetMain::server.send(200, "text/html", "THIS IS STATION ONLY");
     }
 }
+
 }

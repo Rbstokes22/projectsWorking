@@ -3,8 +3,11 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "Network/Network.h" // used for the WAPdetails
-#include "IDisplay.h"
+#include "Network/NetworkSTA.h" // used for the WAPdetails
+#include "UI/IDisplay.h"
+#include "Config.h"
+
+#define msgIndicyTotal 10
 
 // All user interface data and functions
 namespace UI {
@@ -13,6 +16,11 @@ class Display : public IDisplay {
     private:
     Adafruit_SSD1306 display;
 	bool displayOverride; // will allow system errors to display
+	uint8_t msgIndicies[msgIndicyTotal];
+	uint8_t lastIndex;
+	char msgBuffer[OLEDCapacity];
+	void removeMessage();
+	void appendMessage(char* msg);
 
     public:
 	uint8_t width;

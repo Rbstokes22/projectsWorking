@@ -38,6 +38,9 @@ bool PeripheralSettings::write(const char* key, int16_t value) {
 
 };
 
+
+
+
 namespace Peripheral {
 
 Sensors::Sensors(Messaging::MsgLogHandler &msglogerr) : 

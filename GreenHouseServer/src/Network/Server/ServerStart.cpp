@@ -1,4 +1,4 @@
-#include "Network/Network.h"
+#include "Network/NetworkSTA.h"
 
 namespace Comms {
 
@@ -24,4 +24,5 @@ void NetMain::handleServer() {
 bool Station::isSTAconnected() {
     return this->connectedToSTA;
 }
+
 }

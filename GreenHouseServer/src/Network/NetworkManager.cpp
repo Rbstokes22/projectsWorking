@@ -14,8 +14,7 @@ void initializeWAP(
         msglogerr.handle(
             Levels::INFO,
             "Default Mode",
-            Method::OLED
-        ); break;
+            Method::OLED); break;
 
         case true:
         Creds.read("WAPpass"); 
@@ -28,12 +27,12 @@ void initializeWAP(
             msglogerr.handle(
             Levels::INFO,
             "Default Mode, set WAP password",
-            Method::OLED
-        );
+            Method::OLED);
         }
     }
 
-    // After initialization, sets up server routes
+    // After initialization, sets up server routes. Once routes are setup, the server will
+    // begin when called by WAP or STA connect methods.
     wirelessAP.setRoutes(Creds);
     station.setRoutes(Creds);
 }

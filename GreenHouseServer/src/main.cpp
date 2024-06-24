@@ -6,17 +6,18 @@
 // watchdog timers in here for the logging before crashes and what not. 
 
 
-// BOOKMARK. FINISH HANDLER IMPLEMENTATIONS. EVERYTHING IS DONE WITH THE 
-// EXCEPTION OF MUTEX, OTA UPDATES, AND THREADS. COMPILES FINE.
+// BOOKMARK.
+// PRIORITY. WORK ON OLED TIMING, MAYBE USE TIMING OBJECT. ALSO OLED IS NOT CLEARING
+// MSG 1 PROPERLY. PROBABLY ERRORS WITH INDEXING
 
-// TO DO
-// 1. FINISH HANDLER. NEEDS TESTING WHEN DONE
+// 1. Refine code to make it more modular. add desriptive handlers and stuff.
+// split up the Network.h into several files, maybe create a directories.
 
 // MAKE RELAY OBJECTS AND GROUP TO BE ABLE TO PASS TO ACTIVATE AND DEACTIVATE
 // RELAY BASED ON CERTAIN LOGIC. ALLOCATE PINS TO ALL RELAYS AND SOIL SENSORS
 
 // 2. CREATE A WAY TO SET DEFAULT SETTINGS UNLESS WHEN INIT, READ FROM NVS TO APPLY
-// SENSOR SETTINGS
+// SENSOR SETTINGS !!!!!!!!!!!!!!!!!
 
 // CREATE AN ALERT SYSTEM, SORT OF LIKE THE RELAYS. THEY CAN ALERT BASED ON TEMP/HUM,
 // AND SOIL. DONT NEED AN ALERT FOR LIGHT. MINIMIZE ALERTS SENT UNLESS CRITERIA IS
@@ -31,14 +32,15 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include "Display.h"
-#include "MsgLogHandler.h"
-#include "Timing.h"
-#include "Network/Network.h"
+#include "UI/Display.h"
+#include "UI/MsgLogHandler.h"
+#include "Common/Timing.h"
+#include "Network/NetworkWAP.h"
+#include "Network/NetworkSTA.h"
 #include "Network/NetworkManager.h"
-#include "OTAupdates.h"
-#include "Creds.h"
-#include "Threads.h"
+#include "Common/OTAupdates.h"
+#include "Network/Creds.h"
+#include "Threads/Threads.h"
 #include "Peripherals/TempHum.h"
 #include "Peripherals/Light.h"
 #include "Peripherals/Soil.h"
@@ -54,13 +56,9 @@ char SERVER_PASS_DEFAULT[10]{"12345678"};
 // Main display, passes dimensions of screen
 UI::Display OLED{128, 64};
 
-// Used to clear the OLED screen when an error displays to allow client
-// to view runtime error, and then return to typical Net display.
-Clock::Timer clearError{0}; 
-
 // Handles all messaging, errors, and logging. Either remove 
 // true or set to false when Serial is no longer beings used.
-Messaging::MsgLogHandler msglogerr(OLED, clearError, true); 
+Messaging::MsgLogHandler msglogerr(OLED, 5, true); 
 
 // Created with default password, will set password during init if 
 // one is saved in the NVS, or if one is passed in WAPSetup mode.
@@ -136,10 +134,11 @@ void setup() {
   // Net data they may have forgotten.
   networkManager::initializeWAP(
     digitalRead(static_cast<int>(NETPIN::defaultWAPSwitch)), Creds, 
-    wirelessAP, station, msglogerr
-    );
+    wirelessAP, station, msglogerr);
 }
 
+Clock::Timer tester{1000}; 
+int ct = 0;
 void loop() { 
   
   otaUpdates.manageOTA(station);
@@ -156,7 +155,7 @@ void loop() {
 
   // Checks to see if OLED has displayed error, if so, sets reminder
   // to clear in the argued time in seconds.
-  msglogerr.OLEDMessageClear(5); 
+  msglogerr.OLEDMessageCheck(); 
 
   station.handleServer(); // Doesn't matter if station or wirelessAP
 }

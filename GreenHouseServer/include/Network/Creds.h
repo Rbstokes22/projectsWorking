@@ -8,25 +8,34 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
-#include "MsgLogHandler.h"
+#include "UI/MsgLogHandler.h"
 
-// FlashWrite
 namespace FlashWrite {
+
+struct CredsInfo { // used for the read method
+    const char* key;
+    char* data;
+    size_t size;
+};
 
 class Credentials {
     private:
     Preferences prefs;
     Messaging::MsgLogHandler &msglogerr;
+    CredsInfo credInfo[4];
     char ssid[SSID_MAX];
     char pass[PASS_MAX];
     char phone[PHONE_MAX];
     char WAPpass[WAP_PASS_MAX];
     const char* nameSpace;
+    static const char* keys[4];
+    static const uint16_t checksumConst;
 
     public:
     Credentials(const char* nameSpace, Messaging::MsgLogHandler &msglogerr);
-    bool write(const char* type, const char* buffer);
-    void read(const char* type);
+    bool write(const char* key, const char* buffer);
+    void read(const char* key);
+    uint8_t computeChecksum();
     void setChecksum();
     bool getChecksum();
     const char* getSSID() const;

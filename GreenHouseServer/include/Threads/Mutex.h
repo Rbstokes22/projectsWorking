@@ -4,7 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
-#include "MsgLogHandler.h"
+#include "UI/MsgLogHandler.h"
 
 namespace Threads {
 

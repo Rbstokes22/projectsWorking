@@ -1,4 +1,4 @@
-#include "OTAupdates.h"
+#include "Common/OTAupdates.h"
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 
@@ -8,12 +8,9 @@ namespace UpdateSystem {
 // OTA updates. Upon an OTA update, the OLED display override will be set
 // to true to block the net display, until reset.
 OTAupdates::OTAupdates(
-    UI::Display &OLED, 
-    Threads::SensorThread &sensorThread
-    ) : 
+    UI::Display &OLED, Threads::SensorThread &sensorThread) : 
 
-    OLED{OLED}, 
-    sensorThread{sensorThread},
+    OLED{OLED}, sensorThread{sensorThread},
     hasStarted{false} {
     memset(buffer, 0, sizeof(buffer));
 }

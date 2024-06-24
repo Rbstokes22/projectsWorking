@@ -5,9 +5,10 @@
 // via web. This will be controllable via web interface to get the update
 // and then like a daily check for updates.
 
-#include "Display.h"
-#include "Network/Network.h"
-#include "Threads.h"
+#include "UI/MsgLogHandler.h"
+#include "Network/NetworkSTA.h"
+#include "Threads/Threads.h"
+#include "UI/Display.h"
 
 // Used for system updates.
 namespace UpdateSystem {
@@ -22,8 +23,7 @@ class OTAupdates {
     public:
     OTAupdates(
         UI::Display &OLED, 
-        Threads::SensorThread &sensorThread       
-        );
+        Threads::SensorThread &sensorThread);
     void start();
     void handle();
     bool getHasStarted();

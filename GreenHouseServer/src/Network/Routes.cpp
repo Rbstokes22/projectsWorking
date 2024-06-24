@@ -1,14 +1,17 @@
-#include "Network/Network.h"
+#include "Network/NetworkMain.h"
+#include "Network/NetworkSTA.h"
+#include "Network/NetworkWAP.h"
 
 namespace Comms {
 
 // MAIN SERVER ROUTES THAT APPLY TO ALL. The NetMain routes will be 
-// called by each subclass, it will only be initialized once though.
+// called by each subclass, it will only be initialized once though
+// using isMainServerSetup flag.
 void NetMain::setRoutes(FlashWrite::Credentials &Creds) {
-    if (NetMain::mainServerSetup == false) {
+    if (NetMain::isMainServerSetup == false) {
         NetMain::server.on("/", [this](){this->handleIndex();});
         NetMain::server.onNotFound([this](){this->handleNotFound();});
-        NetMain::mainServerSetup = true;
+        NetMain::isMainServerSetup = true;
     }
 }
 
@@ -20,7 +23,7 @@ void WirelessAP::setRoutes(FlashWrite::Credentials &Creds) {
     NetMain::setRoutes(Creds);
 }
 
-// SERVER ROUTES EXCLUSIVE TO WIRELESS (NONE AT THE MOMENT)
+// SERVER ROUTES EXCLUSIVE TO STATION (NONE AT THE MOMENT)
 void Station::setRoutes(FlashWrite::Credentials &Creds) {
     NetMain::setRoutes(Creds);
 }
