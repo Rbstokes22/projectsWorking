@@ -5,9 +5,11 @@
 #include <Adafruit_SSD1306.h>
 #include "Network/NetworkSTA.h" // used for the WAPdetails
 #include "UI/IDisplay.h"
-#include "Config.h"
 
-#define msgIndicyTotal 10
+enum class UIvals {
+	msgIndicyTotal = 10,
+	OLEDCapacity = 168
+};
 
 // All user interface data and functions
 namespace UI {
@@ -16,9 +18,9 @@ class Display : public IDisplay {
     private:
     Adafruit_SSD1306 display;
 	bool displayOverride; // will allow system errors to display
-	uint8_t msgIndicies[msgIndicyTotal];
+	uint8_t msgIndicies[static_cast<int>(UIvals::msgIndicyTotal)];
 	uint8_t lastIndex;
-	char msgBuffer[OLEDCapacity];
+	char msgBuffer[static_cast<int>(UIvals::OLEDCapacity)];
 	void removeMessage();
 	void appendMessage(char* msg);
 

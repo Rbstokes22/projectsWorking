@@ -68,7 +68,7 @@ class NetMain { // Abstract class
     // Network/NetworkMain.cpp
     NetMain(Messaging::MsgLogHandler &msglogerr);
     virtual ~NetMain();
-    void appendErr(const char* msg); // appends error for net connection errors
+    void sendErr(const char* msg); // appends error for net connection errors
 
     // Network/Routes.cpp
     virtual void setRoutes(FlashWrite::Credentials &Creds) = 0;

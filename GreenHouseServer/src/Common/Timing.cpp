@@ -1,13 +1,14 @@
 #include "Common/Timing.h"
-#include <Arduino.h>
+
 
 namespace Clock {
 
-Timer::Timer(unsigned long interval) : 
+Timer::Timer(uint32_t interval) : 
+
 previousMillis{millis()}, interval{interval}{};
 
 bool Timer::isReady() {
-    unsigned long currentMillis = millis();
+    uint32_t currentMillis = millis();
     if ((currentMillis - this->previousMillis) >= this->interval) {
       this->previousMillis = currentMillis;
       return true;
@@ -16,7 +17,7 @@ bool Timer::isReady() {
     }
   }
 
-void Timer::changeInterval(unsigned long newInterval) {
+void Timer::changeInterval(uint32_t newInterval) {
   this->interval = newInterval;
 }
 

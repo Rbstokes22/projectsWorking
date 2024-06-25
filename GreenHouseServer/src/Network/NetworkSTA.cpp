@@ -3,58 +3,65 @@
 namespace Comms {
 
 Station::Station(Messaging::MsgLogHandler &msglogerr) : 
-    NetMain(msglogerr), connectedToSTA{false} {}
 
-// Sends station exclusive details to OLED.
+    NetMain(msglogerr), connectedToSTA{false} {
+
+    credsinfo[0] = {
+        "ssid", FlashWrite::Credentials::getSSID, 
+        NetMain::ST_SSID, sizeof(NetMain::ST_SSID)
+        };
+    credsinfo[1] = {
+        "pass", FlashWrite::Credentials::getPASS, 
+        NetMain::ST_PASS, sizeof(NetMain::ST_PASS)
+        };
+    credsinfo[2] = {
+        "phone", FlashWrite::Credentials::getPhone, 
+        NetMain::phone, sizeof(NetMain::phone)
+        };
+    }
+
+// Called at a set interval whenever the status of Station is checked. This sends
+// the current SSID, IP, and Signal Strength over to the OLED since just those
+// items are exclusive to the station connection.
 STAdetails Station::getSTADetails() {
     STAdetails details{"", "", ""};
+    
     strncpy(details.SSID, WiFi.SSID().c_str(), sizeof(details.SSID) - 1); 
     details.SSID[sizeof(details.SSID) - 1] = '\0';
+
     IPAddress ip{WiFi.localIP()};
     sprintf(details.IPADDR, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
     sprintf(details.signalStrength, "%d dBm", WiFi.RSSI());
+
     return details;
 }   
 
-// Connection to the station mode.
+// Checks if SSID/PASS have already been created on the WAP Setup page, which
+// will serve as a redundancy to allow station access if the NVS fails.
+// If these dont exist, typical for a fresh start, the NVS will be read
+// to provide credentials. If nothing exists, there will be no SSID or 
+// PASS to connect to station.
+void Station::setCredsNVS(FlashWrite::Credentials &Creds) {
+    
+    if (NetMain::ST_SSID[0] == '\0' || NetMain::ST_PASS[0] == '\0') { 
+
+        for (const auto &info : credsinfo) {
+            Creds.read(info.key);
+            strncpy(info.destination, info.source(), info.size - 1);
+            info.destination[info.size - 1] = '\0';
+        }
+    } 
+}
+
+// Station setup mode. Called to connect initiall or to reconnect. 
 void Station::STAconnect(FlashWrite::Credentials &Creds) {
-    memset(this->error, 0, sizeof(this->error));
-    uint8_t errCt{0};
 
     // Handle Disconnect
-    if (!WiFi.mode(WIFI_OFF)) {
-            appendErr("Failed to Disconnect AP; "); errCt++;
-        }
+    if (!WiFi.mode(WIFI_OFF)) this->sendErr("Failed to Disconnect AP"); 
 
-    // Checks if SSID/PASS have already been created on the WAP Setup page, which
-    // will serve as a redundancy to allow station access if the NVS fails.
-    // If these dont exist, typical for a fresh start, the NVS will be read
-    // to provide credentials. If nothing exists, there will be no SSID or 
-    // PASS to connect to station.
-    if (NetMain::ST_SSID[0] == '\0' || NetMain::ST_PASS[0] == '\0') {
+    this->setCredsNVS(Creds);
 
-        Creds.read("ssid"); Creds.read("pass"); Creds.read("phone");
-
-        // Copy the read data to the class variables to make them a primary
-        // means of credential entry.
-        strncpy(NetMain::ST_SSID, Creds.getSSID(), sizeof(NetMain::ST_SSID) - 1);
-        NetMain::ST_SSID[sizeof(NetMain::ST_SSID) - 1] = '\0'; 
-
-        strncpy(NetMain::ST_PASS, Creds.getPASS(), sizeof(NetMain::ST_PASS) - 1);
-        NetMain::ST_PASS[sizeof(NetMain::ST_PASS) - 1] = '\0';
-
-        strncpy(NetMain::phone, Creds.getPhone(), sizeof(NetMain::phone) - 1);
-        NetMain::phone[sizeof(NetMain::phone) - 1] = '\0';
-    } 
-
-    if (!WiFi.mode(WIFI_STA)) {
-        appendErr("WiFi STA mode unsettable; "); errCt++;
-    }
-
-    if (errCt > 0) {
-        this->msglogerr.handle(
-            Levels::ERROR, this->error, Method::OLED, Method::SRL);
-    }  
+    if (!WiFi.mode(WIFI_STA)) this->sendErr("WiFi STA mode unsettable"); 
 
     // Does not call begin if there is already an attempt or active connection
     if (WiFi.status() != WL_CONNECTED && WiFi.status() != WL_CONNECT_FAILED) {

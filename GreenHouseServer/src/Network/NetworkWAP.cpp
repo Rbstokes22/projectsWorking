@@ -35,34 +35,24 @@ void WirelessAP::setWAPpass(const char* pass) {
 // will occur on password change via WAPSetup server, or when the toggle
 // switches position.
 void WirelessAP::WAPconnect(uint8_t maxClients) {
-    memset(this->error, 0, sizeof(this->error));
-    uint8_t errCt{0};
 
     // Handle Disconnect
-    if (!WiFi.mode(WIFI_OFF)) {
-            appendErr("Failed to Disconnect WiFi; "); errCt++;
-        } 
+    if (!WiFi.mode(WIFI_OFF)) this->sendErr("Failed to Disconnect WiFi"); 
+  
 
     // Handle Connection
-    if (!WiFi.mode(WIFI_AP)) {
-        appendErr("Wifi AP mode unsettable; "); errCt++;
-    }
+    if (!WiFi.mode(WIFI_AP)) this->sendErr("Wifi AP mode unsettable; "); 
+    
 
     if (!WiFi.softAPConfig(
         this->local_IP, this->gateway, this->subnet)) {
-        appendErr("Unable to config AP; "); errCt++;
-    } 
+        this->sendErr("Unable to config AP; "); 
+    }
 
     if (!WiFi.softAP(
         this->AP_SSID, this->AP_PASS, 1, 0, maxClients)) { 
-        appendErr("Unable to start AP; "); errCt++;
+        this->sendErr("Unable to start AP; "); 
     }
-
-    if (errCt > 0) {
-        this->msglogerr.handle(
-            Levels::ERROR, this->error, Method::OLED, Method::SRL
-        );
-    }  
 
     if (!NetMain::isServerRunning) startServer();
 

@@ -1,19 +1,21 @@
 #ifndef TIMING_H
 #define TIMING_H
 
+#include <Arduino.h>
+
 // All timed data and functions go here for preceise timing throughout
 // the program.
 namespace Clock {
 
 class Timer {
     private:
-    unsigned long previousMillis;
-    unsigned long interval;
+    uint32_t previousMillis;
+    uint32_t interval;
 
     public:
-    Timer(unsigned long interval); 
+    Timer(uint32_t interval); 
     bool isReady();
-    void changeInterval(unsigned long newInterval);
+    void changeInterval(uint32_t newInterval);
 };
 
 }

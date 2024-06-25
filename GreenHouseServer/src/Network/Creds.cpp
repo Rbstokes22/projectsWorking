@@ -3,11 +3,19 @@
 
 namespace FlashWrite {
 
+// STATIC SETUP
+char Credentials::ssid[static_cast<int>(CredsNet::SSID_MAX)] = "";
+char Credentials::pass[static_cast<int>(CredsNet::PASS_MAX)] = "";
+char Credentials::phone[static_cast<int>(CredsNet::PHONE_MAX)] = "";
+char Credentials::WAPpass[static_cast<int>(CredsNet::WAP_PASS_MAX)] = "";
+
 // Used as modulo in order to get remaining 8bit value to set and read checksum.
 const uint16_t Credentials::checksumConst{256}; 
 
 // Change if data needs to be modified.
-const char* Credentials::keys[4]{"ssid", "pass", "phone", "WAPpass"};
+const char* Credentials::keys[static_cast<int>(CredsNet::networkCredKeyNum)]
+{"ssid", "pass", "phone", "WAPpass"};
+
 enum KI {ssid, pass, phone, WAPpass}; // Key Index for keys above.
 
 Credentials::Credentials(
@@ -15,16 +23,22 @@ Credentials::Credentials(
 
     nameSpace{nameSpace}, msglogerr(msglogerr) {
 
-    memset(ssid, 0, SSID_MAX);
-    memset(pass, 0, PASS_MAX);
-    memset(phone, 0, PHONE_MAX);
-    memset(WAPpass, 0, WAP_PASS_MAX);
-
     // Used for iteration in the read method to copy the appropriate value.
-    credInfo[0] = {Credentials::keys[KI::ssid], this->ssid, sizeof(this->ssid)};
-    credInfo[1] = {Credentials::keys[KI::pass], this->pass, sizeof(this->pass)};
-    credInfo[2] = {Credentials::keys[KI::phone], this->phone, sizeof(this->phone)};
-    credInfo[3] = {Credentials::keys[KI::WAPpass], this->WAPpass, sizeof(this->WAPpass)};
+    this->credInfo[0] = {
+        Credentials::keys[KI::ssid], this->ssid, sizeof(this->ssid)
+    };
+
+    this->credInfo[1] = {
+        Credentials::keys[KI::pass], this->pass, sizeof(this->pass)
+    };
+
+    this->credInfo[2] = {
+        Credentials::keys[KI::phone], this->phone, sizeof(this->phone)
+    };
+
+    this->credInfo[3] = {
+        Credentials::keys[KI::WAPpass], this->WAPpass, sizeof(this->WAPpass)
+    };
 }
 
 // Writes KV pair to NVS. If bytesWritten == buffer passed, returns true.
@@ -55,7 +69,7 @@ void Credentials::read(const char* key) {
         "Network creds (%s) checksum fail, potentially corrupt",
         key); 
 
-        msglogerr.handle(Levels::ERROR, error, Method::OLED, Method::SRL);
+        this->msglogerr.handle(Levels::ERROR, error, Method::OLED, Method::SRL);
     } 
 
     // Copies the value stored in NVS to the Network variable array (i.e. SSID).
@@ -108,9 +122,10 @@ void Credentials::setChecksum() {
 
     uint16_t bytesWritten = 
         this->prefs.putUInt("checksum", computeChecksum());
-
-    if (bytesWritten != sizeof(unsigned int)) {
-        msglogerr.handle(
+        
+    // use unsigned int instead of uint32_t to be safe from compiler issues
+    if (bytesWritten != sizeof(unsigned int)) { 
+        this->msglogerr.handle(
             Levels::ERROR, "Creds checksum write fail", Method::SRL);
     }
 
@@ -122,22 +137,23 @@ void Credentials::setChecksum() {
 bool Credentials::getChecksum() {
     uint8_t storedChecksum = this->prefs.getUInt("checksum", 0);
  
-    return (computeChecksum() == storedChecksum);
+    return (this->computeChecksum() == storedChecksum);
 }
 
-const char* Credentials::getSSID() const {
-    return this->ssid;
+const char* Credentials::getSSID() {
+    return Credentials::ssid;
 }
 
-const char* Credentials::getPASS() const {
-    return this->pass;
+const char* Credentials::getPASS() {
+    return Credentials::pass;
 }
 
-const char* Credentials::getPhone() const {
-    return this->phone;
+const char* Credentials::getPhone() {
+    return Credentials::phone;
 }
 
-const char* Credentials::getWAPpass() const {
-    return this->WAPpass;
+const char* Credentials::getWAPpass() {
+    return Credentials::WAPpass;
 }
+
 }

@@ -14,30 +14,18 @@ bool NetMain::isMainServerSetup{false}; // Allows a single setup
 
 
 NetMain::NetMain(Messaging::MsgLogHandler &msglogerr) :
-    msglogerr(msglogerr) {
 
-    // Initialize the arrays with null chars
+    msglogerr(msglogerr) {
     memset(this->error, 0, sizeof(this->error));
 }
 
 NetMain::~NetMain(){}
 
-// This is used in conjunction with the error array. The OLED accepts an error,
-// but its reset time is 
-void NetMain::appendErr(const char* msg) {
-    size_t remaining = sizeof(this->error) - strlen(this->error) - 1;
-
-    strncat(this->error, msg, remaining);
-
-    if (remaining == 0) {
-        this->msglogerr.handle(
-            Levels::WARNING,
-            "Errors exceeding buffer length",
-            Method::SRL
-        );
-    }
+void NetMain::sendErr(const char* msg) {
+    this->msglogerr.handle(Levels::ERROR, msg, Method::OLED, Method::SRL);
 }
 
+// The switch reads the 3 way switch to determine which mode it should be in.
 WIFI wifiModeSwitch() {
     uint8_t WAP = digitalRead(static_cast<int>(NETPIN::WAPswitch));
     uint8_t STA = digitalRead(static_cast<int>(NETPIN::STAswitch));  

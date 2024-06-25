@@ -19,7 +19,7 @@ void OTAupdates::start(){
 
     // Initialize the handlers
     ArduinoOTA.onStart([this]() {
-        OLED.setOverrideStat(true);
+        this->OLED.setOverrideStat(true);
         this->sensorThread.suspendTask();
 
         // U_FLASH will be the primary means for both online and from you PC.
@@ -30,19 +30,19 @@ void OTAupdates::start(){
             strcpy(this->buffer, "Updating\nFile Sys");
         }
         
-        OLED.printUpdates(this->buffer); delay(500); // delay to display
+        this->OLED.printUpdates(this->buffer); delay(500); // delay to display
     });
 
-    ArduinoOTA.onProgress([&](unsigned int progress, unsigned int total) {
-        unsigned int percentage{(progress * 100) / total};
+    ArduinoOTA.onProgress([&](uint32_t progress, uint32_t total) {
+        uint32_t percentage{(progress * 100) / total};
         sprintf(this->buffer, "%d%%", percentage);
-        OLED.updateProgress(this->buffer);
+        this->OLED.updateProgress(this->buffer);
     });
 
     ArduinoOTA.onEnd([&]() {
         strcpy(this->buffer, "Complete");
-        OLED.printUpdates(this->buffer); 
-        OLED.setOverrideStat(false);
+        this->OLED.printUpdates(this->buffer); 
+        this->OLED.setOverrideStat(false);
         this->sensorThread.resumeTask(); // resumes thread tasks
     });
 
@@ -64,8 +64,8 @@ void OTAupdates::start(){
             strcpy(this->buffer, "End\nFailed"); 
         }
 
-        OLED.printUpdates(buffer);
-        OLED.setOverrideStat(false);
+        this->OLED.printUpdates(buffer);
+        this->OLED.setOverrideStat(false);
 ;       this->sensorThread.resumeTask();; // resumes thread tasks
     });
 

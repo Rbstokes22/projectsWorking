@@ -133,14 +133,14 @@ void Display::updateProgress(char* progress) {
 
 void Display::removeMessage() {
     uint8_t start = msgIndicies[1]; // beginning of the first msg after removal
-    uint8_t end = OLEDCapacity - start;
+    uint8_t end = static_cast<int>(UIvals::OLEDCapacity) - start;
     uint8_t numIndicies = sizeof(this->msgIndicies) / sizeof(this->msgIndicies[0]);
 
     // This will move the data from the msgBuffer that we care about down to index
     // 0. The rest of the data is untouched, so to nullify it, we will memset it 
     // from where the good data ends, for the remaining bytes of the block.
     memmove(this->msgBuffer, this->msgBuffer + start, end);
-    memset(this->msgBuffer + end, 0, OLEDCapacity - end);
+    memset(this->msgBuffer + end, 0, static_cast<int>(UIvals::OLEDCapacity) - end);
 
     // after deleting the first message, takes the starting address 
     // of the next message and shifts it down 1 index value in the 
@@ -157,10 +157,10 @@ void Display::removeMessage() {
 // All error handling of messages that exceed the buffer length are handled in the MsgLogErr
 void Display::appendMessage(char* msg) {
     char delimeter[] = ";   "; // separates the errors
-    char tempBuffer[OLEDCapacity]{'\0'};
+    char tempBuffer[static_cast<int>(UIvals::OLEDCapacity)]{'\0'};
     size_t remaining = sizeof(this->msgBuffer) - strlen(this->msgBuffer);
     uint16_t messageSize = strlen(msg) + strlen(delimeter) - 1;
-    uint8_t indicyCap = msgIndicyTotal - 2; // prevents overflow
+    uint8_t indicyCap = static_cast<int>(UIvals::msgIndicyTotal) - 2; // prevents overflow
 
     auto manageRemoval = [this](size_t &remaining){
         this->removeMessage();

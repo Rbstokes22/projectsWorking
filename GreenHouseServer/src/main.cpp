@@ -7,8 +7,7 @@
 
 
 // BOOKMARK.
-// PRIORITY. WORK ON OLED TIMING, MAYBE USE TIMING OBJECT. ALSO OLED IS NOT CLEARING
-// MSG 1 PROPERLY. PROBABLY ERRORS WITH INDEXING
+// PRIORITY. MAYBE GET RID OF CHAR ERROR[75] in the net class?
 
 // 1. Refine code to make it more modular. add desriptive handlers and stuff.
 // split up the Network.h into several files, maybe create a directories.
@@ -58,7 +57,13 @@ UI::Display OLED{128, 64};
 
 // Handles all messaging, errors, and logging. Either remove 
 // true or set to false when Serial is no longer beings used.
+// passed to nearly all class objects.
 Messaging::MsgLogHandler msglogerr(OLED, 5, true); 
+
+// Uses prefs library to store to the NVS. Creds are network credentials
+// and periphSettings are for all sensor settings.
+FlashWrite::Credentials Creds{"Network", msglogerr}; 
+FlashWrite::PeripheralSettings periphSettings{"periphSettings", msglogerr}; 
 
 // Created with default password, will set password during init if 
 // one is saved in the NVS, or if one is passed in WAPSetup mode.
@@ -72,11 +77,6 @@ Comms::WirelessAP wirelessAP = {
 
 // Station mode network object.
 Comms::Station station(msglogerr);
-
-// Uses prefs library to store to the NVS. Creds are network credentials
-// and periphSettings are for all sensor settings.
-FlashWrite::Credentials Creds{"Network", msglogerr}; 
-FlashWrite::PeripheralSettings periphSettings{"periphSettings", msglogerr}; 
 
 // Timer object to check 3-way switch poisition at set interval
 Clock::Timer checkWifiModeSwitch{1000}; 
@@ -108,7 +108,8 @@ Threads::SensorThread sensorThread(msglogerr); // Master single thread
 // Send thread to OTA to be suspended during OTA updates
 UpdateSystem::OTAupdates otaUpdates{OLED, sensorThread};
 
-size_t networkManager::startupHeap{0}; // Used to determine free heap
+// Used to determine free heap, avoids div by 0
+size_t networkManager::startupHeap{1}; 
 
 void setup() {
   networkManager::startupHeap = ESP.getFreeHeap(); 
@@ -137,8 +138,6 @@ void setup() {
     wirelessAP, station, msglogerr);
 }
 
-Clock::Timer tester{1000}; 
-int ct = 0;
 void loop() { 
   
   otaUpdates.manageOTA(station);
