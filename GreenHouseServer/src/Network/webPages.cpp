@@ -1,5 +1,10 @@
 #include "Network/NetworkWAP.h"
 
+// WEBPAGES HOSTED HERE
+// WAP Setup used to enter network credentials
+// Station Main - extra features since it has network connection
+// WAP Main - loses some features of station main
+
 namespace Comms {
     
 const char WAPSetupPage[] PROGMEM = R"rawliteral(

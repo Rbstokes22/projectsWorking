@@ -1,19 +1,19 @@
 #include "Network/Creds.h"
 #include <cstring> // memset use
 
-namespace FlashWrite {
+namespace NVS {
 
 // STATIC SETUP
-char Credentials::ssid[static_cast<int>(CredsNet::SSID_MAX)] = "";
-char Credentials::pass[static_cast<int>(CredsNet::PASS_MAX)] = "";
-char Credentials::phone[static_cast<int>(CredsNet::PHONE_MAX)] = "";
-char Credentials::WAPpass[static_cast<int>(CredsNet::WAP_PASS_MAX)] = "";
+char Credentials::ssid[static_cast<int>(CredsSize::SSID_MAX)] = "";
+char Credentials::pass[static_cast<int>(CredsSize::PASS_MAX)] = "";
+char Credentials::phone[static_cast<int>(CredsSize::PHONE_MAX)] = "";
+char Credentials::WAPpass[static_cast<int>(CredsSize::WAP_PASS_MAX)] = "";
 
 // Used as modulo in order to get remaining 8bit value to set and read checksum.
 const uint16_t Credentials::checksumConst{256}; 
 
 // Change if data needs to be modified.
-const char* Credentials::keys[static_cast<int>(CredsNet::networkCredKeyNum)]
+const char* Credentials::keys[static_cast<int>(CredsSize::networkCredKeyQty)]
 {"ssid", "pass", "phone", "WAPpass"};
 
 enum KI {ssid, pass, phone, WAPpass}; // Key Index for keys above.
@@ -25,19 +25,23 @@ Credentials::Credentials(
 
     // Used for iteration in the read method to copy the appropriate value.
     this->credInfo[0] = {
-        Credentials::keys[KI::ssid], this->ssid, sizeof(this->ssid)
+        Credentials::keys[KI::ssid], 
+        Credentials::ssid, sizeof(Credentials::ssid)
     };
 
     this->credInfo[1] = {
-        Credentials::keys[KI::pass], this->pass, sizeof(this->pass)
+        Credentials::keys[KI::pass], 
+        Credentials::pass, sizeof(Credentials::pass)
     };
 
     this->credInfo[2] = {
-        Credentials::keys[KI::phone], this->phone, sizeof(this->phone)
+        Credentials::keys[KI::phone], 
+        Credentials::phone, sizeof(Credentials::phone)
     };
 
     this->credInfo[3] = {
-        Credentials::keys[KI::WAPpass], this->WAPpass, sizeof(this->WAPpass)
+        Credentials::keys[KI::WAPpass], 
+        Credentials::WAPpass, sizeof(Credentials::WAPpass)
     };
 }
 
@@ -58,8 +62,8 @@ bool Credentials::write(const char* key, const char* buffer) {
     return (bytesWritten == (strlen(buffer) + 1)); // +1 for null term
 }
 
-// Reads value of key passed by iterating through the credInfo struct and 
-// returning the value for the matched key. 
+// Reads value of key passed by iterating through the credInfo struct array and 
+// returning the value for the matched key passed in argument.
 void Credentials::read(const char* key) { 
     this->prefs.begin(this->nameSpace);
     char error[75]{};
@@ -78,9 +82,11 @@ void Credentials::read(const char* key) {
         array[readSize] = '\0';
     };
 
-    for (const auto &credInf : credInfo) {
-        if (strcmp(key, credInf.key) == 0) {
-            Copy(credInf.data, credInf.size);
+    // Iterates the credInfo array, compares the key to its keys, and copies the
+    // data upon a match.
+    for (const auto &info : this->credInfo) {
+        if (strcmp(key, info.key) == 0) {
+            Copy(info.destination, info.size);
         }
     }
 

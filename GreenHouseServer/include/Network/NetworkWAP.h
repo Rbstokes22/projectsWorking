@@ -1,6 +1,7 @@
 #ifndef NETWORKWAP_H
 #define NETWORKWAP_H
 
+#include <ArduinoJson.h>
 #include "Network/NetworkMain.h"
 
 namespace Comms {
@@ -10,11 +11,12 @@ class WirelessAP : public NetMain {
 
     // These variables are exclusive to the WAP, thus are not shared by all
     // subclasses to NetMain.
-    char AP_SSID[15];
-    char AP_PASS[64];
+    char AP_SSID[static_cast<int>(NetSize::SSID)];
+    char AP_PASS[static_cast<int>(NetSize::PASS)];
     IPAddress local_IP;
     IPAddress gateway;
     IPAddress subnet;
+    NVS::CredInfo credinfo[static_cast<int>(NetSize::KEYQTYWAP)];
 
     public:
 
@@ -26,19 +28,20 @@ class WirelessAP : public NetMain {
     const char* getWAPpass();
     void setWAPpass(const char* pass);
     void WAPconnect(uint8_t maxClients);
-    bool WAP(FlashWrite::Credentials &Creds);
-    bool WAPSetup(FlashWrite::Credentials &Creds); // Setup LAN setting from WAP
+    bool WAP(NVS::Credentials &Creds);
+    bool WAPSetup(NVS::Credentials &Creds); // Setup LAN setting from WAP
     
     // Network/Routes.cpp
-    void setRoutes(FlashWrite::Credentials &Creds) override;
+    void setRoutes(NVS::Credentials &Creds) override;
 
     // Network/Server/ServerWapSubmit.cpp
-    void handleWAPsubmit(FlashWrite::Credentials &Creds);
-        
+    void handleWAPsubmit(NVS::Credentials &Creds);
     void commitAndRespond(
-        const char* type, FlashWrite::Credentials &Creds,char* buffer);
-
-    void handleJson(FlashWrite::Credentials &Creds);
+        const char* type, NVS::Credentials &Creds,char* buffer);
+    void keyNotFound();
+    void getJson(
+        const char* key, char* jsonData, JsonDocument &jsonDoc, NVS::Credentials &Creds);
+    void handleJson(NVS::Credentials &Creds);
 };
 
 // Network/webPages.cpp

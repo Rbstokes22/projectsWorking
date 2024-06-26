@@ -31,14 +31,29 @@ enum class WIFI : uint8_t { // WIFI variables to check connection
     WAP_ONLY, WAP_SETUP, STA_ONLY, NO_WIFI, WIFI_STARTING, WIFI_RUNNING
 };
 
+enum class NetSize {
+    SSID = 32,
+    IPADDR = 16,
+    SIGSTRENGTH = 16,
+    PASS = 64, 
+    PHONE = 15,
+    KEYQTYWAP = 4, // uses for ssid, pass, phone, and WAPpass
+    KEYQTYSTA = 3, // uses only ssid, pass, and phone
+    PORT = 80
+};
+
+// Key Index used to in conjunction with the keys[], used for 
+// indexing values.
+enum class KI {ssid, pass, phone, WAPpass}; 
+
 // Communications namespace applies to the Network and servers.
 namespace Comms {
 
 // Provides the details of the station connection to OLED.
 struct STAdetails {
-    char SSID[32];
-    char IPADDR[16];
-    char signalStrength[16];
+    char SSID[static_cast<int>(NetSize::SSID)];
+    char IPADDR[static_cast<int>(NetSize::IPADDR)];
+    char signalStrength[static_cast<int>(NetSize::SIGSTRENGTH)];
 };
 
 // Most variables are declared as static since they must be shared between
@@ -52,15 +67,16 @@ class NetMain { // Abstract class
 
     // Unlike AP data, these are set in WAP and used in STA so they are 
     // shared between subclasses.
-    static char ST_SSID[32];
-    static char ST_PASS[64];
-    static char phone[15]; // will be used for sms service.
+    static char ST_SSID[static_cast<int>(NetSize::SSID)];
+    static char ST_PASS[static_cast<int>(NetSize::PASS)];
+    static char phone[static_cast<int>(NetSize::PHONE)]; // will be used for sms service.
 
     // Allows the main server to be setup exactly once, by either subclass
     // that first calls it.
     static bool isMainServerSetup;
 
-    char error[168]; // 168 Capacity at OLED (21 * 8) size 1
+    static const char* keys[static_cast<int>(NetSize::KEYQTYWAP)];
+
     Messaging::MsgLogHandler &msglogerr;
     
     public:
@@ -71,7 +87,7 @@ class NetMain { // Abstract class
     void sendErr(const char* msg); // appends error for net connection errors
 
     // Network/Routes.cpp
-    virtual void setRoutes(FlashWrite::Credentials &Creds) = 0;
+    virtual void setRoutes(NVS::Credentials &Creds) = 0;
 
     // Network/Server/ServerStart.cpp
     void startServer();

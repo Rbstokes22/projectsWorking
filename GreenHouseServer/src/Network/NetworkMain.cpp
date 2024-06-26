@@ -2,25 +2,29 @@
 
 namespace Comms {
 
-// STATIC VARIABLE INIT
-WebServer NetMain::server(80);
+// STATIC SETUP
+WebServer NetMain::server(static_cast<int>(NetSize::PORT));
 WIFI NetMain::prevServerType{WIFI::NO_WIFI};
 bool NetMain::isServerRunning{false};
 bool NetMain::MDNSrunning{false};
-char NetMain::ST_SSID[32]{};
-char NetMain::ST_PASS[64]{};
-char NetMain::phone[15]{};
+char NetMain::ST_SSID[static_cast<int>(NetSize::SSID)]{};
+char NetMain::ST_PASS[static_cast<int>(NetSize::PASS)]{};
+char NetMain::phone[static_cast<int>(NetSize::PHONE)]{};
 bool NetMain::isMainServerSetup{false}; // Allows a single setup
 
+// Keys used through the Net classes to send and receive data fom the web
+// aplication, NVS, and startup.
+const char* NetMain::keys[static_cast<int>(NetSize::KEYQTYWAP)]{
+    "ssid", "pass", "phone", "WAPpass"
+};
 
-NetMain::NetMain(Messaging::MsgLogHandler &msglogerr) :
-
-    msglogerr(msglogerr) {
-    memset(this->error, 0, sizeof(this->error));
-}
+NetMain::NetMain(Messaging::MsgLogHandler &msglogerr) : msglogerr(msglogerr) {}
 
 NetMain::~NetMain(){}
 
+// The send error is used during the connection to the station to limit some of the 
+// verbosity on the screen. Rather than each step having a statement, it just
+// sends the error here, since they are all common to eachother.
 void NetMain::sendErr(const char* msg) {
     this->msglogerr.handle(Levels::ERROR, msg, Method::OLED, Method::SRL);
 }

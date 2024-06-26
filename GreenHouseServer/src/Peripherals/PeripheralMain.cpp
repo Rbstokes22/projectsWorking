@@ -1,6 +1,6 @@
 #include "Peripherals/PeripheralMain.h"
 
-namespace FlashWrite {
+namespace NVS {
 
 const int16_t PeripheralSettings::ERR{-999};
 

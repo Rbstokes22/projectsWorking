@@ -7,7 +7,7 @@ namespace Comms {
 // MAIN SERVER ROUTES THAT APPLY TO ALL. The NetMain routes will be 
 // called by each subclass, it will only be initialized once though
 // using isMainServerSetup flag.
-void NetMain::setRoutes(FlashWrite::Credentials &Creds) {
+void NetMain::setRoutes(NVS::Credentials &Creds) {
     if (NetMain::isMainServerSetup == false) {
         NetMain::server.on("/", [this](){this->handleIndex();});
         NetMain::server.onNotFound([this](){this->handleNotFound();});
@@ -16,7 +16,7 @@ void NetMain::setRoutes(FlashWrite::Credentials &Creds) {
 }
 
 // SERVER ROUTES EXCLUSIVE TO WIRELESS
-void WirelessAP::setRoutes(FlashWrite::Credentials &Creds) {
+void WirelessAP::setRoutes(NVS::Credentials &Creds) {
     NetMain::server.on("/WAPsubmit", [this, &Creds](){
         WirelessAP::handleWAPsubmit(Creds);
         });
@@ -24,7 +24,7 @@ void WirelessAP::setRoutes(FlashWrite::Credentials &Creds) {
 }
 
 // SERVER ROUTES EXCLUSIVE TO STATION (NONE AT THE MOMENT)
-void Station::setRoutes(FlashWrite::Credentials &Creds) {
+void Station::setRoutes(NVS::Credentials &Creds) {
     NetMain::setRoutes(Creds);
 }
 

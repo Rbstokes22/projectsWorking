@@ -11,7 +11,7 @@ namespace networkManager {
 // they can start in default mode and change the password. Once creds are 
 // established, the server routes are setup.
 void initializeWAP(
-    bool defaultSwitch, FlashWrite::Credentials &Creds, 
+    bool defaultSwitch, NVS::Credentials &Creds, 
     Comms::WirelessAP &wirelessAP, Comms::Station &station,
     Messaging::MsgLogHandler &msglogerr) {    
     
@@ -24,8 +24,8 @@ void initializeWAP(
         Creds.read("WAPpass"); 
 
         // Changes default password if one is saved in the NVS.
-        if (FlashWrite::Credentials::getWAPpass()[0] != '\0') {
-            wirelessAP.setWAPpass(FlashWrite::Credentials::getWAPpass());
+        if (NVS::Credentials::getWAPpass()[0] != '\0') {
+            wirelessAP.setWAPpass(NVS::Credentials::getWAPpass());
 
         } else {
             msglogerr.handle(
@@ -86,7 +86,7 @@ void getHeapHealth(char* heapHealth) {
 void handleWifiMode(
     Comms::WirelessAP &wirelessAP, Comms::Station &station,
     UI::Display &OLED, UpdateSystem::OTAupdates &otaUpdates,
-    FlashWrite::Credentials &Creds, const char* serverPassDefault,
+    NVS::Credentials &Creds, const char* serverPassDefault,
     const char* serverName, const char* ipaddr) {
 
     char WAPtype[20]{}; // Displays Default or not Default

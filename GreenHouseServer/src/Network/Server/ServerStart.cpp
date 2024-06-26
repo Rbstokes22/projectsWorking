@@ -13,14 +13,14 @@ void NetMain::handleNotFound() {
     NetMain::server.send(404, "text/html", "Page Not Found");
 }
 
-// Only handled when the server has begun.
+// Only handled once the server has begun.
 void NetMain::handleServer() {
     if (NetMain::isServerRunning) { // begins after server.begin()
         NetMain::server.handleClient();
     }
 }
 
-// Used to start the OTA updates.
+// Used to confirm the connection to STA for the OTA updates.
 bool Station::isSTAconnected() {
     return this->connectedToSTA;
 }

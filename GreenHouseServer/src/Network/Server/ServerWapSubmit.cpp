@@ -1,5 +1,4 @@
 #include "Network/NetworkWAP.h"
-#include <ArduinoJson.h>
 
 // This source file handles the WAP submit JSON data that is passed
 // from the webpage to setup the station network credentials as well
@@ -10,19 +9,18 @@ namespace Comms {
 // Takes the buffer data and writes it to the NVS with a specific key
 // value.
 void WirelessAP::commitAndRespond(
-    const char* type, FlashWrite::Credentials &Creds, char* buffer
-    ) {
+    const char* key, NVS::Credentials &Creds, char* buffer) {
         
     char response[64]{}; // Will never exceed this limit.
     JsonDocument res{}; // this variable is sent back to client as response
 
-    if (Creds.write(type, buffer)) {
+    if (Creds.write(key, buffer)) {
         // If the WAP password has been changed, alerts client to reconnect
         // to the WiFi since it will disconnect.
-        if (strcmp(type, "WAPpass") == 0) {
+        if (strcmp(key, "WAPpass") == 0) {
             res["status"] = "Accepted, Reconnect to WiFi";
         } else {
-            res["status"] = "Accepted"; // type != WAPpass
+            res["status"] = "Accepted"; // key != WAPpass
         }
 
     } else {
@@ -47,53 +45,57 @@ void WirelessAP::commitAndRespond(
     // the change takes place immediately to prevent any sort of security
     // issue. If issue, toggle switch should clear up, but look into errors
     // during testing.
-    if (strcmp(type, "WAPpass") == 0) {
+    if (strcmp(key, "WAPpass") == 0) {
         this->WAPconnect(1); // 1 client for security reasons
     }
 }
 
-void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
+// If no JSON key is found, this will send a Warning.
+void WirelessAP::keyNotFound() {
+    this->msglogerr.handle(
+            Levels::WARNING,
+            "Passed JSON key that wasnt recognized",
+            Method::SRL); 
+}
+
+void WirelessAP::getJson(
+    const char* key, char* jsonData, 
+    JsonDocument &jsonDoc, NVS::Credentials &Creds) {
+
+    char buffer[100]{};
+    bool containsKey{false};
+
+    strncpy(buffer, jsonDoc[key].as<const char*>(), sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0'; // ensure null termination for storage
+
+    // These strncpy's serve as a redundancy in the event the NVS fails.
+    // This data when received from the WAP, is automatically copied to the 
+    // required Network variables, which are ultimately used to begin the 
+    // connection. If the Network variables are empty, it will default to 
+    // checking the NVS, usually this happens upon starting. This iterates
+    // the credinfo array and if the passed key matches a required key,
+    // its data is copied to the the class variable.
+    for (auto &info : credinfo) {
+        if (strcmp(key, info.key) == 0) {
+            strncpy(info.destination, buffer, info.size - 1);
+            info.destination[info.size - 1] = '\0';
+            containsKey = true; break;
+        }; 
+    }
+
+    if (!containsKey) {keyNotFound(); return;}
+    
+    // Commits to NVS and sends server response.
+    this->commitAndRespond(key, Creds, buffer);
+}
+
+void WirelessAP::handleJson(NVS::Credentials &Creds) {
     // The largest element coming though will be 64 char array with a 4 char 
     // key. Never expect it to exceed 75 bytes, 100 for padding.
     char jsonData[100]{};
     char buffer[100]{};
     JsonDocument jsonDoc{};
-
-    // The type passed to this will determine which class variable the 
-    // data will be assigned to, and copy the buffer data over to it.
-    // This is middleware before the commit to NVS and server response.
-    auto getJson = [this, &buffer, &jsonDoc, &Creds](const char* type) {
-        strncpy(
-            buffer, jsonDoc[type].as<const char*>(), sizeof(buffer) - 1
-            );
-
-        buffer[sizeof(buffer) - 1] = '\0'; // ensure null termination for storage
-
-        // These strncpy's serve as a redundancy in the event the NVS fails.
-        // This data when received from the WAP, is automatically copied to the 
-        // required Network variables, which are ultimately used to begin the 
-        // connection. If the Network variables are empty, it will default to 
-        // checking the NVS, usually this happens upon starting.
-        if (strcmp(type, "ssid") == 0) {
-            strncpy(NetMain::ST_SSID, buffer, sizeof(NetMain::ST_SSID) - 1);
-            NetMain::ST_SSID[sizeof(NetMain::ST_SSID) - 1] = '\0';
-
-        } else if (strcmp(type, "pass") == 0) {
-            strncpy(NetMain::ST_PASS, buffer, sizeof(NetMain::ST_PASS) - 1);
-            NetMain::ST_PASS[sizeof(NetMain::ST_PASS) - 1] = '\0';
-
-        } else if (strcmp(type, "phone") == 0) {
-            strncpy(NetMain::phone, buffer, sizeof(NetMain::phone) - 1);
-            NetMain::phone[sizeof(NetMain::phone) - 1] = '\0';
-
-        } else if (strcmp(type, "WAPpass") == 0) {
-            strncpy(this->AP_PASS, buffer, sizeof(this->AP_PASS) - 1);
-            this->AP_PASS[sizeof(this->AP_PASS) - 1] = '\0';
-        }
-
-        // Commits to NVS and sends server response.
-        this->commitAndRespond(type, Creds, buffer);
-    };
+    bool containsKey{false};
 
     // If this argument exists, it means the body contains JSON. 
     if (NetMain::server.hasArg("plain")) {
@@ -112,7 +114,8 @@ void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
 
         DeserializationError error{deserializeJson(jsonDoc, jsonData)};
 
-        // JSON is deserialized and ready for use.
+        // JSON is deserialized and ready for use, unless error. Then a message
+        // is sent before the return.
         if (error) { 
             this->msglogerr.handle(
                 Levels::ERROR,
@@ -121,20 +124,15 @@ void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
             ); return; 
         };
 
-        // Depending on the json key passed, this will get the data 
-        // associated with that key. Only one key:val will be passed
-        // at a time.
-        if (jsonDoc.containsKey("ssid")) {getJson("ssid");}
-        else if (jsonDoc.containsKey("pass")) {getJson("pass");}
-        else if (jsonDoc.containsKey("phone")) {getJson("phone");}
-        else if (jsonDoc.containsKey("WAPpass")) {getJson("WAPpass");}
-        else {
-            this->msglogerr.handle(
-                Levels::WARNING,
-                "Passed JSON key that wasnt recognized",
-                Method::SRL
-            );
+        // MAYBE DO SOME ORGANIZING IN HERE
+        for (auto &info : credinfo) {
+            if (jsonDoc.containsKey(info.key)) {
+                this->getJson(info.key, jsonData, jsonDoc, Creds);
+                containsKey = true; break;
+            }
         }
+
+        if (!containsKey) {keyNotFound(); return;}
 
     } else {
         NetMain::server.send(400, "text/plain", "Bad Request. No JSON payload!");
@@ -144,7 +142,7 @@ void WirelessAP::handleJson(FlashWrite::Credentials &Creds) {
 // Upon being called from the client, this controller will handle and decode 
 // the JSON data sent through in order to store it in NVS and change the 
 // class variables.
-void WirelessAP::handleWAPsubmit(FlashWrite::Credentials &Creds) {
+void WirelessAP::handleWAPsubmit(NVS::Credentials &Creds) {
 
     if (NetMain::prevServerType == WIFI::WAP_SETUP) {
         WirelessAP::handleJson(Creds);

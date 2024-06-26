@@ -7,7 +7,11 @@
 
 
 // BOOKMARK.
-// PRIORITY. MAYBE GET RID OF CHAR ERROR[75] in the net class?
+// Look at config.h again or something for commonly used enums like SSID_MAX. Right
+// now it is defined in creds and netmain. Mabye create a namespace with values 
+// like that in config, and set your enums = to those, or make a global enum 
+// and the things that differ from it would be in a config. Then clean up the 
+// rest of the wapSubmit.cpp and proceed on with threads and UI.
 
 // 1. Refine code to make it more modular. add desriptive handlers and stuff.
 // split up the Network.h into several files, maybe create a directories.
@@ -62,8 +66,8 @@ Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 
 // Uses prefs library to store to the NVS. Creds are network credentials
 // and periphSettings are for all sensor settings.
-FlashWrite::Credentials Creds{"Network", msglogerr}; 
-FlashWrite::PeripheralSettings periphSettings{"periphSettings", msglogerr}; 
+NVS::Credentials Creds{"Network", msglogerr}; 
+NVS::PeripheralSettings periphSettings{"periphSettings", msglogerr}; 
 
 // Created with default password, will set password during init if 
 // one is saved in the NVS, or if one is passed in WAPSetup mode.

@@ -4,6 +4,7 @@
 namespace Threads {
 
 Mutex::Mutex(Messaging::MsgLogHandler &msglogerr) : 
+
     xMutex{xSemaphoreCreateMutex()}, msglogerr(msglogerr) {
     if (this->xMutex == NULL) {
         msglogerr.handle(

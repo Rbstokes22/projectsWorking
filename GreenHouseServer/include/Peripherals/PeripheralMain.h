@@ -13,7 +13,7 @@ enum class PERPIN : uint8_t { // Peripheral Pin
 };
 
 // ALL SENSOR SETTINGS HERE USE DEFAULT FOR NVS ISSUES. 
-namespace FlashWrite {
+namespace NVS {
 
 class PeripheralSettings {
     private:

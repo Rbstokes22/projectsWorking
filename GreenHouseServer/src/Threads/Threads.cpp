@@ -4,6 +4,7 @@ namespace Threads {
 
 // This is the sensor and its corresponding timing object. Relatively const
 ThreadSetting::ThreadSetting(Peripheral::Sensors &sensor, Clock::Timer &sampleInterval) : 
+
     sensor{sensor}, sampleInterval{sampleInterval}{}
 
 // This is a compilation of each peripheral device's Thread setting

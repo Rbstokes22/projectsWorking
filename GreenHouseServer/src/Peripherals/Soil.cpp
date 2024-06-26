@@ -11,7 +11,7 @@ Soil::Soil(
     Sensors(msglogerr), soilPin(soilPin), maxRetries(maxRetries),
     dryValue(2500), wetValue(1000) {}
 
-void Soil::init(FlashWrite::PeripheralSettings &NVSsettings) {
+void Soil::init(NVS::PeripheralSettings &NVSsettings) {
     char buffer[32]{};
     
 

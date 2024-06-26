@@ -6,6 +6,7 @@ namespace UI {
 
 // Constructor 
 Display::Display(uint8_t width, uint8_t height) :
+
     display{width, height, &Wire, -1}, 
     displayOverride{false},
     msgIndicies{0},
@@ -156,10 +157,10 @@ void Display::removeMessage() {
 
 // All error handling of messages that exceed the buffer length are handled in the MsgLogErr
 void Display::appendMessage(char* msg) {
-    char delimeter[] = ";   "; // separates the errors
+    char delimeter[] = ";     "; // separates the errors
     char tempBuffer[static_cast<int>(UIvals::OLEDCapacity)]{'\0'};
     size_t remaining = sizeof(this->msgBuffer) - strlen(this->msgBuffer);
-    uint16_t messageSize = strlen(msg) + strlen(delimeter) - 1;
+    uint16_t messageSize = strlen(msg) + strlen(delimeter);
     uint8_t indicyCap = static_cast<int>(UIvals::msgIndicyTotal) - 2; // prevents overflow
 
     auto manageRemoval = [this](size_t &remaining){
