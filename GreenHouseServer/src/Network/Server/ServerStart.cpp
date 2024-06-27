@@ -6,7 +6,10 @@ namespace Comms {
 void NetMain::startServer() {
     NetMain::server.begin(); 
     NetMain::isServerRunning = true;
-    this->msglogerr.handle(Levels::INFO,"Server Started", Method::SRL);
+    this->msglogerr.handle(
+        Messaging::Levels::INFO,
+        "Server Started", 
+        Messaging::Method::SRL);
 }
 
 void NetMain::handleNotFound() {

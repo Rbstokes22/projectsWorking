@@ -6,19 +6,16 @@
 #include "Network/NetworkSTA.h" // used for the WAPdetails
 #include "UI/IDisplay.h"
 
-enum class UIvals {
-	msgIndicyTotal = 10,
-	OLEDCapacity = 168
-};
-
 // All user interface data and functions
 namespace UI {
-	
+
 class Display : public IDisplay {
     private:
     Adafruit_SSD1306 display;
 	bool displayOverride; // will allow system errors to display
-	uint8_t msgIndicies[static_cast<int>(UIvals::msgIndicyTotal)];
+
+	// Starting addresses for each error.
+	uint8_t msgAddresses[static_cast<int>(UIvals::msgIndicyTotal)];
 	uint8_t lastIndex;
 	char msgBuffer[static_cast<int>(UIvals::OLEDCapacity)];
 	void removeMessage();
@@ -31,7 +28,7 @@ class Display : public IDisplay {
     Display(uint8_t width, uint8_t height); // constructor
     void init(); // initialize the display display logo
 	void printWAP(
-		const char SSID[20], 
+		const char SSID[20], // Hard coded index values, will not change.
 		const char ipaddr[16], 
 		const char status[4], 
 		const char WAPtype[20], 

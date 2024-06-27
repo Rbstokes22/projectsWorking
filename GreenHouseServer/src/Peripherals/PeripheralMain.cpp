@@ -38,13 +38,10 @@ bool PeripheralSettings::write(const char* key, int16_t value) {
 
 };
 
-
-
-
 namespace Peripheral {
 
-Sensors::Sensors(Messaging::MsgLogHandler &msglogerr) : 
-    msglogerr{msglogerr}, mutex{msglogerr}{}
+Sensors::Sensors(Messaging::MsgLogHandler &msglogerr, uint32_t checkSensorTime) : 
+    msglogerr{msglogerr}, mutex{msglogerr}, clockObj{checkSensorTime} {}
 
 void Sensors::lock() {
     this->mutex.lock();
@@ -52,6 +49,10 @@ void Sensors::lock() {
 
 void Sensors::unlock() {
     this->mutex.unlock();
+}
+
+bool Sensors::checkIfReady() {
+    return this->clockObj.isReady();
 }
 
 }

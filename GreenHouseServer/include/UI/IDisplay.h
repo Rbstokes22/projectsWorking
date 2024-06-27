@@ -7,6 +7,11 @@
 // the OLED reference from Display.h in order to print errors.
 
 namespace UI {
+
+enum class UIvals {
+    msgIndicyTotal = 10,
+    OLEDCapacity = 168
+};
     
 class IDisplay {
     public:

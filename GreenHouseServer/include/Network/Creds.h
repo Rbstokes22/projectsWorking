@@ -3,15 +3,8 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
+#include "Network/NetConfig.h"
 #include "UI/MsgLogHandler.h"
-
-enum class CredsSize { // max index values
-    SSID_MAX = 32,
-    PASS_MAX = 64,
-    PHONE_MAX = 15,
-    WAP_PASS_MAX = 64,
-    networkCredKeyQty = 4 // uses for ssid, pass, phone, and WAPpass
-};
 
 namespace NVS {
 
@@ -27,13 +20,13 @@ class Credentials {
     private:
     Preferences prefs;
     Messaging::MsgLogHandler &msglogerr;
-    CredInfo credInfo[static_cast<int>(CredsSize::networkCredKeyQty)];
-    static char ssid[static_cast<int>(CredsSize::SSID_MAX)];
-    static char pass[static_cast<int>(CredsSize::PASS_MAX)];
-    static char phone[static_cast<int>(CredsSize::PHONE_MAX)];
-    static char WAPpass[static_cast<int>(CredsSize::WAP_PASS_MAX)];
+    CredInfo credInfo[static_cast<int>(Comms::IDXSIZE::NETCREDKEYQTY)];
+    static char ssid[static_cast<int>(Comms::IDXSIZE::SSID)];
+    static char pass[static_cast<int>(Comms::IDXSIZE::PASS)];
+    static char phone[static_cast<int>(Comms::IDXSIZE::PHONE)];
+    static char WAPpass[static_cast<int>(Comms::IDXSIZE::PASS)];
     const char* nameSpace;
-    static const char* keys[static_cast<int>(CredsSize::networkCredKeyQty)];
+    static const char* keys[static_cast<int>(Comms::IDXSIZE::NETCREDKEYQTY)];
     static const uint16_t checksumConst;
 
     public:

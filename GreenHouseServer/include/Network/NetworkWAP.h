@@ -11,12 +11,12 @@ class WirelessAP : public NetMain {
 
     // These variables are exclusive to the WAP, thus are not shared by all
     // subclasses to NetMain.
-    char AP_SSID[static_cast<int>(NetSize::SSID)];
-    char AP_PASS[static_cast<int>(NetSize::PASS)];
+    char AP_SSID[static_cast<int>(IDXSIZE::SSID)];
+    char AP_PASS[static_cast<int>(IDXSIZE::PASS)];
     IPAddress local_IP;
     IPAddress gateway;
     IPAddress subnet;
-    NVS::CredInfo credinfo[static_cast<int>(NetSize::KEYQTYWAP)];
+    NVS::CredInfo credinfo[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
 
     public:
 

@@ -20,16 +20,16 @@ WirelessAP::WirelessAP(
     this->AP_PASS[sizeof(this->AP_PASS) - 1] = '\0';
 
     // Uses the struct CredInfo from NVS.
-    this->credinfo[0] = {NetMain::keys[static_cast<int>(KI::ssid)], 
+    this->credinfo[0] = {keys[static_cast<int>(KI::ssid)], 
         NetMain::ST_SSID, sizeof(NetMain::ST_SSID)
         };
-    this->credinfo[1] = {NetMain::keys[static_cast<int>(KI::pass)], 
+    this->credinfo[1] = {keys[static_cast<int>(KI::pass)], 
         NetMain::ST_PASS, sizeof(NetMain::ST_PASS)
         };
-    this->credinfo[2] = {NetMain::keys[static_cast<int>(KI::phone)], 
+    this->credinfo[2] = {keys[static_cast<int>(KI::phone)], 
         NetMain::phone, sizeof(NetMain::phone)
         };
-    this->credinfo[3] = {NetMain::keys[static_cast<int>(KI::WAPpass)], 
+    this->credinfo[3] = {keys[static_cast<int>(KI::WAPpass)], 
         this->AP_PASS, sizeof(this->AP_PASS)
         };
 }

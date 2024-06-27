@@ -2,31 +2,29 @@
 
 namespace Comms {
 
-// The credinfo will be setup upon construction of the object. If changes
-// are made, ensure the changes are to the STAcredQty enum.
+
 Station::Station(Messaging::MsgLogHandler &msglogerr) : 
 
     NetMain(msglogerr), connectedToSTA{false} {
 
-    // Uses CredInfo not from NVS, but the Comms Namespace on the NetworkSTA.h
+    // Uses CredInfo not from Comms Namespace on the NetworkSTA.h
     // due to requirement of different vars than the NVS offering.
+    // Update this section only for changes, the rest is auto.
     this->credinfo[0] = {
-        NetMain::keys[static_cast<int>(KI::ssid)], NVS::Credentials::getSSID, 
+        keys[static_cast<int>(KI::ssid)], NVS::Credentials::getSSID, 
         NetMain::ST_SSID, sizeof(NetMain::ST_SSID)
         };
     this->credinfo[1] = {
-        NetMain::keys[static_cast<int>(KI::pass)], NVS::Credentials::getPASS, 
+        keys[static_cast<int>(KI::pass)], NVS::Credentials::getPASS, 
         NetMain::ST_PASS, sizeof(NetMain::ST_PASS)
         };
     this->credinfo[2] = {
-        NetMain::keys[static_cast<int>(KI::phone)], NVS::Credentials::getPhone, 
+        keys[static_cast<int>(KI::phone)], NVS::Credentials::getPhone, 
         NetMain::phone, sizeof(NetMain::phone)
         };
     }
 
-// Called at a set interval whenever the status of Station is checked. This sends
-// the current SSID, IP, and Signal Strength over to the OLED since just those
-// items are exclusive to the station connection.
+// Sends station details upon request to be displayed on OLED.
 STAdetails Station::getSTADetails() {
     STAdetails details{"", "", ""};
     
@@ -40,11 +38,10 @@ STAdetails Station::getSTADetails() {
     return details;
 }   
 
-// Checks if SSID/PASS have already been created on the WAP Setup page, which
-// will serve as a redundancy to allow station access if the NVS fails.
-// If these dont exist, typical for a fresh start, the NVS will be read
-// to provide credentials. If nothing exists, there will be no SSID or 
-// PASS to connect to station.
+// Checks if SSID/PASS have been setup by WAP Setup page. Redundant 
+// access for NVS failire. This will be checked upon each startup
+// and retrieve approprite data and set it to class variables. No 
+// SSID/PASS in NVS or submitted will result in no connection.
 void Station::setCredsNVS(NVS::Credentials &Creds) {
     
     if (NetMain::ST_SSID[0] == '\0' || NetMain::ST_PASS[0] == '\0') { 
@@ -59,7 +56,6 @@ void Station::setCredsNVS(NVS::Credentials &Creds) {
     } 
 }
 
-// Station setup mode. Called to connect initially or to reconnect. 
 void Station::STAconnect(NVS::Credentials &Creds) {
 
     // Handle Disconnect
@@ -69,9 +65,7 @@ void Station::STAconnect(NVS::Credentials &Creds) {
 
     if (!WiFi.mode(WIFI_STA)) this->sendErr("WiFi STA mode unsettable"); 
 
-    // Prevents WiFi.begin from multiple calls if it has already began. This 
-    // will only be called if it is not connected and there is not an attempt
-    // to connect.
+    // Prevents WiFi.begin from being called several times.
     if (WiFi.status() != WL_CONNECTED && WiFi.status() != WL_CONNECT_FAILED) {
         WiFi.begin(NetMain::ST_SSID, NetMain::ST_PASS); 
     }
@@ -88,7 +82,10 @@ void Station::attemptReconnect(
     
     if ((currentTime - elapsedTime) > freqSec * 1000) {
         STAconnect(Creds); elapsedTime = currentTime;
-        this->msglogerr.handle(Levels::CRITICAL, "WiFi Reconnect", Method::OLED);
+        this->msglogerr.handle(
+            Messaging::Levels::CRITICAL, 
+            "WiFi Reconnect", 
+            Messaging::Method::OLED);
     }
 }
 
@@ -97,8 +94,7 @@ void Station::attemptReconnect(
 // for SMS updates and alerts, as well as to check for updated firmware. 
 WIFI Station::STA(NVS::Credentials &Creds) {
 
-    // This lambda is responsible for checking the connection and to reconnect if 
-    // needed, on top of getting the MDNS up an running. 
+    // Checks connection, manages MDNS, and attempts reconnect if needed.
     auto manageConnection = [this, &Creds](bool reconnect = false) {
         if (WiFi.status() == WL_CONNECTED) {
             if (!MDNSrunning) {MDNS.begin("esp32"); MDNSrunning = true;}

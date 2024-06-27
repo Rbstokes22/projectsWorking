@@ -51,7 +51,8 @@ class Light : public Sensors { // AS7341 & Photoresistor
     Light(
         PERPIN photoResistorPin, 
         uint8_t maxRetries,
-        Messaging::MsgLogHandler &msglogerr);
+        Messaging::MsgLogHandler &msglogerr,
+        uint32_t checkSensorTime);
         
     void begin();
     void readAndSet();

@@ -12,34 +12,17 @@
  
 namespace Threads {
 
-// The Device::Sensors is an abstract class, and the thread will be used to call
-// the handle sensors method only. This will also pass the clock associated 
-// with that sensor, used for sampling interval.
-struct ThreadSetting {
-    Peripheral::Sensors &sensor;
-    Clock::Timer &sampleInterval;
-
-    ThreadSetting(Peripheral::Sensors &sensor, Clock::Timer &sampleInterval);
-};
-
-// A compilation of all of the thread settings for a single thread.
-struct ThreadSettingCompilation {
-    ThreadSetting &tempHum; ThreadSetting &light;
-    ThreadSetting &soil1; 
-
-    ThreadSettingCompilation(
-        ThreadSetting &tempHum, ThreadSetting &light, ThreadSetting &soil1);
-};
-
 class SensorThread {
     private:
     TaskHandle_t taskHandle;
     Messaging::MsgLogHandler &msglogerr;
+    static const uint8_t totalSensors;
     
     public:
     SensorThread(Messaging::MsgLogHandler &msglogerr);
-    void initThread(ThreadSettingCompilation &settings);
+    void initThread(Peripheral::Sensors** allSensors);
     static void sensorTask(void* parameter);
+    static void mutexWrap(Peripheral::Sensors* sensor);
     void suspendTask();
     void resumeTask();
 };

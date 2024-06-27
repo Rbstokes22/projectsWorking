@@ -19,7 +19,7 @@ void initializeWAP(
     Messaging::MsgLogHandler &msglogerr);
 
 // Alerts the display if the WAP password is normal or default.
-void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef);
+void setWAPtype(char* WAPtype, Comms::WIFI wifiMode, bool isWAPdefault);
 
 void displayWAPstatus(
     UI::Display &OLED, const char* serverName,

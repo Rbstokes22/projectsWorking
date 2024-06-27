@@ -5,8 +5,10 @@ namespace Peripheral {
 Light::Light(
     PERPIN photoResistorPin, 
     uint8_t maxRetries,
-    Messaging::MsgLogHandler &msglogerr) : 
-    Sensors(msglogerr),
+    Messaging::MsgLogHandler &msglogerr,
+    uint32_t checkSensorTime) : 
+
+    Sensors(msglogerr, checkSensorTime),
     photoResistorPin{photoResistorPin},
     maxRetries{maxRetries}, dataCorrupt{false}, anyDataCorrupt{false},
     ATIME(29), ASTEP(599), GAIN(AS7341_GAIN_8X) {}
@@ -102,21 +104,21 @@ uint16_t Light::getLightIntensity() {
 
 void Light::handleSensors() {
     this->readAndSet();
-    // printf(
-    //     "Vio: %llu, Ind: %llu, Blu: %llu, Cyan: %llu, Gren: %llu, Yel: %llu, Org: %llu,"
-    //     "Red: %llu, nir: %llu, clr: %llu, flikerHz %llu\n",
-    //     this->getColor(COLORS::VIOLET), 
-    //     this->getColor(COLORS::INDIGO), 
-    //     this->getColor(COLORS::BLUE), 
-    //     this->getColor(COLORS::CYAN), 
-    //     this->getColor(COLORS::GREEN), 
-    //     this->getColor(COLORS::YELLOW), 
-    //     this->getColor(COLORS::ORANGE), 
-    //     this->getColor(COLORS::RED), 
-    //     this->getColor(COLORS::NIR), 
-    //     this->getColor(COLORS::CLEAR), 
-    //     this->getColor(COLORS::FLICKERHZ)
-    // );
+    printf(
+        "Vio: %llu, Ind: %llu, Blu: %llu, Cyan: %llu, Gren: %llu, Yel: %llu, Org: %llu,"
+        "Red: %llu, nir: %llu, clr: %llu, flikerHz %llu\n",
+        this->getColor(COLORS::VIOLET), 
+        this->getColor(COLORS::INDIGO), 
+        this->getColor(COLORS::BLUE), 
+        this->getColor(COLORS::CYAN), 
+        this->getColor(COLORS::GREEN), 
+        this->getColor(COLORS::YELLOW), 
+        this->getColor(COLORS::ORANGE), 
+        this->getColor(COLORS::RED), 
+        this->getColor(COLORS::NIR), 
+        this->getColor(COLORS::CLEAR), 
+        this->getColor(COLORS::FLICKERHZ)
+    );
     
     }
 

@@ -2,34 +2,32 @@
 
 namespace Threads {
 
-// This is the sensor and its corresponding timing object. Relatively const
-ThreadSetting::ThreadSetting(Peripheral::Sensors &sensor, Clock::Timer &sampleInterval) : 
-
-    sensor{sensor}, sampleInterval{sampleInterval}{}
-
-// This is a compilation of each peripheral device's Thread setting
-// structures. Add or remove all changes in this struct.
-ThreadSettingCompilation::ThreadSettingCompilation (
-    ThreadSetting &tempHum, ThreadSetting &light,
-    ThreadSetting &soil1
-    ) : tempHum(tempHum), light(light), soil1(soil1){}
+// STATIC SETTINGS
+const uint8_t SensorThread::totalSensors{Peripheral::PeripheralQty}; // CHANGE TO ENUM VALUES 
 
 // Single thread creation for this application.
 SensorThread::SensorThread(Messaging::MsgLogHandler &msglogerr) : 
+
     taskHandle{NULL}, msglogerr(msglogerr) {}
 
 // Passes all thread setting compilations which include all sensors and 
 // their corresponding clock object. This will create the thread task.
-void SensorThread::initThread(ThreadSettingCompilation &settings) {
+void SensorThread::initThread(Peripheral::Sensors** allSensors) {
 
     xTaskCreate(
-        this->sensorTask, // function to be tasked by freeRTOS
+        SensorThread::sensorTask, // function to be tasked by freeRTOS
         "Sensor Task", // Name used for debugging
         2048, // allocated stack size, should be plenty
-        &settings, // all thread handlers and sample intervals
+        allSensors, // all thread handlers and sample intervals
         1, // priority
         &this->taskHandle // pointer to the task handle
     );
+}
+
+void SensorThread::mutexWrap(Peripheral::Sensors* sensor) {
+    sensor->lock();
+    sensor->handleSensors();
+    sensor->unlock();
 }
 
 // This thread task takes in the parameter which is all of the thread 
@@ -38,7 +36,7 @@ void SensorThread::initThread(ThreadSettingCompilation &settings) {
 // is set to. Each handle sensor will be locked with the mutex located
 // within its class to avoid corrupt data with the shared objects.
 void SensorThread::sensorTask(void* parameter) {
-    ThreadSettingCompilation* settings{(ThreadSettingCompilation*) parameter};
+    Peripheral::Sensors** allSensors{static_cast<Peripheral::Sensors**>(parameter)};
 
     auto printFreeStack = [](){
         UBaseType_t uxHighWaterMark =
@@ -47,36 +45,29 @@ void SensorThread::sensorTask(void* parameter) {
     };
 
     while (true) { 
-        if (settings->tempHum.sampleInterval.isReady()) {
-            settings->tempHum.sensor.lock(); // Mutex Lock
-            settings->tempHum.sensor.handleSensors();
-            settings->tempHum.sensor.unlock();
-            // printFreeStack(); // just use in here to see periodic usage
+        for (size_t i = 0; i < SensorThread::totalSensors; i++) {
+            if(allSensors[i]->checkIfReady()) {
+                SensorThread::mutexWrap(allSensors[i]);
+            }
         }
-
-        if (settings->light.sampleInterval.isReady()) {
-            settings->light.sensor.lock(); // Mutex Lock
-            settings->light.sensor.handleSensors();
-            settings->light.sensor.unlock();
-        }
-
-        if (settings->soil1.sampleInterval.isReady()) {
-            settings->soil1.sensor.lock();
-            settings->soil1.sensor.handleSensors();
-            settings->soil1.sensor.unlock();
-        }
-
+        
         vTaskDelay(pdMS_TO_TICKS(100)); // delays for 100 ms to prevent constant run
     }
 }
 
 void SensorThread::suspendTask() { // Called by OTA updates
-    msglogerr.handle(Levels::INFO, "Thread suspended", Method::SRL);
+    msglogerr.handle(
+        Messaging::Levels::INFO, 
+        "Thread suspended", 
+        Messaging::Method::SRL);
     vTaskSuspend(taskHandle);
 }
 
 void SensorThread::resumeTask() {
-    msglogerr.handle(Levels::INFO, "Thread resumed", Method::SRL);
+    msglogerr.handle(
+        Messaging::Levels::INFO, 
+        "Thread resumed", 
+        Messaging::Method::SRL);
     vTaskResume(taskHandle);
 }
 

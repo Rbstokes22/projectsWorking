@@ -5,6 +5,10 @@
 #include "UI/IDisplay.h"
 #include "Common/Timing.h"
 
+
+
+namespace Messaging {
+
 enum class Levels : uint8_t {
 
     // Detailed information for diagnosing problems. This can help
@@ -34,9 +38,7 @@ enum class Method : uint8_t {
     NONE // No method, default argument for methods 2 and 3
 };
 
-namespace Messaging {
-
-extern char LevelsMap[5][10]; // used for verbosity with enum Levels
+extern const char LevelsMap[5][10]; // used for verbosity with enum Levels
 
 class MsgLogHandler {
     private:
@@ -55,9 +57,6 @@ class MsgLogHandler {
     void writeLog(Levels level, const char* message);
     void prepMessage(Method method, Levels level, const char* message);
     void OLEDMessageCheck();
-    void safeString(char* copyTo, size_t size, const char* copyFrom);
-
-
     void handle(
         Levels level, const char* message,
         Method method1, 

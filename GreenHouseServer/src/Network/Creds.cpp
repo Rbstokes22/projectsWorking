@@ -4,16 +4,16 @@
 namespace NVS {
 
 // STATIC SETUP
-char Credentials::ssid[static_cast<int>(CredsSize::SSID_MAX)] = "";
-char Credentials::pass[static_cast<int>(CredsSize::PASS_MAX)] = "";
-char Credentials::phone[static_cast<int>(CredsSize::PHONE_MAX)] = "";
-char Credentials::WAPpass[static_cast<int>(CredsSize::WAP_PASS_MAX)] = "";
+char Credentials::ssid[static_cast<int>(Comms::IDXSIZE::SSID)] = "";
+char Credentials::pass[static_cast<int>(Comms::IDXSIZE::PASS)] = "";
+char Credentials::phone[static_cast<int>(Comms::IDXSIZE::PHONE)] = "";
+char Credentials::WAPpass[static_cast<int>(Comms::IDXSIZE::PASS)] = "";
 
 // Used as modulo in order to get remaining 8bit value to set and read checksum.
 const uint16_t Credentials::checksumConst{256}; 
 
 // Change if data needs to be modified.
-const char* Credentials::keys[static_cast<int>(CredsSize::networkCredKeyQty)]
+const char* Credentials::keys[static_cast<int>(Comms::IDXSIZE::NETCREDKEYQTY)]
 {"ssid", "pass", "phone", "WAPpass"};
 
 enum KI {ssid, pass, phone, WAPpass}; // Key Index for keys above.
@@ -49,9 +49,9 @@ Credentials::Credentials(
 bool Credentials::write(const char* key, const char* buffer) {
     if (!this->prefs.begin(this->nameSpace)) {
         msglogerr.handle(
-            Levels::ERROR,
+            Messaging::Levels::ERROR,
             "NVS Creds did not begin during write",
-            Method::SRL);
+            Messaging::Method::SRL);
     }
 
     size_t bufferLength = strlen(buffer) + 1; // +1 for null term.
@@ -73,7 +73,10 @@ void Credentials::read(const char* key) {
         "Network creds (%s) checksum fail, potentially corrupt",
         key); 
 
-        this->msglogerr.handle(Levels::ERROR, error, Method::OLED, Method::SRL);
+        this->msglogerr.handle(
+            Messaging::Levels::ERROR, 
+            error, 
+            Messaging::Method::OLED, Messaging::Method::SRL);
     } 
 
     // Copies the value stored in NVS to the Network variable array (i.e. SSID).
@@ -132,7 +135,9 @@ void Credentials::setChecksum() {
     // use unsigned int instead of uint32_t to be safe from compiler issues
     if (bytesWritten != sizeof(unsigned int)) { 
         this->msglogerr.handle(
-            Levels::ERROR, "Creds checksum write fail", Method::SRL);
+            Messaging::Levels::ERROR, 
+            "Creds checksum write fail", 
+            Messaging::Method::SRL);
     }
 
     this->prefs.end(); 

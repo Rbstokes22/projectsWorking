@@ -3,6 +3,7 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include "Network/NetConfig.h"
 #include "UI/MsgLogHandler.h"
 #include "Network/Creds.h"
 #include <pgmspace.h>
@@ -20,6 +21,9 @@
 // BOTH NetworkSTA.h and NetworkWAP.h include NetworkMain.h. For your include 
 // statements, unless exclusive to NetworkMain.h, you can use either of the two.
 
+// Communications namespace applies to the Network and servers.
+namespace Comms {
+
 // Switches
 enum class NETPIN : uint8_t {
     WAPswitch = 16, // Wireless Access Point
@@ -31,29 +35,11 @@ enum class WIFI : uint8_t { // WIFI variables to check connection
     WAP_ONLY, WAP_SETUP, STA_ONLY, NO_WIFI, WIFI_STARTING, WIFI_RUNNING
 };
 
-enum class NetSize {
-    SSID = 32,
-    IPADDR = 16,
-    SIGSTRENGTH = 16,
-    PASS = 64, 
-    PHONE = 15,
-    KEYQTYWAP = 4, // uses for ssid, pass, phone, and WAPpass
-    KEYQTYSTA = 3, // uses only ssid, pass, and phone
-    PORT = 80
-};
-
-// Key Index used to in conjunction with the keys[], used for 
-// indexing values.
-enum class KI {ssid, pass, phone, WAPpass}; 
-
-// Communications namespace applies to the Network and servers.
-namespace Comms {
-
 // Provides the details of the station connection to OLED.
 struct STAdetails {
-    char SSID[static_cast<int>(NetSize::SSID)];
-    char IPADDR[static_cast<int>(NetSize::IPADDR)];
-    char signalStrength[static_cast<int>(NetSize::SIGSTRENGTH)];
+    char SSID[static_cast<int>(IDXSIZE::SSID)];
+    char IPADDR[static_cast<int>(IDXSIZE::IPADDR)];
+    char signalStrength[static_cast<int>(IDXSIZE::SIGSTRENGTH)];
 };
 
 // Most variables are declared as static since they must be shared between
@@ -67,15 +53,13 @@ class NetMain { // Abstract class
 
     // Unlike AP data, these are set in WAP and used in STA so they are 
     // shared between subclasses.
-    static char ST_SSID[static_cast<int>(NetSize::SSID)];
-    static char ST_PASS[static_cast<int>(NetSize::PASS)];
-    static char phone[static_cast<int>(NetSize::PHONE)]; // will be used for sms service.
+    static char ST_SSID[static_cast<int>(IDXSIZE::SSID)];
+    static char ST_PASS[static_cast<int>(IDXSIZE::PASS)];
+    static char phone[static_cast<int>(IDXSIZE::PHONE)]; // will be used for sms service.
 
     // Allows the main server to be setup exactly once, by either subclass
     // that first calls it.
     static bool isMainServerSetup;
-
-    static const char* keys[static_cast<int>(NetSize::KEYQTYWAP)];
 
     Messaging::MsgLogHandler &msglogerr;
     

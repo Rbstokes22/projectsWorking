@@ -3,17 +3,24 @@
 
 namespace Threads {
 
+// A mutex will be created for each peripheral to prevent its data from access
+// during a read write. This is due to each peripheral from being on a 
+// separate thread.
 Mutex::Mutex(Messaging::MsgLogHandler &msglogerr) : 
 
     xMutex{xSemaphoreCreateMutex()}, msglogerr(msglogerr) {
-    if (this->xMutex == NULL) {
+
+    if (this->xMutex == NULL) { // Handles uncreated Mutex.
         msglogerr.handle(
-            Levels::CRITICAL,
+            Messaging::Levels::CRITICAL,
             "Thread Mutex not created",
-            Method::SRL, Method::OLED
+            Messaging::Method::SRL, Messaging::Method::OLED
         );
     } else {
-        msglogerr.handle(Levels::INFO, "Thread Mutex created", Method::SRL);
+        msglogerr.handle(
+            Messaging::Levels::INFO, 
+            "Thread Mutex created", 
+            Messaging::Method::SRL);
     }
 }
 

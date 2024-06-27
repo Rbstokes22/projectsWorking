@@ -32,9 +32,9 @@ void WirelessAP::commitAndRespond(
     size_t bytesWritten = serializeJson(res, response);
     if (bytesWritten == 0) {
         this->msglogerr.handle(
-            Levels::ERROR,
+            Messaging::Levels::ERROR,
             "JSON not serialize for web response",
-            Method::SRL
+            Messaging::Method::SRL
         );
         strcpy(response, "{'status':'Error JSON serialization'}");
     }
@@ -53,9 +53,9 @@ void WirelessAP::commitAndRespond(
 // If no JSON key is found, this will send a Warning.
 void WirelessAP::keyNotFound() {
     this->msglogerr.handle(
-            Levels::WARNING,
+            Messaging::Levels::WARNING,
             "Passed JSON key that wasnt recognized",
-            Method::SRL); 
+            Messaging::Method::SRL); 
 }
 
 void WirelessAP::getJson(
@@ -68,13 +68,10 @@ void WirelessAP::getJson(
     strncpy(buffer, jsonDoc[key].as<const char*>(), sizeof(buffer) - 1);
     buffer[sizeof(buffer) - 1] = '\0'; // ensure null termination for storage
 
-    // These strncpy's serve as a redundancy in the event the NVS fails.
-    // This data when received from the WAP, is automatically copied to the 
-    // required Network variables, which are ultimately used to begin the 
-    // connection. If the Network variables are empty, it will default to 
-    // checking the NVS, usually this happens upon starting. This iterates
-    // the credinfo array and if the passed key matches a required key,
-    // its data is copied to the the class variable.
+    // Redundancy for NVS failire. Copies data from WAP submit directly to 
+    // class variables. On startup, net variables are empty resulting in
+    // NVS values. This loop checks each credential key against the passed 
+    // key, and a match copies the json data to the corresponding class variable.
     for (auto &info : credinfo) {
         if (strcmp(key, info.key) == 0) {
             strncpy(info.destination, buffer, info.size - 1);
@@ -90,21 +87,18 @@ void WirelessAP::getJson(
 }
 
 void WirelessAP::handleJson(NVS::Credentials &Creds) {
-    // The largest element coming though will be 64 char array with a 4 char 
-    // key. Never expect it to exceed 75 bytes, 100 for padding.
-    char jsonData[100]{};
+    char jsonData[100]{}; // 100 is padded, will never exceed 75
     char buffer[100]{};
     JsonDocument jsonDoc{};
     bool containsKey{false};
 
-    // If this argument exists, it means the body contains JSON. 
+    // true = body contains json.
     if (NetMain::server.hasArg("plain")) {
         
         const char* plain{NetMain::server.arg("plain").c_str()};
         size_t plainLength{strlen(plain)};
 
-        // Redundancy, this should not ever be an issue for buffer 
-        // overflow.
+        // Redundancy, should never overflow.
         if (plainLength < sizeof(jsonData)) {
             strncpy(jsonData, plain, plainLength);
             jsonData[plainLength] = '\0';
@@ -114,17 +108,17 @@ void WirelessAP::handleJson(NVS::Credentials &Creds) {
 
         DeserializationError error{deserializeJson(jsonDoc, jsonData)};
 
-        // JSON is deserialized and ready for use, unless error. Then a message
-        // is sent before the return.
+        // Halts function if error.
         if (error) { 
             this->msglogerr.handle(
-                Levels::ERROR,
+                Messaging::Levels::ERROR,
                 "JSON deserialization error submitting creds",
-                Method::OLED, Method::SRL
+                Messaging::Method::OLED, Messaging::Method::SRL
             ); return; 
         };
 
-        // MAYBE DO SOME ORGANIZING IN HERE
+        // Iterates the struct and if the incoming json key matches an expected
+        // key, progresses.
         for (auto &info : credinfo) {
             if (jsonDoc.containsKey(info.key)) {
                 this->getJson(info.key, jsonData, jsonDoc, Creds);
@@ -139,9 +133,8 @@ void WirelessAP::handleJson(NVS::Credentials &Creds) {
     }
 }
 
-// Upon being called from the client, this controller will handle and decode 
-// the JSON data sent through in order to store it in NVS and change the 
-// class variables.
+// This controller handles and decodes JSON data in order to update both the
+// class variables and NVS data.
 void WirelessAP::handleWAPsubmit(NVS::Credentials &Creds) {
 
     if (NetMain::prevServerType == WIFI::WAP_SETUP) {

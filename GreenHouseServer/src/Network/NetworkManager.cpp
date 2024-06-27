@@ -17,7 +17,10 @@ void initializeWAP(
     
     switch (defaultSwitch) {
         case false:
-        msglogerr.handle(Levels::INFO, "Default Mode",Method::OLED); 
+        msglogerr.handle(
+            Messaging::Levels::INFO, 
+            "Default Mode",
+            Messaging::Method::OLED); 
         break;
 
         case true:
@@ -29,7 +32,9 @@ void initializeWAP(
 
         } else {
             msglogerr.handle(
-            Levels::INFO, "Default Mode, set WAP password", Method::OLED);
+            Messaging::Levels::INFO, 
+            "Default Mode, set WAP password", 
+            Messaging::Method::OLED);
         }
     }
 
@@ -41,9 +46,9 @@ void initializeWAP(
 
 // Sets the OLED display to the WAP type, and if it is the default 
 // password, displays that indicator next to the name.
-void setWAPtype(char* WAPtype, WIFI wifiMode, bool isWapDef) {
-    const char* mode{(wifiMode == WIFI::WAP_ONLY) ? "WAP" : "WAP SETUP"};
-    const char* suffix{(isWapDef) ? " (DEF)" : ""};
+void setWAPtype(char* WAPtype, Comms::WIFI wifiMode, bool isWAPdefault) {
+    const char* mode{(wifiMode == Comms::WIFI::WAP_ONLY) ? "WAP" : "WAP SETUP"};
+    const char* suffix{(isWAPdefault) ? " (DEF)" : ""};
     sprintf(WAPtype, "%s%s", mode, suffix);
 }
 
@@ -95,13 +100,13 @@ void handleWifiMode(
     // Compares the current WAP password to the default password. If equal,
     // OLED will display Default next to the WAP type. Once the password
     // is reset, it will not display Default.
-    bool isWapDef{(strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0)};
+    bool isWAPdefault{(strcmp(wirelessAP.getWAPpass(), serverPassDefault) == 0)};
 
-    WIFI wifiMode{Comms::wifiModeSwitch()}; // Toggle position.
+    Comms::WIFI wifiMode{Comms::wifiModeSwitch()}; // Toggle position.
     bool conStat{false}; // Connected, true or false.
     uint8_t clientsConnected = WiFi.softAPgetStationNum(); 
 
-    setWAPtype(WAPtype, wifiMode, isWapDef); // shows type and if default.
+    setWAPtype(WAPtype, wifiMode, isWAPdefault); // shows type and if default.
     getHeapHealth(heapHealth); // Gets percentage of free heap.
 
     // All of the calls to the correct wifi mode (WAP, STA, WAPSetup), will return 
@@ -110,21 +115,21 @@ void handleWifiMode(
     // dependent on the LAN connection, so it includes additional data in the 
     // details.
     switch(wifiMode) {
-        case WIFI::WAP_ONLY:
+        case Comms::WIFI::WAP_ONLY:
         conStat = wirelessAP.WAP(Creds);
         displayWAPstatus(
             OLED, serverName, ipaddr, conStat, 
             WAPtype, heapHealth, clientsConnected); break;
 
-        case WIFI::WAP_SETUP:
+        case Comms::WIFI::WAP_SETUP:
         conStat = wirelessAP.WAPSetup(Creds);
         displayWAPstatus(
             OLED, serverName, ipaddr, conStat, 
             WAPtype, heapHealth, clientsConnected); break;
 
-        case WIFI::STA_ONLY:
-        // bool value, just care if it is running or not running.
-        conStat = (station.STA(Creds) == WIFI::WIFI_RUNNING);
+        case Comms::WIFI::STA_ONLY:
+        // bool value, only cares if it is running or not running.
+        conStat = (station.STA(Creds) == Comms::WIFI::WIFI_RUNNING);
         Comms::STAdetails details{station.getSTADetails()};
         displaySTAstatus(OLED, conStat, details, heapHealth);
     }

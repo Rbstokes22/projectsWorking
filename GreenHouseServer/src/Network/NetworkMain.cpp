@@ -3,20 +3,14 @@
 namespace Comms {
 
 // STATIC SETUP
-WebServer NetMain::server(static_cast<int>(NetSize::PORT));
+WebServer NetMain::server(80);
 WIFI NetMain::prevServerType{WIFI::NO_WIFI};
 bool NetMain::isServerRunning{false};
 bool NetMain::MDNSrunning{false};
-char NetMain::ST_SSID[static_cast<int>(NetSize::SSID)]{};
-char NetMain::ST_PASS[static_cast<int>(NetSize::PASS)]{};
-char NetMain::phone[static_cast<int>(NetSize::PHONE)]{};
+char NetMain::ST_SSID[static_cast<int>(IDXSIZE::SSID)]{};
+char NetMain::ST_PASS[static_cast<int>(IDXSIZE::PASS)]{};
+char NetMain::phone[static_cast<int>(IDXSIZE::PHONE)]{};
 bool NetMain::isMainServerSetup{false}; // Allows a single setup
-
-// Keys used through the Net classes to send and receive data fom the web
-// aplication, NVS, and startup.
-const char* NetMain::keys[static_cast<int>(NetSize::KEYQTYWAP)]{
-    "ssid", "pass", "phone", "WAPpass"
-};
 
 NetMain::NetMain(Messaging::MsgLogHandler &msglogerr) : msglogerr(msglogerr) {}
 
@@ -26,7 +20,10 @@ NetMain::~NetMain(){}
 // verbosity on the screen. Rather than each step having a statement, it just
 // sends the error here, since they are all common to eachother.
 void NetMain::sendErr(const char* msg) {
-    this->msglogerr.handle(Levels::ERROR, msg, Method::OLED, Method::SRL);
+    this->msglogerr.handle(
+        Messaging::Levels::ERROR, msg, 
+        Messaging::Method::OLED, 
+        Messaging::Method::SRL);
 }
 
 // The switch reads the 3 way switch to determine which mode it should be in.

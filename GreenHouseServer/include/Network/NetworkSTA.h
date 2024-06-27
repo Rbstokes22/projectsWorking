@@ -18,7 +18,7 @@ struct CredInfo {
 class Station : public NetMain {
     private:
     bool connectedToSTA; // used for OTA updates.
-    CredInfo credinfo[static_cast<int>(NetSize::KEYQTYSTA)]; // THIS COULD BE AN ISSUE, FIX ENUM
+    CredInfo credinfo[static_cast<int>(IDXSIZE::KEYQTYSTA)]; // THIS COULD BE AN ISSUE, FIX ENUM
 
     public:
 

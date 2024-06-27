@@ -17,7 +17,8 @@ class TempHum : public Sensors { // DHT-22
     public:
     TempHum(
         PERPIN pin, uint8_t type, uint8_t maxRetries,
-        Messaging::MsgLogHandler &msglogerr);
+        Messaging::MsgLogHandler &msglogerr,
+        uint32_t checkSensorTime);
     void begin();
     void setTemp();
     void setHum();

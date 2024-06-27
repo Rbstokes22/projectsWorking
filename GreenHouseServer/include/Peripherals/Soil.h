@@ -15,7 +15,8 @@ class Soil : public Sensors {
     public:
     Soil(
         PERPIN soilPin, uint8_t maxRetries,
-        Messaging::MsgLogHandler &msglogerr);
+        Messaging::MsgLogHandler &msglogerr,
+        uint32_t checkSensorTime);
     void init(NVS::PeripheralSettings &NVSsettings);
     uint16_t getMoisture();
     void handleSensors();

@@ -86,26 +86,11 @@ Comms::Station station(msglogerr);
 Clock::Timer checkWifiModeSwitch{1000}; 
 
 // Peripheral AND THREADS (adjust intervals for production).
-// Each peripheral is executed in a single thread and will pass 
-// its clock object interval of when to execute its handleSensors 
-// function, as well as the object itself.
-Clock::Timer checkTempHum{4000}; // Temp and Humidity
-Peripheral::TempHum tempHum{PERPIN::DHT, DHT22, 3, msglogerr};
-Threads::ThreadSetting THR_SETtempHum{tempHum, checkTempHum};
-
-Clock::Timer checkLight{3000}; // AS7341 light data and photo resistor
-Peripheral::Light light{PERPIN::PHOTO, 3, msglogerr};  
-Threads::ThreadSetting THR_SETlight{light, checkLight};
-
-Clock::Timer checkSoil1{10000}; // Soil sensors 1 - 4
-Peripheral::Soil soil1{PERPIN::SOIL1, 3, msglogerr};
-Threads::ThreadSetting THR_SETsoil{soil1, checkSoil1};
-
-// Struct with all of the created threads settings. This will allow the 
-// class's handleSensors to be called at the sampling rate chosen.
-Threads::ThreadSettingCompilation allThreadSettings{
-  THR_SETtempHum, THR_SETlight, THR_SETsoil
-};
+Peripheral::TempHum tempHum{Peripheral::PERPIN::DHT, DHT22, 3, msglogerr, 4000};
+Peripheral::Light light{Peripheral::PERPIN::PHOTO, 3, msglogerr, 3000};  
+Peripheral::Soil soil1{Peripheral::PERPIN::SOIL1, 3, msglogerr, 10000};
+Peripheral::Sensors* allSensors[Peripheral::PeripheralQty] 
+    {&tempHum, &light, &soil1}; 
 
 Threads::SensorThread sensorThread(msglogerr); // Master single thread
 
@@ -118,12 +103,12 @@ size_t networkManager::startupHeap{1};
 void setup() {
   networkManager::startupHeap = ESP.getFreeHeap(); 
 
-  pinMode(static_cast<int>(NETPIN::WAPswitch), INPUT_PULLUP);  // Wireless Access Point
-  pinMode(static_cast<int>(NETPIN::STAswitch), INPUT_PULLUP); // Station
-  pinMode(static_cast<int>(NETPIN::defaultWAPSwitch), INPUT_PULLUP); // default password override
-  pinMode(static_cast<int>(PERPIN::RE1), OUTPUT);
-  pinMode(static_cast<int>(PERPIN::SOIL1), INPUT);
-  pinMode(static_cast<int>(PERPIN::PHOTO), INPUT);
+  pinMode(static_cast<int>(Comms::NETPIN::WAPswitch), INPUT_PULLUP);  // Wireless Access Point
+  pinMode(static_cast<int>(Comms::NETPIN::STAswitch), INPUT_PULLUP); // Station
+  pinMode(static_cast<int>(Comms::NETPIN::defaultWAPSwitch), INPUT_PULLUP); // default password override
+  pinMode(static_cast<int>(Peripheral::PERPIN::RE1), OUTPUT);
+  pinMode(static_cast<int>(Peripheral::PERPIN::SOIL1), INPUT);
+  pinMode(static_cast<int>(Peripheral::PERPIN::PHOTO), INPUT);
 
   Serial.begin(115200); // DELETE WHEN PROJECT COMPLETE1!!!!!!!!!!!!!!!!!
   Wire.begin(); // Setup the i2c bus.
@@ -132,18 +117,19 @@ void setup() {
   delay(500); light.begin(); // must call after Wire.begin(); delay to init
   tempHum.begin(); 
   OLED.init(); // starts the OLED 
-  sensorThread.initThread(allThreadSettings); // begins the new thread
+
+  sensorThread.initThread(allSensors); // begins the new thread
 
   // Checks to see if the default WAP switch is pressed during startup.
   // If so, will start in default mode to allow client to adjust any 
   // Net data they may have forgotten.
   networkManager::initializeWAP(
-    digitalRead(static_cast<int>(NETPIN::defaultWAPSwitch)), Creds, 
+    digitalRead(static_cast<int>(Comms::NETPIN::defaultWAPSwitch)), Creds, 
     wirelessAP, station, msglogerr);
 }
 
 void loop() { 
-  
+
   otaUpdates.manageOTA(station);
 
   switch(checkWifiModeSwitch.isReady()) {
