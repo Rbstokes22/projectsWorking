@@ -3,7 +3,7 @@
 namespace Threads {
 
 // STATIC SETTINGS
-const uint8_t SensorThread::totalSensors{Peripheral::PeripheralQty}; // CHANGE TO ENUM VALUES 
+const uint8_t SensorThread::totalSensors{Peripheral::PeripheralQty}; 
 
 // Single thread creation for this application.
 SensorThread::SensorThread(Messaging::MsgLogHandler &msglogerr) : 
@@ -24,27 +24,31 @@ void SensorThread::initThread(Peripheral::Sensors** allSensors) {
     );
 }
 
+// Allows each peripheral to lock and uplock when handling its sensor data.
 void SensorThread::mutexWrap(Peripheral::Sensors* sensor) {
     sensor->lock();
     sensor->handleSensors();
     sensor->unlock();
 }
 
-// This thread task takes in the parameter which is all of the thread 
-// settings from the compilation. This will allow the sensors handle
-// sensor method to be called at whichever interval the clock object 
-// is set to. Each handle sensor will be locked with the mutex located
-// within its class to avoid corrupt data with the shared objects.
+// The parameter is a pointer to an array of pointers that contain the address
+// to each sensor. This is cast back to a sensor array of pointers.
 void SensorThread::sensorTask(void* parameter) {
     Peripheral::Sensors** allSensors{static_cast<Peripheral::Sensors**>(parameter)};
 
+    // use if needed to check stack size
     auto printFreeStack = [](){
         UBaseType_t uxHighWaterMark =
         uxTaskGetStackHighWaterMark(NULL);
         printf("Minimum stack free space: %lu words\n", uxHighWaterMark);
     };
 
+    // While loop equivalent for the thread environment. 
     while (true) { 
+
+        // Iterates through each passed sensor, and if ready, sends the 
+        // sensor data to the mutex wrap to execute its handleSensors 
+        // function.
         for (size_t i = 0; i < SensorThread::totalSensors; i++) {
             if(allSensors[i]->checkIfReady()) {
                 SensorThread::mutexWrap(allSensors[i]);
@@ -55,7 +59,8 @@ void SensorThread::sensorTask(void* parameter) {
     }
 }
 
-void SensorThread::suspendTask() { // Called by OTA updates
+// Suspends and resums the thread, called by OTA updates.
+void SensorThread::suspendTask() { 
     msglogerr.handle(
         Messaging::Levels::INFO, 
         "Thread suspended", 

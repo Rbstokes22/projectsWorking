@@ -54,9 +54,7 @@ char SERVER_PASS_DEFAULT[10]{"12345678"};
 // Will also set below in IPAddress. Used for display only.
 #define IPADDR "192.168.1.1" 
 
-// ALL OBJECTS
-
-// Main display, passes dimensions of screen
+  // Main display, passes dimensions of screen
 UI::Display OLED{128, 64};
 
 // Handles all messaging, errors, and logging. Either remove 
@@ -89,7 +87,8 @@ Clock::Timer checkWifiModeSwitch{1000};
 Peripheral::TempHum tempHum{Peripheral::PERPIN::DHT, DHT22, 3, msglogerr, 4000};
 Peripheral::Light light{Peripheral::PERPIN::PHOTO, 3, msglogerr, 3000};  
 Peripheral::Soil soil1{Peripheral::PERPIN::SOIL1, 3, msglogerr, 10000};
-Peripheral::Sensors* allSensors[Peripheral::PeripheralQty] 
+
+Peripheral::Sensors* allSensors[Peripheral::PeripheralQty] // updated on PeripheralMain.h
     {&tempHum, &light, &soil1}; 
 
 Threads::SensorThread sensorThread(msglogerr); // Master single thread
