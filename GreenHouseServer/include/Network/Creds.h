@@ -26,16 +26,15 @@ class Credentials {
     static char phone[static_cast<int>(Comms::IDXSIZE::PHONE)];
     static char WAPpass[static_cast<int>(Comms::IDXSIZE::PASS)];
     const char* nameSpace;
-    static const char* keys[static_cast<int>(Comms::IDXSIZE::NETCREDKEYQTY)];
-    static const uint16_t checksumConst;
+    bool checkSumSafe;
 
     public:
     Credentials(const char* nameSpace, Messaging::MsgLogHandler &msglogerr);
     bool write(const char* key, const char* buffer);
     void read(const char* key);
-    uint8_t computeChecksum();
-    void setChecksum();
-    bool getChecksum();
+    uint32_t computeChecksum(const char* buffer);
+    void setChecksum(const char* key, const char* buffer);
+    bool getChecksum(const char* key, const char* buffer);
     static const char* getSSID();
     static const char* getPASS();
     static const char* getPhone();

@@ -6,6 +6,10 @@
 		{
 			"name": "GreenHouseServer",
 			"path": ".."
+		},
+		{
+			"name": "GHS",
+			"path": "../../GHS"
 		}
 	],
 	"settings": {

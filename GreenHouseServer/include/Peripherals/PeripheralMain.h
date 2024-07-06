@@ -18,15 +18,16 @@ class PeripheralSettings {
 
     public:
     PeripheralSettings(const char* nameSpace, Messaging::MsgLogHandler &msglogerr);
-    int16_t read(const char* key);
-    bool write(const char* key, int16_t value);
+    int32_t read(const char* key);
+    bool write(const char* key, int32_t value);
+    bool setCheckSum();
 
 };
 
 }
 
 namespace Peripheral {
-    
+
 const uint8_t PeripheralQty = 3;
 
 enum class PERPIN : uint8_t { // Peripheral Pin

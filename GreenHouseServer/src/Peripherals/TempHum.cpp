@@ -2,8 +2,6 @@
 
 namespace Peripheral {
 
-Sensors::~Sensors(){}; // define here, doesnt really matter where this is.
-
 const float TempHum::ERR = 999;
 
 TempHum::TempHum(

@@ -9,38 +9,29 @@ char Credentials::pass[static_cast<int>(Comms::IDXSIZE::PASS)] = "";
 char Credentials::phone[static_cast<int>(Comms::IDXSIZE::PHONE)] = "";
 char Credentials::WAPpass[static_cast<int>(Comms::IDXSIZE::PASS)] = "";
 
-// Used as modulo in order to get remaining 8bit value to set and read checksum.
-const uint16_t Credentials::checksumConst{256}; 
-
-// Change if data needs to be modified.
-const char* Credentials::keys[static_cast<int>(Comms::IDXSIZE::NETCREDKEYQTY)]
-{"ssid", "pass", "phone", "WAPpass"};
-
-enum KI {ssid, pass, phone, WAPpass}; // Key Index for keys above.
-
 Credentials::Credentials(
     const char* nameSpace, Messaging::MsgLogHandler &msglogerr) : 
 
-    nameSpace{nameSpace}, msglogerr(msglogerr) {
+    nameSpace{nameSpace}, msglogerr(msglogerr), checkSumSafe{true} {
 
     // Used for iteration in the read method to copy the appropriate value.
     this->credInfo[0] = {
-        Credentials::keys[KI::ssid], 
+        Comms::keys[static_cast<int>(Comms::KI::ssid)], 
         Credentials::ssid, sizeof(Credentials::ssid)
     };
 
     this->credInfo[1] = {
-        Credentials::keys[KI::pass], 
+        Comms::keys[static_cast<int>(Comms::KI::pass)], 
         Credentials::pass, sizeof(Credentials::pass)
     };
 
     this->credInfo[2] = {
-        Credentials::keys[KI::phone], 
+        Comms::keys[static_cast<int>(Comms::KI::phone)], 
         Credentials::phone, sizeof(Credentials::phone)
     };
 
     this->credInfo[3] = {
-        Credentials::keys[KI::WAPpass], 
+        Comms::keys[static_cast<int>(Comms::KI::WAPpass)], 
         Credentials::WAPpass, sizeof(Credentials::WAPpass)
     };
 }
@@ -51,13 +42,13 @@ bool Credentials::write(const char* key, const char* buffer) {
         msglogerr.handle(
             Messaging::Levels::ERROR,
             "NVS Creds did not begin during write",
-            Messaging::Method::SRL);
+            Messaging::Method::SRL); 
     }
 
     size_t bufferLength = strlen(buffer) + 1; // +1 for null term.
     uint16_t bytesWritten = this->prefs.putBytes(key, buffer, bufferLength);
     
-    this->setChecksum(); // Will end in the checksum block
+    this->setChecksum(key, buffer); // Will end in the checksum block
   
     return (bytesWritten == (strlen(buffer) + 1)); // +1 for null term
 }
@@ -68,21 +59,23 @@ void Credentials::read(const char* key) {
     this->prefs.begin(this->nameSpace);
     char error[75]{};
 
-    if (!this->getChecksum()) {
+    auto handleError = [this, &error](const char* key){
         snprintf(error, sizeof(error), 
-        "Network creds (%s) checksum fail, potentially corrupt",
+        "(%s) checksum fail, either corrupt or unwritten",
         key); 
 
         this->msglogerr.handle(
             Messaging::Levels::ERROR, 
             error, 
             Messaging::Method::OLED, Messaging::Method::SRL);
-    } 
+    };
 
     // Copies the value stored in NVS to the Network variable array (i.e. SSID).
-    auto Copy = [this, key](char* array, uint16_t size) {
+    auto Copy = [this, key, handleError](char* array, uint16_t size) {
         size_t readSize = this->prefs.getBytes(key, array, size - 1);
         array[readSize] = '\0';
+        if (!this->getChecksum(key, array)) handleError(key);
+
     };
 
     // Iterates the credInfo array, compares the key to its keys, and copies the
@@ -96,41 +89,54 @@ void Credentials::read(const char* key) {
     this->prefs.end();
 }
 
-// Iterates through the keys in this block of NVS. Gets the number of keys, since they
-// are stored as pointers, it will be the size / size of the first element. The iteration
-// will read the bytes and store them into the buffer, with the buffer max being the upper
-// limit. It will then append a null terminator and read the length of the buffer. Each
-// char of that buffer will be iterated increasing the total size by the corresponding
-// char size of that letter. The total size is then divided by the checkSumConst, 256 in
-// this case which will always return a uint8_t value which is the checksum.
-uint8_t Credentials::computeChecksum() {
-    uint32_t totalSize{0};
-    size_t numKeys{sizeof(Credentials::keys) / sizeof(Credentials::keys[0])};
-    size_t readBytes{0};
-    char buffer[75]{};
-    size_t bufferMax{sizeof(buffer) - 1}; 
+// (VERBOSE DEFINITIION DUE TO COMPLEXITY)
+// Uses the crc32 method to check for corruption in the data. If error, responds
+// with all 1's but sets check sum safe to false indicating bad data. If data
+// is safe, indication is set, and the crc32 is set to max value at all 1's. 
+// The buffersize is computed allowing each char of the buffer to be analyzed
+// in the iteration. 
 
-    for (size_t key = 0; key < numKeys; key++) {
-        size_t readBytes = 
-            this->prefs.getBytes(Credentials::keys[key], buffer, bufferMax);
+// This will xor the crc32 with the char, which will set the
+// crc32 bit to a 1 iff the bits are unequal, which detects change or disrepancy.
+// This ensures that any change in the data alters the crc32, and this action is
+// propegated throughout subsequent operations. 
 
-        buffer[readBytes] = '\0';
-        size_t length{strlen(buffer)};
+// Each byte of the 
 
-        for (int chr = 0; chr < length; chr++) {
-            totalSize += static_cast<unsigned char>(buffer[chr]);
+
+uint32_t Credentials::computeChecksum(const char* buffer) {
+    if (buffer == nullptr || *buffer == '\0') {
+        this->checkSumSafe = false; 
+        return 0xFFFFFFFF;
+    } else {
+        this->checkSumSafe = true;
+        uint32_t crc32 = 0xFFFFFFFF;
+        size_t bufferSize = strlen(buffer);
+
+        for (size_t addr = 0; addr < bufferSize; addr++) {
+            crc32 ^= static_cast<unsigned char>(buffer[addr]); // Added safety if signed char
+
+            for (size_t bit = 0; bit < 8; bit++) {
+                if (crc32 & 1) {
+                    crc32 = (crc32 >> 1) ^ 0xEDB88320; // Reversed polynomial
+                } else {
+                    crc32 >>= 1;
+                }
+            }
         }
+        
+        return crc32 ^ 0xFFFFFFFF;
     }
-
-    return totalSize % Credentials::checksumConst; // returns a uint8_t value always
 }
 
 // Stores an unsigned int into the NVS returned by computeChecksum().  Ensures the 
 // bytes written are that of an uint. 
-void Credentials::setChecksum() {
+void Credentials::setChecksum(const char* key, const char* buffer) {
+    char CSname[20]{0};
+    snprintf(CSname, sizeof(CSname), "%sCS", key);
 
     uint16_t bytesWritten = 
-        this->prefs.putUInt("checksum", computeChecksum());
+        this->prefs.putUInt(CSname, computeChecksum(buffer));
         
     // use unsigned int instead of uint32_t to be safe from compiler issues
     if (bytesWritten != sizeof(unsigned int)) { 
@@ -145,10 +151,13 @@ void Credentials::setChecksum() {
 
 // Compares the stored checksum with the computed checksum from what is in the 
 // NVS.
-bool Credentials::getChecksum() {
-    uint8_t storedChecksum = this->prefs.getUInt("checksum", 0);
+bool Credentials::getChecksum(const char* key, const char* buffer) {
+    char CSname[20]{0};
+    snprintf(CSname, sizeof(CSname), "%sCS", key);
+
+    uint32_t storedChecksum = this->prefs.getUInt(CSname, 0);
  
-    return (this->computeChecksum() == storedChecksum);
+    return (this->computeChecksum(buffer) == storedChecksum && this->checkSumSafe);
 }
 
 const char* Credentials::getSSID() {

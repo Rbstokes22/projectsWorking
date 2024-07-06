@@ -7,11 +7,9 @@
 
 
 // BOOKMARK.
-// Look at config.h again or something for commonly used enums like SSID_MAX. Right
-// now it is defined in creds and netmain. Mabye create a namespace with values 
-// like that in config, and set your enums = to those, or make a global enum 
-// and the things that differ from it would be in a config. Then clean up the 
-// rest of the wapSubmit.cpp and proceed on with threads and UI.
+// Finish checksum for creds, and then test using null ptr, and exceeding chars.
+// look through program to handle pointer arguments,
+// finish checksum for peripherals.
 
 // 1. Refine code to make it more modular. add desriptive handlers and stuff.
 // split up the Network.h into several files, maybe create a directories.
@@ -47,6 +45,7 @@
 #include "Peripherals/TempHum.h"
 #include "Peripherals/Light.h"
 #include "Peripherals/Soil.h"
+#include "NVS/NVS.h" // REMOVE TESTING ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 char SERVER_NAME[20]{"MumsyGH"}; 
 char SERVER_PASS_DEFAULT[10]{"12345678"};
@@ -60,7 +59,9 @@ UI::Display OLED{128, 64};
 // Handles all messaging, errors, and logging. Either remove 
 // true or set to false when Serial is no longer beings used.
 // passed to nearly all class objects.
-Messaging::MsgLogHandler msglogerr(OLED, 5, true); 
+Messaging::MsgLogHandler msglogerr(OLED, 5, true);
+
+NVS::NVSctrl controller(msglogerr, "NS");
 
 // Uses prefs library to store to the NVS. Creds are network credentials
 // and periphSettings are for all sensor settings.
@@ -119,16 +120,20 @@ void setup() {
 
   sensorThread.initThread(allSensors); // begins the new thread
 
-  // Checks to see if the default WAP switch is pressed during startup.
-  // If so, will start in default mode to allow client to adjust any 
-  // Net data they may have forgotten.
+  // Checks the default WAP button position during start. If depressed,
+  // will start in default mode. Beneficial for forgotten passwords.
   networkManager::initializeWAP(
     digitalRead(static_cast<int>(Comms::NETPIN::defaultWAPSwitch)), Creds, 
     wirelessAP, station, msglogerr);
+
+  // DELETE TESTING ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // int a{0};
+  // controller.readNum("key1", NVS::DType::INT32_T, a);
+
 }
 
 void loop() { 
-
+  
   otaUpdates.manageOTA(station);
 
   switch(checkWifiModeSwitch.isReady()) {
@@ -147,6 +152,5 @@ void loop() {
 
   station.handleServer(); // Doesn't matter if station or wirelessAP
 }
-
 
 

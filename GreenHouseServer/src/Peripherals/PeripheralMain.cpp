@@ -5,38 +5,46 @@ namespace NVS {
 const int16_t PeripheralSettings::ERR{-999};
 
 PeripheralSettings::PeripheralSettings(
-    const char* nameSpace, Messaging::MsgLogHandler &msglogerr
-    ) :
+    const char* nameSpace, Messaging::MsgLogHandler &msglogerr) :
 
     nameSpace{nameSpace}, msglogerr(msglogerr){}
 
 // @params key is passed in to get value
 // @brief Looks key up in NVS, returns value if exists, error if not.
 // @return, if error is encountered, it will be handled by the caller
-int16_t PeripheralSettings::read(const char* key) { 
-    int16_t retVal{PeripheralSettings::ERR};
+int32_t PeripheralSettings::read(const char* key) { 
+    int32_t retVal{PeripheralSettings::ERR};
     this->prefs.begin(this->nameSpace);
-    retVal = this->prefs.getShort(key, PeripheralSettings::ERR);
+    retVal = this->prefs.getInt(key, PeripheralSettings::ERR);
     this->prefs.end();
     return retVal; 
 }
 
-bool PeripheralSettings::write(const char* key, int16_t value) {
+bool PeripheralSettings::write(const char* key, int32_t value) {
     this->prefs.begin(this->nameSpace);
-    uint16_t bytesWritten{0};
+    uint8_t bytesWritten{0};
     bool noWriteReq{true};
 
-    int16_t readVal = this->prefs.getShort(key, PeripheralSettings::ERR);
+    int16_t readVal = this->prefs.getInt(key, PeripheralSettings::ERR);
     if (readVal != value) {
-        bytesWritten = this->prefs.putShort(key, value);
+        bytesWritten = this->prefs.putInt(key, value);
         noWriteReq = false;
     } 
 
-    this->prefs.end();
+    this->setCheckSum();
+    
     return (bytesWritten == sizeof(value) || noWriteReq);
 }
 
+bool PeripheralSettings::setCheckSum() {
+    
+
+
+    this->prefs.end(); return false;
+}
+
 };
+
 
 namespace Peripheral {
 
@@ -54,5 +62,7 @@ void Sensors::unlock() {
 bool Sensors::checkIfReady() {
     return this->clockObj.isReady();
 }
+
+Sensors::~Sensors(){}
 
 }
