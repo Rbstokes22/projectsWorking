@@ -1,3 +1,5 @@
+// TO do, finish library for ssd, Build Display class as well as msglogerr.
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -5,16 +7,20 @@
 #include "esp_log.h"
 #include "config.hpp"
 #include "UI/SSD1306_Library.hpp"
+#include "UI/Display.hpp"
 
 extern "C" {
     void app_main();
-
 }
+
+UI::Display OLED;
 
 
 void continuousTask(void* parameter) {
     while (true) {
    
+
+
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -56,11 +62,7 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins();
 
-    UI::OLEDbasic OLED;
     OLED.init(0x3C);
-    OLED.cleanWrite("Yes, in the SSD1306 OLED display, the screen is organized into what are called pages. Yes, in the SSD1306 OLED display, the screen is organized into what are called pages.");
-
-    
 
     xTaskCreate(continuousTask, "Continuous Task", 2048, NULL, 5, NULL);
 }

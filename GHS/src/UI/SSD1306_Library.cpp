@@ -1,11 +1,14 @@
 #include "UI/SSD1306_Library.hpp"
 #include <string.h>
 
-namespace UI {
+namespace UI_DRVR {
+
+// Used in conjunctions with the DIM enum to extract the dimensions.
+Dimensions dimIndex[]{{5, 7}, {6, 8}};
 
 // Static Setup
 
-uint8_t OLEDbasic::init_sequence[]{
+uint8_t const OLEDbasic::init_sequence[]{
     0x00,           // Cmd mode
     0xAE,           // Display OFF (sleep mode)
     0x20, 0x00,     // Set Memory Addressing Mode to Horizontal Addressing Mode
@@ -28,53 +31,53 @@ uint8_t OLEDbasic::init_sequence[]{
     0xAF            // Display ON in normal mode
 };
 
+// This can stay static. The only modifications to this will be the the
+// addresses of the column and page, which is done before each command.
 uint8_t OLEDbasic::charCMD[]{
     0x00, // Command mode
-    0x21, 0x00, 0x00, // Set column addr 0 - 127
-    0x22, 0x00, 0x00 // Set page address 0 - 7
+    0x21, 0x00, 0x7F, // Set column addr 0 - 127
+    0x22, 0x00, 0x01 // Set page address 0 - 7
 };
 
-uint8_t OLEDbasic::clearBuffer1024[static_cast<int>(Size::OLEDbytes) + 1]{0}; // include the data cmd
-uint8_t OLEDbasic::charBuffer6x8[static_cast<int>(Size::charBuffer6x8) + 1]{0};
+// All zeros in order to clear the buffer.
+uint8_t OLEDbasic::clearBuffer1024[static_cast<int>(Size::OLEDbytes) + 1]{0}; // +1 include the data cmd
 
-void OLEDbasic::grab6x8(char c) {
-    uint16_t starting = (c - 32) * 6;
-    OLEDbasic::charBuffer6x8[0] = 0x40;
-    memcpy(&OLEDbasic::charBuffer6x8[1], font6x8 + starting, 6);
-}
+// The start of the font arrays are from ASCII 32 - 127, leaving you with 95 options. 
+// the char is sent here and the starting position in computed. Depending on the 
+// selected dimensions, the appropriate font array sequence fills the buffer and 
+// adjusts the new column position.
+void OLEDbasic::grabChar(char c, uint8_t* buffer, size_t idx, size_t bufferSize) {
+    if (c < 32 || c > 126) return;
 
-void OLEDbasic::masterWrite(const char c) {
-    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_COL)] = this->col;
-    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_COL)] = this->col + this->charWidth;
-    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_PAGE)] = this->page;
-    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = this->page + 0x01;
+    uint16_t starting = (c - 32) * this->charDim.width;
 
+    if (idx + this->charDim.width <= bufferSize) {
+        if (this->dimID == DIM::D5x7) {
+            memcpy(&buffer[idx], font5x7 + starting, 5);
 
-    if (this->charWidth == 6 && this->charHeight == 8) {
-        i2c_master_transmit(
-        this->i2cHandle, this->charCMD,
-        sizeof(this->charCMD), -1);
+        } else if (this->dimID == DIM::D6x8) {
+            memcpy(&buffer[idx], font6x8 + starting, 6);
+        }
 
-        this->grab6x8(c);
+        this->col += this->charDim.width;
 
-        i2c_master_transmit(
-        this->i2cHandle, this->charBuffer6x8,
-        sizeof(this->charBuffer6x8), -1);
-
-        this->col += 6;
+    } else {
+        // handle overflow in future
     }
 }
 
+// Defaults to 5x7 char font.
 OLEDbasic::OLEDbasic() : 
 
-    // default char dimensions 6 x 8
-    col{0x00}, page{0x00}, charWidth{6}, charHeight{8},
-    colMax{static_cast<int>(Size::columns)}, 
-    pageMax{static_cast<int>(Size::pages)} {}
+    col{0x00}, page{0x00}, charDim{5, 7}, dimID{DIM::D5x7},
+    colMax{static_cast<int>(Size::columns) - 1}, 
+    pageMax{static_cast<int>(Size::pages) - 1} {}
 
+// Initializes at 400khz. Configures the i2c settings, and adds the i2c 
+// device to the bus, receiving the handle in return.
 bool OLEDbasic::init(uint8_t address) {
     OLEDbasic::clearBuffer1024[0] = 0x40; // sets leading data cmd.
-    I2C::i2c_master_init(400000);
+    I2C::i2c_master_init(I2C_DEF_FRQ);
     i2c_device_config_t devCon = I2C::configDev(address); 
     i2cHandle = I2C::addDev(devCon);
 
@@ -94,8 +97,8 @@ void OLEDbasic::clear() {
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_COL)] = 0x7F;
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_PAGE)] = 0x00;
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = 0x07;
-    this->col = 0x00;
-    this->page = 0x00;
+    this->col = 0;
+    this->page = 0;
 
     ESP_ERROR_CHECK(i2c_master_transmit(
         this->i2cHandle, this->charCMD, 
@@ -106,72 +109,152 @@ void OLEDbasic::clear() {
         sizeof(this->clearBuffer1024), -1));
 }
 
-void OLEDbasic::setCharDim(uint8_t width, uint8_t height) {
-    this->charWidth = width;
-    this->charHeight = height;
+void OLEDbasic::setCharDim(DIM dimension) {
+    dimID = dimension;
+    Dimensions dims{dimIndex[static_cast<int>(dimension)]};
+    this->charDim.width = dims.width;
+    this->charDim.height = dims.height; 
 }
 
-void OLEDbasic::write(const char* msg) {
+void OLEDbasic::setPOS(uint8_t column, uint8_t page) {
+
+    // Ensures everything is within parameters.
+    if (column > this->colMax) this->col = this->colMax;
+    if (page > this->pageMax) this->page = this->pageMax;
+
+    this->col = column;
+    this->page = page;
+}
+
+// This driver writes lines at a time, or a page. The amount of columns
+// are taken into consideration, and once it runs out of space or is 
+// complete, the line is written. The column is reset and page is inc.
+void OLEDbasic::writeLine(uint8_t* buffer, size_t bufferSize) {
+    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_COL)] = 0x00;
+    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_COL)] = 0x7F;
+    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_PAGE)] = this->page;
+    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = this->page + 1;
+
+    // Does nothing if exceeding the span of the OLED.
+    if (this->page > (this->pageMax - 1)) return;
+
+    i2c_master_transmit(
+        this->i2cHandle, this->charCMD,
+        sizeof(this->charCMD), -1);
+
+    i2c_master_transmit(
+        this->i2cHandle, buffer,
+        bufferSize, -1);
+
+    this->col = 0;
+    this->page++;
+}
+
+// This populates the line buffer to send to the writeLine function.
+void OLEDbasic::write(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
         // handle print h
         return;
     }
+
+    static uint8_t lineBuffer[static_cast<int>(Size::columns) + 1]{0};
+
+    // Only upon a fresh start will the line buffer be reset. This prevent
+    // page refresh when attemtping to write to the same page with different
+    // invocations.
+    if (cmd == TXTCMD::START || cmd == TXTCMD::STEND) {
+        memset(lineBuffer, 0, sizeof(lineBuffer));
+        lineBuffer[0] = 0x40;
+    } 
 
     uint8_t msgLen = strlen(msg);
 
     for (int i = 0; i < msgLen; i++) {
-   
-        // reset column and increment page.
-        if ((this->col + this->charWidth) >= (this->colMax - 1)) {
-            this->col = 0x00; this->page++;
+
+        // Omits a space from being first char in line.
+        if(msg[i] == ' ' && this->col == 0) {
+            continue;
         }
 
-        if (this->page > (this->pageMax - 1)) {
-            // Everything is full, do nothing, maybe put future alert here
-            return;
-        } 
+        grabChar(msg[i], lineBuffer, 1 + (this->col), sizeof(lineBuffer));
 
-        masterWrite(msg[i]);
+        // Looks to see if the next char will exceed the line buffer. If it 
+        // does it will write the line and clear the buffer, overriding the
+        // specificity of END in the text cmd.
+        if ((this->col + this->charDim.width) >= this->colMax) {
+            this->writeLine(lineBuffer, sizeof(lineBuffer)); 
+            memset(lineBuffer, 0, sizeof(lineBuffer)); 
+            lineBuffer[0] = 0x40;
+        }
+    }
+
+    // Only writes if end is specified in the text command.
+    if ((cmd == TXTCMD::END || cmd == TXTCMD::STEND) && this->col > 0) {
+        this->writeLine(lineBuffer, sizeof(lineBuffer));
     }
 }
 
-void OLEDbasic::cleanWrite(const char* msg) {
+// Looks at the length of the next word, If it exceeds the line length,
+// it will begin it on the next column.
+void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
         // handle print h
         return;
     }
 
-    uint8_t nextSpace{0};
+    static uint8_t lineBuffer[static_cast<int>(Size::columns) + 1]{0};
+
+    // The same rules from the write function.
+    if (cmd == TXTCMD::START || cmd == TXTCMD::STEND) {
+        memset(lineBuffer, 0, sizeof(lineBuffer));
+        lineBuffer[0] = 0x40;
+    }
+
     uint8_t msgLen = strlen(msg);
+    uint8_t nextSpace{0};
     uint8_t i{0};
 
     while (i < msgLen) {
         nextSpace = i;
 
-        while (nextSpace < msgLen && msg[nextSpace] != ' ') {
+        // Find and set the next space index value.
+        while(nextSpace < msgLen && msg[nextSpace] != ' ') {
             nextSpace++;
         }
 
-        uint8_t wordLen = nextSpace - i;
-        uint8_t nextWordLen = this->charWidth * wordLen;
+        // Computes the number of columns that the next word will
+        // occumpy.
+        uint8_t wordLen = (nextSpace - i) * this->charDim.width;
 
-        if ((this->col + nextWordLen) >= this->colMax) {
-            this->col = 0x00;
-            this->page++;
-        }
-
-        if (this->page > (this->pageMax - 1)) {
-            // handle in the future
+        // write without text wrapping if word exceeds limit. 
+        if (wordLen >= static_cast<int>(Size::columns)) {
+            this->clear();
+            this->write(msg);
             return;
         }
+        
+        // If the current column pos plus the next word length
+        // exceeds the maximum value, it will write the current
+        // line and begin the rest of everything on a new page.
+        if ((this->col + wordLen) >= this->colMax) {
+            this->writeLine(lineBuffer, sizeof(lineBuffer)); 
+            memset(lineBuffer, 0, sizeof(lineBuffer)); 
+            lineBuffer[0] = 0x40; 
+        } 
 
-        masterWrite(msg[i++]);
+        // Iterates each word populating the line buffer.
+        while (i <= nextSpace) {
+            this->grabChar(msg[i], lineBuffer, 1 + this->col, sizeof(lineBuffer)); 
+            i++;
+        }        
+    }
+
+    // Only writes if end is specified in the text command.
+    if ((cmd == TXTCMD::END || cmd == TXTCMD::STEND) && this->col > 0) {
+        this->writeLine(lineBuffer, sizeof(lineBuffer));
     }
 }
 
-void OLEDbasic::writeLn(const char* msg) {
-    // Write chunk maybe instead of writeLn? maybe just next page after
-    // this write. Sort of like write line. Maybe a clean writeLN as well?
 }
 
 
@@ -189,4 +272,4 @@ void OLEDbasic::writeLn(const char* msg) {
 
 
 
-}
+

@@ -5,7 +5,7 @@
 
 namespace I2C {
 
-static uint32_t i2cFrequency{100000}; // standard frequency
+static uint32_t i2cFrequency{I2C_DEF_FRQ}; // standard frequency
 static bool isInit{false};
 static i2c_master_bus_handle_t busHandle;
 

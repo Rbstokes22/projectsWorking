@@ -6,6 +6,8 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
+#define I2C_DEF_FRQ 400000
+
 extern adc_channel_t pinMapA[2];
 extern gpio_num_t pinMapD[4];
 
