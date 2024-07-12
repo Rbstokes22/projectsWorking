@@ -9,26 +9,31 @@
 #include "Drivers/SSD1306_Library.hpp"
 #include "UI/Display.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Threads/Threads.hpp"
+#include "Threads/ThreadParameters.hpp"
 
 extern "C" {
     void app_main();
 }
 
+// ALL OBJECTS
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 
-int ct = 0; char err[30];
-void continuousTask(void* parameter) {
-    while (true) {
-        sprintf(err, "Error Msg #: %d", ct++);
-        msglogerr.handle(
-        Messaging::Levels::INFO,
-        err,
-        Messaging::Method::SRL,
-        Messaging::Method::OLED
-        );
+// ALL THREADS
+Threads::Thread mainThread(msglogerr);
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+void continuousTask(void* parameter) {
+    Threads::mainThreadParams* params = static_cast<Threads::mainThreadParams*>(parameter);
+    #define LOCK params->mutex.lock()
+    #define UNLOCK params->mutex.unlock();
+
+    while (true) {
+
+        msglogerr.OLEDMessageCheck(); // clears errors from display
+        
+        vTaskDelay(params->delay / portTICK_PERIOD_MS);
+
     }
 }
 
@@ -68,9 +73,10 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
+
+    Threads::mainThreadParams mainParams(2000, msglogerr);
+    mainThread.initThread(continuousTask, "MainLoop", 2048, &mainParams, 5);
     
-    xTaskCreate(continuousTask, "Continuous Task", 2048, NULL, 5, NULL);
+
 }
-
-
 
