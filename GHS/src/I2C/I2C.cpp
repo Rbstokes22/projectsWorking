@@ -15,7 +15,9 @@ bool i2c_master_init(uint32_t frequency) {
 
     // Only matters if the frequency exceeds 400k, if less than 100k,
     // the default frequency persists.
-    if (frequency > 400000) i2cFrequency = 400000;
+
+    if (frequency > 400000) {i2cFrequency = 400000;}
+    else if (frequency < 100000) {i2cFrequency = 100000;}
 
     i2c_master_bus_config_t i2c_mst_config = {};
     i2c_mst_config.clk_source = I2C_CLK_SRC_DEFAULT;
@@ -28,10 +30,13 @@ bool i2c_master_init(uint32_t frequency) {
     esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &busHandle); 
 
     // ADD ERROR HANDLING
-    printf("err %d", static_cast<esp_err_t>(err));
-
-    return (err == ESP_OK);
-    
+    if (err != ESP_OK) {
+        printf("err: %s\n", esp_err_to_name(err)); 
+        return false;
+    } else {
+        isInit = true;
+        return true;   
+    }
 }
 
 // Configures the individual device by address, Uses a static frequency

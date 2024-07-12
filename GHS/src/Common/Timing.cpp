@@ -1,4 +1,4 @@
-#include "Common/Timing.h"
+#include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 

@@ -3,7 +3,7 @@
 
 #include "config.hpp"
 #include "UI/IDisplay.hpp"
-#include "UI/SSD1306_Library.hpp"
+#include "Drivers/SSD1306_Library.hpp"
 
 // TEMP DELETE
 namespace Comms {
@@ -12,6 +12,7 @@ char SSID[32] = "Bulbasaur";
 char IPADDR[15] = "192.168.86.1";
 char signalStrength[8] = "-32";
 };
+
 };
 
 
@@ -54,6 +55,7 @@ class Display : public IDisplay {
 	
 	// allows error display to take priority over net display.
 	void setOverrideStat(bool setting) override; 
+	size_t getOLEDCapacity() const;
 };
 
 }

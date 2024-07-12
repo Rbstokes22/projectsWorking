@@ -29,7 +29,8 @@ void Display::init(uint8_t address) {
     this->display.write("SSTech 2024");
     this->display.setPOS(0, 2);
     this->display.write("Mumsy's Greenhouse");
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    this->display.send();
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
 }
 
 void Display::printWAP(
@@ -44,7 +45,6 @@ void Display::printWAP(
         static char clientsCon[4]{0};
         sprintf(clientsCon, "%d", clientsConnected);
 
-        this->display.clear();
         this->display.write("Broadcasting: ", UI_DRVR::TXTCMD::START);
         this->display.write(status, UI_DRVR::TXTCMD::END);
         this->display.write("SSID: ", UI_DRVR::TXTCMD::START);
@@ -56,6 +56,7 @@ void Display::printWAP(
         this->display.write(heap, UI_DRVR::TXTCMD::END);
         this->display.write("Connected #: ", UI_DRVR::TXTCMD::START);
         this->display.write(clientsCon, UI_DRVR::TXTCMD::END);
+        this->display.send();
     } 
 }
 
@@ -64,7 +65,6 @@ void Display::printSTA(
     const char status[4], 
     const char heap[10]) {
     if (!this->displayOverride) {
-        this->display.clear();
         this->display.write("SSID/NETWORK: ", UI_DRVR::TXTCMD::START);
         this->display.write(details.SSID, UI_DRVR::TXTCMD::END);
         this->display.write("IP: ", UI_DRVR::TXTCMD::START);
@@ -75,23 +75,24 @@ void Display::printSTA(
         this->display.write(details.signalStrength, UI_DRVR::TXTCMD::END);
         this->display.write("Free Mem: ", UI_DRVR::TXTCMD::START);
         this->display.write(heap, UI_DRVR::TXTCMD::END);
+        this->display.send();
     }
 }
 
 // Handles regular OTA updates status changes
 void Display::printUpdates(char* update) {
     if (this->displayOverride) {
-        this->display.clear();
         this->display.write(update);
+        this->display.send();
     }
 }
 
 // Handles the progress of the OTA update exclusively
 void Display::updateProgress(char* progress) {
     if (this->displayOverride) {
-        this->display.clear();
-        this->display.write("OTA PROGRESS:");
-        this->display.write(progress);
+        this->display.write("OTA PROGRESS:", UI_DRVR::TXTCMD::START);
+        this->display.write(progress, UI_DRVR::TXTCMD::END);
+        this->display.send();
     }
 }
 
@@ -121,8 +122,10 @@ void Display::removeMessage() {
 
 // All messages are passed here for processing. If the message size is larger 
 // than the remining buffer space, the messages are removed from the msgBuffer.
-// The new beginning address 
+// This is displayed with a delimiter for separation to ensure max screen use
+// to see previous messages.
 void Display::appendMessage(char* msg) {
+
     char delimeter[] = ";     "; // separates the errors
     char tempBuffer[static_cast<int>(UIvals::OLEDCapacity)]{'\0'};
     size_t remaining = sizeof(this->msgBuffer) - strlen(this->msgBuffer);
@@ -159,10 +162,12 @@ void Display::appendMessage(char* msg) {
 void Display::displayMsg(char* msg) {  
     if (msg == nullptr || *msg == '\0') return; // handles erronius args.
 
+    this->display.setCharDim(UI_DRVR::DIM::D5x7);
+
     this->displayOverride = true; // block normal network status display.
     appendMessage(msg);
-    this->display.clear();
     this->display.write(this->msgBuffer);
+    this->display.send();
 }
 
 bool Display::getOverrideStat() {
@@ -171,6 +176,10 @@ bool Display::getOverrideStat() {
 
 void Display::setOverrideStat(bool setting) {
     this->displayOverride = setting;
+}
+
+size_t Display::getOLEDCapacity() const {
+    return this->display.getOLEDCapacity();
 }
 
 }

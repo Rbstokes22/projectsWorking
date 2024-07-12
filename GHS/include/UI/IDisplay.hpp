@@ -9,8 +9,8 @@
 namespace UI {
 
 enum class UIvals {
-    msgIndicyTotal = 10,
-    OLEDCapacity = 168
+    msgIndicyTotal = 10, // prevents overflow in error buffer
+    OLEDCapacity = 200 // this is for 5x7 font
 };
     
 class IDisplay {
@@ -19,6 +19,7 @@ class IDisplay {
     virtual void displayMsg(char* error) = 0;
     virtual bool getOverrideStat() = 0;
 	virtual void setOverrideStat(bool setting) = 0; // allows error display
+    virtual size_t getOLEDCapacity() const = 0;
     virtual ~IDisplay() {}
 };
 

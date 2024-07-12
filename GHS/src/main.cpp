@@ -6,21 +6,27 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "config.hpp"
-#include "UI/SSD1306_Library.hpp"
+#include "Drivers/SSD1306_Library.hpp"
 #include "UI/Display.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 extern "C" {
     void app_main();
 }
 
 UI::Display OLED;
+Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 
-
+int ct = 0; char err[30];
 void continuousTask(void* parameter) {
     while (true) {
-   
-
-
+        sprintf(err, "Error Msg #: %d", ct++);
+        msglogerr.handle(
+        Messaging::Levels::INFO,
+        err,
+        Messaging::Method::SRL,
+        Messaging::Method::OLED
+        );
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -61,9 +67,8 @@ void setupAnalogPins() {
 void app_main() {
     setupDigitalPins();
     setupAnalogPins();
-
     OLED.init(0x3C);
-
+    
     xTaskCreate(continuousTask, "Continuous Task", 2048, NULL, 5, NULL);
 }
 

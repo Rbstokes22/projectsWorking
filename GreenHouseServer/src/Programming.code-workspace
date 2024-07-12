@@ -101,7 +101,8 @@
 			"latch": "cpp",
 			"semaphore": "cpp",
 			"syncstream": "cpp",
-			"netfwd": "cpp"
+			"netfwd": "cpp",
+			"*.ipp": "cpp"
 		},
 		"arduino.commandPath": "",
 		"arduino.path": ""
