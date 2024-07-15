@@ -11,6 +11,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
+#include "NVS/NVS.hpp"
 
 extern "C" {
     void app_main();
@@ -19,6 +20,7 @@ extern "C" {
 // ALL OBJECTS
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
+
 
 // ALL THREADS
 Threads::Thread mainThread(msglogerr);
@@ -73,6 +75,12 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
+    esp_err_t nvsErr = nvs_flash_init(); 
+
+    if (nvsErr != ESP_OK) {
+        printf("NVS INIT ERROR: %s\n", esp_err_to_name(nvsErr));
+    }
+
 
     Threads::mainThreadParams mainParams(2000, msglogerr);
     mainThread.initThread(continuousTask, "MainLoop", 2048, &mainParams, 5);

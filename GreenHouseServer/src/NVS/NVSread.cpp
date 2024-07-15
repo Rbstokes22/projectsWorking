@@ -55,21 +55,21 @@ bool NVSctrl::read(const char* key, NVSR* carrier, size_t size, bool isChar) {
 // to calculate the size, and it is sent to the read method to fill 
 // the carrier with requested data. 
 template<typename NVSRN>
-bool NVSctrl::readNum(const char* key, DType dType, NVSRN &carrier) {
+bool NVSctrl::readNum(const char* key, data_t dType, NVSRN &carrier) {
     if (key == nullptr || *key == '\0') {
         this->sendErr("NVS Read, improper key passed to NVS"); 
         return false;
     }
 
     // Extra enforcement to ensure the correct type of number
-    if (dType == DType::OTHER) {
-        this->sendErr("NVS Read, DType must be number");
+    if (dType == data_t::OTHER) {
+        this->sendErr("NVS Read, data_t must be number");
         return false;
     } else {
         if (sizeof(carrier) == dataSize[static_cast<int>(dType)]) {
             return this->read(key, &carrier, sizeof(carrier));
         } else {
-            this->sendErr("NVS Read, size of carrier does not match DType");
+            this->sendErr("NVS Read, size of carrier does not match data_t");
             return false;
         }
     }
@@ -79,13 +79,13 @@ bool NVSctrl::readNum(const char* key, DType dType, NVSRN &carrier) {
 // carrier is passed by refernce to calculate the size, and then 
 // sent to the read method to fill the carrier with requested data.
 template<typename NVSRO>
-bool NVSctrl::readOther(const char* key, DType dType, NVSRO &carrier){
+bool NVSctrl::readOther(const char* key, data_t dType, NVSRO &carrier){
     if (key == nullptr || *key == '\0') {
         this->sendErr("NVS Read, improper key passed to NVS"); 
         return false;
     }
 
-    if (dType != DType::OTHER) {
+    if (dType != data_t::OTHER) {
         this->sendErr("NVS Read, must be of type OTHER");
         return false;
     } else {
@@ -98,7 +98,7 @@ bool NVSctrl::readOther(const char* key, DType dType, NVSRO &carrier){
 // Ensure to include the space for a null terminator if requesting a 
 // char array. For size, use sizeof(carrier);
 template<typename NVSRA>
-bool NVSctrl::readArray(const char* key, DType dType, NVSRA *carrier, size_t size) {
+bool NVSctrl::readArray(const char* key, data_t dType, NVSRA *carrier, size_t size) {
 
     if (size <= 0) {
         this->sendErr("NVS Read, size must be > 0");
@@ -119,7 +119,7 @@ bool NVSctrl::readArray(const char* key, DType dType, NVSRA *carrier, size_t siz
     // NVS will be variable but end with a null terminator. When written, the length
     // of the char array is known, when reading, it isnt. This will allow logic to 
     // extract the char array length only, at the checkSum level.
-    if (dType == DType::CHAR) {
+    if (dType == data_t::CHAR) {
         return this->read(key, carrier, size, true);
     } else {
         return this->read(key, carrier, size);

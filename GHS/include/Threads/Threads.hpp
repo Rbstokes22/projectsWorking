@@ -21,13 +21,14 @@ class Thread {
     public:
     Thread(Messaging::MsgLogHandler &msglogerr);
     void initThread(
-        void (*taskFunc)(void*), 
-        const char* name, 
-        uint16_t stackSize, 
-        void* parameters, 
-        UBaseType_t priority);
+        void (*taskFunc)(void*), // task function
+        const char* name, // task name
+        uint16_t stackSize, // stack size in words.
+        void* parameters, // task input parameters
+        UBaseType_t priority); // priority of task
     void suspendTask();
     void resumeTask();
+    ~Thread();
 };
 
 // class SensorThread {

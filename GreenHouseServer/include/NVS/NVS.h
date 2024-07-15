@@ -6,7 +6,7 @@
 
 namespace NVS {
 
-enum class DType {
+enum class data_t {
     INT8_T, INT16_T, INT32_T, INT64_T,
     UINT8_T, UINT16_T , UINT32_T, UINT64_T,
     FLOAT, DOUBLE, CHAR, OTHER
@@ -33,25 +33,25 @@ class NVSctrl {
     bool write(const char* key, const void* data, size_t size, bool isChar = false);
 
     template<typename NVSWA>
-    bool writeArray(const char* key, const NVSWA* data, DType dType, size_t length);
+    bool writeArray(const char* key, const NVSWA* data, data_t dType, size_t length);
 
     template<typename NVSWO>
-    bool writeOther(const char* key, const NVSWO &data, DType dType);
+    bool writeOther(const char* key, const NVSWO &data, data_t dType);
 
     template<typename NVSWN>
-    bool writeNum(const char* key, const NVSWN &data, DType dType);
+    bool writeNum(const char* key, const NVSWN &data, data_t dType);
 
     template<typename NVSR>
     bool read(const char* key, NVSR* carrier, size_t size, bool isChar = false);
 
     template<typename NVSRN>
-    bool readNum(const char* key, DType dType, NVSRN &carrier); // USE #include for implementations
+    bool readNum(const char* key, data_t dType, NVSRN &carrier); // USE #include for implementations
 
     template<typename NVSRO>
-    bool readOther(const char* key, DType dType, NVSRO &carrier);
+    bool readOther(const char* key, data_t dType, NVSRO &carrier);
 
     template<typename NVSRA>
-    bool readArray(const char* key, DType dType, NVSRA *carrier, size_t size);
+    bool readArray(const char* key, data_t dType, NVSRA *carrier, size_t size);
 };
 
 }

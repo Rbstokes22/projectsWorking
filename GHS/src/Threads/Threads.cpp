@@ -35,6 +35,9 @@ void Thread::resumeTask() {
     vTaskResume(this->taskHandle);
 }
 
+Thread::~Thread() {
+    vTaskDelete(this->taskHandle);
+}
 
 
 // // STATIC SETTINGS

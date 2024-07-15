@@ -297,6 +297,13 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
 
 // Sends the Worker buffer via i2c to the OLED display.
 void OLEDbasic::send() {
+    esp_err_t err;
+
+    auto errHandle = [](esp_err_t err) {
+        if (err != ESP_OK) {
+            printf("err: %s\n", esp_err_to_name(err));
+        }
+    };
 
     // Used to toggle between transmitting commands and data.
     bool toggle = true;
@@ -330,17 +337,23 @@ void OLEDbasic::send() {
     // transmitting the 1088 byte ((129 + 7) * 8) buffer.
     while(i < static_cast<int>(Size::bufferSize)) {
         if (toggle) {
-            i2c_master_transmit(
+            err = i2c_master_transmit(
                 this->i2cHandle, &Display[i],
                 this->cmdSeqLgth, -1
             );
+
+            errHandle(err);
+
             toggle = false;
             i += this->cmdSeqLgth;
         } else {
-            i2c_master_transmit(
+            err = i2c_master_transmit(
                 this->i2cHandle, &Display[i],
                 this->lineLgth, -1
             );
+
+            errHandle(err);
+
             toggle = true;
             i += this->lineLgth;
         }

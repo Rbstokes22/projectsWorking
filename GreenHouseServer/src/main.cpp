@@ -128,7 +128,7 @@ void setup() {
 
   // DELETE TESTING ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   // int a{0};
-  // controller.readNum("key1", NVS::DType::INT32_T, a);
+  // controller.readNum("key1", NVS::data_t::INT32_T, a);
 
 }
 

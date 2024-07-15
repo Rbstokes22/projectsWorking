@@ -77,7 +77,7 @@ bool NVSctrl::write(const char* key, const void* data, size_t size, bool isChar)
 // other sizes based on their type (i.e. INT16_T = 2); When using char arrays, use 
 // strlen for the length argument, for others, put the exact size.
 template<typename NVSWA>
-bool NVSctrl::writeArray(const char* key, const NVSWA* data, DType dType, size_t length) {
+bool NVSctrl::writeArray(const char* key, const NVSWA* data, data_t dType, size_t length) {
     size_t arraySize{0};
     bool isChar{false};
     
@@ -99,7 +99,7 @@ bool NVSctrl::writeArray(const char* key, const NVSWA* data, DType dType, size_t
     }
 
     if (sizeof(*data) != expSize) {
-        this->sendErr("NVS Write, size of data does not match DType", false);
+        this->sendErr("NVS Write, size of data does not match data_t", false);
         return false;
     }
 
@@ -109,12 +109,12 @@ bool NVSctrl::writeArray(const char* key, const NVSWA* data, DType dType, size_t
         // NVS will be variable but end with a null terminator. When written, the length
         // of the char array is known, when reading, it isnt. This will allow logic to 
         // extract the char array length only, at the checkSum level.
-        case DType::CHAR:
+        case data_t::CHAR:
         arraySize = length + 1; // accounts for null terminator
         isChar = true;
         break;
 
-        case DType::OTHER:
+        case data_t::OTHER:
         this->sendErr("NVS Write, only arrays of known datatypes permitted", false);
         return false; 
 
@@ -129,14 +129,14 @@ bool NVSctrl::writeArray(const char* key, const NVSWA* data, DType dType, size_t
 // for objects like structs. This can be used for all non-array objects and 
 // is less strict then the writeNum method.
 template<typename NVSWO>
-bool NVSctrl::writeOther(const char* key, const NVSWO &data, DType dType) {
+bool NVSctrl::writeOther(const char* key, const NVSWO &data, data_t dType) {
     if (key == nullptr || *key == '\0') {
         this->sendErr("NVS Write, Key is not defined", false);
         return false;
     }
 
     // Enforces correct function use. 
-    if (dType != DType::OTHER) {
+    if (dType != data_t::OTHER) {
         this->sendErr("NVS Write, must be of type other", false);
         return false;
     } else {
@@ -147,7 +147,7 @@ bool NVSctrl::writeOther(const char* key, const NVSWO &data, DType dType) {
 // This accepts only types with known sizes such as CHAR, INT32_T, etc...
 // Passes the appropriate data and sizes to write method.
 template<typename NVSWN>
-bool NVSctrl::writeNum(const char* key, const NVSWN &data, DType dType) {
+bool NVSctrl::writeNum(const char* key, const NVSWN &data, data_t dType) {
     if (key == nullptr || *key == '\0') {
         this->sendErr("NVS Write, Key is not defined", false);
         return false;
@@ -155,14 +155,14 @@ bool NVSctrl::writeNum(const char* key, const NVSWN &data, DType dType) {
 
     // No function purpose beside consistency and and enforcing correct 
     // function use.
-    if (dType == DType::OTHER) {
+    if (dType == data_t::OTHER) {
         this->sendErr("NVS Write, must be a number", false);
         return false;
     } else {
         if (sizeof(data) == dataSize[static_cast<int>(dType)]) {
             return this->write(key, &data, sizeof(data));
         } else {
-            this->sendErr("NVS Write, size of data does not match DType", false);
+            this->sendErr("NVS Write, size of data does not match data_t", false);
             return false;
         }
     }
