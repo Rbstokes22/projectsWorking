@@ -3,7 +3,7 @@
 namespace Threads {
 
 mainThreadParams::mainThreadParams(
-    uint16_t delay, 
+    uint32_t delay, 
     Messaging::MsgLogHandler &msglogerr) :
 
     delay(delay), mutex(msglogerr) {}

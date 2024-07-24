@@ -9,9 +9,9 @@
 namespace Threads {
 
 struct mainThreadParams {
-    uint16_t delay;
+    uint32_t delay;
     Threads::Mutex mutex;
-    mainThreadParams(uint16_t delay, Messaging::MsgLogHandler &msglogerr);
+    mainThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
 };
 
 }

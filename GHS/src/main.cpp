@@ -12,6 +12,10 @@
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
 #include "NVS/NVS.hpp"
+#include "Network/NetManager.hpp"
+#include "Network/NetMain.hpp"
+#include "Network/NetSTA.hpp"
+#include "Network/NetWAP.hpp"
 
 extern "C" {
     void app_main();
@@ -20,20 +24,30 @@ extern "C" {
 // ALL OBJECTS
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
-
+Communications::NetSTA station(msglogerr);
+Communications::NetWAP wap(msglogerr);
+Communications::NetManager netManager(msglogerr, station, wap);
 
 // ALL THREADS
+Threads::mainThreadParams mainParams(1000, msglogerr);
 Threads::Thread mainThread(msglogerr);
 
-void continuousTask(void* parameter) {
+void mainTask(void* parameter) {
     Threads::mainThreadParams* params = static_cast<Threads::mainThreadParams*>(parameter);
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
+    Clock::Timer netCheck(1000);
+
     while (true) {
+        // in this portion, check wifi switch for position. 
+
+        if (netCheck.isReady()) {
+            netManager.handleNet();
+        }
 
         msglogerr.OLEDMessageCheck(); // clears errors from display
-        
+
         vTaskDelay(params->delay / portTICK_PERIOD_MS);
 
     }
@@ -82,8 +96,8 @@ void app_main() {
     }
 
 
-    Threads::mainThreadParams mainParams(2000, msglogerr);
-    mainThread.initThread(continuousTask, "MainLoop", 2048, &mainParams, 5);
+
+    mainThread.initThread(mainTask, "MainLoop", 4096, &mainParams, 5);
     
 
 }
