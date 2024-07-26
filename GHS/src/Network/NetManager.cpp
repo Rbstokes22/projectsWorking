@@ -1,14 +1,13 @@
 #include "Network/NetManager.hpp"
 
-namespace Communications {
-
-// USE THE NVS HERE FOR ALL SAVED SETTINGS FOR CREDENTIALS AND PASS TO CLASS METHODS
+namespace Comms {
 
 NetManager::NetManager(
     Messaging::MsgLogHandler &msglogerr,
-    NetSTA &station, NetWAP &wap) :
+    NetSTA &station, NetWAP &wap,
+    NVS::Creds &creds) :
 
-    station{station}, wap{wap} {}
+    station{station}, wap{wap}, creds(creds) {}
 
 void NetManager::netStart(NetMode NetType) {
 
@@ -46,8 +45,27 @@ NetMode NetManager::checkNetSwitch() {
     else {return NetMode::NONE;}
 }
 
-void NetManager::restartServer(NetMain &mode) {
-    mode.init_wifi();
+// Upon the start of any connection, the NVS is checked for creds. If it returns
+// nothing, then the default settings will be used. If data does exist, those 
+// values will be used.
+void NetManager::restartServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
+    NetMode curSrvr = mode.getNetType();
+
+    // All logic depending on returns from the read functions, will be handled
+    // in the WAP and STA classes.
+    if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
+
+        mode.setPass(this->creds.read("APpass")); 
+        
+    } else if (curSrvr == NetMode::STA) {
+        
+        mode.setPass(this->creds.read("pass"));
+        mode.setSSID(this->creds.read("ssid"));
+        mode.setPhone(this->creds.read("phone"));
+        
+    }
+
+    mode.init_wifi(); 
     mode.start_wifi();
     mode.start_server();
 }
@@ -55,7 +73,7 @@ void NetManager::restartServer(NetMain &mode) {
 void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     NetMode net_type = mode.getNetType();
 
-    if (NetType != net_type) {
+    if (NetType != net_type) { // Checks if the mode has been switched
         switch (net_type) {
             case NetMode::WAP:
             this->wap.destroy();
@@ -73,12 +91,13 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
             break;
         }
 
-        restartServer(mode);
         mode.setNetType(NetType);
+        this->restartServer(mode);
+        
     }
 
     else {
-        runningWifi(mode);
+        this->runningWifi(mode);
     }
 }
 

@@ -11,9 +11,8 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
-#include "NVS/NVS.hpp"
+#include "Network/NetCreds.hpp"
 #include "Network/NetManager.hpp"
-#include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
 
@@ -24,9 +23,14 @@ extern "C" {
 // ALL OBJECTS
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
-Communications::NetSTA station(msglogerr);
-Communications::NetWAP wap(msglogerr);
-Communications::NetManager netManager(msglogerr, station, wap);
+
+// NET SETUP (default IP is 192.168.1.1)
+const char APssid[]{"GreenHouse"};
+char APdefPass[]{"12345678"};
+NVS::Creds creds("netcreds", msglogerr);
+Comms::NetSTA station(msglogerr);
+Comms::NetWAP wap(msglogerr, APssid, APdefPass);
+Comms::NetManager netManager(msglogerr, station, wap, creds);
 
 // ALL THREADS
 Threads::mainThreadParams mainParams(1000, msglogerr);
@@ -37,7 +41,7 @@ void mainTask(void* parameter) {
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
-    Clock::Timer netCheck(1000);
+    Clock::Timer netCheck(1000); 
 
     while (true) {
         // in this portion, check wifi switch for position. 

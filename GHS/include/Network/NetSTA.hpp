@@ -3,17 +3,23 @@
 
 #include "Network/NetMain.hpp"
 
-namespace Communications {
+namespace Comms {
 
 class NetSTA : public NetMain {
     private:
+    char ssid[static_cast<int>(IDXSIZE::SSID)];
+    char pass[static_cast<int>(IDXSIZE::PASS)];
+    char phone[static_cast<int>(IDXSIZE::PHONE)];
 
     public:
     NetSTA(Messaging::MsgLogHandler &msglogerr);
-    void init_wifi() override;
-    void start_wifi() override;
-    void start_server() override;
-    void destroy() override;
+    wifi_ret_t init_wifi() override;
+    wifi_ret_t start_wifi() override;
+    wifi_ret_t start_server() override;
+    wifi_ret_t destroy() override;
+    void setPass(const char* pass) override;
+    void setSSID(const char* ssid) override;
+    void setPhone(const char* phone) override;
 
 };
 

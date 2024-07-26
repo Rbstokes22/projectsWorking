@@ -21,7 +21,7 @@
 // BOTH NetworkSTA.h and NetworkWAP.h include NetworkMain.h. For your include 
 // statements, unless exclusive to NetworkMain.h, you can use either of the two.
 
-// Communications namespace applies to the Network and servers.
+// Comms namespace applies to the Network and servers.
 namespace Comms {
 
 // Switches

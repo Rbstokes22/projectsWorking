@@ -2,22 +2,35 @@
 #define ROUTES_HPP
 
 #include "Network/NetMain.hpp"
-#include "Network/webPages.hpp"
+#include "Network/Handlers/WAPsetup.hpp"
+#include "Network/Handlers/WAP.hpp"
 
-namespace Communications {
+namespace Comms {
 
-esp_err_t WAPSetupIndexHandler(httpd_req_t *req) {
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, WAPSetupPage, strlen(WAPSetupPage));
-    return ESP_OK;
-}
-
+// WAP Setup Routes
 httpd_uri_t WAPSetupIndex = {
     .uri       = "/",
     .method    = HTTP_GET,
     .handler   = WAPSetupIndexHandler,
     .user_ctx  = NULL
 };
+
+httpd_uri_t WAPSubmitCreds = {
+    .uri       = "/SubmitCreds",
+    .method    = HTTP_POST,
+    .handler   = WAPSubmitDataHandler,
+    .user_ctx  = NULL
+};
+
+// WAP Routes
+httpd_uri_t WAPIndex = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = WAPIndexHandler,
+    .user_ctx  = NULL
+};
+
+// STA Routes
 
 }
 

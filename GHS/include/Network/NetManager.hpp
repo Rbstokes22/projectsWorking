@@ -4,22 +4,24 @@
 #include "driver/gpio.h"
 #include "config.hpp"
 #include "UI/MsgLogHandler.hpp"
-#include "Network/NetConfig.hpp"
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
+#include "Network/NetCreds.hpp"
 
-namespace Communications {
+namespace Comms {
 
 class NetManager {
     private:
     NetSTA &station;
     NetWAP &wap;
+    NVS::Creds &creds;
 
     public:
     NetManager(
         Messaging::MsgLogHandler &msglogerr,
-        NetSTA &station, NetWAP &wap
+        NetSTA &station, NetWAP &wap,
+        NVS::Creds &creds
     );
     void netStart(NetMode netType);
     void handleNet();

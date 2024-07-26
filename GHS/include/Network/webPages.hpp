@@ -1,7 +1,7 @@
 #ifndef WEBPAGES_HPP
 #define WEBPAGES_HPP
 
-namespace Communications {
+namespace Comms {
 
 const char WAPSetupPage[] = R"rawliteral(
 <!DOCTYPE html>
