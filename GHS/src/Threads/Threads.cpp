@@ -1,4 +1,7 @@
 #include "Threads/Threads.hpp"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "UI/MsgLogHandler.hpp"
 
 namespace Threads {
 

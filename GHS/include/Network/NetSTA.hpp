@@ -2,6 +2,7 @@
 #define NETSTA_HPP
 
 #include "Network/NetMain.hpp"
+#include "esp_wifi.h"
 
 namespace Comms {
 
@@ -10,6 +11,7 @@ class NetSTA : public NetMain {
     char ssid[static_cast<int>(IDXSIZE::SSID)];
     char pass[static_cast<int>(IDXSIZE::PASS)];
     char phone[static_cast<int>(IDXSIZE::PHONE)];
+    wifi_ret_t configure(wifi_config_t &wifi_config);
 
     public:
     NetSTA(Messaging::MsgLogHandler &msglogerr);

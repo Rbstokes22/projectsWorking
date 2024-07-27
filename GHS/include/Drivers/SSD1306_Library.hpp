@@ -1,8 +1,8 @@
 #ifndef SSD1306_LIBRARY_H
 #define SSD1306_LIBRARY_H
 
-#include "config.hpp"
-#include "Drivers/fonts.hpp"
+#include <cstdint>
+#include <cstddef>
 #include "I2C/I2C.hpp"
 
 namespace UI_DRVR {

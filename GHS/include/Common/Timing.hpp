@@ -1,7 +1,7 @@
 #ifndef TIMING_H
 #define TIMING_H
 
-#include "config.hpp"
+#include <cstdint>
 
 // All timed data and functions go here for preceise timing throughout
 // the program.

@@ -1,8 +1,6 @@
 #ifndef NETMANAGER_HPP
 #define NETMANAGER_HPP
 
-#include "driver/gpio.h"
-#include "config.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"

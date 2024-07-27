@@ -1,4 +1,7 @@
 #include "Network/NetCreds.hpp"
+#include "NVS/NVS.hpp"
+#include "UI/MsgLogHandler.hpp"
+#include "string.h"
 
 namespace NVS {
 

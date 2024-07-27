@@ -1,7 +1,7 @@
 #ifndef WAPSETUP_HPP
 #define WAPSETUP_HPP
 
-#include "Network/NetMain.hpp"
+#include "esp_http_server.h"
 
 namespace Comms {
 

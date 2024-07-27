@@ -1,5 +1,11 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Routes.hpp"
+#include "string.h"
+#include "lwip/inet.h"
+#include "esp_wifi.h"
+#include "esp_http_server.h"
+#include "esp_event.h"
+#include "esp_netif.h"
 
 // ADD LOGIC TO DIFFERENTIATE BETWEEN WAP AND WAP_SETUP USE CREDS IN NET MANAGER
 // TO PASS DATA HERE
@@ -23,11 +29,11 @@ wifi_ret_t NetWAP::init_wifi() {
     esp_err_t init = esp_netif_init();
     esp_err_t event = esp_event_loop_create_default();
 
-    if (init != ESP_OK && event != ESP_OK) {
+    if (init == ESP_OK && event == ESP_OK) {
+        return wifi_ret_t::INIT_OK;
+    } else {
         this->sendErr("AP unable to init");
         return wifi_ret_t::INIT_FAIL;
-    } else {
-        return wifi_ret_t::INIT_OK;
     }
 }
 
@@ -50,9 +56,11 @@ wifi_ret_t NetWAP::start_wifi() {
     // Allows a single connection during WAP_SETUP since it uses http, 
     // and prevents multiple connections to increase security.
     if (NetMain::NetType == NetMode::WAP_SETUP) {
-        configure(wifi_config, 1);
+        wifi_ret_t cfg = this->configure(wifi_config, 1);
+        if (cfg != wifi_ret_t::CONFIG_OK) return wifi_ret_t::WIFI_FAIL;
     } else {
-        configure(wifi_config, 4); // regular max con 4
+        wifi_ret_t cfg = this->configure(wifi_config, 4); // regular max con 4
+        if (cfg != wifi_ret_t::CONFIG_OK) return wifi_ret_t::WIFI_FAIL;
     }
 
     esp_err_t set_ip = esp_netif_set_ip_info(ap_netif, &ip_info);
@@ -83,7 +91,6 @@ wifi_ret_t NetWAP::start_wifi() {
 
 wifi_ret_t NetWAP::start_server() {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    return wifi_ret_t::SERVER_FAIL;
 
     if (httpd_start(&this->server, &config) != ESP_OK) {
         return wifi_ret_t::SERVER_FAIL;
@@ -131,20 +138,21 @@ void NetWAP::setPass(const char* pass) {
         strncpy(this->APpass, pass, sizeof(this->APpass) -1);
         this->APpass[sizeof(this->APpass) - 1] = '\0';
     } 
+    printf("pass: %s\n", pass); // DELETE AFTER TESTING
 }
 
 // Abstract methods not needed in the scope of NetWAP.
 void NetWAP::setSSID(const char* ssid) {}
 void NetWAP::setPhone(const char* phone) {}
 
-void NetWAP::configure(wifi_config_t &wifi_config, uint8_t maxConnections) {
+wifi_ret_t NetWAP::configure(wifi_config_t &wifi_config, uint8_t maxConnections) {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
     esp_err_t wifi_init = esp_wifi_init(&cfg);
 
     if (wifi_init != ESP_OK) {
         this->sendErr("AP not configured");
-        return;
+        return wifi_ret_t::CONFIG_FAIL;
     }
 
     strcpy((char*)wifi_config.ap.ssid, this->APssid);
@@ -156,8 +164,11 @@ void NetWAP::configure(wifi_config_t &wifi_config, uint8_t maxConnections) {
     
 
     if (strlen(this->APpass) < 8) {
+        this->sendErr("Open Network due to pass len");
         wifi_config.ap.authmode = WIFI_AUTH_OPEN; // No password, open network
     }
+
+    return wifi_ret_t::CONFIG_OK;
 }
 
 }

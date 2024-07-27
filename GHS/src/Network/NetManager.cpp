@@ -1,4 +1,6 @@
 #include "Network/NetManager.hpp"
+#include "driver/gpio.h"
+#include "config.hpp"
 
 namespace Comms {
 
@@ -62,7 +64,7 @@ void NetManager::restartServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
         mode.setPass(this->creds.read("pass"));
         mode.setSSID(this->creds.read("ssid"));
         mode.setPhone(this->creds.read("phone"));
-        
+
     }
 
     mode.init_wifi(); 

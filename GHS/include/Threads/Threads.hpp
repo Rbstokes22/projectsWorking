@@ -3,10 +3,8 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
 #include "UI/MsgLogHandler.hpp"
-#include "Threads/Mutex.hpp"
-// #include "Peripherals/Light.h"
+// #include "Peripherals/Light.h" // Uncomment when ready to develop
 // #include "Peripherals/TempHum.h"
 // #include "Peripherals/Soil.h"
 // #include "Common/Timing.h"

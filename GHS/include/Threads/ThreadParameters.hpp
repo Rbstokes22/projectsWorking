@@ -1,9 +1,8 @@
 #ifndef THREADPARAMETERS_HPP
 #define THREADPARAMETERS_HPP
 
-#include "config.hpp"
+#include <cstdint>
 #include "Threads/Mutex.hpp"
-#include "Threads.hpp"
 #include "UI/MsgLogHandler.hpp"
 
 namespace Threads {

@@ -1,4 +1,7 @@
 #include "NVS/NVS.hpp"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include "UI/MsgLogHandler.hpp"
 
 // PUT CHECKSUM IN ITS OWN CLASS TO AVOID DUPLICATION MAYBE
 
@@ -18,8 +21,6 @@ const uint8_t dataSize[]{
 // Due to several potential errors, the majority will be to serial.
 // Can change to include OLED if desired by passing true as arg 2.
 void NVSctrl::sendErr(const char* msg, bool toOLED) {
-    printf("SEND ERR\n");
-
     switch (toOLED) {
         case true:
         this->msglogerr.handle(
@@ -43,7 +44,6 @@ void NVSctrl::sendErr(const char* msg, bool toOLED) {
 // it is modular to run the same check on variables. Return types are 
 // NVS_OK and NVS_FAIL.
 nvs_ret_t NVSctrl::basicErrCheck(const char* key, const void* data, size_t size) {
-    printf("BASIC ERR CHECK\n");
     nvs_ret_t err{nvs_ret_t::NVS_OK};
 
     if (data == nullptr || key == nullptr) {
@@ -70,9 +70,7 @@ nvs_ret_t NVSctrl::basicErrCheck(const char* key, const void* data, size_t size)
 // will prevent any blocking of the code since it is exclusively
 // checked for.
 nvs_ret_t NVSctrl::errHandlingNVS() {
-    printf("ERROR HANDLING NVS\n");
-    
-    if (this->err == ESP_OK) {
+     if (this->err == ESP_OK) {
         return nvs_ret_t::NVS_OK;
     } else if (this->err == ESP_ERR_NVS_NOT_FOUND) {
         this->sendErr("NVS Key has not been created", true);
@@ -87,7 +85,6 @@ nvs_ret_t NVSctrl::errHandlingNVS() {
 // it will attempt to open. It will return either NVS_OPEN or 
 // NVS_CLOSED.
 nvs_ret_t NVSctrl::safeStart() { // returns open or closed.
-    printf("SAFESTART\n");
     if (this->NVSopen != nvs_ret_t::NVS_OPEN) {
 
         this->err = nvs_open(this->nameSpace, NVS_READWRITE, &this->handle);
@@ -105,7 +102,6 @@ nvs_ret_t NVSctrl::safeStart() { // returns open or closed.
 // Checks to see if the NVS is opened. If true, it will be closed.
 // This will return NVS_CLOSED.
 nvs_ret_t NVSctrl::safeClose() {
-    printf("SAFECLOSE\n");
     if (this->NVSopen == nvs_ret_t::NVS_OPEN) {
         nvs_close(this->handle);
         this->NVSopen = nvs_ret_t::NVS_CLOSED;

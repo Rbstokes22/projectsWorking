@@ -3,6 +3,7 @@
 
 #include "NVS/NVS.hpp"
 #include "Network/NetConfig.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
 

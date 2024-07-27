@@ -1,7 +1,6 @@
 #ifndef I2C_HPP
 #define I2C_HPP
 
-#include "config.hpp"
 #include "driver/i2c_master.h"
 
 namespace I2C {

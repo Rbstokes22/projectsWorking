@@ -1,24 +1,17 @@
 #ifndef NETMAIN_HPP
 #define NETMAIN_HPP
 
-#include "config.hpp"
 #include "NetConfig.hpp"
-#include "string.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_wifi.h"
 #include "esp_http_server.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_netif.h"
-#include "lwip/inet.h"
 #include "UI/MsgLogHandler.hpp"
 
+// FIX ALL INCLUDES TO PUT INTO SOURCE FILES. WORK ON OLED NET DISPLAY AND HEAP
 namespace Comms {
 
-enum class wifi_ret_t {
+enum class wifi_ret_t { // wifi return type
     INIT_OK, INIT_FAIL, WIFI_OK, WIFI_FAIL,
-    SERVER_OK, SERVER_FAIL, DESTROY_OK, DESTROY_FAIL
+    SERVER_OK, SERVER_FAIL, DESTROY_OK, DESTROY_FAIL,
+    CONFIG_OK, CONFIG_FAIL
 };
 
 class NetMain {
@@ -26,10 +19,7 @@ class NetMain {
     httpd_handle_t server;
     Messaging::MsgLogHandler &msglogerr;
     static NetMode NetType;
-    static char ssid[static_cast<int>(IDXSIZE::SSID)];
-    static char pass[static_cast<int>(IDXSIZE::PASS)];
-    static char phone[static_cast<int>(IDXSIZE::PHONE)];
-    
+
     public:
     NetMain(Messaging::MsgLogHandler &msglogerr);
     virtual ~NetMain();

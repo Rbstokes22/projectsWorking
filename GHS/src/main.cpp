@@ -1,7 +1,6 @@
-// TO do, finish library for ssd, Build Display class as well as msglogerr.
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs_flash.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -9,6 +8,7 @@
 #include "Drivers/SSD1306_Library.hpp"
 #include "UI/Display.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/Timing.hpp"
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
 #include "Network/NetCreds.hpp"
@@ -27,7 +27,8 @@ Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 // NET SETUP (default IP is 192.168.1.1)
 const char APssid[]{"GreenHouse"};
 char APdefPass[]{"12345678"};
-NVS::Creds creds("netcreds", msglogerr);
+char credNamespace[] = "netcreds";
+NVS::Creds creds(credNamespace, msglogerr);
 Comms::NetSTA station(msglogerr);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass);
 Comms::NetManager netManager(msglogerr, station, wap, creds);
@@ -98,8 +99,6 @@ void app_main() {
     if (nvsErr != ESP_OK) {
         printf("NVS INIT ERROR: %s\n", esp_err_to_name(nvsErr));
     }
-
-
 
     mainThread.initThread(mainTask, "MainLoop", 4096, &mainParams, 5);
     

@@ -1,20 +1,19 @@
 #ifndef DISPLAY_HPP
 #define DISPLAY_HPP
 
-#include "config.hpp"
+#include <cstdint>
 #include "UI/IDisplay.hpp"
 #include "Drivers/SSD1306_Library.hpp"
 
-// TEMP DELETE
+// TEMP DELETE ONCE BUILT
 namespace Comms {
 struct STAdetails {
-char SSID[32] = "Bulbasaur";
+char SSID[32] = "Bulbasaur"; 
 char IPADDR[15] = "192.168.86.1";
 char signalStrength[8] = "-32";
 };
 
 };
-
 
 // All user interface data and functions
 namespace UI {

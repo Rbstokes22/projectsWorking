@@ -1,6 +1,8 @@
 #ifndef IDISPLAY_HPP
 #define IDISPLAY_HPP
 
+#include <cstddef>
+
 // IDisplay is an abstract class, also called interface. This does not require 
 // a .cpp file, and serves to prevent circular dependencies between the Display.h
 // and Network.h. Display.h depends on Network.h, but Network.h needs to be passed 

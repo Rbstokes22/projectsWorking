@@ -1,4 +1,6 @@
 #include "NVS/NVS.hpp"
+#include "nvs.h"
+#include "string.h"
 
 namespace NVS {
 

@@ -1,5 +1,10 @@
 #include "Drivers/SSD1306_Library.hpp"
 #include <string.h>
+#include <cstdint>
+#include <cstddef>
+#include "config.hpp"
+#include "Drivers/fonts.hpp"
+#include "I2C/I2C.hpp"
 
 namespace UI_DRVR {
 

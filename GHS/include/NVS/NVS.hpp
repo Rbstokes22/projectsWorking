@@ -4,10 +4,9 @@
 // This header includes several templates and they are both declared and 
 // defined within this file which makes it lengthy.
 
-#include "nvs_flash.h"
-#include "nvs.h"
 #include "UI/MsgLogHandler.hpp"
-#include "string.h"
+#include "nvs.h"
+
 
 namespace NVS {
 

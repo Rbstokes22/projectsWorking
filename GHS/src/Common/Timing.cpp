@@ -2,7 +2,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-
 namespace Clock {
 
 Timer::Timer(uint32_t interval) : 

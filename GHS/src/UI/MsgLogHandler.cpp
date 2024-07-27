@@ -1,7 +1,8 @@
 #include "UI/MsgLogHandler.hpp"
+#include <cstdint>
 #include "string.h"
+#include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 namespace Messaging {
 

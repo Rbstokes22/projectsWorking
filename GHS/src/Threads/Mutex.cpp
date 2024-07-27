@@ -1,5 +1,8 @@
 #include "Threads/Mutex.hpp"
-
+#include "UI/MsgLogHandler.hpp"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
 
 namespace Threads {
 

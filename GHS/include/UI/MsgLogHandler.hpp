@@ -1,9 +1,8 @@
 #ifndef MSGLOGHANDLER_HPP
 #define MSGLOGHANDLER_HPP
 
-#include "config.hpp"
+#include <cstdint>
 #include "UI/IDisplay.hpp"
-#include "Common/Timing.hpp"
 
 namespace Messaging {
 

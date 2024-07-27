@@ -1,5 +1,6 @@
 #include "Network/Handlers/WAP.hpp"
 #include "Network/webPages.hpp"
+#include "esp_http_server.h"
 
 namespace Comms {
 

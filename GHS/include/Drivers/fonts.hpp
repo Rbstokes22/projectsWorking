@@ -1,7 +1,7 @@
 #ifndef FONTS_HPP
 #define FONT_HPP
 
-#include "config.hpp"
+#include <cstdint>
 
 namespace UI_DRVR {
 

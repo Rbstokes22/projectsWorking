@@ -1,8 +1,8 @@
 #include "UI/Display.hpp"
+#include "Drivers/SSD1306_Library.hpp"
 #include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
 
 // The OLED's primary duty is to display the Net data. It will 
 // also display the OTA updating progress as well as any urgent
