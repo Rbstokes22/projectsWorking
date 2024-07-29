@@ -9,4 +9,3 @@ gpio_num_t pinMapD[4]{
     GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_4, GPIO_NUM_15
 };
 
-

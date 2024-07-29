@@ -33,48 +33,33 @@ void Display::init(uint8_t address) {
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 }
 
-void Display::printWAP(
-    const char SSID[11], 
-    const char ipaddr[16], 
-    const char status[4], 
-    const char WAPtype[20], 
-    const char heap[10],
-    const uint8_t clientsConnected) {
+void Display::printWAP(Comms::WAPdetails &details) {
     if (!this->displayOverride) {
-
-        static char clientsCon[4]{0};
-        sprintf(clientsCon, "%d", clientsConnected);
-
         this->display.write("Broadcasting: ", UI_DRVR::TXTCMD::START);
-        this->display.write(status, UI_DRVR::TXTCMD::END);
-        this->display.write("SSID: ", UI_DRVR::TXTCMD::START);
-        this->display.write(SSID, UI_DRVR::TXTCMD::END);
+        this->display.write(details.status, UI_DRVR::TXTCMD::END);
         this->display.write("IP: ", UI_DRVR::TXTCMD::START);
-        this->display.write(ipaddr, UI_DRVR::TXTCMD::END);
-        this->display.write(WAPtype);
+        this->display.write(details.ipaddr, UI_DRVR::TXTCMD::END);
+        this->display.write(details.WAPtype);
         this->display.write("Free Mem: ", UI_DRVR::TXTCMD::START);
-        this->display.write(heap, UI_DRVR::TXTCMD::END);
+        this->display.write(details.heap, UI_DRVR::TXTCMD::END);
         this->display.write("Connected #: ", UI_DRVR::TXTCMD::START);
-        this->display.write(clientsCon, UI_DRVR::TXTCMD::END);
+        this->display.write(details.clientConnected, UI_DRVR::TXTCMD::END);
         this->display.send();
     } 
 }
 
-void Display::printSTA(
-    Comms::STAdetails &details, 
-    const char status[4], 
-    const char heap[10]) {
+void Display::printSTA(Comms::STAdetails &details) {
     if (!this->displayOverride) {
-        this->display.write("SSID/NETWORK: ", UI_DRVR::TXTCMD::START);
-        this->display.write(details.SSID, UI_DRVR::TXTCMD::END);
+        this->display.write("SSID/NETWORK: ");
+        this->display.write(details.ssid);
         this->display.write("IP: ", UI_DRVR::TXTCMD::START);
-        this->display.write(details.IPADDR, UI_DRVR::TXTCMD::END);
+        this->display.write(details.ipaddr, UI_DRVR::TXTCMD::END);
         this->display.write("Connected: ", UI_DRVR::TXTCMD::START);
-        this->display.write(status, UI_DRVR::TXTCMD::END);
+        this->display.write(details.status, UI_DRVR::TXTCMD::END);
         this->display.write("Sig: ", UI_DRVR::TXTCMD::START);
         this->display.write(details.signalStrength, UI_DRVR::TXTCMD::END);
         this->display.write("Free Mem: ", UI_DRVR::TXTCMD::START);
-        this->display.write(heap, UI_DRVR::TXTCMD::END);
+        this->display.write(details.heap, UI_DRVR::TXTCMD::END);
         this->display.send();
     }
 }

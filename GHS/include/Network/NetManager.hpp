@@ -1,11 +1,11 @@
 #ifndef NETMANAGER_HPP
 #define NETMANAGER_HPP
 
-#include "UI/MsgLogHandler.hpp"
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
 #include "Network/NetCreds.hpp"
+#include "UI/Display.hpp"
 
 namespace Comms {
 
@@ -14,17 +14,14 @@ class NetManager {
     NetSTA &station;
     NetWAP &wap;
     NVS::Creds &creds;
+    UI::Display &OLED;
 
     public:
-    NetManager(
-        Messaging::MsgLogHandler &msglogerr,
-        NetSTA &station, NetWAP &wap,
-        NVS::Creds &creds
-    );
+    NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED);
     void netStart(NetMode netType);
     void handleNet();
     NetMode checkNetSwitch();
-    void restartServer(NetMain &mode);
+    void startServer(NetMain &mode);
     void checkConnection(NetMain &mode, NetMode NetType);
     void runningWifi(NetMain &mode);
 };

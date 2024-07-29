@@ -9,7 +9,6 @@ namespace NVS {
 // CRC32 computation, and write it to NVS using the passed key, prepending
 // it with CS. Returns CHECKSUM_FAIL or CHECKSUM_OK.
 nvs_ret_t NVSctrl::setChecksum(const char* key, const uint8_t* data, size_t size) {
-    printf("SET CHECKSUM\n");
 
     if(this->basicErrCheck(key, data, size) == nvs_ret_t::NVS_FAIL) {
         return nvs_ret_t::CHECKSUM_FAIL;
@@ -36,7 +35,7 @@ nvs_ret_t NVSctrl::setChecksum(const char* key, const uint8_t* data, size_t size
 // failure code. Nex the checksum based on the passed data is computed, and compared
 // with the stored check sum. Returns either CHECKSUM_FAIL or CHECKSUM_OK.
 nvs_ret_t NVSctrl::getChecksum(const char* key, const uint8_t* data, size_t size) {
-    printf("GET CHECKSUM\n");
+
     if(this->basicErrCheck(key, data, size) == nvs_ret_t::NVS_FAIL) {
         return nvs_ret_t::NVS_FAIL;
     }
@@ -69,7 +68,6 @@ nvs_ret_t NVSctrl::getChecksum(const char* key, const uint8_t* data, size_t size
 // errors and corruption of data. See CPP references on CRC32
 // for very detailed description. Returns uint32_t.
 uint32_t NVSctrl::computeChecksum(const uint8_t* data, size_t size) {
-    printf("COMPUTE CHECKSUM\n");
 
     // If bad data is sent to checksum, returns a max value and
     // sets the flag for bad data.

@@ -118,7 +118,7 @@ NVSopen(nvs_ret_t::NVS_CLOSED) {}
 
 // Erases all NVS data.
 nvs_ret_t NVSctrl::eraseAll() {
-    esp_err_t err = nvs_flash_erase();
+    this->err = nvs_flash_erase();
     return this->errHandlingNVS();
 }
 

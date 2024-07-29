@@ -4,16 +4,8 @@
 #include <cstdint>
 #include "UI/IDisplay.hpp"
 #include "Drivers/SSD1306_Library.hpp"
-
-// TEMP DELETE ONCE BUILT
-namespace Comms {
-struct STAdetails {
-char SSID[32] = "Bulbasaur"; 
-char IPADDR[15] = "192.168.86.1";
-char signalStrength[8] = "-32";
-};
-
-};
+#include "Network/NetSTA.hpp"
+#include "Network/NetWAP.hpp"
 
 // All user interface data and functions
 namespace UI {
@@ -34,17 +26,8 @@ class Display : public IDisplay {
     bool displayStatus;
     Display(); // constructor
     void init(uint8_t address); // initialize the display display logo
-	void printWAP(
-		const char SSID[20], // Hard coded index values, will not change.
-		const char ipaddr[16], 
-		const char status[4], 
-		const char WAPtype[20], 
-		const char heap[10],
-		const uint8_t clientsConnected);
-	void printSTA(
-		Comms::STAdetails &details, 
-		const char status[4], 
-		const char heap[10]);
+	void printWAP(Comms::WAPdetails &details);
+	void printSTA(Comms::STAdetails &details);
 	void printUpdates(char* update);
 	void updateProgress(char* progress);
 

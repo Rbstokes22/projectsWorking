@@ -20,5 +20,4 @@ enum class APIN : uint8_t {
     SOIL1, PHOTO
 };
 
-
 #endif // CONFIG_HPP

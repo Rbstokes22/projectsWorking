@@ -55,7 +55,7 @@ class NVSctrl {
     // put the exact size. Returns NVS_WRITE_OK and NVS_WRITE_FAIL.
     template<typename NVSWA>
     nvs_ret_t writeArray(const char* key, data_t dType, const NVSWA* data, size_t length) {
-        printf("WRITE ARRAY\n");
+
         size_t arraySize{0};
         bool isChar{false};
         
@@ -108,7 +108,7 @@ class NVSctrl {
     // NVS_WRITE_OK and NVS_WRITE_FAIL.
     template<typename NVSWN>
     nvs_ret_t writeNum(const char* key, data_t dType, const NVSWN &data) {
-        printf("WRITE NUM\n");
+
         if (key == nullptr || *key == '\0') {
             this->sendErr("NVS Write, Key is not defined");
             return nvs_ret_t::NVS_WRITE_FAIL;
@@ -135,7 +135,7 @@ class NVSctrl {
     // NVS_WRITE_FAIL.
     template<typename NVSWO>
     nvs_ret_t writeOther(const char* key, data_t dType, const NVSWO &data) {
-        printf("WRITE OTHER\n");
+
         if (key == nullptr || *key == '\0') {
             this->sendErr("NVS Write, Key is not defined");
             return nvs_ret_t::NVS_WRITE_FAIL;
@@ -156,7 +156,7 @@ class NVSctrl {
     // NVS_READ_FAIL.
     template<typename NVSR>
     nvs_ret_t read(const char* key, NVSR* carrier, size_t size, bool isChar = false) {
-        printf("READ\n");
+
         if (key == nullptr || *key == '\0') {
             this->sendErr("NVS Read, improper key passed to NVS");
             return nvs_ret_t::NVS_READ_FAIL;
@@ -190,7 +190,7 @@ class NVSctrl {
     // char array. For size, use sizeof(carrier);
     template<typename NVSRA>
     nvs_ret_t readArray(const char* key, data_t dType, NVSRA *carrier, size_t size) {
-        printf("READ ARRAY\n");
+
         if (size <= 0) {
             this->sendErr("NVS Read, size must be > 0");
             return nvs_ret_t::NVS_READ_FAIL;
@@ -222,7 +222,7 @@ class NVSctrl {
     // the carrier with requested data. 
     template<typename NVSRN>
     nvs_ret_t readNum(const char* key, data_t dType, NVSRN &carrier) {
-        printf("READ NUM\n");
+
         if (key == nullptr || *key == '\0') {
             this->sendErr("NVS Read, improper key passed to NVS"); 
             return nvs_ret_t::NVS_READ_FAIL;
@@ -247,7 +247,7 @@ class NVSctrl {
     // sent to the read method to fill the carrier with requested data.
     template<typename NVSRO>
     nvs_ret_t readOther(const char* key, data_t dType, NVSRO &carrier){
-        printf("READ OTHER\n");
+
         if (key == nullptr || *key == '\0') {
             this->sendErr("NVS Read, improper key passed to NVS"); 
             return nvs_ret_t::NVS_READ_FAIL;

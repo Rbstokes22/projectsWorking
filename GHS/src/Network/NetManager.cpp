@@ -1,15 +1,17 @@
 #include "Network/NetManager.hpp"
+#include "Network/NetMain.hpp"
+#include "Network/NetSTA.hpp"
+#include "Network/NetWAP.hpp"
+#include "Network/NetCreds.hpp"
 #include "driver/gpio.h"
 #include "config.hpp"
+#include "UI/Display.hpp"
 
 namespace Comms {
 
-NetManager::NetManager(
-    Messaging::MsgLogHandler &msglogerr,
-    NetSTA &station, NetWAP &wap,
-    NVS::Creds &creds) :
+NetManager::NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED) :
 
-    station{station}, wap{wap}, creds(creds) {}
+    station{station}, wap{wap}, creds(creds), OLED(OLED) {}
 
 void NetManager::netStart(NetMode NetType) {
 
@@ -50,7 +52,7 @@ NetMode NetManager::checkNetSwitch() {
 // Upon the start of any connection, the NVS is checked for creds. If it returns
 // nothing, then the default settings will be used. If data does exist, those 
 // values will be used.
-void NetManager::restartServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
+void NetManager::startServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
     NetMode curSrvr = mode.getNetType();
 
     // All logic depending on returns from the read functions, will be handled
@@ -64,10 +66,14 @@ void NetManager::restartServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
         mode.setPass(this->creds.read("pass"));
         mode.setSSID(this->creds.read("ssid"));
         mode.setPhone(this->creds.read("phone"));
-
     }
 
-    mode.init_wifi(); 
+    // runs initialization sequence only once
+    if (!mode.isInitialized()) {
+        mode.init_wifi(); // HANDLE POTENTIAL ERRORS HERE
+        mode.setInit(true);
+    } 
+    
     mode.start_wifi();
     mode.start_server();
 }
@@ -94,7 +100,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
         }
 
         mode.setNetType(NetType);
-        this->restartServer(mode);
+        this->startServer(mode);
         
     }
 
@@ -104,8 +110,23 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
 }
 
 void NetManager::runningWifi(NetMain &mode) {
-    // ping the running server here.mode.run or whatever.
-    // or make it check connections, rssi, etc...
+    NetMode curSrvr = mode.getNetType();
+
+    if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
+        WAPdetails details;
+        wap.getDetails(details);
+        OLED.printWAP(details);
+
+        // run logic for non connection
+        
+    } else if (curSrvr == NetMode::STA) {
+        STAdetails details;
+        station.getDetails(details);
+        OLED.printSTA(details);
+
+        // run logic for non connection
+    }
+
 }
 
 }

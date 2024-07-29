@@ -1,9 +1,10 @@
+// TO DO: Net OLED display, OTA, Peripherals
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
-#include "esp_log.h"
 #include "config.hpp"
 #include "Drivers/SSD1306_Library.hpp"
 #include "UI/Display.hpp"
@@ -31,7 +32,7 @@ char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
 Comms::NetSTA station(msglogerr);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass);
-Comms::NetManager netManager(msglogerr, station, wap, creds);
+Comms::NetManager netManager(station, wap, creds, OLED);
 
 // ALL THREADS
 Threads::mainThreadParams mainParams(1000, msglogerr);

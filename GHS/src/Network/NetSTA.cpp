@@ -5,11 +5,36 @@
 #include "esp_http_server.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include <cstddef>
 
 namespace Comms {
 
+// STATIC
+char NetSTA::IPADDR[static_cast<int>(IDXSIZE::IPADDR)]{0};
+
+// PRIVATE
+wifi_ret_t NetSTA::configure(wifi_config_t &wifi_config) {
+
+    strcpy((char*)wifi_config.sta.ssid, "Bulbasaur"); // replace with ssid
+    strcpy((char*)wifi_config.sta.password, "Castiel1"); // replace with pass
+    return wifi_ret_t::CONFIG_OK;
+}
+
+void NetSTA::IPEvent(
+    void* arg, 
+    esp_event_base_t eventBase, 
+    int32_t eventID, 
+    void* eventData) {
+    
+    ip_event_got_ip_t* event = static_cast<ip_event_got_ip_t*>(eventData);
+    esp_netif_ip_info_t ip_info = event->ip_info;
+
+    esp_ip4addr_ntoa(&ip_info.ip, NetSTA::IPADDR, sizeof(NetSTA::IPADDR));
+    }
+
+// PUBLIC
 NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr) : 
-    NetMain(msglogerr) {
+    NetMain(msglogerr), isInit(false) {
 
         memset(this->ssid, 0, sizeof(this->ssid));
         memset(this->pass, 0, sizeof(this->pass));
@@ -28,34 +53,41 @@ wifi_ret_t NetSTA::init_wifi() {
     }
 }
 
-// COPY EVERYTHING FROM THE WAP HERE AND DIFFERENTIATE 
 wifi_ret_t NetSTA::start_wifi() {
     esp_netif_create_default_wifi_sta();
 
     wifi_config_t wifi_config = {};
     if (this->configure(wifi_config) != wifi_ret_t::CONFIG_OK) {
-        return wifi_ret_t::WIFI_FAIL; // error print in configure
-    }
+        return wifi_ret_t::WIFI_FAIL; // error prints in configure
+    } 
 
     esp_err_t set_mode = esp_wifi_set_mode(WIFI_MODE_STA);
     esp_err_t set_config = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_err_t start_wifi = esp_wifi_start();
 
-    esp_err_t errors[]{set_mode, set_config, start_wifi};
-    const char errMsg[3][25] = {
+    // register the IP event to set the assigned ip addr.
+    esp_err_t registerIPEvent = esp_event_handler_register(
+        IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent, NULL
+    );
+
+    uint8_t errCt{0};
+    esp_err_t errors[]{set_mode, set_config, start_wifi, registerIPEvent};
+    const char errMsg[4][28] = {
         "Wifi mode not set",
         "Wifi config not set",
-        "Wifi unable to start"
+        "Wifi unable to start",
+        "IP event not registered"
         };
     
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (errors[i] != ESP_OK) {
             this->sendErr(errMsg[i]);
-            return wifi_ret_t::WIFI_FAIL;
+            errCt++;
         }
     }
     
-    return wifi_ret_t::WIFI_OK;
+    if (errCt > 0) {return wifi_ret_t::WIFI_FAIL;}
+    else {return wifi_ret_t::WIFI_OK;}
 }
 
 wifi_ret_t NetSTA::start_server() {
@@ -76,12 +108,30 @@ wifi_ret_t NetSTA::start_server() {
 }
 
 wifi_ret_t NetSTA::destroy() {
-    if (httpd_stop(this->server) != ESP_OK) {
-        this->sendErr("Server not destroyed");
-        return wifi_ret_t::DESTROY_FAIL;
-    } else {
-        return wifi_ret_t::DESTROY_OK;
+
+    esp_err_t server = httpd_stop(this->server);
+    esp_err_t wifi = esp_wifi_stop();
+    esp_err_t event = esp_event_handler_unregister(
+        IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent
+    );
+
+    uint8_t errCt{0};
+    esp_err_t errors[3] = {server, wifi, event};
+    const char errMsg[3][25] = {
+        "Server not destroyed",
+        "Wifi not destroyed",
+        "IP event not destroyed"
+    };
+
+    for (int i = 0; i < 3; i++) {
+        if (errors[i] != ESP_OK) {
+            this->sendErr(errMsg[i]);
+            errCt++;
+        }
     }
+
+    if (errCt > 0) {return wifi_ret_t::DESTROY_FAIL;}
+    else {return wifi_ret_t::DESTROY_OK;}
 }
 
 void NetSTA::setPass(const char* pass) {
@@ -97,7 +147,7 @@ void NetSTA::setSSID(const char* ssid) {
         strncpy(this->ssid, ssid, sizeof(this->ssid) -1);
         this->ssid[sizeof(this->ssid) - 1] = '\0';
     } 
-    printf("pass: %s\n", ssid); // DELETE AFTER TESTING
+    printf("ssid: %s\n", ssid); // DELETE AFTER TESTING
 }
 
 void NetSTA::setPhone(const char* phone) {
@@ -105,22 +155,51 @@ void NetSTA::setPhone(const char* phone) {
         strncpy(this->phone, phone, sizeof(this->phone) -1);
         this->phone[sizeof(this->phone) - 1] = '\0';
     } 
-    printf("pass: %s\n", phone); // DELETE AFTER TESTING
+    printf("phone: %s\n", phone); // DELETE AFTER TESTING
 }
 
-wifi_ret_t NetSTA::configure(wifi_config_t &wifi_config) {
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+bool NetSTA::isInitialized() {
+    return this->isInit;
+}
 
-    esp_err_t wifi_init = esp_wifi_init(&cfg);
+void NetSTA::setInit(bool newInit) {
+    this->isInit = newInit;
+}
 
-    if (wifi_init != ESP_OK) {
-        this->sendErr("STA not configured");
-        return wifi_ret_t::CONFIG_FAIL;
+void NetSTA::getDetails(STAdetails &details) { 
+    
+    wifi_ap_record_t sta_info;
+
+    char status[2][4] = {"No", "Yes"}; // used to display connection
+
+    // SSID
+    if (esp_wifi_sta_get_ap_info(&sta_info) != ESP_OK) {
+        strcpy(details.ssid, "Not Connected");
+    } else {
+        strcpy(details.ssid, reinterpret_cast<const char*>(sta_info.ssid));
     }
 
-    strcpy((char*)wifi_config.sta.ssid, this->ssid);
-    strcpy((char*)wifi_config.sta.password, this->pass);
-    return wifi_ret_t::CONFIG_OK;
+    // IP
+    strcpy(details.ipaddr, NetSTA::IPADDR);
+
+    // STATUS
+    strcpy(details.status, status[this->isConnected()]);
+    
+    // RSSI signal strength 
+    sprintf(details.signalStrength, "%d dBm", sta_info.rssi);
+
+    // REMAINING HEAP SIZE
+    sprintf(details.heap, "%.2f%%", this->getHeapSize());
+
+}
+
+bool NetSTA::isConnected() {
+    wifi_ap_record_t sta_info;
+    if (esp_wifi_sta_get_ap_info(&sta_info) == ESP_OK) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 }
