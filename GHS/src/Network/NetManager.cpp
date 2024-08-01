@@ -11,29 +11,18 @@ namespace Comms {
 
 NetManager::NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED) :
 
-    station{station}, wap{wap}, creds(creds), OLED(OLED) {}
+    station{station}, wap{wap}, creds(creds), OLED(OLED), isWifiInit(false) {}
 
 void NetManager::netStart(NetMode NetType) {
 
-    switch(NetType) {
-        case NetMode::WAP:
+    if (NetType == NetMode::WAP || NetType == NetMode::WAP_SETUP) {
         this->checkConnection(this->wap, NetType);
-        break;
-
-        case NetMode::WAP_SETUP:
-        this->checkConnection(this->wap, NetType);
-        break;
-
-        case NetMode::STA:
+    } else if (NetType == NetMode::STA) {
         this->checkConnection(this->station, NetType);
-        break;
-
-        case NetMode::NONE:
-        break;
-    } 
+    }
 }
 
-void NetManager::handleNet() {
+void NetManager::handleNet() { 
     NetMode mode = this->checkNetSwitch();
     netStart(mode);
 }
@@ -68,65 +57,72 @@ void NetManager::startServer(NetMain &mode) { // HANDLE DEFAULT BUTTON FOR AP
         mode.setPhone(this->creds.read("phone"));
     }
 
-    // runs initialization sequence only once
-    if (!mode.isInitialized()) {
-        mode.init_wifi(); // HANDLE POTENTIAL ERRORS HERE
-        mode.setInit(true);
-    } 
-    
-    mode.start_wifi();
-    mode.start_server();
+    // This block ensures that each previous block is properly initialize
+    // before it continues to the next function. All error handling is 
+    // embedded within these functions.
+    if (mode.init_wifi() == wifi_ret_t::INIT_OK) {
+        if (mode.start_wifi() == wifi_ret_t::WIFI_OK) {
+            mode.start_server();
+        }
+    }
 }
 
 void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     NetMode net_type = mode.getNetType();
 
     if (NetType != net_type) { // Checks if the mode has been switched
-        switch (net_type) {
-            case NetMode::WAP:
-            this->wap.destroy();
-            break;
 
-            case NetMode::WAP_SETUP:
+        if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP) {
             this->wap.destroy();
-            break;
-
-            case NetMode::STA:
+        } else if (net_type == NetMode::STA) {
             this->station.destroy();
-            break;
-
-            case NetMode::NONE:
-            break;
         }
-
+    
         mode.setNetType(NetType);
         this->startServer(mode);
-        
     }
 
     else {
+
         this->runningWifi(mode);
     }
 }
 
 void NetManager::runningWifi(NetMain &mode) {
     NetMode curSrvr = mode.getNetType();
+    static uint8_t reconAttempt{0};
 
     if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
         WAPdetails details;
         wap.getDetails(details);
         OLED.printWAP(details);
 
-        // run logic for non connection
-        
     } else if (curSrvr == NetMode::STA) {
         STAdetails details;
         station.getDetails(details);
         OLED.printSTA(details);
+    }   
 
-        // run logic for non connection
+    // If not connected, will attempt to continue starting the server.
+    if (!mode.isActive()) {
+        reconnect(mode, reconAttempt);
+    } else {
+        reconAttempt = 0;
     }
+}
 
+// If connection is inactive, will attempt to start the server cleaning
+// up any pieces that havent been initialized. If all fails after 10 
+// attempts, the current mode will be destroyed allowing fresh init.
+void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
+
+    startServer(mode);
+    attempt++;
+
+    if (attempt > 10) {
+        mode.destroy();
+        attempt = 0;
+    }
 }
 
 }

@@ -8,7 +8,7 @@ namespace NVS {
 // it as bytes into the NVS. This is cut and dry for all types and the
 // size will be precise. Returns NVS_WRITE_OK and NVS_WRITE_FAIL.
 nvs_ret_t NVSctrl::writeToNVS(const char* key, const void* data, size_t size, bool isChar) {
-    printf("WRITE TO NVS\n");
+
     bool isNewEntry{false}; // allows bypass of checksum fail on new entries.
 
     if(this->basicErrCheck(key, data, size) == nvs_ret_t::NVS_FAIL) {
@@ -61,7 +61,7 @@ nvs_ret_t NVSctrl::writeToNVS(const char* key, const void* data, size_t size, bo
 // such as an array of structs, you can write directly here by passing the 
 // data by pointer and including the size. Returns NVS_WRITE_OK and NVS_WRITE_FAIL.
 nvs_ret_t NVSctrl::write(const char* key, const void* data, size_t size, bool isChar) {
-    printf("WRITE\n");
+
     // ERROR CHECKS
     if (key == nullptr || *key == '\0') {
         this->sendErr("NVS Write, Key is not defined");

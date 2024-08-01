@@ -10,7 +10,7 @@ namespace NVS {
 // for every char array written to NVS, due to the + 1 write. Returns 
 // NVS_READ_OK and NVS_READ_FAIL.
 nvs_ret_t NVSctrl::readFromNVS(const char* key, void* carrier, size_t size, bool isChar) {
-    printf("READING FROM NVS\n");
+
     bool isNewEntry{false}; // allows bypass of checksum fail on new entries.
 
     if(this->basicErrCheck(key, carrier, size) == nvs_ret_t::NVS_FAIL) {

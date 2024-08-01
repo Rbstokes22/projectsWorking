@@ -8,8 +8,8 @@
 #include "esp_netif.h"
 #include <cstddef>
 
-// ADD LOGIC TO DIFFERENTIATE BETWEEN WAP AND WAP_SETUP USE CREDS IN NET MANAGER
-// TO PASS DATA HERE
+// ERROR HANDLE THE ENTIRE SEQUENCE TO ENSURE A PROPER SETUP, DO THE SAME
+// FOR NETSTA.
 
 namespace Comms {
 
@@ -27,9 +27,8 @@ wifi_ret_t NetWAP::configure() {
     this->wifi_config.ap.max_connection = maxConnections;
     this->wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
     
-
     if (strlen(this->APpass) < 8) {
-        this->sendErr("Open Network due to pass len");
+        this->sendErr("Open Network due to pass lgth", errDisp::ALL);
         this->wifi_config.ap.authmode = WIFI_AUTH_OPEN; // No password, open network
     }
 
@@ -37,36 +36,63 @@ wifi_ret_t NetWAP::configure() {
 }
 
 wifi_ret_t NetWAP::dhcpsHandler() {
-    esp_err_t dhcps_stop = esp_netif_dhcps_stop(this->ap_netif); // stop if already running
+    
+    if (NetMain::flags.dhcpOn) {
+        esp_err_t stop = esp_netif_dhcps_stop(NetMain::ap_netif);
 
-    if (dhcps_stop != ESP_OK) {
-        this->sendErr("DHCPS not stopped");
-        return wifi_ret_t::DHCPS_FAIL;
+        if (stop == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED || 
+            stop == ESP_OK) {
+
+            NetMain::flags.dhcpOn = false;
+
+        } else {
+            this->sendErr("DHCPS not stopped", errDisp::ALL);
+            this->sendErr(esp_err_to_name(stop), errDisp::SRL);
+            return wifi_ret_t::DHCPS_FAIL;
+        }
     }
 
+    // Stays constant
     IP4_ADDR(&this->ip_info.ip, 192,168,1,1); 
     IP4_ADDR(&this->ip_info.gw, 192,168,1,1);
     IP4_ADDR(&this->ip_info.netmask, 255, 255, 255, 0);
 
-    esp_err_t set_ip = esp_netif_set_ip_info(this->ap_netif, &this->ip_info);
-    esp_err_t dhcps_start = esp_netif_dhcps_start(this->ap_netif);
+    if (!NetMain::flags.dhcpOn) {
 
-    uint8_t errCt{0};
-    esp_err_t errors[]{set_ip, dhcps_start};
-    const char errMsg[2][25] = {
-        "IP unable to start", 
-        "DHCPS unable to start"
-        };
-    
-    for (int i = 0; i < 2; i++) {
-        if (errors[i] != ESP_OK) {
-            this->sendErr(errMsg[i]);
-            errCt++;
+        if (!NetMain::flags.dhcpIPset) {
+            esp_err_t set_ip = esp_netif_set_ip_info(
+                NetMain::ap_netif, 
+                &this->ip_info);
+
+            // This will force a stop if this error is returned.
+            if (set_ip == ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED) {
+                NetMain::flags.dhcpOn = true;
+            }
+
+            if (set_ip == ESP_OK) {
+                    NetMain::flags.dhcpIPset = true;
+            } else {
+                this->sendErr("IP info not set", errDisp::ALL);
+                this->sendErr(esp_err_to_name(set_ip), errDisp::SRL);
+                return wifi_ret_t::DHCPS_FAIL;
+            }
+        }
+
+        esp_err_t start = esp_netif_dhcps_start(NetMain::ap_netif);
+
+        if (start == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED || 
+            start == ESP_OK) {
+
+            NetMain::flags.dhcpOn = true;
+
+        } else {
+            this->sendErr("DHCPS not started", errDisp::ALL);
+            this->sendErr(esp_err_to_name(start), errDisp::SRL);
+            return wifi_ret_t::DHCPS_FAIL;
         }
     }
 
-    if (errCt > 0) {return wifi_ret_t::DHCPS_FAIL;}
-    else {return wifi_ret_t::DHCPS_OK;}
+    return wifi_ret_t::DHCPS_OK;
 }
 
 // PUBLIC
@@ -74,8 +100,7 @@ NetWAP::NetWAP(
     Messaging::MsgLogHandler &msglogerr,
     const char* APssid, const char* APdefPass) : 
 
-    NetMain(msglogerr), isInit(false), ap_netif(nullptr),
-    wifi_config({}) {
+    NetMain(msglogerr) {
 
         strncpy(this->APssid, APssid, sizeof(this->APssid) - 1);
         this->APssid[sizeof(this->APssid) - 1] = '\0';
@@ -84,109 +109,133 @@ NetWAP::NetWAP(
         this->APpass[sizeof(this->APpass) -1] = '\0';
     }
 
-wifi_ret_t NetWAP::init_wifi() {
-
-    esp_err_t init = esp_netif_init();
-    esp_err_t event = esp_event_loop_create_default();
-    this->ap_netif = esp_netif_create_default_wifi_ap();
-    this->server_config = HTTPD_DEFAULT_CONFIG();
-
-    if (init == ESP_OK && event == ESP_OK && ap_netif != nullptr) {
-        return wifi_ret_t::INIT_OK;
-    } else {
-        this->sendErr("AP unable to init");
-        return wifi_ret_t::INIT_FAIL;
-    }
-}
-
 wifi_ret_t NetWAP::start_wifi() {
 
+    // Always run, flags are withing the handler.
     if (this->dhcpsHandler() == wifi_ret_t::DHCPS_FAIL) {
         return wifi_ret_t::WIFI_FAIL;
     }
 
+    // Always run, no flag.
     if (this->configure() == wifi_ret_t::CONFIG_FAIL) {
         return wifi_ret_t::WIFI_FAIL;
     }
 
-    esp_err_t set_mode = esp_wifi_set_mode(WIFI_MODE_AP);
-    esp_err_t set_config = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
-    esp_err_t start_wifi = esp_wifi_start();
+    if (!NetMain::flags.wifiModeSet) {
+        esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_AP);
 
-    // Error handling
-    uint8_t errCt{0};
-    esp_err_t errors[]{set_mode, set_config, start_wifi};
-    const char errMsg[3][25] = {
-        "Wifi mode not set",
-        "Wifi config not set",
-        "Wifi unable to start"
-        };
-    
-    for (int i = 0; i < 3; i++) {
-        if (errors[i] != ESP_OK) {
-            this->sendErr(errMsg[i]);
-            errCt++;
+        if (wifi_mode == ESP_OK) {
+            NetMain::flags.wifiModeSet = true;
+        } else {
+            this->sendErr("Wifi mode not set", errDisp::ALL);
+            this->sendErr(esp_err_to_name(wifi_mode), errDisp::SRL);
+            return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (errCt > 0) {return wifi_ret_t::WIFI_FAIL;}
-    else {return wifi_ret_t::WIFI_OK;}
+    if (!NetMain::flags.wifiConfigSet) {
+        esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_AP, &this->wifi_config);
+
+        if (wifi_cfg == ESP_OK) {
+            NetMain::flags.wifiConfigSet = true;
+        } else {
+            this->sendErr("Wifi config not set", errDisp::ALL);
+            this->sendErr(esp_err_to_name(wifi_cfg), errDisp::SRL);
+            return wifi_ret_t::WIFI_FAIL;
+        }
+    }
+
+    if (!NetMain::flags.wifiOn) {
+        esp_err_t wifi_start = esp_wifi_start();
+
+        if (wifi_start == ESP_OK) {
+            NetMain::flags.wifiOn = true;
+        } else {
+            this->sendErr("Wifi not started", errDisp::ALL);
+            this->sendErr(esp_err_to_name(wifi_start), errDisp::SRL);
+            return wifi_ret_t::WIFI_FAIL;
+        }
+    }
+
+    return wifi_ret_t::WIFI_OK;
 }
 
 wifi_ret_t NetWAP::start_server() {
- 
-    if (httpd_start(&this->server, &this->server_config) != ESP_OK) {
-        return wifi_ret_t::SERVER_FAIL;
-    }
 
-    if (NetMain::NetType == NetMode::WAP) {
-        esp_err_t reg1 = httpd_register_uri_handler(this->server, &WAPIndex);
+    if (!NetMain::flags.httpdOn) {
+        esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::server_config);
 
-        if (reg1 == ESP_OK) {
-            return wifi_ret_t::SERVER_OK;
+        if (httpd == ESP_OK) {
+            NetMain::flags.httpdOn = true;
         } else {
-            this->sendErr("Unable to register uri");
+            this->sendErr("HTTPD not started", errDisp::ALL);
+            this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
             return wifi_ret_t::SERVER_FAIL;
         }
-
-    } else if (NetMain::NetType == NetMode::WAP_SETUP) {
-        esp_err_t reg1 = httpd_register_uri_handler(this->server, &WAPSetupIndex);
-        esp_err_t reg2 = httpd_register_uri_handler(this->server, &WAPSubmitCreds);
-
-        if (reg1 == ESP_OK && reg2 == ESP_OK) {
-            return wifi_ret_t::SERVER_OK;
-        } else {
-            this->sendErr("Unable to register uri");
-            return wifi_ret_t::SERVER_FAIL;
-        }
-
-    } else {
-        this->sendErr("Unable to start server");
-        return wifi_ret_t::SERVER_FAIL;
     }
+
+    if (!NetMain::flags.uriReg) {
+        if (NetMain::NetType == NetMode::WAP) {
+            esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &WAPIndex);
+
+            if (reg1 == ESP_OK) {
+                NetMain::flags.uriReg = true;
+                return wifi_ret_t::SERVER_OK;
+            } else {
+                this->sendErr("WAP URI's unregistered", errDisp::ALL);
+                this->sendErr(esp_err_to_name(reg1), errDisp::SRL);
+                return wifi_ret_t::SERVER_FAIL;
+            }
+
+        } else if (NetMain::NetType == NetMode::WAP_SETUP) {
+            esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &WAPSetupIndex);
+            esp_err_t reg3 = httpd_register_uri_handler(NetMain::server, &WAPSubmitCreds);
+
+            if (reg2 == ESP_OK && reg3 == ESP_OK) {
+                NetMain::flags.uriReg = true;
+            } else {
+                this->sendErr("WAPSetup URI's unregistered", errDisp::ALL);
+                this->sendErr(esp_err_to_name(reg2), errDisp::SRL);
+                this->sendErr(esp_err_to_name(reg3), errDisp::SRL);
+                return wifi_ret_t::SERVER_FAIL;
+            }
+        } 
+    }
+
+    return wifi_ret_t::SERVER_OK;
 }
         
-wifi_ret_t NetWAP::destroy() {
+wifi_ret_t NetWAP::destroy() { // THIS IS WHERE TO RESET THE FLAGS
 
-    esp_err_t server = httpd_stop(this->server);
-    esp_err_t wifi = esp_wifi_stop();
-    
-    uint8_t errCt{0};
-    esp_err_t errors[2] = {server, wifi};
-    const char errMsg[2][25] = {
-        "Server not destroyed",
-        "Wifi not destroyed"
-    };
+    if (NetMain::flags.httpdOn) {
+        esp_err_t httpd = httpd_stop(NetMain::server);
 
-    for (int i = 0; i < 2; i++) {
-        if (errors[i] != ESP_OK) {
-            this->sendErr(errMsg[i]);
-            errCt++;
+        if (httpd == ESP_OK) {
+            NetMain::flags.httpdOn = false;
+            NetMain::flags.uriReg = false;
+        } else {
+            this->sendErr("HTTPD not stopped", errDisp::ALL);
+            this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
+            return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (errCt > 0) {return wifi_ret_t::DESTROY_FAIL;}
-    else {return wifi_ret_t::DESTROY_OK;}
+    if (NetMain::flags.wifiOn) {
+        esp_err_t wifi_stop = esp_wifi_stop();
+
+        if (wifi_stop == ESP_OK) {
+            NetMain::flags.wifiOn = false;
+            NetMain::flags.wifiModeSet = false;
+            NetMain::flags.dhcpIPset = false;
+            NetMain::flags.wifiConfigSet = false;
+        } else {
+            this->sendErr("Wifi not stopped", errDisp::ALL);
+            this->sendErr(esp_err_to_name(wifi_stop), errDisp::SRL);
+            return wifi_ret_t::DESTROY_FAIL;
+        }
+    }
+
+    return wifi_ret_t::DESTROY_OK;
 }
 
 // Only sets a new password if one exists.
@@ -202,12 +251,35 @@ void NetWAP::setPass(const char* pass) {
 void NetWAP::setSSID(const char* ssid) {}
 void NetWAP::setPhone(const char* phone) {}
 
-bool NetWAP::isInitialized() {
-    return this->isInit;
-}
+bool NetWAP::isActive() { 
+    wifi_mode_t mode;
+    uint8_t flagRequirement = 11;
+    uint8_t flagSuccess = 0;
 
-void NetWAP::setInit(bool newInit) {
-    this->isInit = newInit;
+    bool required[flagRequirement]{
+        NetMain::flags.wifiInit, NetMain::flags.netifInit,
+        NetMain::flags.eventLoopInit, NetMain::flags.ap_netifCreated,
+        NetMain::flags.dhcpOn, NetMain::flags.dhcpIPset,
+        NetMain::flags.wifiModeSet, NetMain::flags.wifiConfigSet,
+        NetMain::flags.wifiOn, NetMain::flags.httpdOn,
+        NetMain::flags.uriReg
+    };
+
+    for (int i = 0; i < flagRequirement; i++) {
+        if (required[i] == true) flagSuccess++;
+    }
+
+    if (flagSuccess != flagRequirement) {
+        this->sendErr("Wifi flags not met", errDisp::SRL);
+        return false;
+    } else if (esp_wifi_get_mode(&mode) == ESP_OK && mode == WIFI_MODE_AP) {
+        wifi_config_t ap_config;
+        if (esp_wifi_get_config(WIFI_IF_AP, &ap_config) == ESP_OK) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void NetWAP::getDetails(WAPdetails &details) {
@@ -217,33 +289,19 @@ void NetWAP::getDetails(WAPdetails &details) {
 
     // IPADDR & CONNECTION STATUS
     strcpy(details.ipaddr, "192.168.1.1");
-    strcpy(details.status, status[this->isBroadcasting()]);
+    strcpy(details.status, status[this->isActive()]);
     
     // WAP or WAP SETUP, Default password or Custom
     this->setWAPtype(WAPtype);
     strcpy(details.WAPtype, WAPtype);
 
     // REMAINING HEAP SIZE
-    sprintf(details.heap, "%.2f%%", this->getHeapSize());
+    sprintf(details.heap, "%.2f KB", this->getHeapSize(HEAP_SIZE::KB));
 
     // CLIENTS CONNECTED
     wifi_sta_list_t sta_list;
     esp_wifi_ap_get_sta_list(&sta_list);
     sprintf(details.clientConnected, "%d", sta_list.num);
-}
-
-// Checks that the mode and config are set to AP and there are no issues.
-bool NetWAP::isBroadcasting() {
-    wifi_mode_t mode;
-
-    if (esp_wifi_get_mode(&mode) == ESP_OK && mode == WIFI_MODE_AP) {
-        wifi_config_t ap_config;
-        if (esp_wifi_get_config(WIFI_IF_AP, &ap_config) == ESP_OK) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 void NetWAP::setWAPtype(char* WAPtype) {

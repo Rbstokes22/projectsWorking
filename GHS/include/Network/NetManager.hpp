@@ -15,6 +15,7 @@ class NetManager {
     NetWAP &wap;
     NVS::Creds &creds;
     UI::Display &OLED;
+    bool isWifiInit;
 
     public:
     NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED);
@@ -24,6 +25,7 @@ class NetManager {
     void startServer(NetMain &mode);
     void checkConnection(NetMain &mode, NetMode NetType);
     void runningWifi(NetMain &mode);
+    void reconnect(NetMain &mode, uint8_t &attempt);
 };
 
 }

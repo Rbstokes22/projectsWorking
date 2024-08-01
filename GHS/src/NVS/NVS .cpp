@@ -73,7 +73,7 @@ nvs_ret_t NVSctrl::errHandlingNVS() {
      if (this->err == ESP_OK) {
         return nvs_ret_t::NVS_OK;
     } else if (this->err == ESP_ERR_NVS_NOT_FOUND) {
-        this->sendErr("NVS Key has not been created", true);
+        this->sendErr("NVS Key has not been created"); 
         return nvs_ret_t::NVS_NEW_ENTRY;
     } else {
         this->sendErr(esp_err_to_name(this->err));
