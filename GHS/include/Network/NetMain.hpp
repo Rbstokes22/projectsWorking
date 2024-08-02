@@ -7,7 +7,6 @@
 #include "esp_wifi.h"
 #include "UI/MsgLogHandler.hpp"
 
-// WORK ON OLED NET DISPLAY THEN CONNECTIONS AND RECONNECTIONS
 namespace Comms {
 
 enum class wifi_ret_t { // wifi return type
@@ -20,11 +19,13 @@ enum class HEAP_SIZE {
     B, KB, MB
 };
 
+// Error display method.
 enum class errDisp {
     OLED, SRL, ALL
 };
 
-struct Flags { // to set init status
+// Flags to ensure a linear flow in the net init process.
+struct Flags { 
     bool wifiInit;
     bool netifInit;
     bool eventLoopInit;

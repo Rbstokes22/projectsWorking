@@ -10,9 +10,14 @@
 namespace Comms {
 
 // STATIC
+
+// handled within IP event register.
 char NetSTA::IPADDR[static_cast<int>(IDXSIZE::IPADDR)]{0};
 
 // PRIVATE
+
+// Sets the wifi configuration with the station ssid and 
+// password. Returns CONFIG_OK once complete.
 wifi_ret_t NetSTA::configure() { // NOT CONNECTING
     strcpy((char*)this->wifi_config.sta.ssid, "Bulbasaur");
     strcpy((char*)this->wifi_config.sta.password, "Castiel1"); 
@@ -20,6 +25,8 @@ wifi_ret_t NetSTA::configure() { // NOT CONNECTING
     return wifi_ret_t::CONFIG_OK;
 }
 
+// This IP event is a registered event that copies the assigned
+// IP addr into the IPADDR char array.
 void NetSTA::IPEvent(
     void* arg, 
     esp_event_base_t eventBase, 
@@ -31,11 +38,11 @@ void NetSTA::IPEvent(
         esp_netif_ip_info_t ip_info = event->ip_info;
 
         esp_ip4addr_ntoa(&ip_info.ip, NetSTA::IPADDR, sizeof(NetSTA::IPADDR));
-        printf("Got IP: %s\n", NetSTA::IPADDR);
     }
 }
 
 // PUBLIC
+
 NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr) : 
 
     NetMain(msglogerr) {
@@ -45,6 +52,11 @@ NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr) :
         memset(this->phone, 0, sizeof(this->phone));
     }
 
+// Second step in the init process.
+// Once the wifi has been initialized, this will register the 
+// IP event handler, configure the wifi connection, set the wifi
+// mode, set the configuration, start the wifi, and connect to the
+// station. Returns WIFI_FAIL and WIFI_OK.
 wifi_ret_t NetSTA::start_wifi() {
 
     if (!NetMain::flags.handlerReg) {
@@ -116,6 +128,10 @@ wifi_ret_t NetSTA::start_wifi() {
     return wifi_ret_t::WIFI_OK;
 }
 
+// Third and last step in the init process. 
+// Once the wifi connection is established, starts the httpd
+// server and registers the Universal Resource Identifiers
+// (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetSTA::start_server() {
 
     if (!NetMain::flags.httpdOn) {
@@ -145,6 +161,10 @@ wifi_ret_t NetSTA::start_server() {
     return wifi_ret_t::SERVER_OK;
 }
 
+// Stops the httpd server and wifi, disconnects from the station,
+// and unregisters the IP handler. This will reset all pertinent 
+// flags back to false, to allow reinitialization through the 
+// init sequence. Returns DESTROY_FAIL or DESTROY_OK.
 wifi_ret_t NetSTA::destroy() {
 
     if (NetMain::flags.httpdOn) {
@@ -202,6 +222,7 @@ wifi_ret_t NetSTA::destroy() {
     return wifi_ret_t::DESTROY_OK;
 }
 
+// Sets the password. Max pass length 63 chars.
 void NetSTA::setPass(const char* pass) {
     if (strlen(pass) != 0) {
         strncpy(this->pass, pass, sizeof(this->pass) -1);
@@ -210,6 +231,7 @@ void NetSTA::setPass(const char* pass) {
     printf("pass: %s\n", pass); // DELETE AFTER TESTING
 }
 
+// Sets the ssid. Max ssid length is 32 chars.
 void NetSTA::setSSID(const char* ssid) {
     if (strlen(ssid) != 0) {
         strncpy(this->ssid, ssid, sizeof(this->ssid) -1);
@@ -218,6 +240,7 @@ void NetSTA::setSSID(const char* ssid) {
     printf("ssid: %s\n", ssid); // DELETE AFTER TESTING
 }
 
+// Sets the phone number. Max length is 14 chars.
 void NetSTA::setPhone(const char* phone) {
     if (strlen(phone) != 0) {
         strncpy(this->phone, phone, sizeof(this->phone) -1);
@@ -226,6 +249,9 @@ void NetSTA::setPhone(const char* phone) {
     printf("phone: %s\n", phone); // DELETE AFTER TESTING
 }
 
+// Runs an iteration of all flags pertaining to the station 
+// connection. Upon all flags being set and the station 
+// being connected, returns true. Returns false for failure.
 bool NetSTA::isActive() {
     wifi_ap_record_t sta_info;
 
@@ -255,6 +281,9 @@ bool NetSTA::isActive() {
     return false;
 }
 
+// Creates a struct containing the ssid, ipaddr, rssi,
+// connection status, and free memory. The struct is passed
+// by reference and updated.
 void NetSTA::getDetails(STAdetails &details) { 
     wifi_ap_record_t sta_info;
     

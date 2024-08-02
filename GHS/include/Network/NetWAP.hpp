@@ -19,6 +19,7 @@ class NetWAP : public NetMain{
     private:
     char APssid[static_cast<int>(IDXSIZE::SSID)];
     char APpass[static_cast<int>(IDXSIZE::PASS)];
+    char APdefaultPass[static_cast<int>(IDXSIZE::PASS)];
     esp_netif_ip_info_t ip_info;
     wifi_ret_t configure() override;
     wifi_ret_t dhcpsHandler();

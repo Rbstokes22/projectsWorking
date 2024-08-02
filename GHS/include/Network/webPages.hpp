@@ -14,6 +14,7 @@ const char WAPSetupPage[] = R"rawliteral(
         body {
             background-color: rgba(0, 255, 0, 0.3);
         }
+        
         h1 {
             text-align: center;
             font-weight: 900;
@@ -65,48 +66,64 @@ const char WAPSetupPage[] = R"rawliteral(
         let validate = (inputID) => {
             const temp = document.getElementById(inputID);
             const status = document.getElementById("status");
-
+      
             // Check that input is filled out, this will work for 
             // ssid, password for the LAN. 
             if (!temp.value) {
                 temp.style.border = "4px solid red";
                 status.innerText = "Input cannot be subbmited blank";
                 return false;
-            } else if (inputID === "ssid" || inputID === "pass") {
-                temp.style.border = "2px solid black";
-                return true;
-            }
+            } 
 
-            // Special considerations have to be in place for 
-            // the WAP password and phone number
-            if (inputID === "WAPpass") {
-                if (temp.value.length >= 8 && temp.value.length <= 63) {
-                    temp.style.border = "2px solid black";
-                    return true;
-                } else {
-                    status.innerText = "Password must be between 8 & 63 chars";
-                    temp.style.border = "4px solid red";
-                    return false;
-                }
+            switch (inputID) {
+                case "ssid":
+                    if (temp.value.length > 31) {
+                        temp.style.border = "4px solid red";
+                        status.innerText = "SSID must be less than 32 chars";
+                        return false;
 
-            } else if (inputID === "phone") {
-                // parses digits only
-                let phoneNum = temp.value.replace(/\D/g, '').toString();
+                    } else {
+                        temp.style.border = "2px solid black";
+                        return true;
+                    }
 
-                if (phoneNum[0] === '1') {
-                    phoneNum = phoneNum.substring(1);
-                }
+                case "pass":
+                    if (temp.value.length > 63) {
+                        temp.style.border = "4px solid red";
+                        status.innerText = "Pass must be less than 64 chars";
+                        return false;
 
-                console.log(phoneNum);
+                    } else {
+                        temp.style.border = "2px solid black";
+                        return true;
+                    }
 
-                if(phoneNum.length != 10) {
-                    temp.style.border = "4px solid red";
-                    status.innerText = "Phone Num must be 10 digits exactly";
-                    return false;
-                } else {
-                    temp.style.border = "2px solid black";
-                    return true;
-                }
+                case "WAPpass":
+                    if (temp.value.length >= 8 && temp.value.length <= 63) {
+                        temp.style.border = "2px solid black";
+                        return true;
+                    } else {
+                        status.innerText = "Password must be between 8 & 63 chars";
+                        temp.style.border = "4px solid red";
+                        return false;
+                    }
+
+                case "phone": 
+                    // parses digits only
+                    let phoneNum = temp.value.replace(/\D/g, '').toString();
+
+                    if (phoneNum[0] === '1') {
+                        phoneNum = phoneNum.substring(1);
+                    }
+
+                    if(phoneNum.length != 10) {
+                        temp.style.border = "4px solid red";
+                        status.innerText = "Phone Num must be 10 digits exactly";
+                        return false;
+                    } else {
+                        temp.style.border = "2px solid black";
+                        return true;
+                    }
             }
         }
         
@@ -116,7 +133,7 @@ const char WAPSetupPage[] = R"rawliteral(
             
             if (validate(inputID)) {
                 temp.style.border = "2px solid black";
-                fetch("http://192.168.1.1/WAPsubmit", {
+                fetch("http://192.168.1.1/SubmitCreds", {
                 method: "POST",
                 headers: {"Content-Type" : "application/json"},
                 body: JSON.stringify({

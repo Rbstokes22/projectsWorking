@@ -19,7 +19,7 @@ enum class IDXSIZE {
     IPADDR = 16
 };
 
-enum class KI {ssid, pass, phone, APpass}; // Key Index
+enum class KI {ssid, pass, phone, WAPpass}; // Key Index
 extern const char* keys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
 
 }

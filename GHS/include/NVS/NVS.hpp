@@ -22,6 +22,10 @@ enum class nvs_ret_t {
     NVS_WRITE_OK, NVS_WRITE_FAIL
 };
 
+enum class errDisp {
+    OLED, SRL, ALL
+};
+
 extern const uint8_t dataSize[];
 
 class NVSctrl {
@@ -33,7 +37,7 @@ class NVSctrl {
     bool isCheckSumSafe; // maybe delete
     nvs_ret_t NVSopen;
     static const size_t maxEntry;
-    void sendErr(const char* msg, bool toOLED = false);
+    void sendErr(const char* msg, errDisp type);
     nvs_ret_t basicErrCheck(const char* key, const void* data, size_t size);
     nvs_ret_t errHandlingNVS();
     nvs_ret_t safeStart();
@@ -60,24 +64,24 @@ class NVSctrl {
         bool isChar{false};
         
         if (length <= 0) {
-            this->sendErr("NVS Write, array length must be > 0");
+            this->sendErr("NVS Write, array length must be > 0", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
 
         size_t expSize = dataSize[static_cast<int>(dType)]; // expected size
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Write, Key is not defined");
+            this->sendErr("NVS Write, Key is not defined", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
         
         if (data == nullptr) {
-            this->sendErr("NVS Write, data is not defined");
+            this->sendErr("NVS Write, data is not defined", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
 
         if (sizeof(*data) != expSize) {
-            this->sendErr("NVS Write, size of data does not match data_t");
+            this->sendErr("NVS Write, data size mismatch", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
 
@@ -93,7 +97,9 @@ class NVSctrl {
             break;
 
             case data_t::OTHER:
-            this->sendErr("NVS Write, only arrays of known datatypes permitted");
+            this->sendErr(
+                "NVS Write, only arrays of known datatypes permitted", 
+                errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL; 
 
             default:
@@ -110,20 +116,20 @@ class NVSctrl {
     nvs_ret_t writeNum(const char* key, data_t dType, const NVSWN &data) {
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Write, Key is not defined");
+            this->sendErr("NVS Write, Key is not defined", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
 
         // No function purpose beside consistency and and enforcing correct 
         // function use.
         if (dType == data_t::OTHER) {
-            this->sendErr("NVS Write, must be a number");
+            this->sendErr("NVS Write, must be a number", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         } else {
             if (sizeof(data) == dataSize[static_cast<int>(dType)]) {
                 return this->write(key, &data, sizeof(data));
             } else {
-                this->sendErr("NVS Write, size of data does not match data_t");
+                this->sendErr("NVS Write, data size mismatch", errDisp::SRL);
                 return nvs_ret_t::NVS_WRITE_FAIL;
             }
         }
@@ -137,13 +143,13 @@ class NVSctrl {
     nvs_ret_t writeOther(const char* key, data_t dType, const NVSWO &data) {
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Write, Key is not defined");
+            this->sendErr("NVS Write, Key is not defined", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         }
 
         // Enforces correct function use. 
         if (dType != data_t::OTHER) {
-            this->sendErr("NVS Write, must be of type other");
+            this->sendErr("NVS Write, must be of type other", errDisp::SRL);
             return nvs_ret_t::NVS_WRITE_FAIL;
         } else {
             return this->write(key, &data, sizeof(data));
@@ -158,12 +164,12 @@ class NVSctrl {
     nvs_ret_t read(const char* key, NVSR* carrier, size_t size, bool isChar = false) {
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Read, improper key passed to NVS");
+            this->sendErr("NVS Read, improper key passed to NVS", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
         if (carrier == nullptr) {
-            this->sendErr("NVS Read, improper carrier passed to NVS"); 
+            this->sendErr("NVS Read, improper carrier passed to NVS", errDisp::SRL); 
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
@@ -192,17 +198,17 @@ class NVSctrl {
     nvs_ret_t readArray(const char* key, data_t dType, NVSRA *carrier, size_t size) {
 
         if (size <= 0) {
-            this->sendErr("NVS Read, size must be > 0");
+            this->sendErr("NVS Read, size must be > 0", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Read, improper key passed to NVS"); 
+            this->sendErr("NVS Read, improper key passed to NVS", errDisp::SRL); 
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
         if (carrier == nullptr) {
-            this->sendErr("NVS Read, carrier must be a valid array");
+            this->sendErr("NVS Read, carrier must be a valid array", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
@@ -224,19 +230,19 @@ class NVSctrl {
     nvs_ret_t readNum(const char* key, data_t dType, NVSRN &carrier) {
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Read, improper key passed to NVS"); 
+            this->sendErr("NVS Read, improper key passed to NVS", errDisp::SRL); 
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
         // Extra enforcement to ensure the correct type of number
         if (dType == data_t::OTHER) {
-            this->sendErr("NVS Read, data_t must be number");
+            this->sendErr("NVS Read, data_t must be number", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         } else {
             if (sizeof(carrier) == dataSize[static_cast<int>(dType)]) {
                 return this->read(key, &carrier, sizeof(carrier));
             } else {
-                this->sendErr("NVS Read, size of carrier does not match data_t");
+                this->sendErr("NVS Read, carrier size mismatch", errDisp::SRL);
                 return nvs_ret_t::NVS_READ_FAIL;
             }
         }
@@ -249,12 +255,12 @@ class NVSctrl {
     nvs_ret_t readOther(const char* key, data_t dType, NVSRO &carrier){
 
         if (key == nullptr || *key == '\0') {
-            this->sendErr("NVS Read, improper key passed to NVS"); 
+            this->sendErr("NVS Read, improper key passed to NVS", errDisp::SRL); 
             return nvs_ret_t::NVS_READ_FAIL;
         }
 
         if (dType != data_t::OTHER) {
-            this->sendErr("NVS Read, must be of type OTHER");
+            this->sendErr("NVS Read, must be of type OTHER", errDisp::SRL);
             return nvs_ret_t::NVS_READ_FAIL;
         } else {
             return this->read(key, &carrier, sizeof(carrier));

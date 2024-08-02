@@ -20,24 +20,30 @@ const uint8_t dataSize[]{
 // Main handler of all error display throughout the system. 
 // Due to several potential errors, the majority will be to serial.
 // Can change to include OLED if desired by passing true as arg 2.
-void NVSctrl::sendErr(const char* msg, bool toOLED) {
-    switch (toOLED) {
-        case true:
+void NVSctrl::sendErr(const char* msg, errDisp type) {
+    switch (type) {
+        case errDisp::OLED:
+        this->msglogerr.handle(
+        Messaging::Levels::ERROR,
+        msg,
+        Messaging::Method::OLED
+        ); break;
+
+        case errDisp::SRL:
+        this->msglogerr.handle(
+        Messaging::Levels::ERROR,
+        msg,
+        Messaging::Method::SRL
+        ); break;
+
+        case errDisp::ALL:
         this->msglogerr.handle(
         Messaging::Levels::ERROR,
         msg,
         Messaging::Method::SRL,
         Messaging::Method::OLED
-        ); break;
-
-        case false:
-        this->msglogerr.handle(
-        Messaging::Levels::ERROR,
-        msg,
-        Messaging::Method::SRL
         );
     }
-    
 }
 
 // Used in the checksum methods. Since their arguments are identical,
@@ -47,17 +53,17 @@ nvs_ret_t NVSctrl::basicErrCheck(const char* key, const void* data, size_t size)
     nvs_ret_t err{nvs_ret_t::NVS_OK};
 
     if (data == nullptr || key == nullptr) {
-        this->sendErr("NVS key or data set to nullptr");
+        this->sendErr("NVS key or data set to nullptr", errDisp::SRL);
         err = nvs_ret_t::NVS_FAIL;
     }
 
     if (*key == '\0') {
-        this->sendErr("NVS key does not exist");
+        this->sendErr("NVS key does not exist", errDisp::SRL);
         err = nvs_ret_t::NVS_FAIL;
     }
 
     if (size <= 0) {
-        this->sendErr("NVS size must be greater than 0");
+        this->sendErr("NVS size must be greater than 0", errDisp::SRL);
         err = nvs_ret_t::NVS_FAIL;
     }
 
@@ -73,10 +79,10 @@ nvs_ret_t NVSctrl::errHandlingNVS() {
      if (this->err == ESP_OK) {
         return nvs_ret_t::NVS_OK;
     } else if (this->err == ESP_ERR_NVS_NOT_FOUND) {
-        this->sendErr("NVS Key has not been created"); 
+        this->sendErr("NVS Key has not been created", errDisp::SRL); 
         return nvs_ret_t::NVS_NEW_ENTRY;
     } else {
-        this->sendErr(esp_err_to_name(this->err));
+        this->sendErr(esp_err_to_name(this->err), errDisp::SRL);
         return nvs_ret_t::NVS_FAIL;
     }
 }

@@ -1,4 +1,4 @@
-// TO DO: Net OLED display, OTA, Peripherals
+// TO DO: OTA, peripherals
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,6 +16,7 @@
 #include "Network/NetManager.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
+#include "Network/Handlers/WAPsetup.hpp"
 
 extern "C" {
     void app_main();
@@ -25,7 +26,7 @@ extern "C" {
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 
-// NET SETUP (default IP is 192.168.1.1)
+// NET SETUP (default IP is 192.168.1.1).
 const char APssid[]{"GreenHouse"};
 char APdefPass[]{"12345678"};
 char credNamespace[] = "netcreds";
@@ -96,6 +97,9 @@ void app_main() {
     setupAnalogPins();
     OLED.init(0x3C);
     esp_err_t nvsErr = nvs_flash_init(); 
+
+    // Passes objects to the WAPSetup handler to allow for manipulation.
+    Comms::setJSONObjects(station, wap, creds);
 
     if (nvsErr != ESP_OK) {
         printf("NVS INIT ERROR: %s\n", esp_err_to_name(nvsErr));

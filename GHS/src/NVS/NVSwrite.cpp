@@ -64,17 +64,17 @@ nvs_ret_t NVSctrl::write(const char* key, const void* data, size_t size, bool is
 
     // ERROR CHECKS
     if (key == nullptr || *key == '\0') {
-        this->sendErr("NVS Write, Key is not defined");
+        this->sendErr("NVS Write, Key is not defined", errDisp::SRL);
         return nvs_ret_t::NVS_WRITE_FAIL;
     }
 
     if (data == nullptr) {
-        this->sendErr("NVS Write, data cannot be a nullptr");
+        this->sendErr("NVS Write, data cannot be a nullptr", errDisp::SRL);
         return nvs_ret_t::NVS_WRITE_FAIL;
     } 
 
     if (size <= 0) {
-        this->sendErr("NVS Write, size must be > 0");
+        this->sendErr("NVS Write, size must be > 0", errDisp::SRL);
         return nvs_ret_t::NVS_WRITE_FAIL;
     }
 

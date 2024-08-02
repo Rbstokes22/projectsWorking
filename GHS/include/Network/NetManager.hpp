@@ -16,16 +16,16 @@ class NetManager {
     NVS::Creds &creds;
     UI::Display &OLED;
     bool isWifiInit;
+    NetMode checkNetSwitch();
+    void setNetType(NetMode netType);
+    void checkConnection(NetMain &mode, NetMode NetType);
+    void startServer(NetMain &mode);
+    void runningWifi(NetMain &mode);
+    void reconnect(NetMain &mode, uint8_t &attempt);
 
     public:
     NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED);
-    void netStart(NetMode netType);
     void handleNet();
-    NetMode checkNetSwitch();
-    void startServer(NetMain &mode);
-    void checkConnection(NetMain &mode, NetMode NetType);
-    void runningWifi(NetMain &mode);
-    void reconnect(NetMain &mode, uint8_t &attempt);
 };
 
 }

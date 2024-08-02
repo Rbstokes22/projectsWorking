@@ -3,7 +3,7 @@
 namespace Comms {
 
 const char* keys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)] {
-    "ssid", "pass", "phone", "APpass"
+    "ssid", "pass", "phone", "WAPpass"
 };
 
 }

@@ -8,16 +8,19 @@
 #include "esp_netif.h"
 #include <cstddef>
 
-// ERROR HANDLE THE ENTIRE SEQUENCE TO ENSURE A PROPER SETUP, DO THE SAME
-// FOR NETSTA.
-
 namespace Comms {
 
 // PRIVATE
+
+// Sets the wifi configuration with the WAP ssid, password,
+// channel, maximum connections, and authmode. Will use a 
+// max connection default of 1 while in WAP_SETUP mode as 
+// an extra layer of security since communications are on
+// http, to prevent malicious connections from intercepting
+// data. Returns CONFIG_OK.
 wifi_ret_t NetWAP::configure() {
     uint8_t maxConnections{4};
 
-    // Extra layer of security since this is on http.
     if (NetMain::NetType == NetMode::WAP_SETUP) maxConnections = 1;
 
     strcpy((char*)this->wifi_config.ap.ssid, this->APssid);
@@ -35,6 +38,10 @@ wifi_ret_t NetWAP::configure() {
     return wifi_ret_t::CONFIG_OK;
 }
 
+// Dynamic Host Configuration Protocol (DHCP) will stop to allow 
+// IP information to be configured to the device for WAP 
+// connection. The IP information is set, which will allow the 
+// DHCP to restart. Returns DHCPS_FAIL or DHCPS_OK.
 wifi_ret_t NetWAP::dhcpsHandler() {
     
     if (NetMain::flags.dhcpOn) {
@@ -52,7 +59,7 @@ wifi_ret_t NetWAP::dhcpsHandler() {
         }
     }
 
-    // Stays constant
+    // Stays constant.
     IP4_ADDR(&this->ip_info.ip, 192,168,1,1); 
     IP4_ADDR(&this->ip_info.gw, 192,168,1,1);
     IP4_ADDR(&this->ip_info.netmask, 255, 255, 255, 0);
@@ -64,7 +71,8 @@ wifi_ret_t NetWAP::dhcpsHandler() {
                 NetMain::ap_netif, 
                 &this->ip_info);
 
-            // This will force a stop if this error is returned.
+            // This will force a stop if this error is returned, 
+            // allowing a proper initialization.
             if (set_ip == ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED) {
                 NetMain::flags.dhcpOn = true;
             }
@@ -96,6 +104,8 @@ wifi_ret_t NetWAP::dhcpsHandler() {
 }
 
 // PUBLIC
+
+
 NetWAP::NetWAP(
     Messaging::MsgLogHandler &msglogerr,
     const char* APssid, const char* APdefPass) : 
@@ -107,8 +117,15 @@ NetWAP::NetWAP(
 
         strncpy(this->APpass, APdefPass, sizeof(this->APpass) - 1);
         this->APpass[sizeof(this->APpass) -1] = '\0';
+
+        strcpy(this->APdefaultPass, APdefPass);
     }
 
+// Second step in the init process.
+// Once the wifi has been initialized, run the dhcps handler
+// to set the IP, configure the wifi connection, set the 
+// wifi mode, set the configuration, and start the wifi.
+// Returns WIFI_FAIL and WIFI_OK.
 wifi_ret_t NetWAP::start_wifi() {
 
     // Always run, flags are withing the handler.
@@ -160,6 +177,10 @@ wifi_ret_t NetWAP::start_wifi() {
     return wifi_ret_t::WIFI_OK;
 }
 
+// Third and last step in the init process. 
+// Once the wifi connection is established, starts the httpd
+// server and registers the Universal Resource Identifiers
+// (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetWAP::start_server() {
 
     if (!NetMain::flags.httpdOn) {
@@ -175,7 +196,12 @@ wifi_ret_t NetWAP::start_server() {
     }
 
     if (!NetMain::flags.uriReg) {
+
+        // This will register different URI's based on the type of WAP
+        // that is set. This allows each version to use their own index
+        // page, and avoids the need for complex URL's.
         if (NetMain::NetType == NetMode::WAP) {
+            
             esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &WAPIndex);
 
             if (reg1 == ESP_OK) {
@@ -204,8 +230,11 @@ wifi_ret_t NetWAP::start_server() {
 
     return wifi_ret_t::SERVER_OK;
 }
-        
-wifi_ret_t NetWAP::destroy() { // THIS IS WHERE TO RESET THE FLAGS
+       
+// Stops the httpd server and wifi. This will reset all
+// pertinent flags back to false, to allow reinitialization
+// through the init sequence. Returns DESTROY_FAIL and DESTROY_OK.
+wifi_ret_t NetWAP::destroy() { 
 
     if (NetMain::flags.httpdOn) {
         esp_err_t httpd = httpd_stop(NetMain::server);
@@ -238,7 +267,7 @@ wifi_ret_t NetWAP::destroy() { // THIS IS WHERE TO RESET THE FLAGS
     return wifi_ret_t::DESTROY_OK;
 }
 
-// Only sets a new password if one exists.
+// Sets the password. Max pass length 63 chars.
 void NetWAP::setPass(const char* pass) {
     if (strlen(pass) != 0) {
         strncpy(this->APpass, pass, sizeof(this->APpass) -1);
@@ -251,6 +280,9 @@ void NetWAP::setPass(const char* pass) {
 void NetWAP::setSSID(const char* ssid) {}
 void NetWAP::setPhone(const char* phone) {}
 
+// Runs an iteration of all flags pertaining to the station 
+// connection. Upon all flags being set and the station 
+// being connected, returns true. Returns false for failure.
 bool NetWAP::isActive() { 
     wifi_mode_t mode;
     uint8_t flagRequirement = 11;
@@ -282,6 +314,9 @@ bool NetWAP::isActive() {
     return false;
 }
 
+// Creates a struct containing the ipaddr, connection status,
+// the WAP type (WAP or WAP_SETUP), free memory, and clients
+// connected. The struct is passed by reference and updated.
 void NetWAP::getDetails(WAPdetails &details) {
 
     char status[2][4] = {"No", "Yes"}; // used to display connection
@@ -291,7 +326,8 @@ void NetWAP::getDetails(WAPdetails &details) {
     strcpy(details.ipaddr, "192.168.1.1");
     strcpy(details.status, status[this->isActive()]);
     
-    // WAP or WAP SETUP, Default password or Custom
+    // WAP or WAP SETUP, Default password or Custom. Sends to 
+    // setWAPtype for modification.
     this->setWAPtype(WAPtype);
     strcpy(details.WAPtype, WAPtype);
 
@@ -304,8 +340,11 @@ void NetWAP::getDetails(WAPdetails &details) {
     sprintf(details.clientConnected, "%d", sta_list.num);
 }
 
+// Sets the mode (WAP or WAP SETUP), and if the APpass equals the 
+// default password, it will add a suffix if (DEF) to display that 
+// the WAP mode is in default settings.
 void NetWAP::setWAPtype(char* WAPtype) {
-    bool isDefault = (strcmp(this->APpass, "12345678") == 0);
+    bool isDefault = (strcmp(this->APpass, this->APdefaultPass) == 0);
     const char* mode{this->getNetType() == NetMode::WAP ? "WAP" : "WAP SETUP"};
     const char* suffix{isDefault ? " (DEF)" : ""};
     sprintf(WAPtype, "%s%s", mode, suffix);

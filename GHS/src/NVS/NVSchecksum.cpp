@@ -58,7 +58,7 @@ nvs_ret_t NVSctrl::getChecksum(const char* key, const uint8_t* data, size_t size
     if (storedChecksum == computedCS && this->isCheckSumSafe) {
         return nvs_ret_t::CHECKSUM_OK;
     } else {
-        this->sendErr("NVS Checksum does not match, either corrupt or missing");
+        this->sendErr("NVS Checksum mismatch, corrupt or missing", errDisp::SRL);
         return nvs_ret_t::CHECKSUM_FAIL;
     }
 }
