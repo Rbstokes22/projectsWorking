@@ -105,7 +105,6 @@ wifi_ret_t NetWAP::dhcpsHandler() {
 
 // PUBLIC
 
-
 NetWAP::NetWAP(
     Messaging::MsgLogHandler &msglogerr,
     const char* APssid, const char* APdefPass) : 
@@ -273,12 +272,21 @@ void NetWAP::setPass(const char* pass) {
         strncpy(this->APpass, pass, sizeof(this->APpass) -1);
         this->APpass[sizeof(this->APpass) - 1] = '\0';
     } 
-    printf("pass: %s\n", pass); // DELETE AFTER TESTING
+}
+
+const char* NetWAP::getPass(bool def) const {
+    if (!def) {
+        return this->APpass;
+    } else {
+        return this->APdefaultPass;
+    }
 }
 
 // Abstract methods not needed in the scope of NetWAP.
 void NetWAP::setSSID(const char* ssid) {}
 void NetWAP::setPhone(const char* phone) {}
+const char* NetWAP::getPhone() const {return "";}
+const char* NetWAP::getSSID() const {return "";}
 
 // Runs an iteration of all flags pertaining to the station 
 // connection. Upon all flags being set and the station 

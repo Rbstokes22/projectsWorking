@@ -31,7 +31,7 @@ const char APssid[]{"GreenHouse"};
 char APdefPass[]{"12345678"};
 char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
-Comms::NetSTA station(msglogerr);
+Comms::NetSTA station(msglogerr, creds);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass);
 Comms::NetManager netManager(station, wap, creds, OLED);
 

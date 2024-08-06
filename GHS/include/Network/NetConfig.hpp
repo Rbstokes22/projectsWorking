@@ -4,7 +4,7 @@
 namespace Comms {
 
 enum class NetMode {
-    WAP, WAP_SETUP, STA, NONE
+    WAP, WAP_SETUP, STA, NONE, WAP_RECON
 };
 
 enum class Constat {
@@ -20,7 +20,7 @@ enum class IDXSIZE {
 };
 
 enum class KI {ssid, pass, phone, WAPpass}; // Key Index
-extern const char* keys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
+extern const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
 
 }
 

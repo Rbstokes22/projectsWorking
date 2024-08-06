@@ -20,7 +20,7 @@ nvs_ret_t NVSctrl::readFromNVS(const char* key, void* carrier, size_t size, bool
     uint8_t* bytes = static_cast<uint8_t*>(carrier);
     memset(bytes, 0, size); // Clear to 0 to ensure null term.
 
-    this->err = nvs_get_blob(this->handle, key, carrier, &size);
+    this->err = nvs_get_blob(this->handle, key, bytes, &size);
 
     nvs_ret_t success = this->errHandlingNVS();
 

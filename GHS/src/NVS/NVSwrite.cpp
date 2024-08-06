@@ -21,8 +21,7 @@ nvs_ret_t NVSctrl::writeToNVS(const char* key, const void* data, size_t size, bo
 
     // If readFromNVS is bad due to being a new entry, it 
     // will not block the remaining code.
-    nvs_ret_t success = this->readFromNVS(key, temp, size, isChar);
-
+    nvs_ret_t success = this->readFromNVS(key, temp, sizeof(temp), isChar); 
     if (success != nvs_ret_t::NVS_READ_OK) {
         return nvs_ret_t::NVS_WRITE_FAIL;
     }
@@ -34,15 +33,22 @@ nvs_ret_t NVSctrl::writeToNVS(const char* key, const void* data, size_t size, bo
     // overwrite data to NVS preventing wear.
     if (memcmp(bytes, temp, size) == 0) {
         return nvs_ret_t::NVS_WRITE_OK; 
+
     } else {
 
+        // This will set the blob to whatever is passed without erasing
+        // existing information to prevent wear and tear on the NVS.
+        // If problems arise uncomment the below line.
+        // nvs_erase_key(this->handle, key);
+        
         this->err = nvs_set_blob(this->handle, key, bytes, size);
+
         nvs_ret_t success = this->errHandlingNVS();
 
         if (success == nvs_ret_t::NVS_NEW_ENTRY) {
             isNewEntry = true;
-        }
-
+        } 
+        
         if (success == nvs_ret_t::NVS_FAIL) {
             return nvs_ret_t::NVS_WRITE_FAIL;
         } else {

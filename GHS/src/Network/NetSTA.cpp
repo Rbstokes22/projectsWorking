@@ -18,9 +18,10 @@ char NetSTA::IPADDR[static_cast<int>(IDXSIZE::IPADDR)]{0};
 
 // Sets the wifi configuration with the station ssid and 
 // password. Returns CONFIG_OK once complete.
-wifi_ret_t NetSTA::configure() { // NOT CONNECTING
-    strcpy((char*)this->wifi_config.sta.ssid, "Bulbasaur");
-    strcpy((char*)this->wifi_config.sta.password, "Castiel1"); 
+wifi_ret_t NetSTA::configure() { 
+
+    strcpy((char*)this->wifi_config.sta.ssid, this->ssid);
+    strcpy((char*)this->wifi_config.sta.password, this->pass); 
 
     return wifi_ret_t::CONFIG_OK;
 }
@@ -43,9 +44,9 @@ void NetSTA::IPEvent(
 
 // PUBLIC
 
-NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr) : 
+NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr, NVS::Creds &creds) : 
 
-    NetMain(msglogerr) {
+    NetMain(msglogerr), creds(creds) {
 
         memset(this->ssid, 0, sizeof(this->ssid));
         memset(this->pass, 0, sizeof(this->pass));
@@ -228,7 +229,6 @@ void NetSTA::setPass(const char* pass) {
         strncpy(this->pass, pass, sizeof(this->pass) -1);
         this->pass[sizeof(this->pass) - 1] = '\0';
     } 
-    printf("pass: %s\n", pass); // DELETE AFTER TESTING
 }
 
 // Sets the ssid. Max ssid length is 32 chars.
@@ -237,7 +237,6 @@ void NetSTA::setSSID(const char* ssid) {
         strncpy(this->ssid, ssid, sizeof(this->ssid) -1);
         this->ssid[sizeof(this->ssid) - 1] = '\0';
     } 
-    printf("ssid: %s\n", ssid); // DELETE AFTER TESTING
 }
 
 // Sets the phone number. Max length is 14 chars.
@@ -246,7 +245,18 @@ void NetSTA::setPhone(const char* phone) {
         strncpy(this->phone, phone, sizeof(this->phone) -1);
         this->phone[sizeof(this->phone) - 1] = '\0';
     } 
-    printf("phone: %s\n", phone); // DELETE AFTER TESTING
+}
+
+const char* NetSTA::getPass(bool def) const {
+    return this->pass;
+}
+
+const char* NetSTA::getSSID() const {
+    return this->ssid;
+}
+
+const char* NetSTA::getPhone() const {
+    return this->phone;
 }
 
 // Runs an iteration of all flags pertaining to the station 

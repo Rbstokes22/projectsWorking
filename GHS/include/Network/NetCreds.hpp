@@ -15,7 +15,7 @@ class Creds {
 
     public:
     Creds(char nameSpace[12], Messaging::MsgLogHandler &msglogerr);
-    void write(const char* key, const char* buffer, size_t size);
+    nvs_ret_t write(const char* key, const char* buffer, size_t length);
     const char* read(const char* key);
 };
 

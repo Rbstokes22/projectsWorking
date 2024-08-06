@@ -67,6 +67,9 @@ class NetMain {
     virtual void setPass(const char* pass) = 0;
     virtual void setSSID(const char* ssid) = 0;
     virtual void setPhone(const char* phone) = 0;
+    virtual const char* getPass(bool def = false) const = 0;
+    virtual const char* getSSID() const = 0;
+    virtual const char* getPhone() const = 0;
     virtual bool isActive() = 0;
     NetMode getNetType();
     void setNetType(NetMode NetType);

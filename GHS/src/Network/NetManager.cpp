@@ -43,15 +43,18 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
 
     if (NetType != net_type) { // Checks if the mode has been switched
 
-        if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP) {
+        // WAP_RECON will be flagged upon a change of the 
+        // WAP pass. This will allow a new connection using new creds.
+        if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP || 
+            net_type == NetMode::WAP_RECON) {
             this->wap.destroy();
         } else if (net_type == NetMode::STA) {
             this->station.destroy();
-        }
+        } 
     
         // startServer() will be called exactly one time before the 
         // program goes into runningWifi() which assumes a solid
-        // init. In the event this fails, startServer() is called 
+        // init. In the event this fails, startServer() is also called 
         // when attempting a reconnection in other methods.
         mode.setNetType(NetType);
         this->startServer(mode);
@@ -78,13 +81,41 @@ void NetManager::startServer(NetMain &mode) {
         // This is to ensure access if for some reason the NVS password is 
         // forgotten.
         bool DEF = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::defWAP)]);
-        if (!DEF) mode.setPass(this->creds.read("APpass")); 
-        
+
+        if (DEF) { // Indicates non default mode.
+
+            // shows if the current set pass = the default pass
+            if (strcmp(mode.getPass(), mode.getPass(true)) == 0) {
+                char tempPass[static_cast<int>(IDXSIZE::PASS)]{0};
+
+                strcpy(tempPass, this->creds.read("WAPpass"));
+
+                // If the NVS pass is not null, sets pass from the NVS.
+                if (strcmp(tempPass, "") != 0) {
+                    mode.setPass(tempPass);
+                } 
+            }
+
+        } else { // Default mode
+            mode.setPass(mode.getPass(true));
+        }
+
     } else if (curSrvr == NetMode::STA) {
         
-        mode.setPass(this->creds.read("pass"));
-        mode.setSSID(this->creds.read("ssid"));
-        mode.setPhone(this->creds.read("phone"));
+        // Ensures that the credentials do not already exist. This is a failsafe
+        // in the event that the NVS is corrupt. It allows the credentials to be
+        // written from the WAPSetup page into volatile storage only.
+        if (strcmp(mode.getPass(), "") == 0) {
+            mode.setPass(this->creds.read("pass"));
+        }
+
+        if (strcmp(mode.getSSID(), "") == 0) {
+            mode.setSSID(this->creds.read("ssid"));
+        }
+
+        if (strcmp(mode.getPhone(), "") == 0) {
+            mode.setPhone(this->creds.read("phone"));
+        }
     }
 
     // This block ensures that each previous block is properly initialized

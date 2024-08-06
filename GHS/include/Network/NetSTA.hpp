@@ -3,6 +3,7 @@
 
 #include "Network/NetMain.hpp"
 #include "esp_wifi.h"
+#include "NetCreds.hpp"
 #include <cstdint>
 
 namespace Comms {
@@ -27,15 +28,19 @@ class NetSTA : public NetMain {
         esp_event_base_t event, 
         int32_t eventID, 
         void* eventData);
+    NVS::Creds &creds;
 
     public:
-    NetSTA(Messaging::MsgLogHandler &msglogerr);
+    NetSTA(Messaging::MsgLogHandler &msglogerr, NVS::Creds &creds);
     wifi_ret_t start_wifi() override;
     wifi_ret_t start_server() override;
     wifi_ret_t destroy() override;
     void setPass(const char* pass) override;
     void setSSID(const char* ssid) override;
     void setPhone(const char* phone) override;
+    const char* getPass(bool def = false) const override;
+    const char* getSSID() const override;
+    const char* getPhone() const override;
     bool isActive() override;
     void getDetails(STAdetails &details);
 };
