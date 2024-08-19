@@ -28,8 +28,8 @@ class Display : public IDisplay {
     void init(uint8_t address); // initialize the display display logo
 	void printWAP(Comms::WAPdetails &details);
 	void printSTA(Comms::STAdetails &details);
-	void printUpdates(char* update);
-	void updateProgress(char* progress);
+	void printUpdates(const char* update);
+	void updateProgress(const char* progress);
 
 	// this is meant for errors or runtime messaging
 	void displayMsg(char* msg) override; // inherits from IDisplay

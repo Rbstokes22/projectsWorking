@@ -48,6 +48,7 @@ i2c_device_config_t configDev(uint8_t i2cAddr) {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = i2cAddr,
         .scl_speed_hz = i2cFrequency,
+        .scl_wait_us = 0,
     };
 
     return dev_cfg;

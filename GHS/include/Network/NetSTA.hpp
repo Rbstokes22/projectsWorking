@@ -10,7 +10,12 @@ namespace Comms {
 
 struct STAdetails {
 char ssid[static_cast<int>(IDXSIZE::SSID)];
-char ipaddr[static_cast<int>(IDXSIZE::IPADDR)];
+
+// +9 for http:// 
+char ipaddr[static_cast<int>(IDXSIZE::IPADDR) + 9]; 
+
+// +9 for http:// +6 for .local
+char mdns[static_cast<int>(IDXSIZE::MDNS) + 15]; 
 char signalStrength[12];
 char status[4];
 char heap[20];
@@ -31,7 +36,9 @@ class NetSTA : public NetMain {
     NVS::Creds &creds;
 
     public:
-    NetSTA(Messaging::MsgLogHandler &msglogerr, NVS::Creds &creds);
+    NetSTA(
+        Messaging::MsgLogHandler &msglogerr, 
+        NVS::Creds &creds, const char* mdnsName);
     wifi_ret_t start_wifi() override;
     wifi_ret_t start_server() override;
     wifi_ret_t destroy() override;

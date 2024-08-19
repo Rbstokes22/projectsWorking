@@ -37,4 +37,11 @@ httpd_uri_t STAIndex = {
     .user_ctx  = NULL
 };
 
+httpd_uri_t OTAUpdate = {
+    .uri       = "/OTAUpdate",
+    .method    = HTTP_GET,
+    .handler   = OTAUpdateHandler,
+    .user_ctx  = NULL
+};
+
 }

@@ -1,4 +1,5 @@
-// TO DO: OTA, peripherals
+// TO DO: OTA, PERIPH
+// For OTA set up a local server that serves the data for testing purposes.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,6 +18,9 @@
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetup.hpp"
+#include "Network/Handlers/STA.hpp"
+#include "esp_vfs.h"
+#include "OTA/OTAupdates.hpp"
 
 extern "C" {
     void app_main();
@@ -28,16 +32,20 @@ Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 
 // NET SETUP (default IP is 192.168.1.1).
 const char APssid[]{"GreenHouse"};
+const char mdnsName[]{"greenhouse"}; // must be under 11 chars.
 char APdefPass[]{"12345678"};
 char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
-Comms::NetSTA station(msglogerr, creds);
-Comms::NetWAP wap(msglogerr, APssid, APdefPass);
+Comms::NetSTA station(msglogerr, creds, mdnsName);
+Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
 Comms::NetManager netManager(station, wap, creds, OLED);
 
 // ALL THREADS
 Threads::mainThreadParams mainParams(1000, msglogerr);
 Threads::Thread mainThread(msglogerr);
+
+// OTA 
+OTA::OTAhandler ota(OLED, station, msglogerr);
 
 void mainTask(void* parameter) {
     Threads::mainThreadParams* params = static_cast<Threads::mainThreadParams*>(parameter);
@@ -48,7 +56,6 @@ void mainTask(void* parameter) {
 
     while (true) {
         // in this portion, check wifi switch for position. 
-
         if (netCheck.isReady()) {
             netManager.handleNet();
         }
@@ -96,15 +103,23 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
-    esp_err_t nvsErr = nvs_flash_init(); 
-
-    // Passes objects to the WAPSetup handler to allow for manipulation.
-    Comms::setJSONObjects(station, wap, creds);
-
-    if (nvsErr != ESP_OK) {
-        printf("NVS INIT ERROR: %s\n", esp_err_to_name(nvsErr));
+    
+    // Initialize NVS
+    esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
+    if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+       ESP_ERROR_CHECK(nvs_flash_erase());
+       nvsErr = nvs_flash_init();
     }
 
+    printf("NVS STATUS: %s\n", esp_err_to_name(nvsErr));
+
+    // Passes objects to the WAPSetup handler to allow for use.
+    Comms::setJSONObjects(station, wap, creds);
+
+    // Passes OTA object to the STA handler to allow for use.
+    Comms::setOTAObject(ota);
+
+    // Start threads
     mainThread.initThread(mainTask, "MainLoop", 4096, &mainParams, 5);
     
 

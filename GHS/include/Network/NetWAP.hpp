@@ -8,7 +8,11 @@
 namespace Comms {
 
 struct WAPdetails {
-    char ipaddr[static_cast<int>(IDXSIZE::IPADDR)];
+    // +9 for http:// 
+    char ipaddr[static_cast<int>(IDXSIZE::IPADDR) + 9]; 
+
+    // +9 for http:// +6 for .local
+    char mdns[static_cast<int>(IDXSIZE::MDNS) + 15]; 
     char status[4];
     char WAPtype[20];
     char heap[20];
@@ -27,7 +31,8 @@ class NetWAP : public NetMain{
     public:
     NetWAP(
         Messaging::MsgLogHandler &msglogerr, 
-        const char* APssid, const char* APdefPass);
+        const char* APssid, const char* APdefPass,
+        const char* mdnsName);
     wifi_ret_t start_wifi() override;
     wifi_ret_t start_server() override;
     wifi_ret_t destroy() override;

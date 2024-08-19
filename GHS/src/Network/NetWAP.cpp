@@ -6,6 +6,7 @@
 #include "esp_http_server.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "mdns.h"
 #include <cstddef>
 
 namespace Comms {
@@ -45,6 +46,7 @@ wifi_ret_t NetWAP::configure() {
 wifi_ret_t NetWAP::dhcpsHandler() {
     
     if (NetMain::flags.dhcpOn) {
+        
         esp_err_t stop = esp_netif_dhcps_stop(NetMain::ap_netif);
 
         if (stop == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED || 
@@ -65,8 +67,10 @@ wifi_ret_t NetWAP::dhcpsHandler() {
     IP4_ADDR(&this->ip_info.netmask, 255, 255, 255, 0);
 
     if (!NetMain::flags.dhcpOn) {
+        
 
         if (!NetMain::flags.dhcpIPset) {
+            
             esp_err_t set_ip = esp_netif_set_ip_info(
                 NetMain::ap_netif, 
                 &this->ip_info);
@@ -107,9 +111,10 @@ wifi_ret_t NetWAP::dhcpsHandler() {
 
 NetWAP::NetWAP(
     Messaging::MsgLogHandler &msglogerr,
-    const char* APssid, const char* APdefPass) : 
+    const char* APssid, const char* APdefPass,
+    const char* mdnsName) : 
 
-    NetMain(msglogerr) {
+    NetMain(msglogerr, mdnsName) {
 
         strncpy(this->APssid, APssid, sizeof(this->APssid) - 1);
         this->APssid[sizeof(this->APssid) - 1] = '\0';
@@ -138,6 +143,7 @@ wifi_ret_t NetWAP::start_wifi() {
     }
 
     if (!NetMain::flags.wifiModeSet) {
+        
         esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_AP);
 
         if (wifi_mode == ESP_OK) {
@@ -150,6 +156,7 @@ wifi_ret_t NetWAP::start_wifi() {
     }
 
     if (!NetMain::flags.wifiConfigSet) {
+        
         esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_AP, &this->wifi_config);
 
         if (wifi_cfg == ESP_OK) {
@@ -162,6 +169,7 @@ wifi_ret_t NetWAP::start_wifi() {
     }
 
     if (!NetMain::flags.wifiOn) {
+        
         esp_err_t wifi_start = esp_wifi_start();
 
         if (wifi_start == ESP_OK) {
@@ -176,26 +184,27 @@ wifi_ret_t NetWAP::start_wifi() {
     return wifi_ret_t::WIFI_OK;
 }
 
-// Third and last step in the init process. 
+// Third step of init process.
 // Once the wifi connection is established, starts the httpd
 // server and registers the Universal Resource Identifiers
 // (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetWAP::start_server() {
 
     if (!NetMain::flags.httpdOn) {
-        esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::server_config);
+        
+        esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::http_config);
 
         if (httpd == ESP_OK) {
-            NetMain::flags.httpdOn = true;
+                NetMain::flags.httpdOn = true;
         } else {
-            this->sendErr("HTTPD not started", errDisp::ALL);
+            this->sendErr("HTTP not started", errDisp::ALL);
             this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
 
     if (!NetMain::flags.uriReg) {
-
+        
         // This will register different URI's based on the type of WAP
         // that is set. This allows each version to use their own index
         // page, and avoids the need for complex URL's.
@@ -235,7 +244,17 @@ wifi_ret_t NetWAP::start_server() {
 // through the init sequence. Returns DESTROY_FAIL and DESTROY_OK.
 wifi_ret_t NetWAP::destroy() { 
 
-    if (NetMain::flags.httpdOn) {
+    if (NetMain::flags.mdnsInit) {
+        
+        mdns_free();
+        NetMain::flags.mdnsInit = false;
+        NetMain::flags.mdnsHostSet = false;
+        NetMain::flags.mdnsInstanceSet = false;
+        NetMain::flags.mdnsServiceAdded = false;
+    }
+
+     if (NetMain::flags.httpdOn) {
+        
         esp_err_t httpd = httpd_stop(NetMain::server);
 
         if (httpd == ESP_OK) {
@@ -249,6 +268,7 @@ wifi_ret_t NetWAP::destroy() {
     }
 
     if (NetMain::flags.wifiOn) {
+        
         esp_err_t wifi_stop = esp_wifi_stop();
 
         if (wifi_stop == ESP_OK) {
@@ -256,6 +276,7 @@ wifi_ret_t NetWAP::destroy() {
             NetMain::flags.wifiModeSet = false;
             NetMain::flags.dhcpIPset = false;
             NetMain::flags.wifiConfigSet = false;
+            
         } else {
             this->sendErr("Wifi not stopped", errDisp::ALL);
             this->sendErr(esp_err_to_name(wifi_stop), errDisp::SRL);
@@ -293,7 +314,7 @@ const char* NetWAP::getSSID() const {return "";}
 // being connected, returns true. Returns false for failure.
 bool NetWAP::isActive() { 
     wifi_mode_t mode;
-    uint8_t flagRequirement = 11;
+    uint8_t flagRequirement = 15;
     uint8_t flagSuccess = 0;
 
     bool required[flagRequirement]{
@@ -302,7 +323,9 @@ bool NetWAP::isActive() {
         NetMain::flags.dhcpOn, NetMain::flags.dhcpIPset,
         NetMain::flags.wifiModeSet, NetMain::flags.wifiConfigSet,
         NetMain::flags.wifiOn, NetMain::flags.httpdOn,
-        NetMain::flags.uriReg
+        NetMain::flags.uriReg, NetMain::flags.mdnsInit,
+        NetMain::flags.mdnsHostSet, NetMain::flags.mdnsInstanceSet,
+        NetMain::flags.mdnsServiceAdded
     };
 
     for (int i = 0; i < flagRequirement; i++) {
@@ -331,8 +354,23 @@ void NetWAP::getDetails(WAPdetails &details) {
     char WAPtype[20]{0};
 
     // IPADDR & CONNECTION STATUS
-    strcpy(details.ipaddr, "192.168.1.1");
+    snprintf(
+        details.ipaddr,
+        sizeof(details.ipaddr),
+        "http://192.168.1.1"
+        );
+
     strcpy(details.status, status[this->isActive()]);
+
+    // MDNS
+    char hostname[static_cast<int>(IDXSIZE::MDNS)];
+    mdns_hostname_get(hostname);
+    snprintf(
+        details.mdns, 
+        sizeof(details.mdns), 
+        "http://%s.local", 
+        hostname
+        );
     
     // WAP or WAP SETUP, Default password or Custom. Sends to 
     // setWAPtype for modification.

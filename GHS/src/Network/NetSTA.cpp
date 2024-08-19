@@ -5,6 +5,7 @@
 #include "esp_http_server.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "mdns.h"
 #include <cstddef>
 
 namespace Comms {
@@ -44,9 +45,11 @@ void NetSTA::IPEvent(
 
 // PUBLIC
 
-NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr, NVS::Creds &creds) : 
+NetSTA::NetSTA(
+    Messaging::MsgLogHandler &msglogerr, 
+    NVS::Creds &creds, const char* mdnsName) : 
 
-    NetMain(msglogerr), creds(creds) {
+    NetMain(msglogerr, mdnsName), creds(creds) {
 
         memset(this->ssid, 0, sizeof(this->ssid));
         memset(this->pass, 0, sizeof(this->pass));
@@ -61,6 +64,7 @@ NetSTA::NetSTA(Messaging::MsgLogHandler &msglogerr, NVS::Creds &creds) :
 wifi_ret_t NetSTA::start_wifi() {
 
     if (!NetMain::flags.handlerReg) {
+        
         esp_err_t handler = esp_event_handler_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent, NULL);
 
@@ -79,6 +83,7 @@ wifi_ret_t NetSTA::start_wifi() {
     } 
 
     if (!NetMain::flags.wifiModeSet) {
+        
         esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_STA);
 
         if (wifi_mode == ESP_OK) {
@@ -91,6 +96,7 @@ wifi_ret_t NetSTA::start_wifi() {
     }
 
     if (!NetMain::flags.wifiConfigSet) {
+        
         esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_STA, &this->wifi_config);
 
         if (wifi_cfg == ESP_OK) {
@@ -103,6 +109,7 @@ wifi_ret_t NetSTA::start_wifi() {
     }
 
     if (!NetMain::flags.wifiOn) {
+        
         esp_err_t wifi_start = esp_wifi_start();
 
         if (wifi_start == ESP_OK) {
@@ -115,6 +122,7 @@ wifi_ret_t NetSTA::start_wifi() {
     }
 
     if (!NetMain::flags.wifiConnected) {
+        
         esp_err_t wifi_con = esp_wifi_connect();
 
         if (wifi_con == ESP_OK) {
@@ -129,28 +137,31 @@ wifi_ret_t NetSTA::start_wifi() {
     return wifi_ret_t::WIFI_OK;
 }
 
-// Third and last step in the init process. 
+// Third step of init process.
 // Once the wifi connection is established, starts the httpd
 // server and registers the Universal Resource Identifiers
 // (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetSTA::start_server() {
 
     if (!NetMain::flags.httpdOn) {
-        esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::server_config);
+        
+        esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::http_config);
 
         if (httpd == ESP_OK) {
-            NetMain::flags.httpdOn = true;
+                NetMain::flags.httpdOn = true;
         } else {
-            this->sendErr("HTTPD not started", errDisp::ALL);
+            this->sendErr("HTTP not started", errDisp::ALL);
             this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
 
     if (!NetMain::flags.uriReg) {
+        
         esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &STAIndex);
+        esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &OTAUpdate);
 
-        if (reg1 == ESP_OK) {
+        if (reg1 == ESP_OK && reg2 == ESP_OK) {
                 NetMain::flags.uriReg = true;
         } else {
             this->sendErr("STA URI's unregistered", errDisp::ALL);
@@ -168,7 +179,17 @@ wifi_ret_t NetSTA::start_server() {
 // init sequence. Returns DESTROY_FAIL or DESTROY_OK.
 wifi_ret_t NetSTA::destroy() {
 
+    if (NetMain::flags.mdnsInit) {
+        
+        mdns_free();
+        NetMain::flags.mdnsInit = false;
+        NetMain::flags.mdnsHostSet = false;
+        NetMain::flags.mdnsInstanceSet = false;
+        NetMain::flags.mdnsServiceAdded = false;
+    }
+
     if (NetMain::flags.httpdOn) {
+        
         esp_err_t httpd = httpd_stop(NetMain::server);
 
         if (httpd == ESP_OK) {
@@ -182,6 +203,7 @@ wifi_ret_t NetSTA::destroy() {
     }
 
     if (NetMain::flags.wifiOn) {
+        
         esp_err_t wifi_stop = esp_wifi_stop();
 
         if (wifi_stop == ESP_OK) {
@@ -196,6 +218,7 @@ wifi_ret_t NetSTA::destroy() {
     }
 
     if (NetMain::flags.wifiConnected) {
+        
         esp_err_t wifi_con = esp_wifi_disconnect();
 
         if (wifi_con == ESP_OK || wifi_con == ESP_ERR_WIFI_NOT_STARTED) {
@@ -208,11 +231,13 @@ wifi_ret_t NetSTA::destroy() {
     }
 
     if (NetMain::flags.handlerReg) {
+        
         esp_err_t event = esp_event_handler_unregister(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent);
 
         if (event == ESP_OK) {
             NetMain::flags.handlerReg = false;
+            
         } else {
             this->sendErr("Wifi handler not unregistered", errDisp::ALL);
             this->sendErr(esp_err_to_name(event), errDisp::SRL);
@@ -265,7 +290,7 @@ const char* NetSTA::getPhone() const {
 bool NetSTA::isActive() {
     wifi_ap_record_t sta_info;
 
-    uint8_t flagRequirement = 11;
+    uint8_t flagRequirement = 15;
     uint8_t flagSuccess = 0;
 
     bool required[flagRequirement]{
@@ -274,7 +299,9 @@ bool NetSTA::isActive() {
         NetMain::flags.wifiModeSet, NetMain::flags.wifiConfigSet,
         NetMain::flags.wifiOn, NetMain::flags.httpdOn,
         NetMain::flags.uriReg, NetMain::flags.handlerReg,
-        NetMain::flags.wifiConnected
+        NetMain::flags.wifiConnected, NetMain::flags.mdnsInit,
+        NetMain::flags.mdnsHostSet, NetMain::flags.mdnsInstanceSet,
+        NetMain::flags.mdnsServiceAdded
     };
 
     for (int i = 0; i < flagRequirement; i++) {
@@ -307,7 +334,22 @@ void NetSTA::getDetails(STAdetails &details) {
     }
 
     // IP
-    strcpy(details.ipaddr, NetSTA::IPADDR);
+    snprintf(
+        details.ipaddr, 
+        sizeof(details.ipaddr),
+        "http://%s", 
+        NetSTA::IPADDR
+        );
+
+    // MDNS
+    char hostname[static_cast<int>(IDXSIZE::MDNS)];
+    mdns_hostname_get(hostname);
+    snprintf(
+        details.mdns, 
+        sizeof(details.mdns), 
+        "http://%s.local", 
+        hostname
+        );
 
     // STATUS
     strcpy(details.status, status[this->isActive()]);

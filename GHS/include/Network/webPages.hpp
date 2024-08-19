@@ -130,10 +130,12 @@ const char WAPSetupPage[] = R"rawliteral(
         let submit = (inputID) => {
             const temp = document.getElementById(inputID);
             const status = document.getElementById("status");
+
+            let curURL = `${window.location.href}SubmitCreds`;
             
             if (validate(inputID)) {
                 temp.style.border = "2px solid black";
-                fetch("http://192.168.1.1/SubmitCreds", {
+                fetch(curURL, {
                 method: "POST",
                 headers: {"Content-Type" : "application/json"},
                 body: JSON.stringify({
@@ -155,6 +157,34 @@ const char WAPSetupPage[] = R"rawliteral(
             }
         }
     </script>
+</body>
+</html>
+)rawliteral";
+
+const char STApage[] = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Greenhouse Controls</title>
+    <style>
+
+    </style>
+</head>
+<body>
+    <button onclick="getOTA()">Get OTA</button>
+
+    <script>
+
+        let curURL = `${window.location.href}OTAUpdate`;
+
+        const getOTA = () => {
+            fetch(curURL);
+        }
+
+    </script>
+    
 </body>
 </html>
 )rawliteral";

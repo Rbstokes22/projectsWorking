@@ -12,7 +12,8 @@ namespace Comms {
 enum class wifi_ret_t { // wifi return type
     INIT_OK, INIT_FAIL, WIFI_OK, WIFI_FAIL,
     SERVER_OK, SERVER_FAIL, DESTROY_OK, DESTROY_FAIL,
-    CONFIG_OK, CONFIG_FAIL, DHCPS_OK, DHCPS_FAIL
+    CONFIG_OK, CONFIG_FAIL, DHCPS_OK, DHCPS_FAIL,
+    MDNS_OK, MDNS_FAIL
 };
 
 enum class HEAP_SIZE {
@@ -40,11 +41,22 @@ struct Flags {
     bool uriReg;
     bool handlerReg;
     bool wifiConnected;
+    bool mdnsInit;
+    bool mdnsHostSet;
+    bool mdnsInstanceSet;
+    bool mdnsServiceAdded;
+};
+
+struct spiffsInfo {
+    const char* dir;
+    char* buffer;
+    const char* err;
 };
 
 class NetMain {
     private:
-    
+    static uint8_t certRetries;
+
     protected:
     static httpd_handle_t server;
     Messaging::MsgLogHandler &msglogerr;
@@ -54,12 +66,14 @@ class NetMain {
     static esp_netif_t* sta_netif;
     static wifi_init_config_t init_config;
     wifi_config_t wifi_config;
-    static httpd_config_t server_config;
+    static httpd_config http_config;
+    char mdnsName[static_cast<int>(IDXSIZE::MDNS)];
 
     public:
-    NetMain(Messaging::MsgLogHandler &msglogerr);
+    NetMain(Messaging::MsgLogHandler &msglogerr, const char* mdnsName);
     virtual ~NetMain();
     wifi_ret_t init_wifi();
+    wifi_ret_t mDNS();
     virtual wifi_ret_t configure() = 0;
     virtual wifi_ret_t start_wifi() = 0;
     virtual wifi_ret_t start_server() = 0; 

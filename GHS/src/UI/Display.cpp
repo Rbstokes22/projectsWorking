@@ -37,8 +37,8 @@ void Display::printWAP(Comms::WAPdetails &details) {
     if (!this->displayOverride) {
         this->display.write("Broadcasting: ", UI_DRVR::TXTCMD::START);
         this->display.write(details.status, UI_DRVR::TXTCMD::END);
-        this->display.write("IP: ", UI_DRVR::TXTCMD::START);
-        this->display.write(details.ipaddr, UI_DRVR::TXTCMD::END);
+        this->display.write(details.ipaddr);
+        this->display.write(details.mdns);
         this->display.write(details.WAPtype);
         this->display.write("Free Mem: ", UI_DRVR::TXTCMD::START);
         this->display.write(details.heap, UI_DRVR::TXTCMD::END);
@@ -52,8 +52,8 @@ void Display::printSTA(Comms::STAdetails &details) {
     if (!this->displayOverride) {
         this->display.write("SSID/NETWORK: ");
         this->display.write(details.ssid);
-        this->display.write("IP: ", UI_DRVR::TXTCMD::START);
-        this->display.write(details.ipaddr, UI_DRVR::TXTCMD::END);
+        this->display.write(details.ipaddr);
+        this->display.write(details.mdns);
         this->display.write("Connected: ", UI_DRVR::TXTCMD::START);
         this->display.write(details.status, UI_DRVR::TXTCMD::END);
         this->display.write("Sig: ", UI_DRVR::TXTCMD::START);
@@ -65,7 +65,7 @@ void Display::printSTA(Comms::STAdetails &details) {
 }
 
 // Handles regular OTA updates status changes
-void Display::printUpdates(char* update) {
+void Display::printUpdates(const char* update) {
     if (this->displayOverride) {
         this->display.write(update);
         this->display.send();
@@ -73,7 +73,7 @@ void Display::printUpdates(char* update) {
 }
 
 // Handles the progress of the OTA update exclusively
-void Display::updateProgress(char* progress) {
+void Display::updateProgress(const char* progress) {
     if (this->displayOverride) {
         this->display.write("OTA PROGRESS:", UI_DRVR::TXTCMD::START);
         this->display.write(progress, UI_DRVR::TXTCMD::END);

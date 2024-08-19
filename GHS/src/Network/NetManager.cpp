@@ -123,7 +123,9 @@ void NetManager::startServer(NetMain &mode) {
     // embedded within these functions.
     if (mode.init_wifi() == wifi_ret_t::INIT_OK) {
         if (mode.start_wifi() == wifi_ret_t::WIFI_OK) {
-            mode.start_server();
+            if (mode.start_server() == wifi_ret_t::SERVER_OK) {
+                mode.mDNS();
+            }
         }
     }
 }
@@ -159,7 +161,7 @@ void NetManager::runningWifi(NetMain &mode) {
 // up any pieces that havent been initialized. If all fails after 10 
 // attempts, the current mode will be destroyed allowing do-over.
 void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
-
+    mode.sendErr("Reconnecting", errDisp::SRL);
     startServer(mode);
     attempt++;
 

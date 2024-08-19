@@ -16,7 +16,8 @@ enum class IDXSIZE {
     PASS = 64,
     PHONE = 15,
     NETCREDKEYQTY = 4,
-    IPADDR = 16
+    IPADDR = 16,
+    MDNS = 11
 };
 
 enum class KI {ssid, pass, phone, WAPpass}; // Key Index

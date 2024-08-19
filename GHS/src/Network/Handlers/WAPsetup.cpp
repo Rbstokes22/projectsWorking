@@ -9,9 +9,9 @@
 
 namespace Comms {
 
-NetSTA *station;
-NetWAP *wap;
-NVS::Creds *creds;
+NetSTA *station{nullptr};
+NetWAP *wap{nullptr};
+NVS::Creds *creds{nullptr};
 
 // This allows the network and NVS objects to be used within the handlers
 // to update credentials.
@@ -92,7 +92,12 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
         // Acts as a redundancy in the event the NVS fails. It will set
         // the correct data in the running system, to allow access to 
         // the station as well as allow WAP password changes.
-        if (cJSON_IsString(item) && item->valuestring != NULL) {
+        if (
+            cJSON_IsString(item) && 
+            item->valuestring != NULL && 
+            station != nullptr && 
+            wap != nullptr) {
+                
             if (strcmp(key, "ssid") == 0) {
                 station->setSSID(item->valuestring);
             } else if (strcmp(key, "pass") == 0) {

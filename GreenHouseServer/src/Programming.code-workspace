@@ -103,7 +103,8 @@
 			"syncstream": "cpp",
 			"netfwd": "cpp",
 			"*.ipp": "cpp",
-			"format": "cpp"
+			"format": "cpp",
+			"error.h": "c"
 		},
 		"arduino.commandPath": "",
 		"arduino.path": ""
