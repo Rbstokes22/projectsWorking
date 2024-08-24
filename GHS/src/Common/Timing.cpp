@@ -1,4 +1,5 @@
 #include "Common/Timing.hpp"
+#include <cstdint>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 

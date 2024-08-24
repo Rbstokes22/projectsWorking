@@ -1,5 +1,10 @@
 #include "UI/Display.hpp"
+#include <cstdint>
+#include "UI/IDisplay.hpp"
+#include <cstddef>
 #include "Drivers/SSD1306_Library.hpp"
+#include "Network/NetSTA.hpp"
+#include "Network/NetWAP.hpp"
 #include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

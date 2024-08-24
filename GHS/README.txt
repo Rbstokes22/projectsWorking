@@ -7,13 +7,20 @@ This provides a significant increase in flash memory. Ensure to include the
 
 board_build.partitions = partitions_custom.csv
 
-// OPENSSL
+// Digital signature of firmware.bin
 
-Create key
-openssl genrsa -out server.key 2048
+The buildData directory will store the keys in the keys directory, as 
+well as the crc32 program that will generate a signature based on the 
+firmware.bin file. Ensure you do not delete these keys, and you include
+the public key in the firmwareVal.cpp
 
-Create cert 
-openssl req -new -x509 -key server.key -out server.crt -days 365
+Build keys: run ./buildKeys.sh in the buildData directory. This will create 
+a private and public key that is stored in the buildData/keys directory.
+Run this if you want new keys or need keys.
+
+Build the data directory to upload to fs. Run from the root dir, 
+./buildData, and that will create a firmware.sig and firmwareCS.bin 
+that is the checksum of the signature used in spiffs storage. 
 
 // MDNS
 

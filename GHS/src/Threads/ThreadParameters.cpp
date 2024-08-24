@@ -1,5 +1,6 @@
 #include "Threads/ThreadParameters.hpp"
 #include <cstdint>
+#include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 
 namespace Threads {

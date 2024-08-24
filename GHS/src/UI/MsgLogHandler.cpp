@@ -1,5 +1,6 @@
 #include "UI/MsgLogHandler.hpp"
 #include <cstdint>
+#include "UI/IDisplay.hpp"
 #include "string.h"
 #include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"

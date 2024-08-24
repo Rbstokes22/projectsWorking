@@ -4,7 +4,7 @@
 #include "Network/NetWAP.hpp"
 #include "Network/NetCreds.hpp"
 #include "driver/gpio.h"
-#include "config.hpp"
+#include "Config/config.hpp"
 #include "UI/Display.hpp"
 
 namespace Comms {

@@ -9,9 +9,6 @@
 
 namespace OTA {
 
-// Used for development purposes only.
-#define LOCAL_SERVER "http://192.168.86.246:5555/"
-
 class OTAhandler {
     private:
     Comms::NetMain &station;
@@ -38,11 +35,12 @@ class OTAhandler {
         Messaging::MsgLogHandler &msglogerr);
     void update(const char* firmwareURL);
     void sendErr(const char* err);
+    void rollback();
 
     // LAN UPDATES
-    void writeOTA(esp_http_client_handle_t client, int contentLen);
-    void updateLAN();
-    bool checkLAN();
+    bool checkLAN(const char* firmwareURL);
+    void updateLAN(const char* firmwareURL);
+    bool writeOTA(esp_http_client_handle_t client, int contentLen);
 
     // WEB UPDATES
     void updateWEB(const char* firmwareURL);

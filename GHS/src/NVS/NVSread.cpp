@@ -1,4 +1,5 @@
 #include "NVS/NVS.hpp"
+#include "UI/MsgLogHandler.hpp"
 #include "nvs.h"
 #include "string.h"
 

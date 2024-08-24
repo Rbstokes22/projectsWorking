@@ -5,6 +5,10 @@ file(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_
 
 # Register the component with the source files and required dependencies
 idf_component_register(SRCS ${app_sources} 
-                       INCLUDE_DIRS "../../include/UI" # Header directory
-                    #    REQUIRES
+                       INCLUDE_DIRS 
+                           "../../include/UI" 
+                           "../../include/Drivers"
+                           "../../include/Network"
+                           "../../include/Common"
+                       REQUIRES freertos
                        )

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <cstdint>
 #include <cstddef>
-#include "config.hpp"
+#include "Config/config.hpp"
 #include "Drivers/fonts.hpp"
 #include "I2C/I2C.hpp"
 

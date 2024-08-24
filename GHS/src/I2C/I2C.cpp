@@ -1,6 +1,7 @@
 #include "I2C/I2C.hpp"
 #include <cstdint>
-#include <config.hpp>
+#include "Config/config.hpp"
+#include "driver/i2c_master.h"
 
 // Once error handling is implemeneted after OLED, use throughout here as well as info messges,
 // such as startup frequency, device connected, etc...

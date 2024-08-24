@@ -1,12 +1,12 @@
-// TO DO: OTA, PERIPH
-// For OTA set up a local server that serves the data for testing purposes.
+// TO DO: FIRMWARE CHECK, OTA FINISH, PERIPH
+// For the firmware, CS and files work in spiffs. Use public key and sig to validate firmware.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
-#include "config.hpp"
+#include "Config/config.hpp"
 #include "Drivers/SSD1306_Library.hpp"
 #include "UI/Display.hpp"
 #include "UI/MsgLogHandler.hpp"
@@ -19,12 +19,16 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetup.hpp"
 #include "Network/Handlers/STA.hpp"
-#include "esp_vfs.h"
 #include "OTA/OTAupdates.hpp"
+#include "Bootload/firmwareVal.hpp"
+#include "esp_spiffs.h"
+#include "esp_vfs.h"
 
 extern "C" {
     void app_main();
 }
+
+#define VERSION "1.0.0"
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -100,6 +104,9 @@ void setupAnalogPins() {
 }
 
 void app_main() {
+    // Boot::checkPartition(); // checks firmware
+    
+
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
@@ -112,6 +119,22 @@ void app_main() {
     }
 
     printf("NVS STATUS: %s\n", esp_err_to_name(nvsErr));
+
+    // Mount spiffs
+    esp_vfs_spiffs_conf_t spiffsConf = {
+        .base_path = "/spiffs",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
+    };
+
+    // Do no unregister for OTA update purposes.
+    esp_err_t spiffs = esp_vfs_spiffs_register(&spiffsConf);
+    if (spiffs != ESP_OK) {
+        printf("SPIFFS FAILED TO MOUNT");
+    }
+
+    Boot::checkPartition();
 
     // Passes objects to the WAPSetup handler to allow for use.
     Comms::setJSONObjects(station, wap, creds);

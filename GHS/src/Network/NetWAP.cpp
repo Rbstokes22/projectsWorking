@@ -1,8 +1,10 @@
+#include "Network/NetMain.hpp"
 #include "Network/NetWAP.hpp"
+#include "esp_wifi.h"
+#include <cstdint>
 #include "Network/Routes.hpp"
 #include "string.h"
 #include "lwip/inet.h"
-#include "esp_wifi.h"
 #include "esp_http_server.h"
 #include "esp_event.h"
 #include "esp_netif.h"

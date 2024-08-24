@@ -1,5 +1,6 @@
 #include "Network/NetCreds.hpp"
 #include "NVS/NVS.hpp"
+#include "Network/NetConfig.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
 

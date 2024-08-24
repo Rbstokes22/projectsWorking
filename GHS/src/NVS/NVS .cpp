@@ -1,9 +1,7 @@
 #include "NVS/NVS.hpp"
-#include "nvs_flash.h"
-#include "nvs.h"
 #include "UI/MsgLogHandler.hpp"
-
-// PUT CHECKSUM IN ITS OWN CLASS TO AVOID DUPLICATION MAYBE
+#include "nvs.h"
+#include "nvs_flash.h"
 
 namespace NVS {
 

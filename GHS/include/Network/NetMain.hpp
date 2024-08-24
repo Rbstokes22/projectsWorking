@@ -1,7 +1,7 @@
 #ifndef NETMAIN_HPP
 #define NETMAIN_HPP
 
-#include "NetConfig.hpp"
+#include "Network/NetConfig.hpp"
 #include "esp_http_server.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"

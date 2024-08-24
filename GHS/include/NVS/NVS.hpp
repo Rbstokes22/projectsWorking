@@ -7,7 +7,6 @@
 #include "UI/MsgLogHandler.hpp"
 #include "nvs.h"
 
-
 namespace NVS {
 
 enum class data_t {

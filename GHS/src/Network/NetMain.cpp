@@ -1,9 +1,11 @@
 #include "Network/NetMain.hpp"
+#include "Network/NetConfig.hpp"
+#include "esp_http_server.h"
+#include "esp_netif.h"
 #include "esp_wifi.h"
+#include "UI/MsgLogHandler.hpp"
 #include <cstddef>
 #include "string.h"
-#include "esp_spiffs.h"
-#include "esp_vfs.h"
 #include "mdns.h"
 
 // FLAG METHOD and verbosity. Throughout the initialization sequence, 
