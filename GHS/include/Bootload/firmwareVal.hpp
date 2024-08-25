@@ -7,7 +7,11 @@ namespace Boot {
 
 enum class VAL {
     SIG_OK, SIG_OK_BU, SIG_FAIL, PARTITION_OK,
-    PARTITION_FAIL
+    PARTITION_FAIL, VALID, INVALID
+};
+
+enum class PART {
+    CURRENT, NEXT
 };
 
 extern const size_t FIRMWARE_SIZE;
@@ -24,7 +28,7 @@ size_t getSignature(uint8_t* signature, size_t size);
 VAL readPartition(const esp_partition_t* partition, uint8_t* hash);
 VAL verifySig(const uint8_t* firmwareHash, const uint8_t* signature, size_t signatureLen);
 VAL validateSig(const esp_partition_t* partition);
-void checkPartition();
+VAL checkPartition(PART type);
 
 }
 

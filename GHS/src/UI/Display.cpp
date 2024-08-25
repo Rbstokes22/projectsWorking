@@ -86,6 +86,13 @@ void Display::updateProgress(const char* progress) {
     }
 }
 
+// Used to handle if the boot firmware is invalid. Will display error
+// message and not proceed.
+void Display::invalidFirmware() {
+    this->display.cleanWrite("CRITICAL: Corrupt Firmware");
+    this->display.send();
+}
+
 // If the max capacity of the OLED at size 1 (168) is going to be exceeded
 // by the next message, this removes the first message. This gets the starting
 // address of the 2nd error (start), and calculates the remaining data (end).

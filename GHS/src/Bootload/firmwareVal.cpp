@@ -13,7 +13,7 @@ namespace Boot {
 // !!! The firmware size must be entered correctly for an appropriate
 // hash value. This will be obtained by running buildData.sh from the 
 // root, and will walk you through the upload process.
-const size_t FIRMWARE_SIZE = 1108688;
+const size_t FIRMWARE_SIZE = 1108944;
 
 const char* pubKey = R"rawliteral(-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8D+FXkYt9VnNbFXYJ1zn
@@ -212,38 +212,35 @@ VAL validateSig(const esp_partition_t* partition) {
     return verifySig(hash, sig, sigLen);
 }
 
-void checkPartition() {
-    // const esp_partition_t* nextPart = esp_partition_find_first(
-    //     ESP_PARTITION_TYPE_APP, 
-    //     ESP_PARTITION_SUBTYPE_APP_OTA_0, 
-    //     NULL);
+// checks partition and compares it against the signature of the firmware.
+// Takes argument CURRENT or NEXT for the partition type, and returns 
+// VALID or INVALID.
+VAL checkPartition(PART type) {
+    VAL ret{VAL::INVALID};
 
-    const esp_partition_t* curPart = esp_ota_get_running_partition();
-    size_t curpartsize = curPart->size;
+    // All error handling handled in callbacks.
+    auto validate = [&ret](const esp_partition_t* part) {
+        if (part != NULL) {
+            if (validateSig(part) == VAL::SIG_OK) {
+                ret = VAL::VALID;
+            } 
+        } 
+    };
 
-    printf("Current part size: %zu\n", curpartsize);
+    if (type == PART::CURRENT) {
+        validate(esp_ota_get_running_partition());
 
-    if (curPart != NULL) {
-        if (validateSig(curPart) == VAL::SIG_OK) {
-            printf("valid\n");
-        } else {
-            printf("not valid\n");
-        }
+    } else if (type == PART::NEXT) {
+        validate(esp_partition_find_first(
+            ESP_PARTITION_TYPE_APP, 
+            ESP_PARTITION_SUBTYPE_APP_OTA_0, 
+            NULL));
+
     } else {
-        printf("No current partition found\n");
+        printf("Must be a partition CURRENT or NEXT\n");
     }
 
-
-    // if (nextPart != NULL) {
-    //     if (validateFirmware(nextPart)) {
-    //         printf("valid\n");
-    //     } else {
-    //         printf("not valid\n");
-    //     }
-
-    // } else {
-    //     printf("No valid partition found\n");
-    // }
+    return ret;
 }
 
 }

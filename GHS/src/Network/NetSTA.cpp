@@ -164,8 +164,9 @@ wifi_ret_t NetSTA::start_server() {
         esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &STAIndex);
         esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &OTAUpdate);
         esp_err_t reg3 = httpd_register_uri_handler(NetMain::server, &OTARollback);
+        esp_err_t reg4 = httpd_register_uri_handler(NetMain::server, &checkOTA);
 
-        if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK) {
+        if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK && reg4 == ESP_OK) {
                 NetMain::flags.uriReg = true;
         } else {
             this->sendErr("STA URI's unregistered", errDisp::ALL);

@@ -8,6 +8,10 @@
 
 #define I2C_DEF_FRQ 400000
 
+namespace config { // used for OTA updates in handlers/sta.cpp
+    const char* FIRMWARE_VERSION = "1.0.0";
+}
+
 extern adc_channel_t pinMapA[2];
 extern gpio_num_t pinMapD[4];
 

@@ -30,6 +30,7 @@ class Display : public IDisplay {
 	void printSTA(Comms::STAdetails &details);
 	void printUpdates(const char* update);
 	void updateProgress(const char* progress);
+	void invalidFirmware();
 
 	// this is meant for errors or runtime messaging
 	void displayMsg(char* msg) override; // inherits from IDisplay

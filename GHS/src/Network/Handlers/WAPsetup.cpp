@@ -118,8 +118,11 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
                 strcpy(writtenKey, key); // No issue with sizing.
             } // remains NULL if write didnt work.
 
+            cJSON_Delete(item);
             break;
-        } 
+        } else {
+            cJSON_Delete(item);
+        }
     }
 
     // returns ESP_OK even if write didnt work. Error handling occurs in

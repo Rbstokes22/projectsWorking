@@ -9,5 +9,6 @@ idf_component_register(SRCS ${app_sources}
                             "../../include/Network/Handlers" 
                             "../../include/Network"
                             "../../include/OTA"
+                            "../../include/Config"
                        REQUIRES esp_http_server cJSON # required libraries
                        )

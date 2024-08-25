@@ -57,3 +57,20 @@ Not used. Tried to implement but there is no way to get around
 the self signed certificate, and a valid CA will not authorize 
 for a device used on a local network.
 
+// OTA
+
+The OTA will always try to update from the LAN first. This is only for 
+local updates for developing purposes. If the OTA server is running, it 
+will update, if not it will default to web.
+
+To update the OTA via LAN, ensure that the server OTAserver is running,
+and the OTA path is correct in the server.js. It will then print its 
+URL. You will then type in the address bar:
+greenhouse.local/OTAUpdate?url=<SERVER URL>. It will look something
+like this:
+http://greenhouse.local/OTAUpdate?url=http://192.168.86.246:5555
+The update will then commence
+
+To update via Webpage, ...
+
+

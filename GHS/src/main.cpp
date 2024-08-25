@@ -1,5 +1,9 @@
 // TO DO: FIRMWARE CHECK, OTA FINISH, PERIPH
-// For the firmware, CS and files work in spiffs. Use public key and sig to validate firmware.
+// Firmware check works for current version. Finish building server for OTA updates,
+// and check for downloaded partition. Currently working server and webpage. WOrking
+// on checking the current version of firmware, and comparing it to the avaialbe on 
+// STA.cpp. Finish that, and send the json urls back to the webpage to process the 
+// download.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -28,7 +32,8 @@ extern "C" {
     void app_main();
 }
 
-#define VERSION "1.0.0"
+// If set to true, will bypass firmware validation process in the startup.
+bool bypassValidation = true;
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -104,9 +109,6 @@ void setupAnalogPins() {
 }
 
 void app_main() {
-    // Boot::checkPartition(); // checks firmware
-    
-
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
@@ -128,13 +130,23 @@ void app_main() {
         .format_if_mount_failed = true
     };
 
-    // Do no unregister for OTA update purposes.
+    // Do not unregister for OTA update purposes.
     esp_err_t spiffs = esp_vfs_spiffs_register(&spiffsConf);
     if (spiffs != ESP_OK) {
         printf("SPIFFS FAILED TO MOUNT");
     }
 
-    Boot::checkPartition();
+    // Checks partition upon boot to ensure that it is valid by matching
+    // the signature with the firmware running. If invalid, the program
+    // will not continue.
+    if (bypassValidation == false) {
+        Boot::VAL err = Boot::checkPartition(Boot::PART::CURRENT);
+
+        if (err != Boot::VAL::VALID) {
+        OLED.invalidFirmware();
+        return;
+        }
+    } 
 
     // Passes objects to the WAPSetup handler to allow for use.
     Comms::setJSONObjects(station, wap, creds);

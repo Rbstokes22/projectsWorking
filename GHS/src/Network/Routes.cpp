@@ -51,4 +51,11 @@ httpd_uri_t OTARollback = {
     .user_ctx  = NULL
 };
 
+httpd_uri_t checkOTA = {
+    .uri       = "/OTAcheck",
+    .method    = HTTP_GET,
+    .handler   = checkOTAHandler,
+    .user_ctx  = NULL
+};
+
 }
