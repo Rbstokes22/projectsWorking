@@ -1,9 +1,20 @@
-// TO DO: FIRMWARE CHECK, OTA FINISH, PERIPH
-// Firmware check works for current version. Finish building server for OTA updates,
-// and check for downloaded partition. Currently working server and webpage. WOrking
-// on checking the current version of firmware, and comparing it to the avaialbe on 
-// STA.cpp. Finish that, and send the json urls back to the webpage to process the 
-// download.
+// TO DO:
+
+// 2. Get the certificate bundle to work on STAOTA.cpp
+// 3. Establish connection with ngrok server, and read the json data.
+// 4. Once data is read, configure OTA updates for web.
+// 5. Revisit the LAN update, maybe make a separate URI handler for that
+// and keep it separate from the web.
+// 6. Firmware check works for current partition upon boot. Reconfigure this 
+// to accept lengths as well, for the OTA partition length. This will verify
+// the hash against the signature. Once good, write the signature, signature 
+// checksum to spiffs and set the next boot partition.
+// 7. Establish the OTA rollback in the event of a bad partition.
+// 8. Build peripherals
+
+// Current Note:
+// Finally able to get esp_crt_bundle.h. Configure certs to ping server and 
+// get response to continue the build.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -72,7 +83,6 @@ void mainTask(void* parameter) {
         msglogerr.OLEDMessageCheck(); // clears errors from display
 
         vTaskDelay(params->delay / portTICK_PERIOD_MS);
-
     }
 }
 
@@ -156,7 +166,5 @@ void app_main() {
 
     // Start threads
     mainThread.initThread(mainTask, "MainLoop", 4096, &mainParams, 5);
-    
-
 }
 

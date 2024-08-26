@@ -169,20 +169,93 @@ const char STApage[] = R"rawliteral(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greenhouse Controls</title>
     <style>
+        .p1 {
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .sleekButton {
+            text-align: center;
+            background-color: red;
+            color: white;
+            border-radius: 5px;
+            font-weight: 700;
+        }
 
     </style>
 </head>
-<body>
-    <button onclick="getOTA()">Get OTA</button>
-
+<body onload="checkOTA()">
+    <p class="p1">Greenhouse Monitor</p>
+    <div id="otaUpd"></div>
+    
     <script>
 
-        let curURL = `${window.location.href}OTAUpdate`;
+        const checkOTA = () => {
+            const OTAURL = `${window.location.href}OTACheck`;
+            fetch(OTAURL)
+            .then(res => res.json())
+            .then(res => {
+                const version = res.version;
+                const noActionResp = ["Invalid JSON", "match"];
 
-        const getOTA = () => {
-            fetch(curURL);
+                if (noActionResp.indexOf(version) == -1) {
+                    const html = `
+                        New Firmware Available: 
+                        <button class="sleekButton" onclick="DLfirmware(
+                        '${res.signatureURL}', '${res.firmwareURL}', '${res.checksumURL}')">
+                            Version ${version}
+                        </button>
+                    `;
+
+                    document.getElementById("otaUpd").innerHTML = html;
+                }
+                console.log(version);
+
+            })
+            .catch(err => console.log(err));
         }
 
+        const DLfirmware = async function(sigURL, firURL, csURL) {
+            const SIG = `${window.location.href}OTAUpdate?url=${sigURL}`;
+            const FIR = `${window.location.href}OTAUpdate?url=${firURL}`;
+            const CS = `${window.location.href}OTAUpdate?url=${csURL}`;
+            // implement better error handling after testing.
+            // and display the failures on the screen potentially.
+            try {
+                let response = await fetch(SIG);
+                response = await response.text();
+                if (response === "OK") {
+                    console.log("OK");
+                } else {
+                    console.log("FAIL");
+                    return 0;
+                }
+
+                response = await fetch(CS);
+                response = await response.text();
+                if (response === "OK") {
+                    console.log("OK");
+                } else {
+                    console.log("FAIL");
+                    return 0;
+                }
+
+                response = await fetch(FIR);
+                response = await response.text();
+                if (response === "OK") {
+                    console.log("OK");
+                } else {
+                    console.log("FAIL");
+                    return 0;
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        // build local storage interval in here that will check ota 
+        // if time exceeds 24 hours, user interval to check it.
+        
     </script>
     
 </body>

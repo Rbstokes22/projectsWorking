@@ -33,7 +33,7 @@ class OTAhandler {
         UI::Display &OLED, 
         Comms::NetMain &station,
         Messaging::MsgLogHandler &msglogerr);
-    void update(const char* firmwareURL);
+    bool update(const char* firmwareURL);
     void sendErr(const char* err);
     void rollback();
 
@@ -43,7 +43,7 @@ class OTAhandler {
     bool writeOTA(esp_http_client_handle_t client, int contentLen);
 
     // WEB UPDATES
-    void updateWEB(const char* firmwareURL);
+    bool updateWEB(const char* firmwareURL);
 
 };
 

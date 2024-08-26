@@ -59,6 +59,10 @@ for a device used on a local network.
 
 // OTA
 
+Had to use the esp_crt_bundle.h that became available by enabling 
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE in the menuconfig. This is required 
+for http clients when pinging an https server to validate server cert.
+
 The OTA will always try to update from the LAN first. This is only for 
 local updates for developing purposes. If the OTA server is running, it 
 will update, if not it will default to web.

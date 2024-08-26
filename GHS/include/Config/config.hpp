@@ -7,10 +7,8 @@
 #include "esp_adc/adc_continuous.h"
 
 #define I2C_DEF_FRQ 400000
-
-namespace config { // used for OTA updates in handlers/sta.cpp
-    const char* FIRMWARE_VERSION = "1.0.0";
-}
+#define FIRMWARE_VERSION "1.0.0"
+#define WEBURL "https://bbc6-98-166-216-206.ngrok-free.app"
 
 extern adc_channel_t pinMapA[2];
 extern gpio_num_t pinMapD[4];

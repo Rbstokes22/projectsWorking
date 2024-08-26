@@ -73,12 +73,8 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
     
     if (json == NULL) {
 
-        if (httpd_resp_send_err(
-            req, 
-            HTTPD_400_BAD_REQUEST, 
-            "Invalid JSON") != ESP_OK) {
-
-            wap->sendErr("Error sending response", errDisp::SRL);
+        if (httpd_resp_sendstr(req, "{\"status\": \"Invalid JSON\"}") != ESP_OK) {
+            wap->sendErr("Invalid JSON response", errDisp::SRL);
         }
 
         cJSON_Delete(json);
@@ -139,12 +135,12 @@ esp_err_t respondJSON(httpd_req_t* req, char* writtenKey) {
     cJSON* response = cJSON_CreateObject();
 
     char respStr[35] = "Not Accepted"; // Default.
-    bool markForDest{false};
+    bool markForDest{false}; // destruction flag
 
     // If the WAPpass is changed, this will trigger a destruction and 
     // re-initialization of the connection with the new password. The
     // exact respStr is what the webpage is expecting. Do not change 
-    // without changing the webpage expected value.
+    // without changing the webpage expected value/string.
     if (strcmp(writtenKey, "WAPpass") == 0) {
         strcpy(respStr, "Accepted, Reconnect to WiFi");
         markForDest = true;

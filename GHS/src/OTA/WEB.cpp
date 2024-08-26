@@ -86,8 +86,11 @@ void OTAhandler::unregisterHandler() {
     }
 }
 
-void OTAhandler::updateWEB(const char* firmwareURL) {
+bool OTAhandler::updateWEB(const char* firmwareURL) {
+    // differentiatiate here between sig, firm, and cs
     printf("CALLED UPDATE WEB\n");
+    return true; // If good This will allow the next update to occur
+
 }
 
 }
