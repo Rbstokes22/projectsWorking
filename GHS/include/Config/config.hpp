@@ -8,7 +8,7 @@
 
 #define I2C_DEF_FRQ 400000
 #define FIRMWARE_VERSION "1.0.0"
-#define WEBURL "https://bbc6-98-166-216-206.ngrok-free.app"
+#define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
 
 extern adc_channel_t pinMapA[2];
 extern gpio_num_t pinMapD[4];

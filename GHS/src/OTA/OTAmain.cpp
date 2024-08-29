@@ -32,18 +32,23 @@ OTAhandler::OTAhandler(
         OTAhandler::OLED = &OLED; 
     }
 
-// Takes in the firmwareURL passed by the query string in the server. 
-// Checks if the LAN is actively serving, and if not will default
-// to the web.
-bool OTAhandler::update(const char* firmwareURL) {
-    // Check LAN first
-    if (this->checkLAN(firmwareURL)) {
-        this->updateLAN(firmwareURL);
-    } else {
+// NOTES
+bool OTAhandler::update(const char* firmwareURL, bool isLAN) {
+
+    switch(isLAN) {
+        case true:
+        if (this->checkLAN(firmwareURL)) {
+            this->updateLAN(firmwareURL);
+            return true;
+        }
+        break;
+
+        case false:
         if (this->updateWEB(firmwareURL)) {
             return true;
         }
     }
+
     return false;
 }
 

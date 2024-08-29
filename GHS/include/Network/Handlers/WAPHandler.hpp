@@ -1,5 +1,5 @@
-#ifndef WAP_HPP
-#define WAP_HPP
+#ifndef WAPHANDLER_HPP
+#define WAPHANDLER_HPP
 
 #include "esp_http_server.h"
 
@@ -9,4 +9,4 @@ esp_err_t WAPIndexHandler(httpd_req_t *req);
 
 }
 
-#endif // WAP_HPP
+#endif // WAPHANDLER_HPP

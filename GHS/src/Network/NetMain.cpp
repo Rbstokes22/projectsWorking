@@ -39,6 +39,9 @@ NetMain::NetMain(Messaging::MsgLogHandler &msglogerr, const char* mdnsName) :
 
         strncpy(this->mdnsName, mdnsName, mdnsLen - 1);
         this->mdnsName[mdnsLen - 1] = '\0';
+
+        // used for https client due to large size.
+        NetMain::http_config.stack_size = 8192; 
     }
 
 NetMain::~NetMain() {}

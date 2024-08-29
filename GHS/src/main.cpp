@@ -1,20 +1,34 @@
 // TO DO:
 
-// 2. Get the certificate bundle to work on STAOTA.cpp
-// 3. Establish connection with ngrok server, and read the json data.
+// 3. Rework the LAN to update spiffs and checksums.
 // 4. Once data is read, configure OTA updates for web.
-// 5. Revisit the LAN update, maybe make a separate URI handler for that
-// and keep it separate from the web.
+// 5. Rework the LAN update, maybe make a separate URI handler for that
+// and keep it separate from the web. Have a query code or something.
 // 6. Firmware check works for current partition upon boot. Reconfigure this 
 // to accept lengths as well, for the OTA partition length. This will verify
 // the hash against the signature. Once good, write the signature, signature 
-// checksum to spiffs and set the next boot partition.
-// 7. Establish the OTA rollback in the event of a bad partition.
+// checksum to spiffs and set the next boot partition. see below for partitions stuff.
+// 7. Establish the OTA rollback in the event of a bad partition. Use 
+// partition->label to ID the correct partitions against the partitiontable.csv.
+// Restructure the data, and its bash builders to have a sig and cs for each partiton
+// like /spiffs/app0/firmware.sig and /apiffs/app1/firmware.sig. When loading from non-ota,
+// Just write the same file to both. And the using OTA, it will overwrite with the
+// correct data.
 // 8. Build peripherals
 
 // Current Note:
-// Finally able to get esp_crt_bundle.h. Configure certs to ping server and 
-// get response to continue the build.
+// Everything is set up for both http and https connection. The connection to the https
+// server is working and this is receiving data. Work the LAN version first, maybe split
+// into more source files if required. Look at creating functions maybe on the OTAmain? 
+// What I want to do is create the same functions for both http and https: If update 
+// web is selected, it configs with https, if not, it does a regular client read on the LAN.
+// Create 3 individual functions, One for the signature, one for the checksum, and one for
+// the firmware. Once downloaded, run the validation check (see comment 6 about length). 
+// Once good, then switch the partition after writing to spiffs. 
+
+// PRE-production notes:
+// On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
+// settings apply to NGROK testing only. 
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,10 +46,10 @@
 #include "Network/NetManager.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
-#include "Network/Handlers/WAPsetup.hpp"
-#include "Network/Handlers/STA.hpp"
+#include "Network/Handlers/WAPsetupHandler.hpp"
+#include "Network/Handlers/STAHandler.hpp"
 #include "OTA/OTAupdates.hpp"
-#include "Bootload/firmwareVal.hpp"
+#include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 

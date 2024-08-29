@@ -10,6 +10,7 @@ extern httpd_uri_t WAPSubmitCreds;
 extern httpd_uri_t WAPIndex;
 extern httpd_uri_t STAIndex;
 extern httpd_uri_t OTAUpdate;
+extern httpd_uri_t OTAUpdateLAN;
 extern httpd_uri_t OTARollback;
 extern httpd_uri_t OTACheck;
 

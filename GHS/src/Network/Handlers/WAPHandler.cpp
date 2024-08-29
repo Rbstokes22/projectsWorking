@@ -1,4 +1,4 @@
-#include "Network/Handlers/WAP.hpp"
+#include "Network/Handlers/WAPHandler.hpp"
 #include "esp_http_server.h"
 #include "Network/webPages.hpp"
 

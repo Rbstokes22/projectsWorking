@@ -33,7 +33,13 @@ class OTAhandler {
         UI::Display &OLED, 
         Comms::NetMain &station,
         Messaging::MsgLogHandler &msglogerr);
-    bool update(const char* firmwareURL);
+    bool update(const char* firmwareURL, bool isLAN = false);
+
+    bool writeSignature();
+    bool writeFirmware();
+
+
+
     void sendErr(const char* err);
     void rollback();
 

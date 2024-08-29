@@ -1,8 +1,8 @@
 #include "Network/Routes.hpp"
 #include "esp_http_server.h"
-#include "Network/Handlers/WAPsetup.hpp"
-#include "Network/Handlers/WAP.hpp"
-#include "Network/Handlers/STA.hpp"
+#include "Network/Handlers/WAPsetupHandler.hpp"
+#include "Network/Handlers/WAPHandler.hpp"
+#include "Network/Handlers/STAHandler.hpp"
 
 namespace Comms {
 
@@ -41,6 +41,13 @@ httpd_uri_t OTAUpdate = {
     .uri       = "/OTAUpdate",
     .method    = HTTP_GET,
     .handler   = OTAUpdateHandler,
+    .user_ctx  = NULL
+};
+
+httpd_uri_t OTAUpdateLAN = {
+    .uri       = "/OTAUpdateLAN",
+    .method    = HTTP_GET,
+    .handler   = OTAUpdateLANHandler,
     .user_ctx  = NULL
 };
 

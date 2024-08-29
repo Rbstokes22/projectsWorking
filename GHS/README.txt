@@ -31,7 +31,7 @@ and deleted the rest. Updated the cmakelist to REQUIRE mdns and updated the
 c_cpp_properties.json to include the mdns path. This allowed me to include it 
 in the files.
 
-// SPIFFS (if used in the future)
+// SPIFFS used in OTA updates and firmware validation.
 
 ADD TO MAIN TO REGISTER
 
@@ -49,13 +49,14 @@ ADD TO MAIN TO REGISTER
 
 TO UNREGISTER
 
-esp_vfs_spiffs_unregister(NULL);
+esp_vfs_spiffs_unregister(NULL); Not unregistering in this program due to OTA.
 
 // HTTPS SERVER
 
 Not used. Tried to implement but there is no way to get around 
 the self signed certificate, and a valid CA will not authorize 
-for a device used on a local network.
+for a device used on a local network. Will use http since it is on
+the lan.
 
 // OTA
 

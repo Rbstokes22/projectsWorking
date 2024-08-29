@@ -1,5 +1,5 @@
-#ifndef WAPSETUP_HPP
-#define WAPSETUP_HPP
+#ifndef WAPSETUPHANDLER_HPP
+#define WAPSETUPHANDLER_HPP
 
 #include "esp_http_server.h"
 #include <cstddef>
@@ -19,4 +19,4 @@ esp_err_t WAPSubmitDataHandler(httpd_req_t* req);
 
 }
 
-#endif // WAPSETUP_HPP
+#endif // WAPSETUPHANDLER_HPP

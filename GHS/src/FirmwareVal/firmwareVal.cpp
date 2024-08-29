@@ -1,4 +1,4 @@
-#include "Bootload/firmwareVal.hpp"
+#include "FirmwareVal/firmwareVal.hpp"
 #include "esp_partition.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/pk.h"
@@ -225,7 +225,7 @@ VAL checkPartition(PART type) {
                 ret = VAL::VALID;
             } 
         } 
-    };
+    }; 
 
     if (type == PART::CURRENT) {
         validate(esp_ota_get_running_partition());

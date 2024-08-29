@@ -221,36 +221,39 @@ const char STApage[] = R"rawliteral(
             const CS = `${window.location.href}OTAUpdate?url=${csURL}`;
             // implement better error handling after testing.
             // and display the failures on the screen potentially.
-            try {
-                let response = await fetch(SIG);
-                response = await response.text();
-                if (response === "OK") {
-                    console.log("OK");
-                } else {
-                    console.log("FAIL");
-                    return 0;
-                }
+            console.log(SIG);
+            console.log(FIR);
+            console.log(CS);
+            // try {
+            //     let response = await fetch(SIG);
+            //     response = await response.text();
+            //     if (response === "OK") {
+            //         console.log("OK");
+            //     } else {
+            //         console.log("FAIL");
+            //         return 0;
+            //     }
 
-                response = await fetch(CS);
-                response = await response.text();
-                if (response === "OK") {
-                    console.log("OK");
-                } else {
-                    console.log("FAIL");
-                    return 0;
-                }
+            //     response = await fetch(CS);
+            //     response = await response.text();
+            //     if (response === "OK") {
+            //         console.log("OK");
+            //     } else {
+            //         console.log("FAIL");
+            //         return 0;
+            //     }
 
-                response = await fetch(FIR);
-                response = await response.text();
-                if (response === "OK") {
-                    console.log("OK");
-                } else {
-                    console.log("FAIL");
-                    return 0;
-                }
-            } catch (err) {
-                console.log(err);
-            }
+            //     response = await fetch(FIR);
+            //     response = await response.text();
+            //     if (response === "OK") {
+            //         console.log("OK");
+            //     } else {
+            //         console.log("FAIL");
+            //         return 0;
+            //     }
+            // } catch (err) {
+            //     console.log(err);
+            // }
         }
 
         // build local storage interval in here that will check ota 
