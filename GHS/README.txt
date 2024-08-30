@@ -14,13 +14,10 @@ well as the crc32 program that will generate a signature based on the
 firmware.bin file. Ensure you do not delete these keys, and you include
 the public key in the firmwareVal.cpp
 
-Build keys: run ./buildKeys.sh in the buildData directory. This will create 
-a private and public key that is stored in the buildData/keys directory.
-Run this if you want new keys or need keys.
-
 Build the data directory to upload to fs. Run from the root dir, 
-./buildData, and that will create a firmware.sig and firmwareCS.bin 
-that is the checksum of the signature used in spiffs storage. 
+./buildData, that will create keys if non-existant, as well as 
+two firmware signatures for each partition. Once everything is 
+built, it will flash everything to the esp32.
 
 // MDNS
 

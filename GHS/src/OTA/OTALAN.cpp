@@ -9,26 +9,7 @@
 
 namespace OTA {
 
-// Pings the index page of the local server to check if connected.
-// Returns true of false depending on connection.
-bool OTAhandler::checkLAN(const char* firmwareURL) {
-    esp_err_t err;
-    esp_http_client_config_t config = {
-        .url = firmwareURL
-    };
 
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
-        printf("Unable to open connection: %s\n", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
-        return false;
-    } else {
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return true;
-    }
-}
 
 // If the LAN is active for OTA updates using express server, 
 // connects to the server, requests the .bin file, writes to 

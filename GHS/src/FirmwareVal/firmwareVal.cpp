@@ -10,11 +10,8 @@
 
 namespace Boot {
 
-// !!! The firmware size must be entered correctly for an appropriate
-// hash value. This will be obtained by running buildData.sh from the 
-// root, and will walk you through the upload process.
-const size_t FIRMWARE_SIZE = 1108944;
-
+// This is generated using buildData/buildKeys.sh. The public key is 
+// copied into here.
 const char* pubKey = R"rawliteral(-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8D+FXkYt9VnNbFXYJ1zn
 0wi4ARgpA7n2aDrJxj44pK77zyPEjkYYrQ2d1uHegHaag4g4NGsGw5HxIo54Uwb7
@@ -25,7 +22,167 @@ gKIl1ssMaWQvgrJtnDoZWL+1jyatol0pnX9YrY0crbyGWSkDHH+PfOBkoiukVad5
 5wIDAQAB
 -----END PUBLIC KEY-----)rawliteral";
 
-bool CSsafe = false;
+bool CSsafe = false; // checksum safe flag.
+
+// checks partition and compares it against the signature of the firmware.
+// Takes argument CURRENT or NEXT for the partition type, and returns 
+// VALID or INVALID.
+VAL checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
+    VAL ret{VAL::INVALID};
+
+    // All error handling handled in callbacks.
+    auto validate = [&ret, FWsize, FWSigSize](const esp_partition_t* part) {
+        if (part != NULL) {
+            if (validateSig(part, FWsize, FWSigSize) == VAL::SIG_OK) {
+                ret = VAL::VALID;
+            } 
+        } 
+    }; 
+
+    if (type == PART::CURRENT) {
+        validate(esp_ota_get_running_partition());
+
+    } else if (type == PART::NEXT) {
+        validate(esp_partition_find_first(
+            ESP_PARTITION_TYPE_APP, 
+            ESP_PARTITION_SUBTYPE_APP_OTA_0, 
+            NULL));
+
+    } else {
+        printf("Must be a partition CURRENT or NEXT\n");
+    }
+
+    return ret;
+}
+
+// Validates the signature. Takes the partition, firmware size, and 
+// firmware signature size. Reads the partition to generate a hash,
+// Gets the firmware signature, and verifies the hash against the 
+// signature hash. Returns SIG_OK or SIG_FAIL.
+VAL validateSig(
+    const esp_partition_t* partition, 
+    size_t FWsize, 
+    size_t FWSigSize
+    ) {
+
+    uint8_t hash[32]{0};
+    uint8_t sig[FWSigSize - 4]{0}; // account for checksum Removal
+
+    char label[20]{0}; // Gets label name either app0 or app1
+    strcpy(label, partition->label);
+
+    if (partition == NULL) {
+        printf("Failed to allocate memory for partition data\n");
+        return VAL::SIG_FAIL;
+    }
+
+    // Reads the partition and generates the hash.
+    if (readPartition(partition, hash, FWsize) == VAL::PARTITION_FAIL) {
+        return VAL::SIG_FAIL;
+    }
+
+    // Get signature from spiffs.
+    size_t sigLen = getSignature(sig, sizeof(sig), label);
+    if (sigLen == 0) {
+        return VAL::SIG_FAIL;
+    }
+
+    // Verify signature hash against firmware hash.
+    return verifySig(hash, sig, sigLen);
+}
+
+// Reads the partition to generate a sha256 hash. Takes partition, hash array,
+// and firmware size. Returns PARTITION_OK or PARTITION_FAIL.
+VAL readPartition(
+    const esp_partition_t* partition, 
+    uint8_t* hash, 
+    size_t FWsize
+    ) { 
+
+    size_t chunkSize = 1024;
+    uint8_t buffer[chunkSize]{0};
+
+    // Init the SHA-256 context
+    mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
+
+    if (mbedtls_sha256_starts(&ctx, 0) != 0) {
+        printf("mbedtls failed to start\n");
+        return VAL::PARTITION_FAIL;
+    }
+
+    // Iterates through the firmware partition in chunks. Updates the sha256 hash
+    // as the iteration continues.
+    for (size_t offset = 0; offset < FWsize; offset += chunkSize) {
+        size_t toRead = (offset + chunkSize > FWsize) ? 
+            (FWsize - offset) : chunkSize;
+
+        esp_err_t err = esp_partition_read(partition, offset, buffer, toRead);
+
+        if (err != ESP_OK) {
+            printf("Failed to read partition: %s\n", esp_err_to_name(err));
+            mbedtls_sha256_free(&ctx);
+            return VAL::PARTITION_FAIL;
+        }
+
+        if (mbedtls_sha256_update(&ctx, buffer, toRead) != 0) {
+            printf("Error updating sha256\n");
+            return VAL::PARTITION_FAIL;
+        }
+    }
+
+    // Once complete finishes the hash.
+    if (mbedtls_sha256_finish(&ctx, hash) != 0) {
+        printf("Failed to finish sha256\n");
+        return VAL::PARTITION_FAIL;
+    }
+
+    mbedtls_sha256_free(&ctx);
+
+    return VAL::PARTITION_OK;
+}
+
+// Accepts uint8_t pointer that the signature will be copied to, as 
+// well as the size and partition label. Copies the spiffs file 
+// signature to the passed pointer and checks the integrity by
+// its appended crc32 value. Returns the size of the signature.
+size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
+    size_t bytesRead{0};
+    size_t sigLen{0};
+    uint8_t buffer[sigSize + 4]; // Account for checksum Addition
+    uint32_t storedCS{0};
+    char filepath[35]{0};
+
+    sprintf(filepath, "/spiffs/%sfirmware.sig", label); // either app0 or app1
+    printf("Reading filepath: %s\n", filepath); 
+
+    FILE* f = fopen(filepath, "rb");
+    if (f == NULL) {
+        printf("Unable to open file: %s\n", filepath);
+    }
+
+    // Reads the file into the buffer.
+    bytesRead = fread(buffer, 1, sizeof(buffer), f);
+    sigLen = bytesRead - 4; // Account for CS removal.
+    
+    // Copies the signature portion of the buffer to the signature, and
+    // the checksum portion to the storedCS value.
+    memcpy(signature, buffer, sigSize); // 256 bytes for the signature
+    memcpy(&storedCS, buffer + sigSize, sizeof(storedCS)); // 4 bytes for the CS
+    fclose(f);
+
+    // Computes the checksum of the signature.
+    uint32_t CS = computeCS(signature, sigLen);
+
+    // Proceeds if the checksum value is correct.
+    if (storedCS == CS && CSsafe) {
+        printf("Signature Checksum OK\n");
+        return sigLen;
+    } else {
+        printf("Signature Checksum FAIL\n");
+        return 0;
+    }
+}
 
 // Takes in a pointer to the unit8_t array, and its size in values,
 // and returns the uint32_t checksum. 
@@ -75,107 +232,24 @@ uint32_t computeCS(const uint8_t* data, size_t size) {
     }
 }
 
-// Accepts uint8_t pointer that the signature will be copied to, as 
-// well as the size. Copies the spiffs file signature to the passed
-// pointer. Checks integrity with a crc32 value, and returns SIG_OK
-// for the primary signature, SIG_OK_BU if the primary fails but the 
-// BU is ok, or SIG_FAIL if unable to verify signatures.
-size_t getSignature(uint8_t* signature, size_t size) {
-    size_t bytesRead{0};
-    size_t sigLen{0};
-    uint32_t storedCS{0};
-    uint8_t iteration{0}; // used to check if primary or BU
-    
-    Files files[] = {
-        {"/spiffs/firmware.sig", "/spiffs/firmwareCS.bin"},
-        {"/spiffs/firmwareBU.sig", "/spiffs/firmwareBUCS.bin"}
-    };
+// Takes the firmware hash, signature hash, and the signature length.
+// Verifies that the hashes match. Returns SIG_OK or SIG_FAIL.
+VAL verifySig(
+    const uint8_t* firmwareHash, 
+    const uint8_t* signature, 
+    size_t signatureLen
+    ) {
 
-    for (auto &file : files) {
-        FILE* f = fopen(file.dir, "rb");
-
-        if (f == NULL) {
-            printf("Unable to open file: %s\n", file.dir);
-        }
-
-        // The number 1 indicates you want to read byte by byte.
-        sigLen = bytesRead = fread(signature, 1, size, f);
-        uint32_t CS = computeCS(signature, bytesRead);
-
-        fclose(f);
-
-        f = fopen(file.CS, "rb");
-
-        if (f == NULL) {
-            printf("Unable to open CS file: %s\n", file.CS);
-        }
-
-        // The CSbufSize indicates items of size 4, or uint32_t size.
-        bytesRead = fread(&storedCS, sizeof(uint32_t), 1, f);
-        if (bytesRead != 1) {
-            printf("Failed to read checksum from file: %s\n", file.CS);
-        }
-
-        if (storedCS == CS && CSsafe) {
-            return sigLen;
-        } else {
-            iteration++;
-        }
-    }
-
-    return sigLen;
-}
-
-VAL readPartition(const esp_partition_t* partition, uint8_t* hash) { 
-    size_t chunkSize = 1024;
-    uint8_t buffer[chunkSize]{0};
-    size_t FW = FIRMWARE_SIZE;
-
-    // Init the SHA-256 context
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
-
-    if (mbedtls_sha256_starts(&ctx, 0) != 0) {
-        printf("mbedtls failed to start\n");
-        return VAL::PARTITION_FAIL;
-    }
-
-    for (size_t offset = 0; offset < FW; offset += chunkSize) {
-        size_t toRead = (offset + chunkSize > FW) ? (FW - offset) : chunkSize;
-        esp_err_t err = esp_partition_read(partition, offset, buffer, toRead);
-        if (err != ESP_OK) {
-            printf("Failed to read partition: %s\n", esp_err_to_name(err));
-            mbedtls_sha256_free(&ctx);
-            return VAL::PARTITION_FAIL;
-        }
-
-        if (mbedtls_sha256_update(&ctx, buffer, toRead) != 0) {
-            printf("Error updating sha256\n");
-            return VAL::PARTITION_FAIL;
-        }
-    }
-
-    if (mbedtls_sha256_finish(&ctx, hash) != 0) {
-        printf("Failed to finish sha256\n");
-        return VAL::PARTITION_FAIL;
-    }
-
-    mbedtls_sha256_free(&ctx);
-
-    return VAL::PARTITION_OK;
-}
-
-VAL verifySig(const uint8_t* firmwareHash, const uint8_t* signature, size_t signatureLen) {
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
 
-    // Load the public key
+    // Load the public key from this source file.
     if (mbedtls_pk_parse_public_key(&pk, (const unsigned char*)pubKey, strlen(pubKey) + 1) != 0) {
         printf("Failed to parse public key\n");
         return VAL::SIG_FAIL;
     }
 
-    // Verify the signature
+    // Verify the signature hash against the firmware hash.
     int ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, firmwareHash, 32, signature, signatureLen);
     
     mbedtls_pk_free(&pk); // Free the public key context
@@ -187,60 +261,6 @@ VAL verifySig(const uint8_t* firmwareHash, const uint8_t* signature, size_t sign
         printf("Signature is invalid. Error code: %d\n", ret);
         return VAL::SIG_FAIL; // Signature is invalid
     }
-}
-
-VAL validateSig(const esp_partition_t* partition) {
-    uint8_t hash[32]{0};
-    uint8_t sig[300]{0};
-
-    if (partition == NULL) {
-        printf("Failed to allocate memory for partition data\n");
-        return VAL::SIG_FAIL;
-    }
-
-    if (readPartition(partition, hash) == VAL::PARTITION_FAIL) {
-        return VAL::SIG_FAIL;
-    }
-
-    // Get signature
-    size_t sigLen = getSignature(sig, sizeof(sig));
-    if (sigLen == 0) {
-        return VAL::SIG_FAIL;
-    }
-
-    // Verify signature
-    return verifySig(hash, sig, sigLen);
-}
-
-// checks partition and compares it against the signature of the firmware.
-// Takes argument CURRENT or NEXT for the partition type, and returns 
-// VALID or INVALID.
-VAL checkPartition(PART type) {
-    VAL ret{VAL::INVALID};
-
-    // All error handling handled in callbacks.
-    auto validate = [&ret](const esp_partition_t* part) {
-        if (part != NULL) {
-            if (validateSig(part) == VAL::SIG_OK) {
-                ret = VAL::VALID;
-            } 
-        } 
-    }; 
-
-    if (type == PART::CURRENT) {
-        validate(esp_ota_get_running_partition());
-
-    } else if (type == PART::NEXT) {
-        validate(esp_partition_find_first(
-            ESP_PARTITION_TYPE_APP, 
-            ESP_PARTITION_SUBTYPE_APP_OTA_0, 
-            NULL));
-
-    } else {
-        printf("Must be a partition CURRENT or NEXT\n");
-    }
-
-    return ret;
 }
 
 }

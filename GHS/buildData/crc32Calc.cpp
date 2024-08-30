@@ -47,38 +47,11 @@ uint32_t ReadFile(const char* dir) {
     return CS;
 }
 
-void WriteFile(const char* dir, uint32_t CS) {
-    std::ofstream ofs(dir, std::ios::binary);
-
-    if (!ofs) {
-        std::cerr << "Failed to open file for writing: " << dir << std::endl;
-        return;
-    }
-    std::cout << CS << std::endl;
-
-    ofs.write(reinterpret_cast<const char*>(&CS), sizeof(CS));
-    ofs.close();
-    std::cout << "CS written to: " << dir << std::endl;
-}
-
 int main() {
     // INCLUDE absolute directories
-    const char* dirs[] = {
-        "/home/shadyside/Desktop/Programming/projects/GHS/data/firmware.sig",
-        "/home/shadyside/Desktop/Programming/projects/GHS/data/firmwareBU.sig"
-    };
-
-    const char* CSdirs[] = {
-        "/home/shadyside/Desktop/Programming/projects/GHS/data/firmwareCS.bin",
-        "/home/shadyside/Desktop/Programming/projects/GHS/data/firmwareBUCS.bin"
-    };
-
-    for (int i = 0; i < 2; i++) {
-        uint32_t CS = ReadFile(dirs[i]);
-        if (CS != 0) {
-            WriteFile(CSdirs[i], CS);
-        }
-    }
+    const char* dir = "/home/shadyside/Desktop/Programming/projects/GHS/data/app0firmware.sig";
+    uint32_t CS = ReadFile(dir);
+    std::cout.write(reinterpret_cast<const char*>(&CS), sizeof(CS));
 
     return 0;
 }

@@ -6,6 +6,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "UI/Display.hpp"
 #include "Network/NetMain.hpp"
+#include "esp_http_client.h"
 
 namespace OTA {
 
@@ -15,12 +16,15 @@ class OTAhandler {
     static UI::Display* OLED;
     Messaging::MsgLogHandler &msglogerr;
     bool isConnected();
+    esp_ota_handle_t OTAhandle;
+    esp_http_client_config_t config;
+    esp_http_client_handle_t client;
     
     // LAN UPDATES
-    esp_ota_handle_t LANhandle;
+    esp_ota_handle_t LANhandle; // DELETE
 
     // WEB UPDATES
-    esp_https_ota_handle_t WEBhandle;
+    esp_https_ota_handle_t WEBhandle; // Delete
     static void event_handler(
         void* arg, esp_event_base_t event_base,
         int32_t event_id, void* event_data);
@@ -34,9 +38,12 @@ class OTAhandler {
         Comms::NetMain &station,
         Messaging::MsgLogHandler &msglogerr);
     bool update(const char* firmwareURL, bool isLAN = false);
-
-    bool writeSignature();
-    bool writeFirmware();
+    bool checkLAN(const char* firmwareURL);
+    void updateLAN(const char* firmwareURL);
+    // Add a check WEB in as well
+    bool updateWEB(const char* firmwareURL);
+    bool writeSignature(const char* sigURL, const char* label); 
+    bool writeFirmware(const char* firmwareURL);
 
 
 
@@ -44,12 +51,11 @@ class OTAhandler {
     void rollback();
 
     // LAN UPDATES
-    bool checkLAN(const char* firmwareURL);
-    void updateLAN(const char* firmwareURL);
+    
     bool writeOTA(esp_http_client_handle_t client, int contentLen);
 
     // WEB UPDATES
-    bool updateWEB(const char* firmwareURL);
+    
 
 };
 

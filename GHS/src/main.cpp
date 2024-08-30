@@ -14,17 +14,16 @@
 // like /spiffs/app0/firmware.sig and /apiffs/app1/firmware.sig. When loading from non-ota,
 // Just write the same file to both. And the using OTA, it will overwrite with the
 // correct data.
-// 8. Build peripherals
+// 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 
 // Current Note:
 // Everything is set up for both http and https connection. The connection to the https
-// server is working and this is receiving data. Work the LAN version first, maybe split
-// into more source files if required. Look at creating functions maybe on the OTAmain? 
-// What I want to do is create the same functions for both http and https: If update 
-// web is selected, it configs with https, if not, it does a regular client read on the LAN.
-// Create 3 individual functions, One for the signature, one for the checksum, and one for
-// the firmware. Once downloaded, run the validation check (see comment 6 about length). 
-// Once good, then switch the partition after writing to spiffs. 
+// server is working and this is receiving data. Continue working the LAN piece. Just finished
+// the writeSignature portion, not tested yet. Finish up the writeFirmware portion tomorrow.
+// Implement a checkWeb that mirrors the check LAN, the webserver should have something to 
+// respond with an OK. Once done, separate the Web and LAN again, and test out a LAN OTA.
+// Once that checks out, build the web portion, and test that out. Once good, implement the
+// rollback on main.cpp, and then move on the the peripherals.
 
 // PRE-production notes:
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
@@ -59,6 +58,8 @@ extern "C" {
 
 // If set to true, will bypass firmware validation process in the startup.
 bool bypassValidation = true;
+const size_t FIRMWARE_SIZE = 1182624;
+const size_t FIRMWARE_SIG_SIZE = 260;
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -164,10 +165,15 @@ void app_main() {
     // the signature with the firmware running. If invalid, the program
     // will not continue.
     if (bypassValidation == false) {
-        Boot::VAL err = Boot::checkPartition(Boot::PART::CURRENT);
+        Boot::VAL err = Boot::checkPartition(
+            Boot::PART::CURRENT, 
+            FIRMWARE_SIZE, 
+            FIRMWARE_SIG_SIZE
+            );
 
         if (err != Boot::VAL::VALID) {
-        OLED.invalidFirmware();
+        OLED.invalidFirmware(); 
+        // ota.rollback(); // IMPLEMENT ROLLBACK HERE !!!!!!!!!!!!!!!!!!!!!!
         return;
         }
     } 
