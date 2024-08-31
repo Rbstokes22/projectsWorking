@@ -15,17 +15,18 @@ class Thread {
     private:
     TaskHandle_t taskHandle;
     Messaging::MsgLogHandler &msglogerr;
+    const char* name;
 
     public:
-    Thread(Messaging::MsgLogHandler &msglogerr);
+    Thread(Messaging::MsgLogHandler &msglogerr, const char* name);
     void initThread(
         void (*taskFunc)(void*), // task function
-        const char* name, // task name
         uint16_t stackSize, // stack size in words.
         void* parameters, // task input parameters
         UBaseType_t priority); // priority of task
     void suspendTask();
     void resumeTask();
+    TaskHandle_t getHandle();
     ~Thread();
 };
 

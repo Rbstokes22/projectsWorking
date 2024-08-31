@@ -2,40 +2,62 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "UI/MsgLogHandler.hpp"
+#include "string.h"
 
 namespace Threads {
 
-Thread::Thread(Messaging::MsgLogHandler &msglogerr) :
+Thread::Thread(Messaging::MsgLogHandler &msglogerr, const char* name) :
 
-    taskHandle{NULL}, msglogerr(msglogerr) {}
+    taskHandle{NULL}, msglogerr(msglogerr), name(name) {}
 
 void Thread::initThread(
     void (*taskFunc)(void*), 
-    const char* name, 
     uint16_t stackSize, 
     void* parameters, 
     UBaseType_t priority) {
 
-    xTaskCreate(
-        taskFunc, name, stackSize, parameters, 
+    BaseType_t taskCreate = xTaskCreate(
+        taskFunc, this->name, stackSize, parameters, 
         priority, &this->taskHandle
     );
+
+    if (taskCreate == pdPASS) {
+        printf("Task Handle: %p\n", this->taskHandle);
+    }
 }
 
 void Thread::suspendTask() { 
+    char msg[30]{0};
+    sprintf(msg, "%s suspended", this->name);
+
     msglogerr.handle(
         Messaging::Levels::INFO, 
-        "Thread suspended", 
-        Messaging::Method::SRL);
-    vTaskSuspend(this->taskHandle);
+        msg, 
+        Messaging::Method::SRL
+        );
+    
+    if (this->taskHandle != NULL) {
+        vTaskSuspend(this->taskHandle);
+    } else {
+        printf("Task Handle = NULL\n");
+    }
 }
 
 void Thread::resumeTask() {
+    char msg[30]{0};
+    sprintf(msg, "%s resumed", this->name);
+    
     msglogerr.handle(
         Messaging::Levels::INFO, 
-        "Thread resumed", 
-        Messaging::Method::SRL);
+        msg, 
+        Messaging::Method::SRL
+        );
+
     vTaskResume(this->taskHandle);
+}
+
+TaskHandle_t Thread::getHandle() {
+    return this->taskHandle;
 }
 
 Thread::~Thread() {

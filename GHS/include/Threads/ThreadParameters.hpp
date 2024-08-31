@@ -7,10 +7,16 @@
 
 namespace Threads {
 
-struct mainThreadParams {
+struct netThreadParams {
     uint32_t delay;
     Threads::Mutex mutex;
-    mainThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
+    netThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
+};
+
+struct periphThreadParams {
+    uint32_t delay;
+    Threads::Mutex mutex;
+    periphThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
 };
 
 }

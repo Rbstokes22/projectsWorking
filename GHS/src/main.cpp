@@ -1,5 +1,6 @@
 // TO DO:
 
+// 2. Get the thread suspend to work.
 // 3. Rework the LAN to update spiffs and checksums.
 // 4. Once data is read, configure OTA updates for web.
 // 5. Rework the LAN update, maybe make a separate URI handler for that
@@ -17,13 +18,13 @@
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 
 // Current Note:
-// Everything is set up for both http and https connection. The connection to the https
-// server is working and this is receiving data. Continue working the LAN piece. Just finished
-// the writeSignature portion, not tested yet. Finish up the writeFirmware portion tomorrow.
-// Implement a checkWeb that mirrors the check LAN, the webserver should have something to 
-// respond with an OK. Once done, separate the Web and LAN again, and test out a LAN OTA.
-// Once that checks out, build the web portion, and test that out. Once good, implement the
-// rollback on main.cpp, and then move on the the peripherals.
+// Working on the thread suspend. Use printf statements and isolate the suspend call. 
+// I think that the memory addresses might be different, play around with getHandle 
+// as well and make sure that matches. Even add print statements in the loop to ensure
+// the match. Right now it is crashing at suspend and i suspect that is the problem. Once
+// fixed and actually suspended, I think the LAN updates for OTA are good to go. Test them 
+// out and set the bypass to false to ensure they work. Once done, building the web should be 
+// easy and then test it out. 
 
 // PRE-production notes:
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
@@ -51,6 +52,7 @@
 #include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
+#include <cstddef>
 
 extern "C" {
     void app_main();
@@ -58,7 +60,7 @@ extern "C" {
 
 // If set to true, will bypass firmware validation process in the startup.
 bool bypassValidation = true;
-const size_t FIRMWARE_SIZE = 1182624;
+const size_t FIRMWARE_SIZE = 1184480;
 const size_t FIRMWARE_SIG_SIZE = 260;
 
 // ALL OBJECTS
@@ -75,15 +77,20 @@ Comms::NetSTA station(msglogerr, creds, mdnsName);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
 Comms::NetManager netManager(station, wap, creds, OLED);
 
-// ALL THREADS
-Threads::mainThreadParams mainParams(1000, msglogerr);
-Threads::Thread mainThread(msglogerr);
+// THREADS
+Threads::netThreadParams netParams(1000, msglogerr);
+Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
+
+Threads::periphThreadParams periphParams(1000, msglogerr);
+Threads::Thread periphThread(msglogerr, "PeriphThread");
 
 // OTA 
-OTA::OTAhandler ota(OLED, station, msglogerr);
+OTA::OTAhandler ota(OLED, station, msglogerr); 
 
-void mainTask(void* parameter) {
-    Threads::mainThreadParams* params = static_cast<Threads::mainThreadParams*>(parameter);
+void netTask(void* parameter) {
+    Threads::netThreadParams* params = 
+        static_cast<Threads::netThreadParams*>(parameter);
+
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
@@ -98,6 +105,20 @@ void mainTask(void* parameter) {
         msglogerr.OLEDMessageCheck(); // clears errors from display
 
         vTaskDelay(params->delay / portTICK_PERIOD_MS);
+    }
+}
+
+void periphTask(void* parameter) {
+    Threads::periphThreadParams* params = 
+        static_cast<Threads::periphThreadParams*>(parameter);
+
+    #define LOCK params->mutex.lock()
+    #define UNLOCK params->mutex.unlock();
+
+    while (true) {
+        
+       
+        vTaskDelay(params->delay / portTICK_PERIOD_MS); 
     }
 }
 
@@ -173,7 +194,7 @@ void app_main() {
 
         if (err != Boot::VAL::VALID) {
         OLED.invalidFirmware(); 
-        // ota.rollback(); // IMPLEMENT ROLLBACK HERE !!!!!!!!!!!!!!!!!!!!!!
+        // ota.rollback(); 
         return;
         }
     } 
@@ -185,6 +206,12 @@ void app_main() {
     Comms::setOTAObject(ota);
 
     // Start threads
-    mainThread.initThread(mainTask, "MainLoop", 4096, &mainParams, 5);
+    netThread.initThread(netTask, 4096, &netParams, 1);
+    periphThread.initThread(periphTask, 4096, &periphParams, 5);
+
+    // Threads array. This must be passed after initialization.
+    const size_t threadCt{1};
+    Threads::Thread toSuspend[threadCt] = {periphThread};
+    ota.passThreads(toSuspend, threadCt); 
 }
 

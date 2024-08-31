@@ -43,11 +43,8 @@ VAL checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
         validate(esp_ota_get_running_partition());
 
     } else if (type == PART::NEXT) {
-        validate(esp_partition_find_first(
-            ESP_PARTITION_TYPE_APP, 
-            ESP_PARTITION_SUBTYPE_APP_OTA_0, 
-            NULL));
-
+        validate(esp_ota_get_next_update_partition(NULL));
+        
     } else {
         printf("Must be a partition CURRENT or NEXT\n");
     }

@@ -8,7 +8,8 @@
 #include "string.h"
 #include "esp_crt_bundle.h"
 #include "esp_transport.h"
-
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace Comms {
 
@@ -48,9 +49,16 @@ esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
 
     // If the domain is in the white list, it will proceed with the OTA update.
     if (OTA != nullptr && whitelistCheck(URL)) {
-        if (OTA->update(URL, true) == true) {
+        if (OTA->update(URL, true) == OTA::OTA_RET::OTA_OK) {
             strcpy(response, "OK");
-            httpd_resp_send(req, response, strlen(response));
+
+            // Prevents the client from waiting for a response and making a 
+            // second request.
+            if (httpd_resp_send(req, response, strlen(response)) == ESP_OK) {
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms
+                esp_restart();
+            }
+
         } else {
             strcpy(response, "Did not update OTA");
             httpd_resp_send(req, response, strlen(response));
@@ -69,9 +77,15 @@ esp_err_t OTAUpdateHandler(httpd_req_t* req) {
 
     // If the domain is in the white list, it will proceed with the OTA update.
     if (OTA != nullptr && whitelistCheck(URL)) {
-        if (OTA->update(URL) == true) {
+        if (OTA->update(URL) == OTA::OTA_RET::OTA_OK) {
             strcpy(response, "OK");
-            httpd_resp_send(req, response, strlen(response));
+
+            // Prevents the client from waiting for a response and making a 
+            // second request.
+            if (httpd_resp_send(req, response, strlen(response)) == ESP_OK) {
+                esp_restart();
+            };
+
         } else {
             strcpy(response, "Did not update OTA");
             httpd_resp_send(req, response, strlen(response));

@@ -74,6 +74,8 @@ void Display::printUpdates(const char* update) {
     if (this->displayOverride) {
         this->display.write(update);
         this->display.send();
+        // Delays for readability
+        vTaskDelay(500 / portTICK_PERIOD_MS); 
     }
 }
 
