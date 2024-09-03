@@ -4,6 +4,8 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
+bool DEVmode = true; // false = in production
+
 adc_channel_t pinMapA[2]{
     ADC_CHANNEL_6, ADC_CHANNEL_7
 };

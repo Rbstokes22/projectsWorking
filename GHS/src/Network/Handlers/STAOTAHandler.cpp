@@ -19,6 +19,9 @@ void setOTAObject(OTA::OTAhandler &ota) {
     OTA = &ota;
 }
 
+// Extracts url data. Passed request, url object, and size of each
+// array. Parses query, and populate the url object firmware and 
+// signature url. Returns true or false.
 bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
 
     esp_err_t err;
@@ -49,6 +52,8 @@ bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
         return false;
     }
 
+    // Ensures the the firmware url is set. If > 0, it checks for a signature.
+    // If the sig exists, returns the result of the whitelistChecks.
     if (strlen(urlOb.firmware) > 0) {
         if (strlen(urlOb.signature) > 0) {
             return whitelistCheck(urlOb.firmware) && 
@@ -61,6 +66,11 @@ bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
     return false;
 }
 
+// Exclusive to OTA updates via LAN. The request is passed, and the 
+// query string will contain only url, not sigurl, so only firmware
+// url is used within the processing. Calls to update via OTA, and 
+// returns ESP_OK regardless of integrity, since errors are handled
+// via responses.
 esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
     OTA::URL LANurl;
   
@@ -81,7 +91,7 @@ esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
             // Prevents the client from waiting for a response and making a 
             // second request.
             if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
                 esp_restart();
             }
 
@@ -95,7 +105,10 @@ esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
     return ESP_OK;
 }
 
-// Used to download the OTA updates. 
+// Exclusive to OTA updates via web. The request is passed, and the 
+// query string contains both url and sigurl. Calls to update via
+// OTA, and returns ESP_OK regardless of integrity, since erros are 
+// handled via resposnes.
 esp_err_t OTAUpdateHandler(httpd_req_t* req) {
     OTA::URL WEBurl;
 
@@ -110,7 +123,7 @@ esp_err_t OTAUpdateHandler(httpd_req_t* req) {
             // Prevents the client from waiting for a response and making a 
             // second request.
             if (httpd_resp_sendstr(req, "OTA OK") == ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
                 esp_restart();
             }
 
@@ -122,13 +135,16 @@ esp_err_t OTAUpdateHandler(httpd_req_t* req) {
     return ESP_OK;
 }
 
-// This will be used to roll the OTA back to the previous version
+// This will be used to roll the OTA back to the previous version. Returns 
+// ESP_OK after accepting request.
 esp_err_t OTARollbackHandler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, "OK", strlen("OK"));
 
     if (OTA != nullptr) {
+        httpd_resp_sendstr(req, "ROLLBACK OK");
         OTA->rollback();
+    } else {
+        httpd_resp_sendstr(req, "ROLLBACK FAIL");
     }
 
     return ESP_OK;
@@ -138,7 +154,7 @@ esp_err_t OTARollbackHandler(httpd_req_t* req) {
 // Fills buffer with json data, and returns 
 // the parsed json object. Processes data to check firmware version.
 // If version is different than current version, responds with the 
-// json string from the https web server.
+// json string from the https web server. Returns ESP_OK or ESP_FAIL.
 esp_err_t OTACheckHandler(httpd_req_t* req) {
     char buffer[350]{0};
 
@@ -179,7 +195,7 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = NULL,
-        .skip_cert_common_name_check = true, // CHANGE TO FALSE FOR PRODUCTION
+        .skip_cert_common_name_check = DEVmode, // false for production
         .crt_bundle_attach = esp_crt_bundle_attach
     };
 
@@ -198,8 +214,9 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
         }
     };
 
-    // DELETE FOR PRODUCTION, USED IN NGROK ONLY TO SKIP PAGE.
-    esp_http_client_set_header(client, "ngrok-skip-browser-warning", "1");
+    if (DEVmode) { // used for development mode only.
+        esp_http_client_set_header(client, "ngrok-skip-browser-warning", "1");
+    }
 
     // Opens connection in order to begin reading.
     if ((err = esp_http_client_open(client, 0)) != ESP_OK) {

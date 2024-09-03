@@ -14,6 +14,8 @@
 #define FIRMWARE_SIZE 1183968
 #define FIRMWARE_SIG_SIZE 260
 
+extern bool DEVmode;
+
 extern adc_channel_t pinMapA[2];
 extern gpio_num_t pinMapD[4];
 

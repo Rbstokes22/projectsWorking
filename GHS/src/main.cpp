@@ -1,12 +1,5 @@
 // TO DO:
 
-// 4. Once data is read, configure OTA updates for web.
-// 5. Rework the LAN update, maybe make a separate URI handler for that
-// and keep it separate from the web. Have a query code or something.
-// 6. Firmware check works for current partition upon boot. Reconfigure this 
-// to accept lengths as well, for the OTA partition length. This will verify
-// the hash against the signature. Once good, write the signature, signature 
-// checksum to spiffs and set the next boot partition. see below for partitions stuff.
 // 7. Establish the OTA rollback in the event of a bad partition. Use 
 // partition->label to ID the correct partitions against the partitiontable.csv.
 // Restructure the data, and its bash builders to have a sig and cs for each partiton
@@ -14,13 +7,20 @@
 // Just write the same file to both. And the using OTA, it will overwrite with the
 // correct data.
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
+// 9. Once drivers are good, build everything and put them into threads. Also ensure that 
+// the webpage is being built the same time as the drivers, to get a rough idea of the layout.
+// Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// OTA works via LAN and WEB. Comment all files, and ensure that includes match. Once complete
-// Test one more time via WEB, ensure to put something indicating the test worked. Once good
-// start working the peripherals.
+// OTA works via LAN and WEB. Comment all files, and ensure that the "includes" match. Once complete
+// Test one more time via WEB, ensure to put something indicating the test worked and validate. Once good
+// start working the rollback features. Put a rollback option in the page html, as well as a 
+// rollback feature for firmware non-validation during boot. Explore this though, and ensure
+// the user knows the firmware did not update. Update the page too showing either a successful
+// OTA update or failed update.
 
 // PRE-production notes:
+// Change in config.cpp, devmode = false for production.
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
 // settings apply to NGROK testing only. Do the same for OTAupdates.cpp.
 
