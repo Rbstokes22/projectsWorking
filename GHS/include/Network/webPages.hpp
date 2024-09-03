@@ -163,6 +163,7 @@ const char WAPSetupPage[] = R"rawliteral(
 
 const char STApage[] = R"rawliteral(
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -202,7 +203,7 @@ const char STApage[] = R"rawliteral(
                     const html = `
                         New Firmware Available: 
                         <button class="sleekButton" onclick="DLfirmware(
-                        '${res.signatureURL}', '${res.firmwareURL}', '${res.checksumURL}')">
+                        '${res.signatureURL}', '${res.firmwareURL}')">
                             Version ${version}
                         </button>
                     `;
@@ -215,45 +216,23 @@ const char STApage[] = R"rawliteral(
             .catch(err => console.log(err));
         }
 
-        const DLfirmware = async function(sigURL, firURL, csURL) {
-            const SIG = `${window.location.href}OTAUpdate?url=${sigURL}`;
-            const FIR = `${window.location.href}OTAUpdate?url=${firURL}`;
-            const CS = `${window.location.href}OTAUpdate?url=${csURL}`;
+        const DLfirmware = (sigURL, firURL) => {
+            const URL = `${window.location.href}OTAUpdate?url=${firURL}&sigurl=${sigURL}`;
+
             // implement better error handling after testing.
             // and display the failures on the screen potentially.
-            console.log(SIG);
-            console.log(FIR);
-            console.log(CS);
-            // try {
-            //     let response = await fetch(SIG);
-            //     response = await response.text();
-            //     if (response === "OK") {
-            //         console.log("OK");
-            //     } else {
-            //         console.log("FAIL");
-            //         return 0;
-            //     }
+            console.log(URL);
 
-            //     response = await fetch(CS);
-            //     response = await response.text();
-            //     if (response === "OK") {
-            //         console.log("OK");
-            //     } else {
-            //         console.log("FAIL");
-            //         return 0;
-            //     }
-
-            //     response = await fetch(FIR);
-            //     response = await response.text();
-            //     if (response === "OK") {
-            //         console.log("OK");
-            //     } else {
-            //         console.log("FAIL");
-            //         return 0;
-            //     }
-            // } catch (err) {
-            //     console.log(err);
-            // }
+            fetch(URL)
+            .then(resp => resp.text())
+            .then(resp => {
+                if (resp === "OTA OK") {
+                    console.log("OTA SUCCESS");
+                } else {
+                    console.log("OTA FAIL");
+                }
+            })
+            .catch(err => console.err(err));
         }
 
         // build local storage interval in here that will check ota 

@@ -19,78 +19,105 @@ void setOTAObject(OTA::OTAhandler &ota) {
     OTA = &ota;
 }
 
-void extractURL(httpd_req_t* req, char* URL, size_t size) {
+bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
+
     esp_err_t err;
-    char response[30]{0};
-    char query[128]{0};
+    char query[URLSIZE * 2 + 50]{0}; // Leaves padding for query
 
     // Get the query string
     err = httpd_req_get_url_query_str(req, query, sizeof(query));
     if (err != ESP_OK) {
-        strcpy(response, "Failed to get query");
-        httpd_resp_send(req, response, strlen(response));
+        httpd_resp_sendstr(req, "Failed to get query");
+        return false;
     }
 
-    // parse the value
-    err = httpd_query_key_value(query, "url", URL, size);
-    if (err != ESP_OK) {
-        strcpy(response, "Failed to get URL");
-        httpd_resp_send(req, response, strlen(response));
+    // parse the value of the firmware url.
+    err = httpd_query_key_value(query, "url", urlOb.firmware, size);
+    urlOb.firmware[size] = '\0';
+
+    if (err != ESP_OK && strlen(urlOb.firmware) > 0) {
+        httpd_resp_sendstr(req, "Failed to get firmware URL");
+        return false;
     }
-    
-    URL[size] = '\0';
+
+    // parse the value of the signature url.
+    err = httpd_query_key_value(query, "sigurl", urlOb.signature, size); 
+    urlOb.signature[size] = '\0';
+
+    if (err != ESP_OK && strlen(urlOb.signature) > 0) {
+        httpd_resp_sendstr(req, "Failed to get signature URL");
+        return false;
+    }
+
+    if (strlen(urlOb.firmware) > 0) {
+        if (strlen(urlOb.signature) > 0) {
+            return whitelistCheck(urlOb.firmware) && 
+                   whitelistCheck(urlOb.signature);
+        } else {
+            return whitelistCheck(urlOb.firmware);
+        }
+    }
+
+    return false;
 }
 
 esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
-    char URL[128]{0};
-    char response[30]{0};
+    OTA::URL LANurl;
+  
     httpd_resp_set_type(req, "text/html");
-    extractURL(req, URL, sizeof(URL));
 
     // If the domain is in the white list, it will proceed with the OTA update.
-    if (OTA != nullptr && whitelistCheck(URL)) {
-        if (OTA->update(URL, true) == OTA::OTA_RET::OTA_OK) {
-            strcpy(response, "OK");
+    if (OTA != nullptr && extractURL(req, LANurl, URLSIZE)) {
+
+        // Sends the url IP only. This version only produces a firmware URL.
+        // Copes the fw url to the sig followed by a concat of the appropriate
+        // endpoints.
+        strcpy(LANurl.signature, LANurl.firmware);
+        strcat(LANurl.firmware, "/FWUpdate");
+        strcat(LANurl.signature, "/sigUpdate");
+
+        if (OTA->update(LANurl, true) == OTA::OTA_RET::OTA_OK) {
 
             // Prevents the client from waiting for a response and making a 
             // second request.
-            if (httpd_resp_send(req, response, strlen(response)) == ESP_OK) {
+            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
                 vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms
                 esp_restart();
             }
 
         } else {
-            strcpy(response, "Did not update OTA");
-            httpd_resp_send(req, response, strlen(response));
+            httpd_resp_sendstr(req, "OTA not updated");
         }
-    }
+    } 
+
+    httpd_resp_sendstr(req, "OTA not updated");
 
     return ESP_OK;
 }
 
-// Used to download the OTA updates. INCLUDE SIGNATURE AND CHECKSUM AS WELL !!!!!!!!!!
+// Used to download the OTA updates. 
 esp_err_t OTAUpdateHandler(httpd_req_t* req) {
-    char URL[128]{0};
-    char response[30]{0};
+    OTA::URL WEBurl;
+
     httpd_resp_set_type(req, "text/html");
-    extractURL(req, URL, sizeof(URL));
 
     // If the domain is in the white list, it will proceed with the OTA update.
-    if (OTA != nullptr && whitelistCheck(URL)) {
-        if (OTA->update(URL) == OTA::OTA_RET::OTA_OK) {
-            strcpy(response, "OK");
+    if (OTA != nullptr && extractURL(req, WEBurl, URLSIZE)) {
 
+        if (OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
+            
+            vTaskDelay(200);
             // Prevents the client from waiting for a response and making a 
             // second request.
-            if (httpd_resp_send(req, response, strlen(response)) == ESP_OK) {
+            if (httpd_resp_sendstr(req, "OTA OK") == ESP_OK) {
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms
                 esp_restart();
-            };
+            }
 
         } else {
-            strcpy(response, "Did not update OTA");
-            httpd_resp_send(req, response, strlen(response));
+            httpd_resp_sendstr(req, "OTA FAIL");
         }
-    }
+    } 
 
     return ESP_OK;
 }
@@ -277,8 +304,7 @@ bool whitelistCheck(const char* URL) {
     // Add all acceptable domains
     const char* whitelistDomains[] {
         "http://192.168", // Local IP address
-        "https://www.greenhouse.com", // Website
-        "https://major-absolutely-bluejay.ngrok-free.app" // NGROK STATIC 
+        WEBURL // Website from config.hpp
     };
 
     size_t numDomains = sizeof(whitelistDomains) / sizeof(whitelistDomains[0]);

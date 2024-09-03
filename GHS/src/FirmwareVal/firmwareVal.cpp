@@ -28,11 +28,15 @@ bool CSsafe = false; // checksum safe flag.
 // Takes argument CURRENT or NEXT for the partition type, and returns 
 // VALID or INVALID.
 VAL checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
+    
     VAL ret{VAL::INVALID};
+    printf("Checking partition sized %zu with a signature size %zu\n",
+        FWsize, FWSigSize);
 
     // All error handling handled in callbacks.
     auto validate = [&ret, FWsize, FWSigSize](const esp_partition_t* part) {
         if (part != NULL) {
+            printf("Validating partition label: %s\n", part->label);
             if (validateSig(part, FWsize, FWSigSize) == VAL::SIG_OK) {
                 ret = VAL::VALID;
             } 
@@ -145,7 +149,6 @@ VAL readPartition(
 // its appended crc32 value. Returns the size of the signature.
 size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
     size_t bytesRead{0};
-    size_t sigLen{0};
     uint8_t buffer[sigSize + 4]; // Account for checksum Addition
     uint32_t storedCS{0};
     char filepath[35]{0};
@@ -160,7 +163,7 @@ size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
 
     // Reads the file into the buffer.
     bytesRead = fread(buffer, 1, sizeof(buffer), f);
-    sigLen = bytesRead - 4; // Account for CS removal.
+    size_t sigLen = bytesRead - 4; // Account for CS removal.
     
     // Copies the signature portion of the buffer to the signature, and
     // the checksum portion to the storedCS value.
@@ -176,7 +179,9 @@ size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
         printf("Signature Checksum OK\n");
         return sigLen;
     } else {
-        printf("Signature Checksum FAIL\n");
+        printf("Signature Checksum FAIL. Exp: %zu, Act: %zu\n",
+            (size_t)storedCS, (size_t)CS);
+
         return 0;
     }
 }
@@ -189,6 +194,7 @@ uint32_t computeCS(const uint8_t* data, size_t size) {
     // sets the flag for bad data.
     if (data == nullptr || size == 0) {
         CSsafe = false; 
+        printf("Checksum invalid\n");
         return 0xFFFFFFFF;
 
     } else {

@@ -12,7 +12,7 @@ esp_err_t STAIndexHandler(httpd_req_t* req);
 
 // OTA specific, src file STAOTAHandler.cpp
 void setOTAObject(OTA::OTAhandler &ota);
-void extractURL(httpd_req_t* req, char* URL, size_t size);
+bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size);
 esp_err_t OTAUpdateLANHandler(httpd_req_t* req);
 esp_err_t OTAUpdateHandler(httpd_req_t* req);
 esp_err_t OTARollbackHandler(httpd_req_t* req);

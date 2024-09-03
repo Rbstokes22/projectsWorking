@@ -1,7 +1,5 @@
 // TO DO:
 
-// 2. Get the thread suspend to work.
-// 3. Rework the LAN to update spiffs and checksums.
 // 4. Once data is read, configure OTA updates for web.
 // 5. Rework the LAN update, maybe make a separate URI handler for that
 // and keep it separate from the web. Have a query code or something.
@@ -18,17 +16,13 @@
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 
 // Current Note:
-// Working on the thread suspend. Use printf statements and isolate the suspend call. 
-// I think that the memory addresses might be different, play around with getHandle 
-// as well and make sure that matches. Even add print statements in the loop to ensure
-// the match. Right now it is crashing at suspend and i suspect that is the problem. Once
-// fixed and actually suspended, I think the LAN updates for OTA are good to go. Test them 
-// out and set the bypass to false to ensure they work. Once done, building the web should be 
-// easy and then test it out. 
+// OTA works via LAN and WEB. Comment all files, and ensure that includes match. Once complete
+// Test one more time via WEB, ensure to put something indicating the test worked. Once good
+// start working the peripherals.
 
 // PRE-production notes:
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
-// settings apply to NGROK testing only. 
+// settings apply to NGROK testing only. Do the same for OTAupdates.cpp.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -60,8 +54,6 @@ extern "C" {
 
 // If set to true, will bypass firmware validation process in the startup.
 bool bypassValidation = true;
-const size_t FIRMWARE_SIZE = 1184480;
-const size_t FIRMWARE_SIG_SIZE = 260;
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -84,8 +76,11 @@ Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 Threads::periphThreadParams periphParams(1000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
+const size_t threadQty = 1;
+Threads::Thread* toSuspend[threadQty] = {&periphThread};
+
 // OTA 
-OTA::OTAhandler ota(OLED, station, msglogerr); 
+OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
 
 void netTask(void* parameter) {
     Threads::netThreadParams* params = 
@@ -117,7 +112,7 @@ void periphTask(void* parameter) {
 
     while (true) {
         
-       
+
         vTaskDelay(params->delay / portTICK_PERIOD_MS); 
     }
 }
@@ -208,10 +203,5 @@ void app_main() {
     // Start threads
     netThread.initThread(netTask, 4096, &netParams, 1);
     periphThread.initThread(periphTask, 4096, &periphParams, 5);
-
-    // Threads array. This must be passed after initialization.
-    const size_t threadCt{1};
-    Threads::Thread toSuspend[threadCt] = {periphThread};
-    ota.passThreads(toSuspend, threadCt); 
 }
 

@@ -22,7 +22,7 @@ void Thread::initThread(
     );
 
     if (taskCreate == pdPASS) {
-        printf("Task Handle: %p\n", this->taskHandle);
+        printf("Task Handle %s Created @ %p\n", this->name, this->taskHandle);
     }
 }
 
@@ -30,34 +30,28 @@ void Thread::suspendTask() {
     char msg[30]{0};
     sprintf(msg, "%s suspended", this->name);
 
-    msglogerr.handle(
+    if (this->taskHandle != NULL) {
+        vTaskSuspend(this->taskHandle);
+        msglogerr.handle(
         Messaging::Levels::INFO, 
         msg, 
         Messaging::Method::SRL
         );
-    
-    if (this->taskHandle != NULL) {
-        vTaskSuspend(this->taskHandle);
-    } else {
-        printf("Task Handle = NULL\n");
-    }
+    } 
 }
 
 void Thread::resumeTask() {
     char msg[30]{0};
     sprintf(msg, "%s resumed", this->name);
     
-    msglogerr.handle(
+    if (this->taskHandle != NULL) {
+        vTaskResume(this->taskHandle);
+        msglogerr.handle(
         Messaging::Levels::INFO, 
         msg, 
         Messaging::Method::SRL
         );
-
-    vTaskResume(this->taskHandle);
-}
-
-TaskHandle_t Thread::getHandle() {
-    return this->taskHandle;
+    }
 }
 
 Thread::~Thread() {

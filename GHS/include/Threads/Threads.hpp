@@ -26,7 +26,6 @@ class Thread {
         UBaseType_t priority); // priority of task
     void suspendTask();
     void resumeTask();
-    TaskHandle_t getHandle();
     ~Thread();
 };
 
