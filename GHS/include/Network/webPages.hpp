@@ -163,7 +163,6 @@ const char WAPSetupPage[] = R"rawliteral(
 
 const char STApage[] = R"rawliteral(
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -190,6 +189,7 @@ const char STApage[] = R"rawliteral(
     <div id="otaUpd"></div>
     
     <script>
+        const OTAdisp = document.getElementById("otaUpd");
 
         const checkOTA = () => {
             const OTAURL = `${window.location.href}OTACheck`;
@@ -208,7 +208,7 @@ const char STApage[] = R"rawliteral(
                         </button>
                     `;
 
-                    document.getElementById("otaUpd").innerHTML = html;
+                    OTAdisp.innerHTML = html;
                 }
                 console.log(version);
 
@@ -226,10 +226,21 @@ const char STApage[] = R"rawliteral(
             fetch(URL)
             .then(resp => resp.text())
             .then(resp => {
-                if (resp === "OTA OK") {
-                    console.log("OTA SUCCESS");
+                if (resp === "OK") {
+                    let secToReload = 10;
+                    let intervalID = setInterval(() => {
+                        OTAdisp.innerText = `Restarting in ${secToReload}`;
+                        secToReload--;
+                        if (secToReload < 1) {
+                            clearInterval(intervalID);
+                            window.location.reload();
+                        }
+                    }, 1000);
                 } else {
-                    console.log("OTA FAIL");
+                    OTAdisp.innerText = "Firmware Update Failed";
+                    setTimeout(() => {
+                        OTAdisp.innerText = "";
+                    }, 3000);
                 }
             })
             .catch(err => console.err(err));

@@ -9,9 +9,9 @@
 #define I2C_DEF_FRQ 400000
 
 // OTA Updates
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.4"
 #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
-#define FIRMWARE_SIZE 1183968
+#define FIRMWARE_SIZE 1184704
 #define FIRMWARE_SIG_SIZE 260
 
 extern bool DEVmode;

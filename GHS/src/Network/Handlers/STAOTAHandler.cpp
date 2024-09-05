@@ -119,10 +119,9 @@ esp_err_t OTAUpdateHandler(httpd_req_t* req) {
 
         if (OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
             
-            vTaskDelay(200);
             // Prevents the client from waiting for a response and making a 
             // second request.
-            if (httpd_resp_sendstr(req, "OTA OK") == ESP_OK) {
+            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
                 vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
                 esp_restart();
             }
@@ -141,10 +140,10 @@ esp_err_t OTARollbackHandler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html");
 
     if (OTA != nullptr) {
-        httpd_resp_sendstr(req, "ROLLBACK OK");
-        OTA->rollback();
+        httpd_resp_sendstr(req, "OK");
+        if (OTA->rollback()) esp_restart();
     } else {
-        httpd_resp_sendstr(req, "ROLLBACK FAIL");
+        httpd_resp_sendstr(req, "FAIL");
     }
 
     return ESP_OK;

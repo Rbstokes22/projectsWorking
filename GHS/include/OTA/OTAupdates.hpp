@@ -14,17 +14,10 @@ namespace OTA {
 
 #define URLSIZE 128 // Used for url query
 
-// CLEAN cleans http connection, CLOSE closes http connection
-// and CLEANS the connection. OTA closes OTA, CLOSES the http
-// connection, and CLEANS the connection.
-enum class CLOSE_TYPE {
-    CLEAN, CLOSE, OTA
-};
-
 enum class OTA_RET {
     OTA_OK, OTA_FAIL, LAN_CON, LAN_DISC,
     REQ_OK, REQ_FAIL, SIG_OK, SIG_FAIL, 
-    FW_OK, FW_FAIL, FW_OTA_START_FAIL
+    FW_OK, FW_FAIL
 };
 
 enum class THREAD {
@@ -37,8 +30,15 @@ struct URL {
     URL();
 };
 
+struct CloseFlags {
+    bool init;
+    bool conn;
+    bool ota;
+};
+
 class OTAhandler {
     private:
+    static CloseFlags flags;
     Comms::NetMain &station;
     static UI::Display* OLED;
     Messaging::MsgLogHandler &msglogerr;
@@ -49,7 +49,7 @@ class OTAhandler {
     esp_http_client_handle_t client;
     bool isConnected();
     int64_t openConnection();
-    bool close(CLOSE_TYPE type);
+    bool close();
     OTA_RET processReq(URL &url);
     OTA_RET writeSignature(const char* sigURL, const char* label); 
     OTA_RET writeFirmware(
@@ -72,7 +72,7 @@ class OTAhandler {
         bool isLAN = false
         );
 
-    void rollback();
+    bool rollback();
     void sendErr(const char* err);
     
 };

@@ -5,16 +5,18 @@
 #include "UI/Display.hpp"
 #include "Network/NetMain.hpp"
 #include "esp_http_client.h"
+#include "Threads/Threads.hpp"
+#include <cstddef>
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include "FirmwareVal/firmwareVal.hpp"
-#include <cstddef>
 #include "esp_crt_bundle.h"
 #include "esp_transport.h"
 #include "Config/config.hpp"
 
 namespace OTA {
 // Static setup
+CloseFlags OTAhandler::flags{false, false, false};
 
 UI::Display* OTAhandler::OLED = nullptr;
 
@@ -47,67 +49,55 @@ int64_t OTAhandler::openConnection() {
     // function has to be called.
     if (esp_http_client_open(this->client, 0) != ESP_OK) {
         this->sendErr("Unable to open connection");
-        this->close(CLOSE_TYPE::CLEAN);
+        this->close();
         return 0;
+    } else {
+        OTAhandler::flags.conn = true;
     }
 
     int64_t contentLength = esp_http_client_fetch_headers(client);
 
     if (contentLength <= 0) {
         this->sendErr("Invalid content length");
-        this->close(CLOSE_TYPE::CLOSE);
+        this->close();
         return 0;
     }
 
     return contentLength;
 }
 
-// Closes all connections. Takes type CLEAN, CLOSE, or OTA. CLEAN
-// cleans up client, CLOSE both closes and cleans client after opened,
-// and OTA, ends the OTA, closes, and cleans the client after opened.
-// Returns true or false if properly closed or not.
-bool OTAhandler::close(CLOSE_TYPE type) {
-    uint8_t errors{0};
+// Closes the appropriate connections that were previously opened. 
+// Checks the flag to see if open, if so, attempts a close and 
+// changes flag back to false. The checks are in linear order.
+// Returns true or false.
+bool OTAhandler::close() {
+    uint8_t closeErrors{0};
 
-    switch(type) {
-        case CLOSE_TYPE::CLEAN:
-        if (esp_http_client_cleanup(this->client) != ESP_OK) {
-            this->sendErr("Unable to cleanup client");
-            errors++;
-        }
-
-        break;
-
-        case CLOSE_TYPE::CLOSE:
-        if (esp_http_client_close(this->client) != ESP_OK) {
-            this->sendErr("Unable to close client");
-            errors++;
-        }
-
-        if (esp_http_client_cleanup(this->client) != ESP_OK) {
-            this->sendErr("Unable to cleanup client");
-            errors++;
-        }
-
-        break;
-
-        case CLOSE_TYPE::OTA:
-        if (esp_http_client_close(this->client) != ESP_OK) {
-            this->sendErr("Unable to close client");
-            errors++;
-        }
-
-        if (esp_http_client_cleanup(this->client) != ESP_OK) {
-            this->sendErr("Unable to cleanup client");
-            errors++;
-        }
-
+    if (OTAhandler::flags.ota) {
         if (esp_ota_end(this->OTAhandle) != ESP_OK) {
             this->sendErr("Unable to close OTA");
-            errors++;
+            closeErrors++;
+        } else {
+            OTAhandler::flags.ota = false;
         }
+    }
 
-        break;
+    if (OTAhandler::flags.conn && !OTAhandler::flags.ota) {
+        if (esp_http_client_close(this->client) != ESP_OK) {
+            this->sendErr("Unable to close client");
+            closeErrors++;
+        } else {
+            OTAhandler::flags.conn = false;
+        }
+    }
+
+    if (OTAhandler::flags.init && !OTAhandler::flags.conn) {
+        if (esp_http_client_cleanup(this->client) != ESP_OK) {
+            this->sendErr("Unable to cleanup client");
+            closeErrors++;
+        } else {
+            OTAhandler::flags.init = false;
+        }
     }
 
     // Allows typical OLEd function, once closed.
@@ -115,7 +105,7 @@ bool OTAhandler::close(CLOSE_TYPE type) {
         OLED->setOverrideStat(false);
     }
     
-    return (errors == 0);
+    return (closeErrors == 0);
 }
 
 // Processes the requests of the URL struct sent. Will receive both a firmware
@@ -146,41 +136,39 @@ OTA_RET OTAhandler::processReq(URL &url) {
     // config, init, and open http client
     this->config.url = url.signature;
     this->client = esp_http_client_init(&this->config);
+    OTAhandler::flags.init = true;
     contentLen = this->openConnection();
-    FW_SIZE = (size_t)contentLen;
+    SIG_SIZE = (size_t)contentLen;
 
     if (contentLen <= 0) return OTA_RET::REQ_FAIL;
 
     // Calls to write the signature. Closes 
     if (writeSignature(url.signature, label) == OTA_RET::SIG_FAIL) {
-        this->close(CLOSE_TYPE::CLOSE);
+        this->close();
         this->sendErr("Unable to write signature");
         return OTA_RET::REQ_FAIL;
     }
 
-    this->close(CLOSE_TYPE::CLOSE);
+    this->close();
 
     // config, init, and open http client
     this->config.url = url.firmware;
     this->client = esp_http_client_init(&this->config);
+    OTAhandler::flags.init = true;
     contentLen = this->openConnection();
     FW_SIZE = (size_t)contentLen;
 
     if (contentLen <= 0) return OTA_RET::REQ_FAIL;
 
     OTA_RET FW = writeFirmware(url.firmware, part, contentLen);
-    if (FW == OTA_RET::FW_OTA_START_FAIL) {
-        this->sendErr("Unable to begin OTA");
-        this->close(CLOSE_TYPE::CLOSE);
-        return OTA_RET::REQ_FAIL;
-
-    } else if (FW == OTA_RET::FW_FAIL) {
+   
+    if (FW == OTA_RET::FW_FAIL) {
         this->sendErr("Unable to write firmware");
-        this->close(CLOSE_TYPE::OTA);
+        this->close();
         return OTA_RET::REQ_FAIL;
     }
 
-    this->close(CLOSE_TYPE::OTA);
+    this->close();
 
     // Validate partition. If good, sets the next boot partition.
     Boot::VAL err = Boot::checkPartition(
@@ -190,7 +178,6 @@ OTA_RET OTAhandler::processReq(URL &url) {
         );
 
     if (err != Boot::VAL::VALID) {
-        this->close(CLOSE_TYPE::OTA);
         this->sendErr("OTA firmware invalid, will not set next partition");
         OLED->printUpdates("Firmware Sig Invalid");
         return OTA_RET::REQ_FAIL;
@@ -198,13 +185,11 @@ OTA_RET OTAhandler::processReq(URL &url) {
 
     if (esp_ota_set_boot_partition(part) == ESP_OK) {
         OLED->printUpdates("OTA Success, restarting");
-        printf("Signature valid, setting next partition");
-        this->close(CLOSE_TYPE::OTA);
+        printf("Signature valid, setting next partition\n");
         return OTA_RET::REQ_OK; 
 
     } else {
         OLED->printUpdates("OTA Fail");
-        this->close(CLOSE_TYPE::OTA);
         return OTA_RET::REQ_FAIL;
     }
 }
@@ -269,10 +254,13 @@ OTA_RET OTAhandler::writeFirmware(
 
     // Begins the OTA with the appropriate content length.
     err = esp_ota_begin(part, contentLen, &this->OTAhandle);
+
     if (err != ESP_OK) {
         this->sendErr("OTA did not begin");
-        return OTA_RET::FW_OTA_START_FAIL;
-    } 
+        return OTA_RET::FW_FAIL;
+    } else {
+        OTAhandler::flags.ota = true;
+    }
 
     if (part == NULL) {
         this->sendErr("No OTA partitition found");
@@ -397,16 +385,25 @@ OTA_RET OTAhandler::update(
 
 // Allows the client to rollback to a previous version if there
 // is a firmware issue.
-void OTAhandler::rollback() {
+bool OTAhandler::rollback() {
     const esp_partition_t* current = esp_ota_get_running_partition();
     const esp_partition_t* next = esp_ota_get_next_update_partition(NULL);
 
     // Other partition
     const esp_partition_t* other = 
-        (current->address == next->address) ? next : current;
-    
-    esp_ota_set_boot_partition(other);
-    esp_restart();
+        (current->address != next->address) ? next : current;
+
+    OLED->setOverrideStat(true); // Keep error displayed if no rollback
+
+    if (esp_ota_set_boot_partition(other) == ESP_OK) {
+        printf("Rolling back to partition %s\n", other->label);
+        OLED->printUpdates("Rolling back to previous firmware");
+        return true; // will prompt a restart
+    } else {
+        OLED->printUpdates("Unable to Roll back");
+        OLED->setOverrideStat(false);
+        return false;
+    }
 }
 
 // Primary error handler.

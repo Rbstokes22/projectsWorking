@@ -53,7 +53,7 @@ extern "C" {
 }
 
 // If set to true, will bypass firmware validation process in the startup.
-bool bypassValidation = true;
+bool bypassValidation = false;
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -73,7 +73,7 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 Threads::netThreadParams netParams(1000, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::periphThreadParams periphParams(1000, msglogerr);
+Threads::periphThreadParams periphParams(5000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
 const size_t threadQty = 1;
@@ -112,7 +112,6 @@ void periphTask(void* parameter) {
 
     while (true) {
         
-
         vTaskDelay(params->delay / portTICK_PERIOD_MS); 
     }
 }
@@ -189,7 +188,7 @@ void app_main() {
 
         if (err != Boot::VAL::VALID) {
         OLED.invalidFirmware(); 
-        // ota.rollback(); 
+        if (ota.rollback()) esp_restart(); 
         return;
         }
     } 
