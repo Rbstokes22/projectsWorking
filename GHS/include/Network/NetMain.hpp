@@ -47,15 +47,8 @@ struct Flags {
     bool mdnsServiceAdded;
 };
 
-struct spiffsInfo {
-    const char* dir;
-    char* buffer;
-    const char* err;
-};
-
 class NetMain {
     private:
-    static uint8_t certRetries;
 
     protected:
     static httpd_handle_t server;

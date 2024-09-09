@@ -55,7 +55,10 @@ void Thread::resumeTask() {
 }
 
 Thread::~Thread() {
-    vTaskDelete(this->taskHandle);
+    if (this->taskHandle != NULL) {
+        vTaskDelete(this->taskHandle);
+        printf("Task Handle %s Deleted @ %p\n", this->name, this->taskHandle);
+    }
 }
 
 

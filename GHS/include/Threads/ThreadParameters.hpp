@@ -19,6 +19,11 @@ struct periphThreadParams {
     periphThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
 };
 
+struct socketThreadParams {
+    Threads::Mutex mutex;
+    socketThreadParams(Messaging::MsgLogHandler &msglogerr);
+};
+
 }
 
 

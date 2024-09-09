@@ -17,4 +17,9 @@ periphThreadParams::periphThreadParams(
 
     delay(delay), mutex(msglogerr) {}
 
+socketThreadParams::socketThreadParams(
+    Messaging::MsgLogHandler &msglogerr) :
+
+    mutex(msglogerr) {}
+
 }

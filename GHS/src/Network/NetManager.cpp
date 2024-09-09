@@ -2,6 +2,7 @@
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
+#include "Network/Socket.hpp"
 #include "Network/NetCreds.hpp"
 #include "driver/gpio.h"
 #include "Config/config.hpp"
@@ -152,32 +153,39 @@ void NetManager::runningWifi(NetMain &mode) {
     // satisfied.
     if (!mode.isActive()) {
         reconnect(mode, reconAttempt);
+        skt.stop();
     } else {
+        skt.start();
         reconAttempt = 0;
     }
 }
 
 // If connection is inactive, will attempt to start the server, cleaning
-// up any pieces that havent been initialized. If all fails after 10 
+// up any pieces that havent been initialized. If all fails after 5 
 // attempts, the current mode will be destroyed allowing do-over.
 void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
     mode.sendErr("Reconnecting", errDisp::SRL);
     startServer(mode);
     attempt++;
 
-    if (attempt > 10) {
+    if (attempt > 5) {
         mode.destroy();
         attempt = 0;
     }
 }
 
-NetManager::NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED) :
+NetManager::NetManager(
+    NetSTA &station, 
+    NetWAP &wap, 
+    SocketServer &skt,
+    NVS::Creds &creds, 
+    UI::Display &OLED) :
 
-    station{station}, wap{wap}, creds(creds), OLED(OLED), isWifiInit(false) {}
+    station{station}, wap{wap}, skt{skt}, 
+    creds(creds), OLED(OLED), isWifiInit(false) {}
 
 void NetManager::handleNet() { 
     NetMode mode = this->checkNetSwitch();
-
     setNetType(mode);
 }
 

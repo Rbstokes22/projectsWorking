@@ -28,12 +28,12 @@ Mutex::Mutex(Messaging::MsgLogHandler &msglogerr) :
 }
 
 void Mutex::lock() {
-    printf("mutex locked");
+    printf("mutex locked"); // DELETE AFTER TESTING
     while (xSemaphoreTake(this->xMutex, portMAX_DELAY) != pdTRUE) {}
 }
 
 void Mutex::unlock() {
-    printf("mutex unlocked");
+    printf("mutex unlocked"); // DELETE AFTER TESTING
     xSemaphoreGive(this->xMutex);
 }
 

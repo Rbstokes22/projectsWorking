@@ -4,6 +4,7 @@
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
+#include "Network/Socket.hpp"
 #include "Network/NetCreds.hpp"
 #include "UI/Display.hpp"
 
@@ -13,6 +14,7 @@ class NetManager {
     private:
     NetSTA &station;
     NetWAP &wap;
+    SocketServer &skt;
     NVS::Creds &creds;
     UI::Display &OLED;
     bool isWifiInit;
@@ -24,7 +26,14 @@ class NetManager {
     void reconnect(NetMain &mode, uint8_t &attempt);
 
     public:
-    NetManager(NetSTA &station, NetWAP &wap, NVS::Creds &creds, UI::Display &OLED);
+    NetManager(
+        NetSTA &station, 
+        NetWAP &wap, 
+        SocketServer &skt,
+        NVS::Creds &creds, 
+        UI::Display &OLED
+        );
+
     void handleNet();
 };
 

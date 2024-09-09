@@ -20,7 +20,6 @@
 namespace Comms {
 
 // Static Setup
-uint8_t NetMain::certRetries{3};
 httpd_handle_t NetMain::server{NULL};
 NetMode NetMain::NetType{NetMode::NONE};
 Flags NetMain::flags{ // Ensures a linear flow of init process.

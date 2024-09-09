@@ -1,28 +1,22 @@
 // TO DO:
 
-// 7. Establish the OTA rollback in the event of a bad partition. Use 
-// partition->label to ID the correct partitions against the partitiontable.csv.
-// Restructure the data, and its bash builders to have a sig and cs for each partiton
-// like /spiffs/app0/firmware.sig and /apiffs/app1/firmware.sig. When loading from non-ota,
-// Just write the same file to both. And the using OTA, it will overwrite with the
-// correct data.
+// 7. Create web sockets.
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 // 9. Once drivers are good, build everything and put them into threads. Also ensure that 
 // the webpage is being built the same time as the drivers, to get a rough idea of the layout.
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// OTA works via LAN and WEB. Comment all files, and ensure that the "includes" match. Once complete
-// Test one more time via WEB, ensure to put something indicating the test worked and validate. Once good
-// start working the rollback features. Put a rollback option in the page html, as well as a 
-// rollback feature for firmware non-validation during boot. Explore this though, and ensure
-// the user knows the firmware did not update. Update the page too showing either a successful
-// OTA update or failed update.
+// Testing is still a failure. I did slow down the requests, but the handshake is not working.
+// continue working it, and if it will not work, switch to using http ws example and register
+// the uri /ws instead.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
-// settings apply to NGROK testing only. Do the same for OTAupdates.cpp.
+// settings apply to NGROK testing only. Do the same for OTAupdates.cpp. On Mutex.cpp, delete
+// the print statements from lock and unlock once all testing is done with peripherals and
+// everything, this is to ensure they work.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -42,6 +36,7 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetupHandler.hpp"
 #include "Network/Handlers/STAHandler.hpp"
+#include "Network/Socket.hpp"
 #include "OTA/OTAupdates.hpp"
 #include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
@@ -53,7 +48,7 @@ extern "C" {
 }
 
 // If set to true, will bypass firmware validation process in the startup.
-bool bypassValidation = false;
+bool bypassValidation = true;
 
 // ALL OBJECTS
 UI::Display OLED;
@@ -67,7 +62,6 @@ char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
 Comms::NetSTA station(msglogerr, creds, mdnsName);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
-Comms::NetManager netManager(station, wap, creds, OLED);
 
 // THREADS
 Threads::netThreadParams netParams(1000, msglogerr);
@@ -76,11 +70,18 @@ Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 Threads::periphThreadParams periphParams(5000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
-const size_t threadQty = 1;
-Threads::Thread* toSuspend[threadQty] = {&periphThread};
+Threads::socketThreadParams sockParams(msglogerr);
+Threads::Thread sockThread(msglogerr, "SocketThread");
+
+const size_t threadQty = 2;
+Threads::Thread* toSuspend[threadQty] = {&periphThread, &sockThread};
 
 // OTA 
 OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
+
+// SOCKET SETUP AND NET START (ensure port matches client)
+Comms::SocketServer skt(8080, station, wap, sockThread, sockParams);
+Comms::NetManager netManager(station, wap, skt, creds, OLED);
 
 void netTask(void* parameter) {
     Threads::netThreadParams* params = 
