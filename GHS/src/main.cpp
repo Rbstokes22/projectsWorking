@@ -7,9 +7,10 @@
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// Testing is still a failure. I did slow down the requests, but the handshake is not working.
-// continue working it, and if it will not work, switch to using http ws example and register
-// the uri /ws instead.
+// Testing is almost a success. Look at the RFC6455 data in the decodeFrame to ensure that 
+// the right frame packets are being used, Because I do not believe they are. When using
+// frame 6 earlier it seems to work, but not right now. ALmost there, then create a closing
+// protocol, and go from there with a strcpy into the actual rx buffer for use.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.

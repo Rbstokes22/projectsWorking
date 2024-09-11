@@ -14,13 +14,13 @@ namespace Comms {
 
 #define MAX_CLIENTS 4
 #define DEF_PORT 8080 // Can be overriden upon creation
-#define RX_BUF_SIZE 1024
+#define RX_BUF_SIZE 512
 #define TX_BUF_SIZE 256
 #define SOCKET_TO_RETRIES 2 // Time until socket closes if no resp
 
 struct Client {
     int sock;
-    char rx_buffer[RX_BUF_SIZE];
+    uint8_t rx_buffer[RX_BUF_SIZE];
     size_t retries;
 };
 
@@ -60,8 +60,9 @@ class SocketServer {
     static void FDSset(fd_set &readfds);
     static void addClients(int clientSock);
     static void checkActivity(fd_set &readfds, Threads::Mutex &mutex);
-    static void processRx(Client &client, Threads::Mutex & mutex);
-    static bool checkUpgrade(Client &client);
+    static void processRx(Client &client, Threads::Mutex & mutex, size_t len);
+    static bool Handshake(Client &client);
+    static void decodeFrame(Client &client, size_t len);
     static void sendClient(
         int cmd, int supData, char* id, 
         Client &client, Threads::Mutex & mutex

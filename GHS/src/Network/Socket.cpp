@@ -98,7 +98,7 @@ void SocketServer::socketTask(void *parameter) {
         } 
 
         SocketServer::checkActivity(readfds, params->mutex);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 
     close(SocketServer::servSock);
@@ -199,9 +199,12 @@ void SocketServer::checkActivity(fd_set &readfds, Threads::Mutex &mutex) {
                 );
 
             if (len > 0) { // Data Received
-                SocketServer::clientSocks[i].rx_buffer[len] = '\0';
+                if (len < sizeof(SocketServer::clientSocks[i].rx_buffer)) {
+                    SocketServer::clientSocks[i].rx_buffer[len] = '\0';
+                }
+                
                 SocketServer::clientSocks[i].retries = 0;
-                SocketServer::processRx(SocketServer::clientSocks[i], mutex);
+                SocketServer::processRx(SocketServer::clientSocks[i], mutex, len);
 
             } else if (len == 0) { // Client Disconnected
                 SocketServer::clientSocks[i].retries++;
@@ -227,10 +230,12 @@ void SocketServer::checkActivity(fd_set &readfds, Threads::Mutex &mutex) {
 
 // This sets a basic response for testing. In the future it will need
 // to read the request and send the requested data.
-void SocketServer::processRx(Client &client, Threads::Mutex &mutex) {
+void SocketServer::processRx(Client &client, Threads::Mutex &mutex, size_t len) {
 
-    if (!SocketServer::checkUpgrade(client)) {
-        char* cmdStr = strtok(client.rx_buffer, "/");
+    if (!SocketServer::Handshake(client)) {
+        SocketServer::decodeFrame(client, len);
+
+        char* cmdStr = strtok((char*)client.rx_buffer, "/");
         char* supDataStr = strtok(NULL, "/");
         char* reqIDStr = strtok(NULL, "/");
 
@@ -238,11 +243,13 @@ void SocketServer::processRx(Client &client, Threads::Mutex &mutex) {
             int cmd = atoi(cmdStr);
             int supData = atoi(supDataStr);
             SocketServer::sendClient(cmd, supData, reqIDStr, client, mutex);
+            printf("Sending to client\n");
         } 
     }
 }
 
-bool SocketServer::checkUpgrade(Client &client) {
+bool SocketServer::Handshake(Client &client) {
+
     auto computeSHA1 = [](const char* input, uint8_t* output) {
         mbedtls_sha1_context ctx;
         mbedtls_sha1_init(&ctx);
@@ -253,12 +260,10 @@ bool SocketServer::checkUpgrade(Client &client) {
     };
 
     // Check for WebSocket upgrade request
-    if (strstr(client.rx_buffer, "Upgrade: websocket") != NULL) {
+    if (strstr((char*)client.rx_buffer, "Upgrade: websocket") != NULL) {
         const char* k = "Sec-WebSocket-Key: ";
-        char *key = strstr(client.rx_buffer, k);
-        printf("Client sockid: %d, Buffer: %s, Retries: %d\n",
-               client.sock, client.rx_buffer, client.retries);
-        
+        char *key = strstr((char*)client.rx_buffer, k);
+
         if (key) {
             key += strlen(k);
             char* end = strstr(key, "\r\n");
@@ -266,38 +271,102 @@ bool SocketServer::checkUpgrade(Client &client) {
 
             // Generate the Sec-WebSocket-Accept response
             const char *guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // WebSocket GUID
-            char acceptKey[256];
+            char acceptKey[256]{0};
             snprintf(acceptKey, sizeof(acceptKey), "%s%s", key, guid); // Concatenate key and GUID
             
             // Hash the accept key
-            uint8_t sha1Hash[20];
+            uint8_t sha1Hash[20]{0};
+
             computeSHA1(acceptKey, sha1Hash);
 
             // Base64 encode the SHA-1 hash
             size_t outputLength;
-            char *base64AcceptKey = (char*)malloc(4 * ((sizeof(sha1Hash) + 2) / 3)); // Allocate enough space for Base64 encoding
-            if (base64AcceptKey != NULL) {
-                if (mbedtls_base64_encode((unsigned char*)base64AcceptKey, 4 * ((sizeof(sha1Hash) + 2) / 3), &outputLength, sha1Hash, sizeof(sha1Hash)) != 0) {
-                    free(base64AcceptKey); // Free memory on error
-                    return false;
-                }
+            size_t inputSize = sizeof(sha1Hash);
+            size_t outputSize = 4 * ((inputSize + 2) / 3) + 1;
+            char base64AcceptKey[outputSize]{0};
 
-                // Send the WebSocket handshake response
-                const char *response = "HTTP/1.1 101 Switching Protocols\r\n"
-                                       "Upgrade: websocket\r\n"
-                                       "Connection: Upgrade\r\n"
-                                       "Sec-WebSocket-Accept: ";
-                send(client.sock, response, strlen(response), 0);
-                send(client.sock, base64AcceptKey, outputLength, 0); // Send the Base64 encoded key
-                send(client.sock, "\r\n", 2, 0); // End of headers
+            int encode = mbedtls_base64_encode(
+                (unsigned char*)base64AcceptKey, 
+                outputSize, 
+                &outputLength, 
+                sha1Hash, 
+                inputSize
+                );
 
-                free(base64AcceptKey); // Free the allocated memory for the base64 key
-
-                return true; // Handshake successful
+            if (encode != 0) {
+                printf("Error with encoded, value is %d\n", encode);
+                return false;
             }
+
+            base64AcceptKey[outputLength] = '\0';
+            
+            char resp[256]{0};
+
+            // Send the WebSocket handshake response
+            // Create the WebSocket handshake response
+            snprintf(resp, sizeof(resp),
+                        "HTTP/1.1 101 Switching Protocols\r\n"
+                        "Upgrade: websocket\r\n"
+                        "Connection: Upgrade\r\n"
+                        "Sec-WebSocket-Accept: %s\r\n"
+                        "\r\n", base64AcceptKey);
+
+            printf("resp: %s\n", resp);
+            send(client.sock, resp, strlen(resp), 0); // Send the complete response
+
+            return true; // Handshake successful
         }
     }
+
     return false; // Handshake failed
+}
+
+void SocketServer::decodeFrame(Client &client, size_t len) {
+    uint8_t* frame = client.rx_buffer;
+    uint8_t opcode = frame[0] & 0x0F; // last 4 bits of first byte
+    int adjustment{0}; // Used to adjust if extra payload > 126.
+
+    // Payload length. This masks the first bit of the 2nd byte. This byte
+    // indicates whether the payload itself is masked or not and needs 
+    // to be unmasked by the server, which is 1. Prevents certain type
+    // of attacks.
+    uint8_t payloadLen = frame[1] & 0x7F; 
+
+    // If 126, it indicates that the actual payload len is in the next
+    // 2 bytes. Both byte 3 and 4 are combined into a 16 bit value. 
+    // byte 3 is placed in the higher byte of the value, and byte 4
+    // is placed into the lower. 127 is rarely used because it indicates
+    // a payload of over 65535 chars.
+    if (payloadLen == 126) {
+        payloadLen = (frame[2] << 8) | frame[3];
+        adjustment = 2;
+    } 
+
+    // Extract masking key if payload is masked by isolating the MSB.
+    uint8_t maskingKey[4]{0};
+    if (frame[1] & 0x80) { // check if mask bit is in set
+        maskingKey[0] = frame[4 + adjustment];
+        maskingKey[1] = frame[5 + adjustment];
+        maskingKey[2] = frame[6 + adjustment];
+        maskingKey[3] = frame[7 + adjustment];
+    }
+
+    // Extract the payload data which begins at byte 9.
+    uint8_t* payloadData = &frame[6 + adjustment]; // start of PL data
+
+    // If masked, XOR the payload data with the masking key. 
+    for (size_t i = 0; i < payloadLen; ++i) {
+        payloadData[i] ^= maskingKey[i % 4]; 
+    }
+
+    // Now payload Data contains original message, process based on opcode
+    if (opcode == 0x1) { // Text Frame
+        printf("Received msg: %.*s\n", payloadLen, payloadData);
+    } else if (opcode == 0x2) { // Binary frame
+        // Handle binary here
+    } else if (opcode == 0x8) { // Close frame request
+        // handle close request
+    }
 }
 
 int rando() {
@@ -328,6 +397,7 @@ void SocketServer::sendClient(
         return;
     }
 
+    printf("Sending %s\n", response);
     int bytesSent = send(client.sock, response, strlen(response), 0);
     if (bytesSent < 0) perror("send failed");
 }
