@@ -63,13 +63,20 @@ class SocketServer {
     static void processRx(Client &client, Threads::Mutex & mutex, size_t len);
     static bool Handshake(Client &client);
     static void decodeFrame(Client &client, size_t len);
+    static void encodeFrame(
+        uint8_t* buffer, 
+        const char* msg, 
+        size_t msgLen, 
+        uint8_t opCode,
+        size_t &frameLen
+        );
+
     static void sendClient(
         int cmd, int supData, char* id, 
         Client &client, Threads::Mutex & mutex
         );
+
 };
-
-
 
 }
 

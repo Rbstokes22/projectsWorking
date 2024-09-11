@@ -234,6 +234,7 @@ void SocketServer::processRx(Client &client, Threads::Mutex &mutex, size_t len) 
 
     if (!SocketServer::Handshake(client)) {
         SocketServer::decodeFrame(client, len);
+        printf("Buffer: %s\n", client.rx_buffer);
 
         char* cmdStr = strtok((char*)client.rx_buffer, "/");
         char* supDataStr = strtok(NULL, "/");
@@ -243,7 +244,6 @@ void SocketServer::processRx(Client &client, Threads::Mutex &mutex, size_t len) 
             int cmd = atoi(cmdStr);
             int supData = atoi(supDataStr);
             SocketServer::sendClient(cmd, supData, reqIDStr, client, mutex);
-            printf("Sending to client\n");
         } 
     }
 }
@@ -345,10 +345,10 @@ void SocketServer::decodeFrame(Client &client, size_t len) {
     // Extract masking key if payload is masked by isolating the MSB.
     uint8_t maskingKey[4]{0};
     if (frame[1] & 0x80) { // check if mask bit is in set
-        maskingKey[0] = frame[4 + adjustment];
-        maskingKey[1] = frame[5 + adjustment];
-        maskingKey[2] = frame[6 + adjustment];
-        maskingKey[3] = frame[7 + adjustment];
+        maskingKey[0] = frame[2 + adjustment];
+        maskingKey[1] = frame[3 + adjustment];
+        maskingKey[2] = frame[4 + adjustment];
+        maskingKey[3] = frame[5 + adjustment];
     }
 
     // Extract the payload data which begins at byte 9.
@@ -361,13 +361,47 @@ void SocketServer::decodeFrame(Client &client, size_t len) {
 
     // Now payload Data contains original message, process based on opcode
     if (opcode == 0x1) { // Text Frame
-        printf("Received msg: %.*s\n", payloadLen, payloadData);
+        memcpy(client.rx_buffer, payloadData, payloadLen);
+        client.rx_buffer[payloadLen] = '\0';
+
     } else if (opcode == 0x2) { // Binary frame
         // Handle binary here
+
     } else if (opcode == 0x8) { // Close frame request
-        // handle close request
+        printf("Disconnecting Client %d\n", client.sock);
+        uint8_t closeFrame[2]{0x88, 0x00};
+        send(client.sock, closeFrame, sizeof(closeFrame), 0);
+        close(client.sock);
     }
 }
+
+void SocketServer::encodeFrame(
+    uint8_t* buffer, 
+    const char* msg, 
+    size_t msgLen, 
+    uint8_t opCode,
+    size_t &frameLen
+    ) {
+
+    int adjustment{0}; // Used to adjust if extra payload > 126.
+
+    // Set FIN bit and opcode.
+    buffer[0] = 0x80 | opCode;
+
+    if (msgLen < 126) {
+        buffer[1] = msgLen;
+        frameLen = 2 + msgLen; // 2 bytes for header
+    } else if (msgLen == 126) {
+        buffer[1] = 126; // indicate extended length
+        buffer[2] = (msgLen >> 8) & 0xFF; // High byte
+        buffer[3] = msgLen & 0xFF; // Low byte
+        adjustment = 2;
+        frameLen = 4 + msgLen; // 4 bytes for header
+    } 
+
+    memcpy(&buffer[2 + adjustment], msg, msgLen);
+}
+
 
 int rando() {
     return (rand() % 60) + 60;
@@ -379,6 +413,8 @@ void SocketServer::sendClient(
     ) { 
 
     char response[TX_BUF_SIZE]{0};
+    uint8_t buffer[TX_BUF_SIZE + 6]{0}; // + 6 accounts for frame bytes
+    size_t frameLen{0};
 
     switch (static_cast<CMDS>(cmd)) {
         case CMDS::GET_VERSION:
@@ -397,8 +433,14 @@ void SocketServer::sendClient(
         return;
     }
 
-    printf("Sending %s\n", response);
-    int bytesSent = send(client.sock, response, strlen(response), 0);
+    SocketServer::encodeFrame(
+        buffer, response, strlen(response), 
+        0x01, frameLen
+        );
+
+    printf("Frame len: %d\n", frameLen);
+
+    int bytesSent = send(client.sock, buffer, frameLen, 0);
     if (bytesSent < 0) perror("send failed");
 }
 
