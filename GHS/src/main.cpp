@@ -7,9 +7,12 @@
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// Sockets are up and running successfully. Look at creating client promises, so that nothing
-// sends until the socket is connected. I dont think my disconnect is working the way I would
-// like on the server side. I get bad file number select error when closing the client down.
+// Scrapped old sockets and implemented a new method that works. The problem is using async
+// operations at this time. The socket is sending a reply to all open sockets, which is not
+// what I want. These are my thoughts. See if I can isolate the FD for the requesting server
+// and reply only to it. If not, scrap the async and go with sync operations. If i go with 
+// the latter, make sure to remove everything that lets me send the server info to the 
+// source file, so the function in app_main, as well as the server setting in the source.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -36,7 +39,7 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetupHandler.hpp"
 #include "Network/Handlers/STAHandler.hpp"
-#include "Network/Socket.hpp"
+#include "Network/Handlers/socketHandler.hpp"
 #include "OTA/OTAupdates.hpp"
 #include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
@@ -62,6 +65,7 @@ char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
 Comms::NetSTA station(msglogerr, creds, mdnsName);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
+Comms::NetManager netManager(station, wap, creds, OLED);
 
 // THREADS
 Threads::netThreadParams netParams(1000, msglogerr);
@@ -78,10 +82,6 @@ Threads::Thread* toSuspend[threadQty] = {&periphThread, &sockThread};
 
 // OTA 
 OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
-
-// SOCKET SETUP AND NET START (ensure port matches client)
-Comms::SocketServer skt(8080, station, wap, sockThread, sockParams);
-Comms::NetManager netManager(station, wap, skt, creds, OLED);
 
 void netTask(void* parameter) {
     Threads::netThreadParams* params = 
@@ -199,6 +199,9 @@ void app_main() {
 
     // Passes OTA object to the STA handler to allow for use.
     Comms::setOTAObject(ota);
+
+    // Passes station object to the socket handler to allow for use.
+    Comms::setNetObjs(station);
 
     // Start threads
     netThread.initThread(netTask, 4096, &netParams, 1);

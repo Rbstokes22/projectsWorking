@@ -199,6 +199,11 @@ float NetMain::getHeapSize(HEAP_SIZE type) {
     return static_cast<float>(freeHeapBytes) / divisor[static_cast<int>(type)];
 }
 
+// Used in web sockets to check the server for active ws clients.
+httpd_handle_t NetMain::getServer() {
+    return this->server;
+}
+
 // Error handler throughout the network. Accepts a string message,
 // and the Type OLED, SRL, or ALL, for display method. This will
 // display on the selected method.

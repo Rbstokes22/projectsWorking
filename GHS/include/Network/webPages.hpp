@@ -199,18 +199,19 @@ const char STApage[] = R"rawliteral(
         const URLonly = re.exec(window.location.href);
         const WSPORT = 8080;
         let requestIDs = {};
+        let Queue = {};
         let idNum = 0;
         const CMDS = ["GET_VERSION", "GET_TEMP", "GET_HUM"];
-        
+
         // Elements
         const OTAdisp = document.getElementById("otaUpd");
 
         // Intervals
-        const POLL_INTV = 5000;
+        const POLL_INTV = 500;
         const CHK_OTA_INTV = 86400000; // 24 hrs in millis
 
         // Flags
-        const Flags = {OTAchk:true};
+        const Flags = {OTAchk:true, SKTopen:false};
 
         // SOCKETS
         const initWebSocket = () => {
@@ -220,10 +221,7 @@ const char STApage[] = R"rawliteral(
             socket.onclose = socketClose;
             socket.onmessage = socketMsg;
 
-            poll = setInterval(() => {
-            socket.send(`${convert("GET_TEMP")}/${0x00}/${getID(setTemp)}`);
-            socket.send(`${convert("GET_HUM")}/${0x00}/${getID(setHum)}`);
-            }, POLL_INTV);
+            poll = setInterval(pollServer, POLL_INTV);
         }
 
         // Ensure the index of these match the CMDS enum from the socket header
@@ -240,6 +238,27 @@ const char STApage[] = R"rawliteral(
             return id;
         }
 
+        const pollServer = () => {
+            if (!Flags.SKTopen) return;
+            const setFW_ID = getID(setFW);
+            const setTemp_ID = getID(setTemp);
+            const setHum_ID = getID(setHum);
+
+            Queue[setFW_ID] = `${convert("GET_VERSION")}/${0x00}/${setFW_ID}`;
+            Queue[setTemp_ID] = `${convert("GET_TEMP")}/${0x00}/${setTemp_ID}`;
+            Queue[setHum_ID] = `${convert("GET_HUM")}/${0x00}/${setHum_ID}`;
+        }
+
+        const sendMess = setInterval(() => {
+            const key = Object.keys(Queue)[0];
+            if (key && socket.readyState === WebSocket.OPEN) {
+                socket.send(Queue[key]);
+                delete Queue[key];
+            } else if (socket.readyState != WebSocket.OPEN) {
+                console.warn(`Socket state: ${socket.readyState}`);
+            } 
+        }, 5);
+
         const setFW = (version) => {
             document.getElementById("title").innerHTML = `Greenhouse Monitor V${version}`;
         }
@@ -250,10 +269,6 @@ const char STApage[] = R"rawliteral(
 
         const setHum = (hum) => {
             document.getElementById("hum").innerText = `Hum = ${hum}`;
-        }
-
-        const getFirmwareVersion = () => {
-            socket.send(`${convert("GET_VERSION")}/${0x00}/${getID(setFW)}`);
         }
 
         const handleResponse = (response) => {
@@ -270,11 +285,12 @@ const char STApage[] = R"rawliteral(
 
         const socketOpen = () => {
             console.log("Connected to server");
-            getFirmwareVersion();
+            Flags.SKTopen = true;
         }
 
         const socketClose = () => {
             console.log("Disconnected from server");
+            Flags.SKTopen = false;
             clearInterval(poll);
             setTimeout(initWebSocket, 2000);
         }

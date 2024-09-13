@@ -81,6 +81,7 @@ class NetMain {
     NetMode getNetType();
     void setNetType(NetMode NetType);
     float getHeapSize(HEAP_SIZE type);
+    httpd_handle_t getServer();
     void sendErr(const char* msg, errDisp type);
 };
 

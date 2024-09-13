@@ -213,8 +213,9 @@ wifi_ret_t NetWAP::start_server() {
         if (NetMain::NetType == NetMode::WAP) {
             
             esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &WAPIndex);
+            esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &ws);
 
-            if (reg1 == ESP_OK) {
+            if (reg1 == ESP_OK && reg2 == ESP_OK) {
                 NetMain::flags.uriReg = true;
                 return wifi_ret_t::SERVER_OK;
             } else {

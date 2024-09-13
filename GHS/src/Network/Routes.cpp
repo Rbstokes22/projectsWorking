@@ -3,6 +3,7 @@
 #include "Network/Handlers/WAPsetupHandler.hpp"
 #include "Network/Handlers/WAPHandler.hpp"
 #include "Network/Handlers/STAHandler.hpp"
+#include "Network/Handlers/socketHandler.hpp"
 
 namespace Comms {
 
@@ -63,6 +64,15 @@ httpd_uri_t OTACheck = {
     .method    = HTTP_GET,
     .handler   = OTACheckHandler,
     .user_ctx  = NULL
+};
+
+// Station and WAP routes
+httpd_uri_t ws = {
+    .uri          = "/ws",
+    .method       = HTTP_GET,
+    .handler      = wsHandler,
+    .user_ctx     = NULL,
+    .is_websocket = true
 };
 
 }

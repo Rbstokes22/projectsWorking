@@ -166,9 +166,10 @@ wifi_ret_t NetSTA::start_server() {
         esp_err_t reg3 = httpd_register_uri_handler(NetMain::server, &OTARollback);
         esp_err_t reg4 = httpd_register_uri_handler(NetMain::server, &OTACheck);
         esp_err_t reg5 = httpd_register_uri_handler(NetMain::server, &OTAUpdateLAN);
+        esp_err_t reg6 = httpd_register_uri_handler(NetMain::server, &ws);
 
         if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK && reg4 == ESP_OK
-            && reg5 == ESP_OK) {
+            && reg5 == ESP_OK && reg6 == ESP_OK) {
                 
             NetMain::flags.uriReg = true;
         } else {

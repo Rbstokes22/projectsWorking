@@ -2,7 +2,6 @@
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
-#include "Network/Socket.hpp"
 #include "Network/NetCreds.hpp"
 #include "driver/gpio.h"
 #include "Config/config.hpp"
@@ -153,9 +152,7 @@ void NetManager::runningWifi(NetMain &mode) {
     // satisfied.
     if (!mode.isActive()) {
         reconnect(mode, reconAttempt);
-        skt.stop();
     } else {
-        skt.start();
         reconAttempt = 0;
     }
 }
@@ -177,11 +174,10 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
 NetManager::NetManager(
     NetSTA &station, 
     NetWAP &wap, 
-    SocketServer &skt,
     NVS::Creds &creds, 
     UI::Display &OLED) :
 
-    station{station}, wap{wap}, skt{skt}, 
+    station{station}, wap{wap},  
     creds(creds), OLED(OLED), isWifiInit(false) {}
 
 void NetManager::handleNet() { 

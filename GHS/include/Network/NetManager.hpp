@@ -4,7 +4,6 @@
 #include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
-#include "Network/Socket.hpp"
 #include "Network/NetCreds.hpp"
 #include "UI/Display.hpp"
 
@@ -14,7 +13,6 @@ class NetManager {
     private:
     NetSTA &station;
     NetWAP &wap;
-    SocketServer &skt;
     NVS::Creds &creds;
     UI::Display &OLED;
     bool isWifiInit;
@@ -29,7 +27,6 @@ class NetManager {
     NetManager(
         NetSTA &station, 
         NetWAP &wap, 
-        SocketServer &skt,
         NVS::Creds &creds, 
         UI::Display &OLED
         );
