@@ -1,18 +1,19 @@
 // TO DO:
 
-// 7. Create web sockets.
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 // 9. Once drivers are good, build everything and put them into threads. Also ensure that 
 // the webpage is being built the same time as the drivers, to get a rough idea of the layout.
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// Scrapped old sockets and implemented a new method that works. The problem is using async
-// operations at this time. The socket is sending a reply to all open sockets, which is not
-// what I want. These are my thoughts. See if I can isolate the FD for the requesting server
-// and reply only to it. If not, scrap the async and go with sync operations. If i go with 
-// the latter, make sure to remove everything that lets me send the server info to the 
-// source file, so the function in app_main, as well as the server setting in the source.
+// Sockets are up and running. Tested on several clients, with no issues. Build peripherals
+// starting with drivers. Once complete, start working them into the sockets as well as
+// building the client page at the same time. WAP mode will not have access to the Net, 
+// so its functionality should be more of a read only type deal and not allow for setting.
+// Ideally I would like to serve the same page for station and WAP, so see if this is a 
+// possibility. Rather than take up a huge amount of space for both html pages, maybe
+// incorporate one that reaches out to the server to get the net type, if sta, then allow
+// setting, if not, dont. Experiment with it after the drivers are built.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -39,7 +40,6 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetupHandler.hpp"
 #include "Network/Handlers/STAHandler.hpp"
-#include "Network/Handlers/socketHandler.hpp"
 #include "OTA/OTAupdates.hpp"
 #include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
@@ -74,11 +74,8 @@ Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 Threads::periphThreadParams periphParams(5000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
-Threads::socketThreadParams sockParams(msglogerr);
-Threads::Thread sockThread(msglogerr, "SocketThread");
-
-const size_t threadQty = 2;
-Threads::Thread* toSuspend[threadQty] = {&periphThread, &sockThread};
+const size_t threadQty = 1;
+Threads::Thread* toSuspend[threadQty] = {&periphThread};
 
 // OTA 
 OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
@@ -199,9 +196,6 @@ void app_main() {
 
     // Passes OTA object to the STA handler to allow for use.
     Comms::setOTAObject(ota);
-
-    // Passes station object to the socket handler to allow for use.
-    Comms::setNetObjs(station);
 
     // Start threads
     netThread.initThread(netTask, 4096, &netParams, 1);
