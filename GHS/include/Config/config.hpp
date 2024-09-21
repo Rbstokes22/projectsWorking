@@ -17,11 +17,11 @@
 extern bool DEVmode;
 
 extern adc_channel_t pinMapA[2];
-extern gpio_num_t pinMapD[4];
+extern gpio_num_t pinMapD[5];
 
 // Used with pinMap above.
 enum class DPIN : uint8_t {
-    WAP, STA, defWAP, RE1
+    WAP, STA, defWAP, DHT, RE1
 };
 
 enum class APIN : uint8_t {

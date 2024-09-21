@@ -9,5 +9,5 @@ message(STATUS "SRC DIR CMAKE LIST BEING READ")
 # Defines the main executable.
 idf_component_register(SRCS ${app_sources}
                        INCLUDE_DIRS "../include"
-                       REQUIRES mdns mbedtls spiffs
+                       REQUIRES mdns mbedtls spiffs esp_timer
                        )  

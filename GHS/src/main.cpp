@@ -6,14 +6,13 @@
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// Sockets are up and running. Tested on several clients, with no issues. Build peripherals
-// starting with drivers. Once complete, start working them into the sockets as well as
-// building the client page at the same time. WAP mode will not have access to the Net, 
-// so its functionality should be more of a read only type deal and not allow for setting.
-// Ideally I would like to serve the same page for station and WAP, so see if this is a 
-// possibility. Rather than take up a huge amount of space for both html pages, maybe
-// incorporate one that reaches out to the server to get the net type, if sta, then allow
-// setting, if not, dont. Experiment with it after the drivers are built.
+// DHT is up and running, I am still getting checksum errors ocassionally and changed the
+// value to int64_t to prevent the low signal timeout issues, which seemed to occur about
+// 71 minutes using a uint32_t. Check printouts in the morning. Now for the as7341 and I2C.
+// reconfigure the SSD1306 library, and mirror the same for the 7341 library. Create an
+// enum on the i2c CPP that will return the value of I2C_INIT_ERR, I2C_INIT_OK, and 
+// I2C_ALREADY_INIT. That way we can check for INIT_OK and ALREADY_INIT to configure
+// and add to the i2c bus.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -46,6 +45,9 @@
 #include "esp_vfs.h"
 #include <cstddef>
 
+#include "Drivers/DHT_Library.hpp"
+#include "Drivers/AS7341_Library.hpp"
+
 extern "C" {
     void app_main();
 }
@@ -71,7 +73,7 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 Threads::netThreadParams netParams(1000, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::periphThreadParams periphParams(5000, msglogerr);
+Threads::periphThreadParams periphParams(2000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
 const size_t threadQty = 1;
@@ -79,6 +81,10 @@ Threads::Thread* toSuspend[threadQty] = {&periphThread};
 
 // OTA 
 OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
+
+// PERIPHERALS
+DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
+AS7341_DRVR::AS7341basic light;
 
 void netTask(void* parameter) {
     Threads::netThreadParams* params = 
@@ -97,7 +103,7 @@ void netTask(void* parameter) {
 
         msglogerr.OLEDMessageCheck(); // clears errors from display
 
-        vTaskDelay(params->delay / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
 
@@ -105,21 +111,31 @@ void periphTask(void* parameter) {
     Threads::periphThreadParams* params = 
         static_cast<Threads::periphThreadParams*>(parameter);
 
+    float temp{0};
+    float hum{0};
+
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
     while (true) {
+        if (dht.read(temp, hum, DHT_DRVR::TEMP::F)) {
+            printf("Temp: %.2f, Hum: %.2f\n", temp, hum);
+        } else {
+            // printf("Error reading DHT\n");
+        }
         
-        vTaskDelay(params->delay / portTICK_PERIOD_MS); 
+        vTaskDelay(pdMS_TO_TICKS(params->delay)); 
     }
 }
 
 void setupDigitalPins() {
+    // Set all Pins
     ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::WAP)], GPIO_MODE_INPUT));
     ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::STA)], GPIO_MODE_INPUT));
     ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::defWAP)], GPIO_MODE_INPUT));
+    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::DHT)], GPIO_MODE_INPUT));
     ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::RE1)], GPIO_MODE_OUTPUT));
-
+    
     // Configure all pins 
     ESP_ERROR_CHECK(gpio_set_pull_mode(pinMapD[static_cast<int>(DPIN::WAP)], GPIO_PULLUP_ONLY));
     ESP_ERROR_CHECK(gpio_set_pull_mode(pinMapD[static_cast<int>(DPIN::STA)], GPIO_PULLUP_ONLY));
@@ -150,7 +166,8 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins();
     OLED.init(0x3C);
-    
+    light.init(0x39);
+
     // Initialize NVS
     esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
     if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {

@@ -35,7 +35,7 @@ void Display::init(uint8_t address) {
     this->display.setPOS(0, 2);
     this->display.write("Mumsy's Greenhouse");
     this->display.send();
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(3000));
 }
 
 void Display::printWAP(Comms::WAPdetails &details) {
@@ -75,7 +75,7 @@ void Display::printUpdates(const char* update) {
         this->display.write(update);
         this->display.send();
         // Delays for readability
-        vTaskDelay(500 / portTICK_PERIOD_MS); 
+        vTaskDelay(pdMS_TO_TICKS(1000)); 
     }
 }
 
