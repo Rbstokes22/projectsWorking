@@ -6,13 +6,9 @@
 // Test this using the server only, then move it to the webpage.hpp
 
 // Current Note:
-// DHT is up and running, I am still getting checksum errors ocassionally and changed the
-// value to int64_t to prevent the low signal timeout issues, which seemed to occur about
-// 71 minutes using a uint32_t. Check printouts in the morning. Now for the as7341 and I2C.
-// reconfigure the SSD1306 library, and mirror the same for the 7341 library. Create an
-// enum on the i2c CPP that will return the value of I2C_INIT_ERR, I2C_INIT_OK, and 
-// I2C_ALREADY_INIT. That way we can check for INIT_OK and ALREADY_INIT to configure
-// and add to the i2c bus.
+// AS7341 configuration and init good. Focus on the LED, by setting brightness params.
+// Goes from 4 - 258. The code is the ma - 4 / 2. So 258 - 4 / 2 = 127 or 01111111 and
+// 12 - 4 / 2 = 4 or 00000100
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -84,7 +80,8 @@ OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty);
 
 // PERIPHERALS
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
-AS7341_DRVR::AS7341basic light;
+AS7341_DRVR::CONFIG lightConf(599, 29, 0, true);
+AS7341_DRVR::AS7341basic light(lightConf);
 
 void netTask(void* parameter) {
     Threads::netThreadParams* params = 
@@ -111,18 +108,19 @@ void periphTask(void* parameter) {
     Threads::periphThreadParams* params = 
         static_cast<Threads::periphThreadParams*>(parameter);
 
-    float temp{0};
-    float hum{0};
+    bool toggle{false};
 
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
     while (true) {
-        if (dht.read(temp, hum, DHT_DRVR::TEMP::F)) {
-            printf("Temp: %.2f, Hum: %.2f\n", temp, hum);
+        if (toggle) {
+            light.led(AS7341_DRVR::LED::ON);
         } else {
-            // printf("Error reading DHT\n");
+            light.led(AS7341_DRVR::LED::OFF);
         }
+
+        toggle = !toggle;
         
         vTaskDelay(pdMS_TO_TICKS(params->delay)); 
     }

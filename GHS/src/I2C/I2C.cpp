@@ -9,12 +9,12 @@
 namespace I2C {
 
 static uint32_t i2cFrequency{I2C_DEF_FRQ}; // standard frequency
-static bool isInit{false};
+static I2C_RET isInit{I2C_RET::INIT_FAIL};
 static i2c_master_bus_handle_t busHandle;
 
 // Frequency between 100000 and 400000.
-bool i2c_master_init(uint32_t frequency) {
-    if (isInit) return false; // Already been initialized
+I2C_RET i2c_master_init(uint32_t frequency) {
+    if (isInit == I2C_RET::RUNNING) return I2C_RET::RUNNING;
 
     // Only matters if the frequency exceeds 400k, if less than 100k,
     // the default frequency persists.
@@ -35,10 +35,10 @@ bool i2c_master_init(uint32_t frequency) {
     // ADD ERROR HANDLING
     if (err != ESP_OK) {
         printf("err: %s\n", esp_err_to_name(err)); 
-        return false;
+        return I2C_RET::INIT_FAIL;
     } else {
-        isInit = true;
-        return true;   
+        isInit = I2C_RET::RUNNING;
+        return I2C_RET::INIT_OK;   
     }
 }
 
