@@ -1,14 +1,11 @@
 // TO DO:
 
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
-// 9. Once drivers are good, build everything and put them into threads. Also ensure that 
-// the webpage is being built the same time as the drivers, to get a rough idea of the layout.
-// Test this using the server only, then move it to the webpage.hpp
+// 9. Once drivers are good, build everything and integrate into webpage.
 
 // Current Note:
-// AS7341 configuration and init good. Focus on the LED, by setting brightness params.
-// Goes from 4 - 258. The code is the ma - 4 / 2. So 258 - 4 / 2 = 127 or 01111111 and
-// 12 - 4 / 2 = 4 or 00000100
+// Due to delays introducted in the DHT and AS7341, make them their own thread rather
+// than just a peripheral thread used for testing.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -42,7 +39,7 @@
 #include <cstddef>
 
 #include "Drivers/DHT_Library.hpp"
-#include "Drivers/AS7341_Library.hpp"
+#include "Drivers/AS7341/AS7341_Library.hpp"
 
 extern "C" {
     void app_main();
@@ -69,7 +66,7 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 Threads::netThreadParams netParams(1000, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::periphThreadParams periphParams(2000, msglogerr);
+Threads::periphThreadParams periphParams(10000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
 const size_t threadQty = 1;
@@ -80,7 +77,7 @@ OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty);
 
 // PERIPHERALS
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
-AS7341_DRVR::CONFIG lightConf(599, 29, 0, true);
+AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
 
 void netTask(void* parameter) {
@@ -108,19 +105,13 @@ void periphTask(void* parameter) {
     Threads::periphThreadParams* params = 
         static_cast<Threads::periphThreadParams*>(parameter);
 
-    bool toggle{false};
-
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
-    while (true) {
-        if (toggle) {
-            light.led(AS7341_DRVR::LED::ON);
-        } else {
-            light.led(AS7341_DRVR::LED::OFF);
-        }
+    bool safeData{false};
+    light.setAGAIN(AS7341_DRVR::AGAIN::X64);
 
-        toggle = !toggle;
+    while (true) {
         
         vTaskDelay(pdMS_TO_TICKS(params->delay)); 
     }
