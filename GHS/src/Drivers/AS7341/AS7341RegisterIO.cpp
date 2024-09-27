@@ -11,7 +11,7 @@
 namespace AS7341_DRVR {
 
 bool AS7341basic::prepRegister(REG reg) {
-    uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_ACCESS), 0x0};
+    uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_ACCESS), 0x00};
     uint8_t addr = static_cast<uint8_t>(reg);
     esp_err_t err;
 

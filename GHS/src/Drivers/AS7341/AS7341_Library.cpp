@@ -10,6 +10,16 @@
 
 namespace AS7341_DRVR {
 
+// Defines lower and upper addr for channels
+REG CH_REG_MAP[6][2] = {
+    {REG::CH0_LWR, REG::CH0_UPR},
+    {REG::CH1_LWR, REG::CH1_UPR},
+    {REG::CH2_LWR, REG::CH2_UPR},
+    {REG::CH3_LWR, REG::CH3_UPR},
+    {REG::CH4_LWR, REG::CH4_UPR},
+    {REG::CH5_LWR, REG::CH5_UPR}
+};
+
 CONFIG::CONFIG(uint16_t ASTEP, uint8_t ATIME, uint8_t WTIME) : 
 
     ASTEP(ASTEP), ATIME(ATIME), WTIME(WTIME) {
@@ -30,14 +40,15 @@ bool AS7341basic::init(uint8_t address) {
 
     // Compares at the end, expected validations vs actual validations.
     // If equal, sets isInit to true;
-    uint8_t expVal{9};
+    uint8_t expVal{10};
     uint8_t actualVal{0};
 
     // Configure the i2c handle by adding device to I2C.
     i2c_device_config_t devCon = I2C::configDev(address);
     this->i2cHandle = I2C::addDev(devCon);
 
-    actualVal += this->powerOn();
+    actualVal += this->power(PWR::OFF); // Clear register before config
+    actualVal += this->power(PWR::ON);
     actualVal += this->configATIME(this->conf.ATIME);
     actualVal += this->configASTEP(this->conf.ASTEP);
     actualVal += this->configWTIME(this->conf.WTIME);
@@ -59,19 +70,17 @@ bool AS7341basic::isDevInit() {return this->isInit;}
 
 // If timeoutMicros = -1, wait indefinitely.
 uint16_t AS7341basic::readChannel(
-    REG channel, 
+    CHANNEL chnl, 
     int timeoutMicros, 
     bool &dataSafe
     ) {
 
     int64_t start = esp_timer_get_time();
     int64_t _timeout = start + timeoutMicros;
+    REG CH_LWR = CH_REG_MAP[static_cast<uint8_t>(chnl)][0];
+    REG CH_UPR = CH_REG_MAP[static_cast<uint8_t>(chnl)][1];
 
     bool readySafe{false}, lwrSafe{false}, uprSafe{false};
-
-    uint16_t CHaddr = static_cast<uint16_t>(channel);
-    REG CH_LWR = static_cast<REG>(CHaddr & 0xFF);
-    REG CH_UPR = static_cast<REG>(CHaddr >> 8);
 
     while(true) {
         // Check the LSB to see if data is ready.
@@ -80,7 +89,7 @@ uint16_t AS7341basic::readChannel(
         if (dataReady == 1 && readySafe) {
             uint8_t ch_lwr = this->readRegister(CH_LWR, lwrSafe);
             uint8_t ch_upr = this->readRegister(CH_UPR, uprSafe);
-         
+            
             if (lwrSafe && uprSafe) {
                 dataSafe = true;
                 return (ch_upr << 8) | ch_lwr;

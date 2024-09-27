@@ -10,15 +10,8 @@
 
 namespace AS7341_DRVR {
 
-bool AS7341basic::powerOn() {
-    bool dataSafe{false};
-    uint8_t enableReg = this->readRegister(REG::ENABLE, dataSafe);
-    enableReg |= 0b00000001;
-    if (dataSafe) {
-        return this->validateWrite(REG::ENABLE, enableReg);
-    } else {
-        return false;
-    }
+bool AS7341basic::power(PWR state) {
+    return this->validateWrite(REG::ENABLE, static_cast<uint8_t>(state));
 }
 
 // Requires value. Used to set integration time for spectral measurments.
@@ -35,19 +28,15 @@ bool AS7341basic::configATIME(uint8_t value) {
 bool AS7341basic::configASTEP(uint16_t value) {
     uint8_t total{0};
 
-    uint8_t ASTEPdata = 0x00 | (value & 0x00FF);
-    uint16_t ASTEPaddr = static_cast<uint16_t>(REG::ASTEP);
-
-    REG ASTEP_LWR = static_cast<REG>(ASTEPaddr & 0xFF);
-    REG ASTEP_UPR = static_cast<REG>(ASTEPaddr >> 8);
+    uint8_t ASTEPdata = 0x00 | (value & 0x00FF); // lower
 
     if (value >= 65535) value = 65534; // 65535 is reserved
 
-    total += this->validateWrite(ASTEP_LWR, ASTEPdata);
+    total += this->validateWrite(REG::ASTEP_LWR, ASTEPdata);
 
-    ASTEPdata = 0x00 | (this->conf.ASTEP >> 8);
+    ASTEPdata = 0x00 | (this->conf.ASTEP >> 8); // upper
 
-    total += this->validateWrite(ASTEP_UPR, ASTEPdata);
+    total += this->validateWrite(REG::ASTEP_UPR, ASTEPdata);
     return (total == 2);
 }
 

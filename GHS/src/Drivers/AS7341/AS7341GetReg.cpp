@@ -36,13 +36,10 @@ float AS7341basic::getAGAIN(bool &dataSafe) {
 }
 
 uint16_t AS7341basic::getASTEP_RAW(bool &dataSafe) {
-    uint16_t ASTEPaddr = static_cast<uint16_t>(REG::ASTEP);
-    REG ASTEP_LWR = static_cast<REG>(ASTEPaddr & 0xFF);
-    REG ASTEP_UPR = static_cast<REG>(ASTEPaddr >> 8);
     bool lwr_safe{false}, upr_safe{false};
 
-    uint8_t lower = this->readRegister(ASTEP_LWR, lwr_safe);
-    uint8_t upper = this->readRegister(ASTEP_UPR, upr_safe);
+    uint8_t lower = this->readRegister(REG::ASTEP_LWR, lwr_safe);
+    uint8_t upper = this->readRegister(REG::ASTEP_UPR, upr_safe);
 
     dataSafe = (lwr_safe && upr_safe);
     return ((upper << 8) | lower);

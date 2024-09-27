@@ -4,8 +4,12 @@
 // 9. Once drivers are good, build everything and integrate into webpage.
 
 // Current Note:
-// Due to delays introducted in the DHT and AS7341, make them their own thread rather
-// than just a peripheral thread used for testing.
+// The AS7341 is running. I am only getting channel 0. I uploaded arduino code to ensure the
+// sensor was working which it was. Then when uploading my code, each channel worked which leads
+// me to believe it is some register configuration. Based on all the examples from adafruit, they 
+// call call readallchannels which writes to some registers and is not in the datasheet. Start
+// there and mirror that functionality and see if we can get it going. Maybe have to enable
+// flicker detection as well, not sure if they do, but start experimenting with that.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -66,7 +70,7 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 Threads::netThreadParams netParams(1000, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::periphThreadParams periphParams(10000, msglogerr);
+Threads::periphThreadParams periphParams(5000, msglogerr);
 Threads::Thread periphThread(msglogerr, "PeriphThread");
 
 const size_t threadQty = 1;
@@ -108,10 +112,26 @@ void periphTask(void* parameter) {
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
-    bool safeData{false};
-    light.setAGAIN(AS7341_DRVR::AGAIN::X64);
+    bool ch0, ch1, ch2, ch3, ch4, ch5, intTime;
 
     while (true) {
+
+        uint16_t chl0 = light.readChannel(AS7341_DRVR::CHANNEL::CH0, -1, ch0);
+        uint16_t chl1 = light.readChannel(AS7341_DRVR::CHANNEL::CH1, -1, ch1);
+        uint16_t chl2 = light.readChannel(AS7341_DRVR::CHANNEL::CH2, -1, ch2);
+        uint16_t chl3 = light.readChannel(AS7341_DRVR::CHANNEL::CH3, -1, ch3);
+        uint16_t chl4 = light.readChannel(AS7341_DRVR::CHANNEL::CH4, -1, ch4);
+        uint16_t chl5 = light.readChannel(AS7341_DRVR::CHANNEL::CH5, -1, ch5);
+        float integTime = light.getIntegrationTime(intTime);
+
+        printf("Readouts\n");
+        printf("CH0: %u, safe: %d\n", chl0, ch0);
+        printf("CH1: %u, safe: %d\n", chl1, ch1);
+        printf("CH2: %u, safe: %d\n", chl2, ch2);
+        printf("CH3: %u, safe: %d\n", chl3, ch3);
+        printf("CH4: %u, safe: %d\n", chl4, ch4);
+        printf("CH5: %u, safe: %d\n", chl5, ch5);
+        printf("Integration Time: %.2f\n", integTime);
         
         vTaskDelay(pdMS_TO_TICKS(params->delay)); 
     }

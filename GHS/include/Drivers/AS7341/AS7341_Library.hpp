@@ -6,20 +6,30 @@
 
 namespace AS7341_DRVR {
 
-// All used register addresses.
-enum class REG : uint16_t {
+// All used register addresses. 
+enum class REG : uint8_t {
     ENABLE = 0x80, CONFIG = 0x70, REG_ACCESS = 0xA9,
     LED = 0x74, REG_STAT = 0x71,
     SMUX_CONFIG = 0xAF,
     ATIME = 0x81, WTIME = 0x83, AGAIN = 0xAA,
-    ASTEP = 0xCB << 8 | 0xCA,
-    CH0 = 0x96 << 8 | 0x95,
-    CH1 = 0x98 << 8 | 0x97,
-    CH2 = 0x9A << 8 | 0x99,
-    CH3 = 0x9C << 8 | 0x9B,
-    CH4 = 0x9E << 8 | 0x9D,
-    CH5 = 0xA0 << 8 | 0x9F
+    ASTEP_LWR = 0xCA, ASTEP_UPR = 0xCB,
+    CH0_LWR = 0x95, CH0_UPR = 0x96, 
+    CH1_LWR = 0x97, CH1_UPR = 0x98,
+    CH2_LWR = 0x99, CH2_UPR = 0x9A,
+    CH3_LWR = 0x9B, CH3_UPR = 0x9C,
+    CH4_LWR = 0x9D, CH4_UPR = 0x9E,
+    CH5_LWR = 0x9F, CH5_UPR = 0xA0
 }; 
+
+// Defines lower and upper addr for channels
+extern REG CH_REG_MAP[6][2];
+
+enum class CHANNEL : uint8_t {
+    CH0, CH1, CH2, CH3, CH4, CH5
+};
+
+// POWER ON and OFF
+enum class PWR : uint8_t {OFF, ON};
 
 // LED ON and OFF
 enum class LED : uint8_t {OFF, ON};
@@ -71,7 +81,7 @@ class AS7341basic {
     void writeRegister(REG reg, uint8_t val);
     uint8_t readRegister(REG reg, bool &dataSafe);
     bool validateWrite(REG reg, uint8_t dataOut, bool verbose = true);
-    bool powerOn();
+    bool power(PWR state);
     bool configATIME(uint8_t value);
     bool configASTEP(uint16_t value);
     bool configWTIME(uint8_t value);
@@ -101,7 +111,7 @@ class AS7341basic {
     bool getSpectrumEnabled(bool &dataSafe);
 
     uint16_t readChannel(
-        REG channel, 
+        CHANNEL chnl, 
         int timeoutMicros, 
         bool &dataSafe
         );
