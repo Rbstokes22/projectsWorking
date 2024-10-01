@@ -40,7 +40,6 @@
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include <cstddef>
-
 #include "Drivers/DHT_Library.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp"
 
@@ -120,14 +119,14 @@ void periphTask(void* parameter) {
 
         if (RA) {
             printf("\nReadouts\n");
-            printf("Violet: %u\n", color.F1_415nm_Violet);
-            printf("Indigo: %u\n", color.F2_445nm_Indigo);
-            printf("Blue: %u\n", color.F3_480nm_Blue);
-            printf("Cyan: %u\n", color.F4_515nm_Cyan);
-            printf("Green: %u\n", color.F5_555nm_Green);
-            printf("Yellow: %u\n", color.F6_590nm_Yellow);
-            printf("Orange: %u\n", color.F7_630nm_Orange);
-            printf("Red: %u\n", color.F8_680nm_Red);
+            printf("F1 Violet: %u\n", color.F1_415nm_Violet);
+            printf("F2 Indigo: %u\n", color.F2_445nm_Indigo);
+            printf("F3 Blue: %u\n", color.F3_480nm_Blue);
+            printf("F4 Cyan: %u\n", color.F4_515nm_Cyan);
+            printf("F5 Green: %u\n", color.F5_555nm_Green);
+            printf("F6 Yellow: %u\n", color.F6_590nm_Yellow);
+            printf("F7 Orange: %u\n", color.F7_630nm_Orange);
+            printf("F8 Red: %u\n", color.F8_680nm_Red);
             printf("Clear: %u\n", color.Clear);
             printf("NIR: %u\n", color.NIR);
             

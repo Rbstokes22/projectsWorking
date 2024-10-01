@@ -10,7 +10,8 @@
 
 namespace AS7341_DRVR {
 
-// Defines lower and upper addr for channels
+// Defines lower and upper addr for channels to avoid specifically
+// calling the lower and upper register address for each call.
 REG CH_REG_MAP[6][2] = {
     {REG::CH0_LWR, REG::CH0_UPR},
     {REG::CH1_LWR, REG::CH1_UPR},
@@ -20,12 +21,23 @@ REG CH_REG_MAP[6][2] = {
     {REG::CH5_LWR, REG::CH5_UPR}
 };
 
+// Used to configure AS7341 upon init. ASTEP and ATIME are both
+// full value uint8_t integers. ASTEP is between 0 & 65534.
+// Requires ASTEP, ATIME, and WTIME values.
 CONFIG::CONFIG(uint16_t ASTEP, uint8_t ATIME, uint8_t WTIME) : 
 
     ASTEP(ASTEP), ATIME(ATIME), WTIME(WTIME) {
+        // Used if set to 65535.
         if (this->ASTEP > 65534) this->ASTEP = 65534;
     }
 
+// Requires timeout in millis. Executes a loop that 
+// will be satisfied when the spectral register signals that
+// the data is ready for processing. If 0 is passed, will 
+// wait indefinitely for register. If a value is passed, 
+// loop executes with a 1 millisecond delay until ready or 
+// timeout is reached. Returns true if ready, and false if 
+// timeout reached.
 bool AS7341basic::delay(uint32_t timeout_ms) {
     if (timeout_ms == 0) { // Wait forever
         while(!this->isReady()) {
@@ -48,8 +60,13 @@ bool AS7341basic::delay(uint32_t timeout_ms) {
     return false;
 }
 
+// Reads register that signals if the spectral measurment is ready.
+// Returns true of false based upon ready value.
 bool AS7341basic::isReady() {
     bool dataSafe{false};
+
+    // Reads the 6th bit of the spectral status register. If that value
+    // is 1, this indicates that the reading is ready.
     uint8_t ready = this->readRegister(REG::SPEC_STAT, dataSafe) >> 6;
     if (dataSafe && (ready & 0b00000001)) {
         return true;
@@ -58,6 +75,8 @@ bool AS7341basic::isReady() {
     }
 }
 
+// Requires boolean if f1 to f4. Disables the spectrum and configs the
+// SMUX to write followed by setting up the appropriate registers.
 void AS7341basic::setSMUXLowChannels(bool f1_f4) {
     this->enableSpectrum(SPECTRUM::DISABLE, false);
     this->configSMUX(SMUX_CONF::WRITE, false);
@@ -71,6 +90,10 @@ void AS7341basic::setSMUXLowChannels(bool f1_f4) {
     this->enableSMUX(SMUX::ENABLE, false);
 }
 
+// Sets up channels F1 to F4, Clear, and NIR by writing register 1 - 19.
+// This was taken from the Adafruit_AS7341 library, since this mapping was
+// not available in the datasheet. This works in comparison with the 
+// Adafruit upload.
 void AS7341basic::setup_F1F4_Clear_NIR() {
     // SMUX Config for F1,F2,F3,F4,NIR,Clear
     this->writeRegister(static_cast<REG>(0x00),0x30); // F3 left set to ADC2
@@ -97,6 +120,7 @@ void AS7341basic::setup_F1F4_Clear_NIR() {
     this->writeRegister(static_cast<REG>(0x13), 0x06); // NIR connected to ADC5
 }
 
+// The same as above, but for channels F5 to F8.
 void AS7341basic::setup_F5F8_Clear_NIR() {
     // SMUX Config for F5,F6,F7,F8,NIR,Clear
     this->writeRegister(static_cast<REG>(0x00),0x00); // F3 left disable
@@ -131,6 +155,8 @@ AS7341basic::AS7341basic(CONFIG &conf) : conf(conf), isInit(false) {}
 bool AS7341basic::init(uint8_t address) {
     I2C::I2C_RET ret = I2C::i2c_master_init(I2C_DEF_FRQ);
 
+    // Only returns false if the init fails. This library has returns
+    // for OK, Already running, or fail.
     if (ret == I2C::I2C_RET::INIT_FAIL) {
         return false;
     } 
@@ -145,7 +171,8 @@ bool AS7341basic::init(uint8_t address) {
     this->i2cHandle = I2C::addDev(devCon);
 
     actualVal += this->power(PWR::OFF); // Clear register before config
-    actualVal += this->power(PWR::ON);
+    actualVal += this->power(PWR::ON); // Powers on device.
+    vTaskDelay(pdMS_TO_TICKS(10)); // Delay of > 200 micros req by datasheet.
     actualVal += this->configATIME(this->conf.ATIME);
     actualVal += this->configASTEP(this->conf.ASTEP);
     actualVal += this->configWTIME(this->conf.WTIME);
@@ -165,13 +192,20 @@ bool AS7341basic::init(uint8_t address) {
 // Returns if the devices has been properly initialized.
 bool AS7341basic::isDevInit() {return this->isInit;}
 
-
-uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe) {
+// Requires the channel to be read, dataSafe bool, and delay Enable bool.
+// the delayEn is set to false by default. If a channel read is performed
+// outside of the readAll function, the delay should be enabled. Reads the
+// lower and upper register addresses, and combines the two 8-bit values 
+// into a 16-bit value for that channel. Returns the value along with the
+// dataSafe bool.
+uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
     REG CH_LWR = CH_REG_MAP[static_cast<uint8_t>(chnl)][0];
     REG CH_UPR = CH_REG_MAP[static_cast<uint8_t>(chnl)][1];
 
     bool lwrSafe{false}, uprSafe{false};
-    bool ready = this->delay(1000);
+
+    // If not enabled, default true. If enabled, sets delay until ready.
+    bool ready = delayEn ? this->delay(1000) : true;
 
     if (ready) {
         uint8_t ch_lwr = this->readRegister(CH_LWR, lwrSafe);
@@ -179,7 +213,7 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe) {
         
         if (lwrSafe && uprSafe) {
             dataSafe = true;
-            return (ch_upr << 8) | ch_lwr;
+            return (ch_upr << 8) | ch_lwr; // combines data into 16-bits.
 
         } else {
             dataSafe = false;
@@ -193,32 +227,38 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe) {
     }
 }
 
+// Requires the COLOR struct with F1 - F8, clear, and NIR uint16_t data.
+// Reads each channel into the struct. Returns true if the data is valid
+// and false if invalid.
 bool AS7341basic::readAll(COLOR &color) {
-    bool safe[6] = {false, false, false, false, false, false};
-    uint8_t safeExp = 10;
+    bool safe[6] = {false, false, false, false, false, false}; // Ch0 - Ch5
+    uint8_t safeExp = 10; // 10 channel reads.
     uint8_t safeAct = 0;
 
     // The datasheet does not contain anything about mapping the F-channels to the
     // ADC. Referenced and did a little bit of reverse enginnering with the 
     // Adafruit_AS7341.cpp to configure everything below.
 
-    this->setSMUXLowChannels(true);
-    this->enableSpectrum(SPECTRUM::ENABLE, false);
-    this->delay(0);
+    this->setSMUXLowChannels(true); // sets channels F1 - F4.
+    this->enableSpectrum(SPECTRUM::ENABLE, false); // enables spectrum
+    this->delay(1000); // Delays here for all readings. 
 
+    // Reads F1 to F4. Will read Clear and NIR below.
     color.F1_415nm_Violet = this->readChannel(CHANNEL::CH0, safe[0]);
     color.F2_445nm_Indigo = this->readChannel(CHANNEL::CH1, safe[1]);
     color.F3_480nm_Blue = this->readChannel(CHANNEL::CH2, safe[2]);
     color.F4_515nm_Cyan = this->readChannel(CHANNEL::CH3, safe[3]);
 
+    // Computes the qty of safe data values and resets the array.
     for (int i = 0; i < sizeof(safe); i++) {
         safeAct += safe[i];
         safe[i] = false; // reset
     }
 
+    // Mirrors above but sets channels up for F5 - F8.
     this->setSMUXLowChannels(false);
     this->enableSpectrum(SPECTRUM::ENABLE, false);
-    this->delay(0);
+    this->delay(1000);
 
     color.F5_555nm_Green = this->readChannel(CHANNEL::CH0, safe[0]);
     color.F6_590nm_Yellow = this->readChannel(CHANNEL::CH1, safe[1]);
@@ -227,13 +267,13 @@ bool AS7341basic::readAll(COLOR &color) {
     color.Clear = this->readChannel(CHANNEL::CH4, safe[4]);
     color.NIR = this->readChannel(CHANNEL::CH5, safe[5]);
 
+    // Computes the qty of safe data values for a total.
     for (int i = 0; i < sizeof(safe); i++) {
         safeAct += safe[i];
     }
 
+    // Returns true if the actual safe values equal the expected.
     return (safeAct == safeExp);
 }
-
-
 
 }

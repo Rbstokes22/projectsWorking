@@ -6,7 +6,7 @@
 
 namespace AS7341_DRVR {
 
-// All used register addresses. 
+// All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
     ENABLE = 0x80, CONFIG = 0x70, REG_BANK = 0xA9,
     LED = 0x74, REG_STAT = 0x71, SPEC_STAT = 0xA3,
@@ -24,6 +24,8 @@ enum class REG : uint8_t {
 // Defines lower and upper addr for channels
 extern REG CH_REG_MAP[6][2];
 
+// Channel map to omit the need to explicitly call lower and
+// upper address bytes. Works with the CH_REG_MAP.
 enum class CHANNEL : uint8_t {
     CH0, CH1, CH2, CH3, CH4, CH5
 };
@@ -72,6 +74,7 @@ struct CONFIG {
         );
 };
 
+// Each color defined by the color map of the datasheet.
 struct COLOR {
     uint16_t F1_415nm_Violet;
     uint16_t F2_445nm_Indigo;
@@ -127,10 +130,8 @@ class AS7341basic {
     uint8_t getSMUX(bool &dataSafe);
     bool getWaitEnabled(bool &dataSafe);
     bool getSpectrumEnabled(bool &dataSafe);
-    uint16_t readChannel(CHANNEL chnl, bool &dataSafe);
+    uint16_t readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn = false);
     bool readAll(COLOR &color);
-    
-
 };
 
 }

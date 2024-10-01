@@ -18,6 +18,7 @@ bool AS7341basic::setBank(REG reg) {
     static uint8_t lastAddr = 0x00;
     static uint8_t cutoff = static_cast<uint8_t>(REG::ENABLE);
 
+    // This is the buffer to send if register is >= 0x80.
     uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_BANK), 0x00};
     uint8_t addr = static_cast<uint8_t>(reg);
     esp_err_t err = ESP_OK;
@@ -36,7 +37,7 @@ bool AS7341basic::setBank(REG reg) {
         err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
         lastAddr = addr;
     } else if(addr < cutoff && lastAddr >= cutoff) {
-        buffer[1] |= (1 << 3); // Sets bit to 0x08.
+        buffer[1] |= (1 << 3); // Sets byte to 0x08 for register below 0x80.
         err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
         lastAddr = addr;
     } 
@@ -49,6 +50,7 @@ bool AS7341basic::setBank(REG reg) {
     return true;
 }
 
+// Requires register and value to write. Writes value to register address.
 void AS7341basic::writeRegister(REG reg, uint8_t val) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
@@ -63,18 +65,23 @@ void AS7341basic::writeRegister(REG reg, uint8_t val) {
     };
 }
 
+// Requires register and dataSafe boolean. Writes to I2C the register 
+// to read, and reads the uint8_t value given back. If successful,
+// changes dataSafe to true, and returns the result. Returns a uint8_t
+// value, with a corresponding dataSafe boolean. 0 with a corresponding
+// dataSafe = false indicates error.
 uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
 
     if (this->setBank(reg)) {
-        uint8_t readBuf[1]{0};
-        uint8_t writeBuf[1] = {addr};
+        uint8_t readBuf[1]{0}; // Single bit value.
+        uint8_t writeBuf[1] = {addr}; // Address to send to.
 
         err = i2c_master_transmit_receive(
             this->i2cHandle,
             writeBuf, sizeof(writeBuf),
-            readBuf, 1, -1
+            readBuf, sizeof(readBuf), -1
         );
 
         if (err != ESP_OK) {
@@ -92,6 +99,9 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
     }
 }
 
+// Requires register, data to write, and verbose is set to true. Writes to 
+// the register, and then reads the register to ensure that the read value
+// equals the value that was written. Returns true or false if successful.
 bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
     uint8_t dataValidation{0};
     uint8_t addr = static_cast<uint8_t>(reg);
@@ -99,6 +109,7 @@ bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
 
     this->writeRegister(reg, dataOut);
 
+    // Handler for power on only.
     if (addr == 0x80 && dataOut == 1) {
         vTaskDelay(pdMS_TO_TICKS(10)); // delay after PON
     }
@@ -106,7 +117,7 @@ bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
     dataValidation = this->readRegister(reg, dataSafe);
 
     // Removes the smuxEn bit since it is cleared upon writing to avoid 
-    // Incorrect data validation.
+    // Incorrect data validation when writing to enable smux.
     if (addr == 0x80) {
         uint8_t smuxEnbit = dataOut & 0b00010000;
         uint8_t dataCorrection = dataOut - smuxEnbit;
