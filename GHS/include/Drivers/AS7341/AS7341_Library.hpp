@@ -8,8 +8,8 @@ namespace AS7341_DRVR {
 
 // All used register addresses. 
 enum class REG : uint8_t {
-    ENABLE = 0x80, CONFIG = 0x70, REG_ACCESS = 0xA9,
-    LED = 0x74, REG_STAT = 0x71,
+    ENABLE = 0x80, CONFIG = 0x70, REG_BANK = 0xA9,
+    LED = 0x74, REG_STAT = 0x71, SPEC_STAT = 0xA3,
     SMUX_CONFIG = 0xAF,
     ATIME = 0x81, WTIME = 0x83, AGAIN = 0xAA,
     ASTEP_LWR = 0xCA, ASTEP_UPR = 0xCB,
@@ -72,24 +72,42 @@ struct CONFIG {
         );
 };
 
+struct COLOR {
+    uint16_t F1_415nm_Violet;
+    uint16_t F2_445nm_Indigo;
+    uint16_t F3_480nm_Blue;
+    uint16_t F4_515nm_Cyan;
+    uint16_t F5_555nm_Green;
+    uint16_t F6_590nm_Yellow;
+    uint16_t F7_630nm_Orange;
+    uint16_t F8_680nm_Red;
+    uint16_t Clear;
+    uint16_t NIR;
+};
+
 class AS7341basic {
     private:
     i2c_master_dev_handle_t i2cHandle;
     CONFIG &conf;
     bool isInit;
-    bool prepRegister(REG reg);
+    bool setBank(REG reg);
     void writeRegister(REG reg, uint8_t val);
     uint8_t readRegister(REG reg, bool &dataSafe);
     bool validateWrite(REG reg, uint8_t dataOut, bool verbose = true);
-    bool power(PWR state);
-    bool configATIME(uint8_t value);
-    bool configASTEP(uint16_t value);
-    bool configWTIME(uint8_t value);
-    bool configSMUX(SMUX_CONF config);
-    bool enableLED(LED_CONF state);
-    bool enableSMUX(SMUX state);
-    bool enableWait(WAIT state);
-    bool enableSpectrum(SPECTRUM state);
+    bool power(PWR state, bool verbose = true);
+    bool configATIME(uint8_t value, bool verbose = true);
+    bool configASTEP(uint16_t value, bool verbose = true);
+    bool configWTIME(uint8_t value, bool verbose = true);
+    bool configSMUX(SMUX_CONF config, bool verbose = true);
+    bool enableLED(LED_CONF state, bool verbose = true);
+    bool enableSMUX(SMUX state, bool verbose = true);
+    bool enableWait(WAIT state, bool verbose = true);
+    bool enableSpectrum(SPECTRUM state, bool verbose = true);
+    bool delay(uint32_t timeout_ms);
+    bool isReady();
+    void setSMUXLowChannels(bool f1_f4);
+    void setup_F1F4_Clear_NIR();
+    void setup_F5F8_Clear_NIR();
 
     public:
     AS7341basic(CONFIG &conf);
@@ -109,12 +127,9 @@ class AS7341basic {
     uint8_t getSMUX(bool &dataSafe);
     bool getWaitEnabled(bool &dataSafe);
     bool getSpectrumEnabled(bool &dataSafe);
-
-    uint16_t readChannel(
-        CHANNEL chnl, 
-        int timeoutMicros, 
-        bool &dataSafe
-        );
+    uint16_t readChannel(CHANNEL chnl, bool &dataSafe);
+    bool readAll(COLOR &color);
+    
 
 };
 

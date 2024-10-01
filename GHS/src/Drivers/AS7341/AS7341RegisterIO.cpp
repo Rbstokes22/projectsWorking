@@ -10,16 +10,36 @@
 
 namespace AS7341_DRVR {
 
-bool AS7341basic::prepRegister(REG reg) {
-    uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_ACCESS), 0x00};
-    uint8_t addr = static_cast<uint8_t>(reg);
-    esp_err_t err;
+// Requires register. Checks if the previous bank set and if the new
+// register range is different than the previous, adjusts the byte
+// value and writes to register. This prevents the bank from being 
+// set to a value that exists. Returns true or false.
+bool AS7341basic::setBank(REG reg) {
+    static uint8_t lastAddr = 0x00;
+    static uint8_t cutoff = static_cast<uint8_t>(REG::ENABLE);
 
-    if (addr < static_cast<uint8_t>(REG::ENABLE)) {
-        buffer[1] = 0x10;
+    uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_BANK), 0x00};
+    uint8_t addr = static_cast<uint8_t>(reg);
+    esp_err_t err = ESP_OK;
+
+    // Initial set for first call to trigger send. Sets the last address
+    // to a range that is different than the current address.
+    if (lastAddr == 0x00 && addr >= cutoff) {
+        lastAddr = 0x00;
+    } else if (lastAddr == 0x00 && addr < cutoff) {
+        lastAddr = cutoff;
     }
 
-    err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+    // Register map says shift 3, details say shift 4. Does not work with
+    // 4, only works with 3.
+    if (addr >= cutoff && lastAddr < cutoff) {
+        err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+        lastAddr = addr;
+    } else if(addr < cutoff && lastAddr >= cutoff) {
+        buffer[1] |= (1 << 3); // Sets bit to 0x08.
+        err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+        lastAddr = addr;
+    } 
 
     if (err != ESP_OK) {
         printf("Err config register: %s\n", esp_err_to_name(err));
@@ -33,7 +53,7 @@ void AS7341basic::writeRegister(REG reg, uint8_t val) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
 
-    if (this->prepRegister(reg)) {
+    if (this->setBank(reg)) {
         uint8_t buffer[2] = {addr, val};
         err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
 
@@ -47,7 +67,7 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
 
-    if (this->prepRegister(reg)) {
+    if (this->setBank(reg)) {
         uint8_t readBuf[1]{0};
         uint8_t writeBuf[1] = {addr};
 

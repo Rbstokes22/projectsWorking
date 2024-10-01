@@ -10,46 +10,46 @@
 
 namespace AS7341_DRVR {
 
-bool AS7341basic::power(PWR state) {
-    return this->validateWrite(REG::ENABLE, static_cast<uint8_t>(state));
+bool AS7341basic::power(PWR state, bool verbose) {
+    return this->validateWrite(REG::ENABLE, static_cast<uint8_t>(state), verbose);
 }
 
 // Requires value. Used to set integration time for spectral measurments.
 // Determines how long the sensor collects light before taking the 
 // measurements. Returns true or false. (Recommend 29).
-bool AS7341basic::configATIME(uint8_t value) {
-    return this->validateWrite(REG::ATIME, value);
+bool AS7341basic::configATIME(uint8_t value, bool verbose) {
+    return this->validateWrite(REG::ATIME, value, verbose);
 }
 
 // Requires value. Used to configure step time for SMUX operation. Controls
 // timing of how long sensor waits between switching between different 
 // photo diodes. Writes two, 8-bit registers equating to a 16-bit value.
 // Returns true or false. (Recommend 599).
-bool AS7341basic::configASTEP(uint16_t value) {
+bool AS7341basic::configASTEP(uint16_t value, bool verbose) {
     uint8_t total{0};
 
     uint8_t ASTEPdata = 0x00 | (value & 0x00FF); // lower
 
     if (value >= 65535) value = 65534; // 65535 is reserved
 
-    total += this->validateWrite(REG::ASTEP_LWR, ASTEPdata);
+    total += this->validateWrite(REG::ASTEP_LWR, ASTEPdata, verbose);
 
     ASTEPdata = 0x00 | (this->conf.ASTEP >> 8); // upper
 
-    total += this->validateWrite(REG::ASTEP_UPR, ASTEPdata);
+    total += this->validateWrite(REG::ASTEP_UPR, ASTEPdata, verbose);
     return (total == 2);
 }
 
 // Requires value. Handles time between measurements. This contributes
 // to the integration time using ASTEP and ATIME. Returns true or false.
-bool AS7341basic::configWTIME(uint8_t value) {
-    return this->validateWrite(REG::WTIME, value);
+bool AS7341basic::configWTIME(uint8_t value, bool verbose) {
+    return this->validateWrite(REG::WTIME, value, verbose);
 }
 
 // Requires value. Writes to SMUX register 0 to init the SMUX, followed
 // by set value 1 for Read SMUX config to RAM from SMUX chain, and 2 for 
 // Write SMUX config from RAM to SMUX chain. Returns true or false.
-bool AS7341basic::configSMUX(SMUX_CONF config) {
+bool AS7341basic::configSMUX(SMUX_CONF config, bool verbose) {
     static bool SMUX_INIT{false}; // Sent only once.
     bool dataSafe{false};
     uint8_t total{0};
@@ -58,18 +58,18 @@ bool AS7341basic::configSMUX(SMUX_CONF config) {
     uint8_t conf = smux_conf | (static_cast<uint8_t>(config) << 3); // Move value to bits 3 and 4.
 
     if (!SMUX_INIT && dataSafe) {
-        total += this->validateWrite(REG::SMUX_CONFIG, init);
+        total += this->validateWrite(REG::SMUX_CONFIG, init, verbose);
         SMUX_INIT = true;
     }
 
     vTaskDelay(pdMS_TO_TICKS(10)); // Short delay between sends.
 
-    if (dataSafe) total += this->validateWrite(REG::SMUX_CONFIG, conf);
+    if (dataSafe) total += this->validateWrite(REG::SMUX_CONFIG, conf, verbose);
 
     return (total == 2);
 }
 
-bool AS7341basic::enableLED(LED_CONF state) {
+bool AS7341basic::enableLED(LED_CONF state, bool verbose) {
     bool dataSafe{false};
     uint8_t configREG = this->readRegister(REG::CONFIG, dataSafe);
 
@@ -84,13 +84,13 @@ bool AS7341basic::enableLED(LED_CONF state) {
     }
 
     if (dataSafe) {
-        return this->validateWrite(REG::CONFIG, configREG);
+        return this->validateWrite(REG::CONFIG, configREG, verbose);
     } else {
         return false;
     }
 }
 
-bool AS7341basic::enableSMUX(SMUX state) {
+bool AS7341basic::enableSMUX(SMUX state, bool verbose) {
     bool dataSafe{false};
     uint8_t enableREG = this->readRegister(REG::ENABLE, dataSafe);
 
@@ -105,13 +105,13 @@ bool AS7341basic::enableSMUX(SMUX state) {
     }
 
     if (dataSafe) {
-        return this->validateWrite(REG::ENABLE, enableREG);
+        return this->validateWrite(REG::ENABLE, enableREG, verbose);
     } else {
         return false;
     }
 }
 
-bool AS7341basic::enableWait(WAIT state) {
+bool AS7341basic::enableWait(WAIT state, bool verbose) {
     bool dataSafe{false};
     uint8_t enableREG = this->readRegister(REG::ENABLE, dataSafe) | 0x08;
 
@@ -126,15 +126,15 @@ bool AS7341basic::enableWait(WAIT state) {
     }
 
     if (dataSafe) {
-        return this->validateWrite(REG::ENABLE, enableREG);
+        return this->validateWrite(REG::ENABLE, enableREG, verbose);
     } else {
         return false;
     }
 }
 
-bool AS7341basic::enableSpectrum(SPECTRUM state) {
+bool AS7341basic::enableSpectrum(SPECTRUM state, bool verbose) {
     bool dataSafe{false};
-    uint8_t enableREG = this->readRegister(REG::ENABLE, dataSafe) | 0x02;
+    uint8_t enableREG = this->readRegister(REG::ENABLE, dataSafe);
 
     switch (state) {
         case SPECTRUM::ENABLE:
@@ -147,7 +147,7 @@ bool AS7341basic::enableSpectrum(SPECTRUM state) {
     }
 
     if (dataSafe) {
-        return this->validateWrite(REG::ENABLE, enableREG);
+        return this->validateWrite(REG::ENABLE, enableREG, verbose);
     } else {
         return false;
     }

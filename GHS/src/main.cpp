@@ -2,14 +2,13 @@
 
 // 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 // 9. Once drivers are good, build everything and integrate into webpage.
+// 10. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
+// Also include active sensors, or any other type of logging things.
 
 // Current Note:
-// The AS7341 is running. I am only getting channel 0. I uploaded arduino code to ensure the
-// sensor was working which it was. Then when uploading my code, each channel worked which leads
-// me to believe it is some register configuration. Based on all the examples from adafruit, they 
-// call call readallchannels which writes to some registers and is not in the datasheet. Start
-// there and mirror that functionality and see if we can get it going. Maybe have to enable
-// flicker detection as well, not sure if they do, but start experimenting with that.
+// The AS7341 is running. Everything seems to be going well and I have all channel outputs.
+// Run comparisons on values with the arduino as well as this, to ensure that the color
+// counts match.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -92,6 +91,7 @@ void netTask(void* parameter) {
     #define UNLOCK params->mutex.unlock();
 
     Clock::Timer netCheck(1000); 
+    light.setAGAIN(AS7341_DRVR::AGAIN::X256);
 
     while (true) {
         // in this portion, check wifi switch for position. 
@@ -112,27 +112,29 @@ void periphTask(void* parameter) {
     #define LOCK params->mutex.lock()
     #define UNLOCK params->mutex.unlock();
 
-    bool ch0, ch1, ch2, ch3, ch4, ch5, intTime;
-
+   
+    AS7341_DRVR::COLOR color{0};
+    
     while (true) {
+        bool RA = light.readAll(color);
 
-        uint16_t chl0 = light.readChannel(AS7341_DRVR::CHANNEL::CH0, -1, ch0);
-        uint16_t chl1 = light.readChannel(AS7341_DRVR::CHANNEL::CH1, -1, ch1);
-        uint16_t chl2 = light.readChannel(AS7341_DRVR::CHANNEL::CH2, -1, ch2);
-        uint16_t chl3 = light.readChannel(AS7341_DRVR::CHANNEL::CH3, -1, ch3);
-        uint16_t chl4 = light.readChannel(AS7341_DRVR::CHANNEL::CH4, -1, ch4);
-        uint16_t chl5 = light.readChannel(AS7341_DRVR::CHANNEL::CH5, -1, ch5);
-        float integTime = light.getIntegrationTime(intTime);
-
-        printf("Readouts\n");
-        printf("CH0: %u, safe: %d\n", chl0, ch0);
-        printf("CH1: %u, safe: %d\n", chl1, ch1);
-        printf("CH2: %u, safe: %d\n", chl2, ch2);
-        printf("CH3: %u, safe: %d\n", chl3, ch3);
-        printf("CH4: %u, safe: %d\n", chl4, ch4);
-        printf("CH5: %u, safe: %d\n", chl5, ch5);
-        printf("Integration Time: %.2f\n", integTime);
-        
+        if (RA) {
+            printf("\nReadouts\n");
+            printf("Violet: %u\n", color.F1_415nm_Violet);
+            printf("Indigo: %u\n", color.F2_445nm_Indigo);
+            printf("Blue: %u\n", color.F3_480nm_Blue);
+            printf("Cyan: %u\n", color.F4_515nm_Cyan);
+            printf("Green: %u\n", color.F5_555nm_Green);
+            printf("Yellow: %u\n", color.F6_590nm_Yellow);
+            printf("Orange: %u\n", color.F7_630nm_Orange);
+            printf("Red: %u\n", color.F8_680nm_Red);
+            printf("Clear: %u\n", color.Clear);
+            printf("NIR: %u\n", color.NIR);
+            
+        } else {
+            printf("Data Errors\n");
+        }
+     
         vTaskDelay(pdMS_TO_TICKS(params->delay)); 
     }
 }
