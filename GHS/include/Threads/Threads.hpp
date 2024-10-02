@@ -4,11 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "UI/MsgLogHandler.hpp"
-// #include "Peripherals/Light.h" // Uncomment when ready to develop
-// #include "Peripherals/TempHum.h"
-// #include "Peripherals/Soil.h"
-// #include "Common/Timing.h"
- 
+
 namespace Threads {
 
 class Thread {
@@ -28,21 +24,6 @@ class Thread {
     void resumeTask();
     ~Thread();
 };
-
-// class SensorThread {
-//     private:
-//     TaskHandle_t taskHandle;
-//     Messaging::MsgLogHandler &msglogerr;
-//     static const uint8_t totalSensors;
-    
-//     public:
-//     SensorThread(Messaging::MsgLogHandler &msglogerr);
-//     void initThread(Peripheral::Sensors** allSensors);
-//     static void sensorTask(void* parameter);
-//     static void mutexWrap(Peripheral::Sensors* sensor);
-//     void suspendTask();
-//     void resumeTask();
-// };
 
 }
 

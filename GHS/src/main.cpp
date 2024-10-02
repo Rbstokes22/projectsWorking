@@ -1,14 +1,16 @@
 // TO DO:
 
-// 8. Build peripherals (start with device drivers for the DHT and then the as7341)
 // 9. Once drivers are good, build everything and integrate into webpage.
 // 10. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
 // Also include active sensors, or any other type of logging things.
 
 // Current Note:
-// The AS7341 is running. Everything seems to be going well and I have all channel outputs.
-// Run comparisons on values with the arduino as well as this, to ensure that the color
-// counts match.
+// All tests good. Threads built for each peripheral. Build a class for each device and use
+// that within the thread to manage readings. Consider creating boundaries as well for 
+// vertical display. When saving data, save to NVS. There is a built in write feature that 
+// will read the data to ensure it doesnt match before re-writing. Consider building in
+// alert boundaries, and what to do if those boundaries are reached. This will be an
+// intensive class for sure.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -23,12 +25,13 @@
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "Config/config.hpp"
-#include "Drivers/SSD1306_Library.hpp"
+#include "Drivers/SSD1306_Library.hpp" 
 #include "UI/Display.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Common/Timing.hpp"
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
+#include "Threads/ThreadTasks.hpp"
 #include "Network/NetCreds.hpp"
 #include "Network/NetManager.hpp"
 #include "Network/NetSTA.hpp"
@@ -40,8 +43,8 @@
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include <cstddef>
-#include "Drivers/DHT_Library.hpp"
-#include "Drivers/AS7341/AS7341_Library.hpp"
+#include "Drivers/DHT_Library.hpp" 
+#include "Drivers/AS7341/AS7341_Library.hpp" 
 
 extern "C" {
     void app_main();
@@ -50,9 +53,10 @@ extern "C" {
 // If set to true, will bypass firmware validation process in the startup.
 bool bypassValidation = true;
 
-// ALL OBJECTS
+// GLOBALS
 UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
+adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
 
 // NET SETUP (default IP is 192.168.1.1).
 const char APssid[]{"GreenHouse"};
@@ -64,117 +68,99 @@ Comms::NetSTA station(msglogerr, creds, mdnsName);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
 Comms::NetManager netManager(station, wap, creds, OLED);
 
-// THREADS
-Threads::netThreadParams netParams(1000, msglogerr);
-Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
-
-Threads::periphThreadParams periphParams(5000, msglogerr);
-Threads::Thread periphThread(msglogerr, "PeriphThread");
-
-const size_t threadQty = 1;
-Threads::Thread* toSuspend[threadQty] = {&periphThread};
-
-// OTA 
-OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
-
 // PERIPHERALS
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
 
-void netTask(void* parameter) {
-    Threads::netThreadParams* params = 
-        static_cast<Threads::netThreadParams*>(parameter);
+// THREADS
+Threads::netThreadParams netParams(1000, netManager, msglogerr);
+Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-    #define LOCK params->mutex.lock()
-    #define UNLOCK params->mutex.unlock();
+Threads::DHTThreadParams DHTParams(1000, dht, msglogerr);
+Threads::Thread DHTThread(msglogerr, "DHTThread");
 
-    Clock::Timer netCheck(1000); 
-    light.setAGAIN(AS7341_DRVR::AGAIN::X256);
+Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
+Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
 
-    while (true) {
-        // in this portion, check wifi switch for position. 
-        if (netCheck.isReady()) {
-            netManager.handleNet();
-        }
+Threads::soilThreadParams soilParams(1000, msglogerr, adc_unit);
+Threads::Thread soilThread(msglogerr, "soilThread");
 
-        msglogerr.OLEDMessageCheck(); // clears errors from display
+const size_t threadQty = 3;
+Threads::Thread* toSuspend[threadQty] = {
+    &DHTThread, &AS7341Thread, &soilThread
+    };
 
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
-    }
-}
-
-void periphTask(void* parameter) {
-    Threads::periphThreadParams* params = 
-        static_cast<Threads::periphThreadParams*>(parameter);
-
-    #define LOCK params->mutex.lock()
-    #define UNLOCK params->mutex.unlock();
-
-   
-    AS7341_DRVR::COLOR color{0};
-    
-    while (true) {
-        bool RA = light.readAll(color);
-
-        if (RA) {
-            printf("\nReadouts\n");
-            printf("F1 Violet: %u\n", color.F1_415nm_Violet);
-            printf("F2 Indigo: %u\n", color.F2_445nm_Indigo);
-            printf("F3 Blue: %u\n", color.F3_480nm_Blue);
-            printf("F4 Cyan: %u\n", color.F4_515nm_Cyan);
-            printf("F5 Green: %u\n", color.F5_555nm_Green);
-            printf("F6 Yellow: %u\n", color.F6_590nm_Yellow);
-            printf("F7 Orange: %u\n", color.F7_630nm_Orange);
-            printf("F8 Red: %u\n", color.F8_680nm_Red);
-            printf("Clear: %u\n", color.Clear);
-            printf("NIR: %u\n", color.NIR);
-            
-        } else {
-            printf("Data Errors\n");
-        }
-     
-        vTaskDelay(pdMS_TO_TICKS(params->delay)); 
-    }
-}
+// OTA 
+OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
 
 void setupDigitalPins() {
-    // Set all Pins
-    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::WAP)], GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::STA)], GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::defWAP)], GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::DHT)], GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_direction(pinMapD[static_cast<int>(DPIN::RE1)], GPIO_MODE_OUTPUT));
-    
-    // Configure all pins 
-    ESP_ERROR_CHECK(gpio_set_pull_mode(pinMapD[static_cast<int>(DPIN::WAP)], GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode(pinMapD[static_cast<int>(DPIN::STA)], GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode(pinMapD[static_cast<int>(DPIN::defWAP)], GPIO_PULLUP_ONLY));
+    struct pinConfig {
+        DPIN pin;
+        gpio_mode_t IOconfig;
+        gpio_pull_mode_t pullConfig;
+    };
+
+    // Floating on outputs has no function within lambda.
+    pinConfig pins[DigitalPinQty] = {
+        {DPIN::WAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::STA, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::defWAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::DHT, GPIO_MODE_INPUT, GPIO_FLOATING},
+        {DPIN::RE1, GPIO_MODE_OUTPUT, GPIO_FLOATING},
+        {DPIN::RE2, GPIO_MODE_OUTPUT, GPIO_FLOATING},
+        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING},
+        {DPIN::RE4, GPIO_MODE_OUTPUT, GPIO_FLOATING}
+    };
+
+    auto pinSet = [](pinConfig pin){
+        uint8_t pinIndex = static_cast<uint8_t>(pin.pin);
+        gpio_num_t pinNum = pinMapD[pinIndex];
+
+        ESP_ERROR_CHECK(gpio_set_direction(pinNum, pin.IOconfig));
+
+        if (pin.IOconfig != GPIO_MODE_OUTPUT) { // Ignores OUTPUT pull
+            ESP_ERROR_CHECK(gpio_set_pull_mode(pinNum, pin.pullConfig));
+        }
+    };
+
+    for (int i = 0; i < DigitalPinQty; i++) {
+        pinSet(pins[i]);
+    }
 }
 
-void setupAnalogPins() {
-    adc_oneshot_unit_handle_t adc_unit;
+void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
     adc_oneshot_unit_init_cfg_t unit_cfg{};
     unit_cfg.unit_id = ADC_UNIT_1;
     unit_cfg.ulp_mode = ADC_ULP_MODE_DISABLE;
 
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &adc_unit));
-    
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &unit));
+
+    APIN pins[AnalogPinQty] = {
+        APIN::SOIL1, APIN::SOIL2, APIN::SOIL3, APIN::SOIL4, APIN::PHOTO
+        };
+
     // Configure the ADC channel
     adc_oneshot_chan_cfg_t chan_cfg{};
     chan_cfg.bitwidth = ADC_BITWIDTH_DEFAULT,
     chan_cfg.atten = ADC_ATTEN_DB_12;  // Highest voltage reading.
 
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(
-        adc_unit, pinMapA[static_cast<int>(APIN::SOIL1)], &chan_cfg));
+    auto pinSet = [unit, &chan_cfg](APIN pin){
+        adc_channel_t pinNum = pinMapA[static_cast<uint8_t>(pin)];
+ 
+        ESP_ERROR_CHECK(adc_oneshot_config_channel(
+            adc_unit, pinNum, &chan_cfg
+        ));
+    };
 
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(
-        adc_unit, pinMapA[static_cast<int>(APIN::PHOTO)], &chan_cfg));
+    for (int i = 0; i < AnalogPinQty; i++) {
+        pinSet(pins[i]);
+    }
 }
 
 void app_main() {
     setupDigitalPins();
-    setupAnalogPins();
+    setupAnalogPins(adc_unit);
     OLED.init(0x3C);
     light.init(0x39);
 
@@ -225,7 +211,9 @@ void app_main() {
     Comms::setOTAObject(ota);
 
     // Start threads
-    netThread.initThread(netTask, 4096, &netParams, 1);
-    periphThread.initThread(periphTask, 4096, &periphParams, 5);
+    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 1);
+    DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 3);
+    AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
+    soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
 }
 

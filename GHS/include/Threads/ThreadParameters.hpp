@@ -4,24 +4,63 @@
 #include <cstdint>
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/NetManager.hpp"
+#include "Drivers/AS7341/AS7341_Library.hpp"
+#include "Drivers/DHT_Library.hpp"
+#include "esp_adc/adc_oneshot.h"
+
+
 
 namespace Threads {
 
 struct netThreadParams {
     uint32_t delay;
     Threads::Mutex mutex;
-    netThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
+    Comms::NetManager &netManager;
+    Messaging::MsgLogHandler &msglogerr;
+
+    netThreadParams(
+        uint32_t delay, 
+        Comms::NetManager &netManager,
+        Messaging::MsgLogHandler &msglogerr);
 };
 
-struct periphThreadParams {
+struct DHTThreadParams {
     uint32_t delay;
     Threads::Mutex mutex;
-    periphThreadParams(uint32_t delay, Messaging::MsgLogHandler &msglogerr);
+    DHT_DRVR::DHT &dht;
+    Messaging::MsgLogHandler &msglogerr;
+
+    DHTThreadParams(
+        uint32_t delay, 
+        DHT_DRVR::DHT &dht,
+        Messaging::MsgLogHandler &msglogerr);
 };
 
-struct socketThreadParams {
+struct AS7341ThreadParams {
+    uint32_t delay;
     Threads::Mutex mutex;
-    socketThreadParams(Messaging::MsgLogHandler &msglogerr);
+    AS7341_DRVR::AS7341basic &light;
+    Messaging::MsgLogHandler &msglogerr;
+    adc_oneshot_unit_handle_t &adc_unit;
+
+    AS7341ThreadParams(
+        uint32_t delay,
+        AS7341_DRVR::AS7341basic &light,
+        Messaging::MsgLogHandler &msglogerr,
+        adc_oneshot_unit_handle_t &adc_unit);
+};
+
+struct soilThreadParams {
+    uint32_t delay;
+    Threads::Mutex mutex;
+    Messaging::MsgLogHandler &msglogerr;
+    adc_oneshot_unit_handle_t &adc_unit;
+
+    soilThreadParams(
+        uint32_t delay,
+        Messaging::MsgLogHandler &msglogerr,
+        adc_oneshot_unit_handle_t &adc_unit);
 };
 
 }
