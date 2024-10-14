@@ -2,15 +2,21 @@
 
 // 9. Once drivers are good, build everything and integrate into webpage.
 // 10. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
-// Also include active sensors, or any other type of logging things.
+// Also include active sensors, or any other type of logging things. Can create a separate 
+// status header/source, include it when needed, and update it by reference in the source.
 
-// Current Note:
-// All tests good. Threads built for each peripheral. Build a class for each device and use
-// that within the thread to manage readings. Consider creating boundaries as well for 
-// vertical display. When saving data, save to NVS. There is a built in write feature that 
-// will read the data to ensure it doesnt match before re-writing. Consider building in
-// alert boundaries, and what to do if those boundaries are reached. This will be an
-// intensive class for sure.
+// CURRENT NOTES: DHT and relay seems to be configured for trips to include a padding as well
+// as a relay control ID, that prevents a device from shutting off the relay if another 
+// device currently has it on. Will need testing. The next part is to do some webpage work
+// and test the DHT out with webpage interaction.
+
+// Create settable features such as alerts, boundaries, relay actions starting with DHT as 
+// prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
+// the correct data is being passed through sockets so that the client can confirm everything
+// such as settings, boundaries, alerts, etc.. Once DHT is solid and up and running, configure
+// everything else. Implement a method to prevent several alerts from being sent, Like It sends
+// an alert when the criteria is met, but will not send again until it is good, and then bad again,
+// or something like that. Also consider a master alert manager or something like that.
 
 // PRE-production notes:
 // Change in config.cpp, devmode = false for production.
@@ -45,6 +51,7 @@
 #include <cstddef>
 #include "Drivers/DHT_Library.hpp" 
 #include "Drivers/AS7341/AS7341_Library.hpp" 
+#include "Peripherals/Relay.hpp"
 
 extern "C" {
     void app_main();
@@ -72,12 +79,18 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
+Peripheral::Relay relays[4] = {
+    pinMapD[static_cast<uint8_t>(DPIN::RE1)],
+    pinMapD[static_cast<uint8_t>(DPIN::RE2)],
+    pinMapD[static_cast<uint8_t>(DPIN::RE3)],
+    pinMapD[static_cast<uint8_t>(DPIN::RE4)]
+};
 
 // THREADS
 Threads::netThreadParams netParams(1000, netManager, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::DHTThreadParams DHTParams(1000, dht, msglogerr);
+Threads::DHTThreadParams DHTParams(1000, dht, msglogerr, relays);
 Threads::Thread DHTThread(msglogerr, "DHTThread");
 
 Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
@@ -207,8 +220,11 @@ void app_main() {
     // Passes objects to the WAPSetup handler to allow for use.
     Comms::setJSONObjects(station, wap, creds);
 
-    // Passes OTA object to the STA handler to allow for use.
+    // Passes OTA object to the STAOTA handler to allow for use.
     Comms::setOTAObject(ota);
+
+    // SEND THE MUTEX STUFF TO THE SOCKETS PAGE SO THAT THE SAME MUTEX HANDLE
+    // CAN BE USED. USE THREAD PARAMS.
 
     // Start threads
     netThread.initThread(ThreadTask::netTask, 4096, &netParams, 1);

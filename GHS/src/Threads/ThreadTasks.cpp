@@ -6,6 +6,8 @@
 #include "driver/gpio.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
+#include "Peripherals/Relay.hpp"
+#include "Peripherals/TempHum.hpp"
 
 namespace ThreadTask {
 
@@ -33,13 +35,45 @@ void DHTTask(void* parameter) { // DHT
     #define LOCK_DHT params->mutex.lock();
     #define UNLOCK_DHT params->mutex.unlock();
 
-    // float temp{0}, hum{0};
-    while (true) {
-        // bool read = params->dht.read(temp, hum);
+    size_t errCt{0};
+    size_t errCtMax{5};
 
-        // if (read) {
-        //     printf("Temp: %.2f, Hum: %.2f\n", temp, hum);
-        // }
+    float temp{0.0f}, hum{0.0f};
+    Peripheral::TempHum th;
+    Peripheral::Relay relay = params->relays[0];
+    Peripheral::RELAY_CONFIG temp1 = {
+        .tripVal = 22,
+        .relay = &relay,
+        .condition = Peripheral::CONDITION::LESS_THAN,
+        .relayControlID = 1
+    };
+
+    th.setTempConf(temp1);
+
+    while (true) {
+        bool read = params->dht.read(temp, hum);
+
+        if (read) {
+            LOCK_DHT;
+            th.setTemp(temp);
+            th.setHum(hum);
+            Peripheral::TempHum::setStatus(true);
+            UNLOCK_DHT;
+            errCt = 0;
+        } else {
+            errCt++;
+        }
+
+        if (errCt >= errCtMax) { // Handles if the device is up or down.
+            LOCK_DHT;
+            Peripheral::TempHum::setStatus(false);
+            UNLOCK_DHT;
+            errCt = 0;
+        }
+
+        LOCK_DHT;
+        // th.checkBounds();
+        UNLOCK_DHT;
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }

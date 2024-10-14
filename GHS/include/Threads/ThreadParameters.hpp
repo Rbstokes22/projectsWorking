@@ -8,8 +8,7 @@
 #include "Drivers/AS7341/AS7341_Library.hpp"
 #include "Drivers/DHT_Library.hpp"
 #include "esp_adc/adc_oneshot.h"
-
-
+#include "Peripherals/Relay.hpp"
 
 namespace Threads {
 
@@ -30,11 +29,13 @@ struct DHTThreadParams {
     Threads::Mutex mutex;
     DHT_DRVR::DHT &dht;
     Messaging::MsgLogHandler &msglogerr;
+    Peripheral::Relay* relays;
 
     DHTThreadParams(
         uint32_t delay, 
         DHT_DRVR::DHT &dht,
-        Messaging::MsgLogHandler &msglogerr);
+        Messaging::MsgLogHandler &msglogerr,
+        Peripheral::Relay* relays);
 };
 
 struct AS7341ThreadParams {

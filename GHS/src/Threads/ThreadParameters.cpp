@@ -6,6 +6,7 @@
 #include "Drivers/AS7341/AS7341_Library.hpp"
 #include "Drivers/DHT_Library.hpp"
 #include "esp_adc/adc_oneshot.h"
+#include "Peripherals/Relay.hpp"
 
 namespace Threads {
 
@@ -20,10 +21,11 @@ netThreadParams::netThreadParams(
 DHTThreadParams::DHTThreadParams(
     uint32_t delay, 
     DHT_DRVR::DHT &dht,
-    Messaging::MsgLogHandler &msglogerr) :
+    Messaging::MsgLogHandler &msglogerr,
+    Peripheral::Relay* relays) :
 
     delay(delay), mutex(msglogerr), dht(dht), 
-    msglogerr(msglogerr) {}
+    msglogerr(msglogerr), relays(relays) {}
 
 AS7341ThreadParams::AS7341ThreadParams(
     uint32_t delay,
