@@ -11,19 +11,12 @@
 namespace Comms {
 
 // Static Setup
-// Threads::Mutex* DHTmutex{nullptr};
-// Threads::Mutex* AS7341mutex{nullptr};
-// Threads::Mutex* SOILmutex{nullptr};
-// Peripheral::Relay* Relays{nullptr};
 Threads::Mutex* SOCKHAND::DHTmtx{nullptr};
 Threads::Mutex* SOCKHAND::AS7341mtx{nullptr};
 Threads::Mutex* SOCKHAND::SOILmtx{nullptr};
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
 argPool SOCKHAND::pool;
-
-// struct async_resp_arg argPool[MAX_RESP_ARGS] = {0};
-// bool inUse[MAX_RESP_ARGS] = {false};
 
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack.
