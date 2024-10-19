@@ -10,33 +10,15 @@
 
 namespace Comms {
 
-NetSTA *station{nullptr};
-NetWAP *wap{nullptr};
-NVS::Creds *creds{nullptr};
-
-// This allows the network and NVS objects to be used within the handlers
-// to update credentials.
-void setJSONObjects(NetSTA &_station, NetWAP &_wap, NVS::Creds &_creds) {
-    station = &_station;
-    wap = &_wap;
-    creds = &_creds;
-}
-
-esp_err_t WAPSetupIndexHandler(httpd_req_t *req) {
-    if (httpd_resp_set_type(req, "text/html") != ESP_OK) {
-        wap->sendErr("Error setting response type", errDisp::SRL);
-    }
-
-    if (httpd_resp_send(req, WAPSetupPage, strlen(WAPSetupPage)) != ESP_OK) {
-        wap->sendErr("Error sending response", errDisp::SRL);
-    }
-
-    return ESP_OK;
-}
+// Static setup
+NetSTA* WSHAND::station{nullptr};
+NetWAP* WSHAND::wap{nullptr};
+NVS::Creds* WSHAND::creds{nullptr};
+bool WSHAND::isInit{false};
 
 // Receives the JSON request, and creates a buffer that 
 // stores the data. Returns the JSON parsed buffer. 
-cJSON* receiveJSON(httpd_req_t* req) {
+cJSON* WSHAND::receiveJSON(httpd_req_t* req) {
     char buffer[100]{0}; // will never exceed.
     int ret{0}, totalLength{0};
 
@@ -57,7 +39,7 @@ cJSON* receiveJSON(httpd_req_t* req) {
     }
 
     if (ret < 0) { // indicates error
-        wap->sendErr("JSON request Error", errDisp::SRL);
+        if (isInit) WSHAND::wap->sendErr("JSON request Error", errDisp::SRL);
         return NULL;
     }
     
@@ -69,15 +51,15 @@ cJSON* receiveJSON(httpd_req_t* req) {
 // Processes the parsed JSON buffer once received. The JSON buffer,
 // request, and writtenKey is passed as arguments. The writtenKey will
 // contain the key that is written to NVS. Returns ESP_OK or ESP_FAIL.
-esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
-    
+esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
     if (json == NULL) {
 
         if (httpd_resp_sendstr(req, "{\"status\": \"Invalid JSON\"}") != ESP_OK) {
-            wap->sendErr("Invalid JSON response", errDisp::SRL);
+            if (isInit) {
+                WSHAND::wap->sendErr("Invalid JSON response", errDisp::SRL);
+            }
         }
 
-        cJSON_Delete(json);
         return ESP_FAIL;
     }
 
@@ -90,23 +72,21 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
         // the correct data in the running system, to allow access to 
         // the station as well as allow WAP password changes.
         if (
-            cJSON_IsString(item) && 
-            item->valuestring != NULL && 
-            station != nullptr && 
-            wap != nullptr) {
+            cJSON_IsString(item) && isInit &&
+            item->valuestring != NULL) {
                 
             if (strcmp(key, "ssid") == 0) {
-                station->setSSID(item->valuestring);
+                WSHAND::station->setSSID(item->valuestring);
             } else if (strcmp(key, "pass") == 0) {
-                station->setPass(item->valuestring);
+                WSHAND::station->setPass(item->valuestring);
             } else if (strcmp(key, "phone") == 0) {
-                station->setPhone(item->valuestring);
+                WSHAND::station->setPhone(item->valuestring);
             } else if (strcmp(key, "WAPpass") == 0) {
-                wap->setPass(item->valuestring);
+                WSHAND::wap->setPass(item->valuestring);
             }
 
             // Will write to NVS as this method's primary objective.
-            NVS::nvs_ret_t stat = creds->write(
+            NVS::nvs_ret_t stat = WSHAND::creds->write(
                 key, item->valuestring, strlen(item->valuestring)
                 );
 
@@ -114,26 +94,21 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
                 strcpy(writtenKey, key); // No issue with sizing.
             } // remains NULL if write didnt work.
 
-            cJSON_Delete(item);
             break;
-        } else {
-            cJSON_Delete(item);
-        }
+        } 
     }
 
     // returns ESP_OK even if write didnt work. Error handling occurs in
     // the respondJSON and specifically looks for the written key. If 
     // NULL, it will mark it as unsuccessful and display that to the 
-    // browser.
-    cJSON_Delete(json);
+    // browser.  
     return ESP_OK;
 }
 
 // Once the settings have been updated and the NVS is written to, 
 // sends response to browser. 
-esp_err_t respondJSON(httpd_req_t* req, char* writtenKey) {
+esp_err_t WSHAND::respondJSON(httpd_req_t* req, char* writtenKey) {
     cJSON* response = cJSON_CreateObject();
-
     char respStr[35] = "Not Accepted"; // Default.
     bool markForDest{false}; // destruction flag
 
@@ -156,49 +131,87 @@ esp_err_t respondJSON(httpd_req_t* req, char* writtenKey) {
             cJSON_CreateString(respStr)
             );
 
-    if (!addObj) wap->sendErr("JSON response not added", errDisp::SRL);
+    if (!addObj && isInit) {
+        WSHAND::wap->sendErr("JSON response not added", errDisp::SRL);
+    }
 
     // converts json response to a json string.
     char* responseJSON = cJSON_Print(response);
 
     // Sends JSON response to webpage.
-    if (httpd_resp_send(req, responseJSON, HTTPD_RESP_USE_STRLEN) != ESP_OK) {
-        wap->sendErr("Error sending response", errDisp::SRL);
+    if (httpd_resp_send(req, responseJSON, HTTPD_RESP_USE_STRLEN) != ESP_OK 
+        && isInit) {
+
+        WSHAND::wap->sendErr("Error sending response", errDisp::SRL);
     }
     
     // deletes json object and frees char pointer.
-    cJSON_Delete(response);
-    free(responseJSON);
-
+    if (response != NULL) cJSON_Delete(response);
+    if (responseJSON != NULL) free(responseJSON);
+    
     // If true, sets the WAP type to WAP_RECON in order to force the 
     // reconnection in the NetManager with new password.
     if (markForDest) { 
-        wap->setNetType(NetMode::WAP_RECON);
+        WSHAND::wap->setNetType(NetMode::WAP_RECON);
     }
 
     return ESP_OK;
 }
 
+// Requires the station, wap, and creds objects. Initializes the
+// address of each to its pointer. Returns true or false if init.
+bool WSHAND::init(
+    NetSTA &station, 
+    NetWAP &wap, 
+    NVS::Creds &creds) {
+
+    WSHAND::station = &station;
+    WSHAND::wap = &wap;
+    WSHAND::creds = &creds;
+    
+    if (WSHAND::station != nullptr &&
+        WSHAND::wap != nullptr &&
+        WSHAND::creds != nullptr) {
+
+        WSHAND::isInit = true;
+    }
+
+    return WSHAND::isInit;
+}
+
+// Main index handler.
+esp_err_t WSHAND::IndexHandler(httpd_req_t *req) {
+    if (httpd_resp_set_type(req, "text/html") != ESP_OK && isInit) {
+        WSHAND::wap->sendErr("Error setting response type", errDisp::SRL);
+    }
+
+    if (httpd_resp_send(req, WAPSetupPage, strlen(WAPSetupPage)) != ESP_OK 
+        && isInit) {
+
+        WSHAND::wap->sendErr("Error sending response", errDisp::SRL);
+    }
+
+    return ESP_OK; // Must return or socket will shut down.
+}
+
 // Main handler that will handle and process the request, responding
-// with json.
-esp_err_t WAPSubmitDataHandler(httpd_req_t* req) { 
-    if (httpd_resp_set_type(req, "application/json") != ESP_OK) {
-        wap->sendErr("Error setting response type", errDisp::SRL);
+// to the client with a json.
+esp_err_t WSHAND::DataHandler(httpd_req_t* req) { 
+    if (httpd_resp_set_type(req, "application/json") != ESP_OK && isInit) {
+        WSHAND::wap->sendErr("Error setting response type", errDisp::SRL);
     }
 
     char writtenKey[10] = "NULL";
 
-    cJSON* json = receiveJSON(req);
+    cJSON* json = WSHAND::receiveJSON(req);
 
-    if (processJSON(json, req, writtenKey) == ESP_OK) {
-        if (respondJSON(req, writtenKey) == ESP_OK) {
-            return ESP_OK;
-        } else {
-            return ESP_FAIL;
-        }
-    } else {
-        return ESP_FAIL;
+    if (WSHAND::processJSON(json, req, writtenKey) == ESP_OK) {
+        WSHAND::respondJSON(req, writtenKey);
     }
+
+    if (json != NULL) cJSON_Delete(json);
+
+    return ESP_OK; // Must return or socket will shut down.
 }
 
 }

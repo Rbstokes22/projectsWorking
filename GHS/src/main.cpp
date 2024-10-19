@@ -5,10 +5,9 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: DHT and relay seems to be configured for trips to include a padding as well
-// as a relay control ID, that prevents a device from shutting off the relay if another 
-// device currently has it on. Will need testing. The next part is to do some webpage work
-// and test the DHT out with webpage interaction.
+// CURRENT NOTES: SOCKET handler is working. Currently have positive communication
+// via the websocket that can control and attach relays, as well as gives all data
+// back to the client for parsing.
 
 // Create settable features such as alerts, boundaries, relay actions starting with DHT as 
 // prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
@@ -44,6 +43,7 @@
 #include "Network/NetWAP.hpp"
 #include "Network/Handlers/WAPsetupHandler.hpp"
 #include "Network/Handlers/STAHandler.hpp"
+#include "Network/Handlers/socketHandler.hpp"
 #include "OTA/OTAupdates.hpp"
 #include "FirmwareVal/firmwareVal.hpp"
 #include "esp_spiffs.h"
@@ -79,7 +79,7 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
-Peripheral::Relay relays[4] = {
+Peripheral::Relay relays[4] = { // Passes to socket handler
     pinMapD[static_cast<uint8_t>(DPIN::RE1)],
     pinMapD[static_cast<uint8_t>(DPIN::RE2)],
     pinMapD[static_cast<uint8_t>(DPIN::RE3)],
@@ -90,7 +90,7 @@ Peripheral::Relay relays[4] = {
 Threads::netThreadParams netParams(1000, netManager, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::DHTThreadParams DHTParams(1000, dht, msglogerr, relays);
+Threads::DHTThreadParams DHTParams(1000, dht, msglogerr);
 Threads::Thread DHTThread(msglogerr, "DHTThread");
 
 Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
@@ -218,13 +218,20 @@ void app_main() {
     } 
 
     // Passes objects to the WAPSetup handler to allow for use.
-    Comms::setJSONObjects(station, wap, creds);
+    bool isInit = Comms::WSHAND::init(station, wap, creds);
+    printf("WAP Setup Handler init: %d\n", isInit);
 
     // Passes OTA object to the STAOTA handler to allow for use.
-    Comms::setOTAObject(ota);
+    isInit = Comms::OTAHAND::init(ota);
+    printf("OTA Handler init: %d\n", isInit);
 
-    // SEND THE MUTEX STUFF TO THE SOCKETS PAGE SO THAT THE SAME MUTEX HANDLE
-    // CAN BE USED. USE THREAD PARAMS.
+    // Sends the peripheral threads to the socket handler to allow mutex
+    // usage. Also sends relays to allow client to configured them.
+    isInit = Comms::SOCKHAND::init(
+        DHTParams.mutex, AS7341Params.mutex, soilParams.mutex, relays
+        );
+    printf("Socket Handler init: %d\n", isInit);
+
 
     // Start threads
     netThread.initThread(ThreadTask::netTask, 4096, &netParams, 1);

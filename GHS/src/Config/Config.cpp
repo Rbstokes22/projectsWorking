@@ -4,6 +4,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
+// Used in the STAOTA handler to send NGROK headers.
 bool DEVmode = true; // false = in production
 
 adc_channel_t pinMapA[AnalogPinQty]{

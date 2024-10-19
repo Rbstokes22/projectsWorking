@@ -4,7 +4,11 @@
 
 namespace Peripheral {
 
-bool Relay::checkID(uint8_t ID) {
+// Static setup
+uint16_t Relay::IDReg{1};
+
+// Requires the controller ID. Returns true if exists and false if not.
+bool Relay::checkID(uint16_t ID) {
     for (int i = 0; i < RELAY_IDS; i++) {
         if (this->IDs[i] == ID) {
             return true;
@@ -14,7 +18,9 @@ bool Relay::checkID(uint8_t ID) {
     return false; // Not Found.
 }
 
-bool Relay::addID(uint8_t ID) {
+// Requires the controller ID. Increments clientQty, sets array index
+// to ID, and returns true if successful. Returns false if not.
+bool Relay::addID(uint16_t ID) {
 
     for (int i = 0; i < RELAY_IDS; i++) {
         if (this->IDs[i] == 0) {
@@ -27,7 +33,9 @@ bool Relay::addID(uint8_t ID) {
     return false; // Not Added
 }
 
-bool Relay::delID(uint8_t ID) {
+// Requires controller ID. Decrements clientQty, resets array index
+// to 0, and returns true if successful. Returns false if not.
+bool Relay::delID(uint16_t ID) {
     for (int i = 0; i < RELAY_IDS; i++) {
         if (this->IDs[i] == ID) {
             this->IDs[i] = 0;
@@ -40,33 +48,50 @@ bool Relay::delID(uint8_t ID) {
 }
 
 Relay::Relay(gpio_num_t pin) : 
-    pin(pin), isOn(false), clientQty(0) {
+    pin(pin), _isOn(false), clientQty(0) {
 
     memset(this->IDs, 0, RELAY_IDS);
 }
 
-// ID must be greater than 0
-void Relay::on(uint8_t ID) {
-    // When commanded to turn on, if ID does not exist, adds it to the first
-    // spot in the IDs array. Checks ID first to avoid polluting array. 
+// Requires controller ID. Turns Relay on.
+void Relay::on(uint16_t ID) {
+
+    // Checks if ID exists in the array. If not, adds ID to first open
+    // index. 
     if (!this->checkID(ID)) {
-        this->addID(ID);
+        if (!this->addID(ID)) {
+            printf("Unable to add ID to Relay Control\n");
+            return;
+        }
     }
 
-    if (!this->isOn) {
+    // Turns on only if previously off.
+    if (!this->_isOn) {
         gpio_set_level(this->pin, 1);
-        this->isOn = true;
+        this->_isOn = true;
     }
 }
 
-void Relay::off(uint8_t ID) {
+void Relay::off(uint16_t ID) {
     // Does not need to check for existance first, deletes if exists.
     this->delID(ID);
 
-    if (this->isOn && clientQty == 0) {
+    // Turns off only if previously on and clientQty = 0, which signals
+    // that no sensor is currently employing the relay.
+    if (this->_isOn && clientQty == 0) {
         gpio_set_level(this->pin, 0);
-        this->isOn = false;
+        this->_isOn = false;
     }
+}
+
+// Returns an ID from 1 - 255. There will never be that many 
+// devices with controlling IDs, so it is unproblematic.
+uint16_t Relay::getID() {
+    return Relay::IDReg++;
+}
+
+bool Relay::isOn() {
+    return this->_isOn;
 }
 
 }

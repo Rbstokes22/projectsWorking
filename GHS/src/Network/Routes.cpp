@@ -11,14 +11,14 @@ namespace Comms {
 httpd_uri_t WAPSetupIndex = {
     .uri       = "/",
     .method    = HTTP_GET,
-    .handler   = WAPSetupIndexHandler,
+    .handler   = WSHAND::IndexHandler,
     .user_ctx  = NULL
 };
 
 httpd_uri_t WAPSubmitCreds = {
     .uri       = "/SubmitCreds",
     .method    = HTTP_POST,
-    .handler   = WAPSubmitDataHandler,
+    .handler   = WSHAND::DataHandler,
     .user_ctx  = NULL
 };
 
@@ -41,28 +41,28 @@ httpd_uri_t STAIndex = {
 httpd_uri_t OTAUpdate = {
     .uri       = "/OTAUpdate",
     .method    = HTTP_GET,
-    .handler   = OTAUpdateHandler,
+    .handler   = OTAHAND::update,
     .user_ctx  = NULL
 };
 
 httpd_uri_t OTAUpdateLAN = {
     .uri       = "/OTAUpdateLAN",
     .method    = HTTP_GET,
-    .handler   = OTAUpdateLANHandler,
+    .handler   = OTAHAND::updateLAN,
     .user_ctx  = NULL
 };
 
 httpd_uri_t OTARollback = {
     .uri       = "/OTARollback",
     .method    = HTTP_GET,
-    .handler   = OTARollbackHandler,
+    .handler   = OTAHAND::rollback,
     .user_ctx  = NULL
 };
 
 httpd_uri_t OTACheck = {
     .uri       = "/OTACheck",
     .method    = HTTP_GET,
-    .handler   = OTACheckHandler,
+    .handler   = OTAHAND::checkNew,
     .user_ctx  = NULL
 };
 
@@ -70,7 +70,7 @@ httpd_uri_t OTACheck = {
 httpd_uri_t ws = {
     .uri          = "/ws",
     .method       = HTTP_GET,
-    .handler      = wsHandler,
+    .handler      = SOCKHAND::wsHandler,
     .user_ctx     = NULL,
     .is_websocket = true
 };

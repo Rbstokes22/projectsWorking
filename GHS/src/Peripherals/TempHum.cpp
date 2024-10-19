@@ -27,16 +27,26 @@ void TempHum::setTemp(float val) {
     TempHum::temp = val;
 }
 
-void TempHum::setHumConf(RELAY_CONFIG &config) {
-    TempHum::humConf.tripVal = config.tripVal;
-    TempHum::humConf.relay = config.relay;
-    TempHum::humConf.condition = config.condition;
+// void TempHum::setHumConf(RELAY_CONFIG &config) {
+//     TempHum::humConf.tripVal = config.tripVal;
+//     TempHum::humConf.relay = config.relay;
+//     TempHum::humConf.condition = config.condition;
+//     TempHum::humConf.relayControlID = config.relayControlID;
+// }
+
+// void TempHum::setTempConf(RELAY_CONFIG &config) {
+//     TempHum::tempConf.tripVal = config.tripVal;
+//     TempHum::tempConf.relay = config.relay;
+//     TempHum::tempConf.condition = config.condition;
+//     TempHum::tempConf.relayControlID = config.relayControlID;
+// }
+
+RELAY_CONFIG* TempHum::getHumConf() {
+    return &TempHum::humConf;
 }
 
-void TempHum::setTempConf(RELAY_CONFIG &config) {
-    TempHum::tempConf.tripVal = config.tripVal;
-    TempHum::tempConf.relay = config.relay;
-    TempHum::tempConf.condition = config.condition;
+RELAY_CONFIG* TempHum::getTempConf() {
+    return &TempHum::tempConf;
 }
 
 void TempHum::checkBounds() {
@@ -74,6 +84,9 @@ void TempHum::checkBounds() {
             } else if (val <= lowerBound) {
                 this->handleRelay(conf, false);
             }
+            break;
+
+            case CONDITION::NONE:
             break;
         }
     };

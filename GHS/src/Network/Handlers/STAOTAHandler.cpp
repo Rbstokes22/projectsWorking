@@ -13,16 +13,14 @@
 
 namespace Comms {
 
-OTA::OTAhandler* OTA{nullptr};
-
-void setOTAObject(OTA::OTAhandler &ota) {
-    OTA = &ota;
-}
+// Static Setup
+OTA::OTAhandler* OTAHAND::OTA{nullptr};
+bool OTAHAND::isInit{false};
 
 // Extracts url data. Passed request, url object, and size of each
 // array. Parses query, and populate the url object firmware and 
 // signature url. Returns true or false.
-bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
+bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
 
     esp_err_t err;
     char query[URLSIZE * 2 + 50]{0}; // Leaves padding for query
@@ -66,122 +64,10 @@ bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
     return false;
 }
 
-// Exclusive to OTA updates via LAN. The request is passed, and the 
-// query string will contain only url, not sigurl, so only firmware
-// url is used within the processing. Calls to update via OTA, and 
-// returns ESP_OK regardless of integrity, since errors are handled
-// via responses.
-esp_err_t OTAUpdateLANHandler(httpd_req_t* req) {
-    OTA::URL LANurl;
-  
-    httpd_resp_set_type(req, "text/html");
-
-    // If the domain is in the white list, it will proceed with the OTA update.
-    if (OTA != nullptr && extractURL(req, LANurl, URLSIZE)) {
-
-        // Sends the url IP only. This version only produces a firmware URL.
-        // Copes the fw url to the sig followed by a concat of the appropriate
-        // endpoints.
-        strcpy(LANurl.signature, LANurl.firmware);
-        strcat(LANurl.firmware, "/FWUpdate");
-        strcat(LANurl.signature, "/sigUpdate");
-
-        if (OTA->update(LANurl, true) == OTA::OTA_RET::OTA_OK) {
-
-            // Prevents the client from waiting for a response and making a 
-            // second request.
-            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
-                esp_restart();
-            }
-
-        } else {
-            httpd_resp_sendstr(req, "OTA not updated");
-        }
-    } 
-
-    httpd_resp_sendstr(req, "OTA not updated");
-
-    return ESP_OK;
-}
-
-// Exclusive to OTA updates via web. The request is passed, and the 
-// query string contains both url and sigurl. Calls to update via
-// OTA, and returns ESP_OK regardless of integrity, since erros are 
-// handled via resposnes.
-esp_err_t OTAUpdateHandler(httpd_req_t* req) {
-    OTA::URL WEBurl;
-
-    httpd_resp_set_type(req, "text/html");
-
-    // If the domain is in the white list, it will proceed with the OTA update.
-    if (OTA != nullptr && extractURL(req, WEBurl, URLSIZE)) {
-
-        if (OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
-            
-            // Prevents the client from waiting for a response and making a 
-            // second request.
-            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
-                esp_restart();
-            }
-
-        } else {
-            httpd_resp_sendstr(req, "OTA FAIL");
-        }
-    } 
-
-    return ESP_OK;
-}
-
-// This will be used to roll the OTA back to the previous version. Returns 
-// ESP_OK after accepting request.
-esp_err_t OTARollbackHandler(httpd_req_t* req) {
-    httpd_resp_set_type(req, "text/html");
-
-    if (OTA != nullptr) {
-        httpd_resp_sendstr(req, "OK");
-        if (OTA->rollback()) esp_restart();
-    } else {
-        httpd_resp_sendstr(req, "FAIL");
-    }
-
-    return ESP_OK;
-}
-
-// Checks if a new version of firmware is available.
-// Fills buffer with json data, and returns 
-// the parsed json object. Processes data to check firmware version.
-// If version is different than current version, responds with the 
-// json string from the https web server. Returns ESP_OK or ESP_FAIL.
-esp_err_t OTACheckHandler(httpd_req_t* req) {
-    char buffer[350]{0};
-
-    httpd_resp_set_type(req, "application/json");
-
-    // returns parsed JSON string.
-    cJSON* json = receiveJSON(req, buffer, sizeof(buffer));
-    cJSON* version{NULL};
- 
-    // Processes the json to extract the version.
-    if (processJSON(json, req, &version) != ESP_OK) {
-        OTA->sendErr("Unable to process JSON");
-        cJSON_Delete(json);
-        return ESP_FAIL;
-    }
-
-    // Once processed, responds to server with buffer data if
-    // firmware is new. If not, it will send a "match" response
-    // which will not show an update on the webpage.
-    esp_err_t resp = respondJSON(req, &version, buffer);
-    cJSON_Delete(json);
-    return resp;
-}
-
 // Sends request to https web server. This will copy the received JSON
 // string into the passed buffer. Returns the parsed buffer as a 
 // cJSON* pointer, or NULL.
-cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
+cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
 
     // Use WEBURL from config.hpp, and concats it with the endpoint URL.
     char url[100]{0};
@@ -204,12 +90,12 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     auto cleanup = [&err, client](){
         err = esp_http_client_close(client);
         if (err != ESP_OK) {
-            OTA->sendErr("Unable to close client if opened");
+            OTAHAND::OTA->sendErr("Unable to close client if opened");
         }
 
         err = esp_http_client_cleanup(client);
         if (err != ESP_OK) {
-            OTA->sendErr("Unable to cleanup client");
+            OTAHAND::OTA->sendErr("Unable to cleanup client");
         }
     };
 
@@ -220,7 +106,7 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     // Opens connection in order to begin reading.
     if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
         cleanup();
-        OTA->sendErr("Unable to open connection with webserver");
+        OTAHAND::OTA->sendErr("Unable to open connection with webserver");
         return NULL;
     }
 
@@ -228,7 +114,7 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
 
     if (contentLength <= 0) {
         cleanup();
-        OTA->sendErr("Invalid content length");
+        OTAHAND::OTA->sendErr("Invalid content length");
         return NULL;
     }
 
@@ -248,12 +134,12 @@ cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
 // the version is a pointer to a pointer. Sets the version to point to 
 // the version in the JSON string. Returns ESP_OK for valid JSON data,
 // and ESP_FAIL for invalid.
-esp_err_t processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
+esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
   
     if (json == NULL) {
      
         if (httpd_resp_sendstr(req, "{\"version\": \"Invalid JSON\"}") != ESP_OK) {
-            OTA->sendErr("Error sending response");
+            OTAHAND::OTA->sendErr("Error sending response");
         }
 
         return ESP_FAIL;
@@ -267,10 +153,10 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
         return ESP_OK;
     } else {
         if (httpd_resp_sendstr(req, "{\"version\": \"Invalid JSON\"}") != ESP_OK) {
-            OTA->sendErr("Error sending response");
+            OTAHAND::OTA->sendErr("Error sending response");
         }
 
-        OTA->sendErr("Unable to get firmware version");
+        OTAHAND::OTA->sendErr("Unable to get firmware version");
         return ESP_FAIL;
     }
 }
@@ -281,7 +167,7 @@ esp_err_t processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
 // version match. If they are not equal, sends entire response buffer from the 
 // web server to the client for parsing, indicating an updatable version. If the
 // data is corrups, sends a response of invalid JSON. Returns ESP_OK.
-esp_err_t respondJSON(httpd_req_t* req, cJSON** version, const char* buffer) {
+esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, const char* buffer) {
 
     // Checks if the version is different than the current version. If 
     // so it sends back the url data for the firmware and signatures.
@@ -292,19 +178,19 @@ esp_err_t respondJSON(httpd_req_t* req, cJSON** version, const char* buffer) {
         if (strcmp(_version, FIRMWARE_VERSION) == 0) { // Match, no update
  
             if (httpd_resp_sendstr(req, "{\"version\": \"match\"}") != ESP_OK) {
-                OTA->sendErr("Error sending response");
+                OTAHAND::OTA->sendErr("Error sending response");
             } 
 
         } else { // No match, respond with request JSON from server.
 
             if (httpd_resp_sendstr(req, buffer) != ESP_OK) {
-                OTA->sendErr("Error sending response");
+                OTAHAND::OTA->sendErr("Error sending response");
             } 
         }
 
     } else {
         if (httpd_resp_sendstr(req, "{\"version\": \"Invalid JSON\"}") != ESP_OK) {
-            OTA->sendErr("Error sending response");
+            OTAHAND::OTA->sendErr("Error sending response");
         } 
     }
     
@@ -315,7 +201,7 @@ esp_err_t respondJSON(httpd_req_t* req, cJSON** version, const char* buffer) {
 // and returns true or false if accepted. This is used 
 // for the firmware updates only, since the JSON OTAcheck
 // is hardcoded into the program.
-bool whitelistCheck(const char* URL) {
+bool OTAHAND::whitelistCheck(const char* URL) {
 
     // Add all acceptable domains
     const char* whitelistDomains[] {
@@ -332,6 +218,126 @@ bool whitelistCheck(const char* URL) {
     }
 
     return false;
+}
+
+bool OTAHAND::init(OTA::OTAhandler &ota) {
+    OTAHAND::OTA = &ota;
+
+    if (OTAHAND::OTA != nullptr) {
+        OTAHAND::isInit = true;
+    }
+
+    return OTAHAND::isInit;
+}
+
+// Exclusive to OTA updates via LAN. The request is passed, and the 
+// query string will contain only url, not sigurl, so only firmware
+// url is used within the processing. Calls to update via OTA, and 
+// returns ESP_OK regardless of integrity, since errors are handled
+// via responses.
+esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
+    OTA::URL LANurl; // struct that holds both firmware and signature URLs.
+  
+    httpd_resp_set_type(req, "text/html");
+
+    // If the domain is in the white list, it will proceed with the OTA update.
+    if (OTAHAND::OTA != nullptr && extractURL(req, LANurl, URLSIZE)) {
+
+        // Sends the url IP only. This version only produces a firmware URL.
+        // Copes the fw url to the sig followed by a concat of the appropriate
+        // endpoints.
+        strcpy(LANurl.signature, LANurl.firmware);
+        strcat(LANurl.firmware, "/FWUpdate");
+        strcat(LANurl.signature, "/sigUpdate");
+
+        if (OTAHAND::OTA->update(LANurl, true) == OTA::OTA_RET::OTA_OK) {
+
+            // Prevents the client from waiting for a response and making a 
+            // second request.
+            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
+                esp_restart();
+            }
+
+        } else {
+            httpd_resp_sendstr(req, "OTA not updated");
+        }
+    } 
+
+    httpd_resp_sendstr(req, "OTA not updated");
+
+    return ESP_OK; // Must return ESP_OK
+}
+
+// Exclusive to OTA updates via web. The request is passed, and the 
+// query string contains both url and sigurl. Calls to update via
+// OTA, and returns ESP_OK regardless of integrity, since erros are 
+// handled via resposnes.
+esp_err_t OTAHAND::update(httpd_req_t* req) {
+    OTA::URL WEBurl; // struct that holds both firmware and signature URLs.
+
+    httpd_resp_set_type(req, "text/html");
+
+    // If the domain is in the white list, it will proceed with the OTA update.
+    if (OTAHAND::OTA != nullptr && extractURL(req, WEBurl, URLSIZE)) {
+
+        if (OTAHAND::OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
+            
+            // Prevents the client from waiting for a response and making a 
+            // second request.
+            if (httpd_resp_sendstr(req, "OK") == ESP_OK) {
+                vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
+                esp_restart();
+            }
+
+        } else {
+            httpd_resp_sendstr(req, "OTA FAIL");
+        }
+    } 
+
+    return ESP_OK; // Must return ESP_OK
+}
+
+// This will be used to roll the OTA back to the previous version. Returns 
+// ESP_OK after accepting request.
+esp_err_t OTAHAND::rollback(httpd_req_t* req) {
+    httpd_resp_set_type(req, "text/html");
+
+    if (OTAHAND::OTA != nullptr) {
+        httpd_resp_sendstr(req, "OK");
+        if (OTAHAND::OTA->rollback()) esp_restart();
+    } else {
+        httpd_resp_sendstr(req, "FAIL");
+    }
+
+    return ESP_OK; // Must return ESP_OK
+}
+
+// Checks if a new version of firmware is available.
+// Fills buffer with json data, and returns 
+// the parsed json object. Processes data to check firmware version.
+// If version is different than current version, responds with the 
+// json string from the https web server. Returns ESP_OK or ESP_FAIL.
+esp_err_t OTAHAND::checkNew(httpd_req_t* req) {
+    char buffer[350]{0};
+
+    httpd_resp_set_type(req, "application/json");
+
+    // returns parsed JSON string.
+    cJSON* json = receiveJSON(req, buffer, sizeof(buffer));
+    cJSON* version{NULL};
+ 
+    // Processes the json to extract the version.
+    if (OTAHAND::processJSON(json, req, &version) != ESP_OK) {
+        OTAHAND::OTA->sendErr("Unable to process JSON");
+    }
+
+    // Once processed, responds to server with buffer data if
+    // firmware is new. If not, it will send a "match" response
+    // which will not show an update on the webpage.
+    OTAHAND::respondJSON(req, &version, buffer);
+    cJSON_Delete(json);
+    return ESP_OK; // Must return ESP_OK
 }
 
 }

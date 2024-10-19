@@ -21,11 +21,10 @@ netThreadParams::netThreadParams(
 DHTThreadParams::DHTThreadParams(
     uint32_t delay, 
     DHT_DRVR::DHT &dht,
-    Messaging::MsgLogHandler &msglogerr,
-    Peripheral::Relay* relays) :
+    Messaging::MsgLogHandler &msglogerr) :
 
     delay(delay), mutex(msglogerr), dht(dht), 
-    msglogerr(msglogerr), relays(relays) {}
+    msglogerr(msglogerr) {}
 
 AS7341ThreadParams::AS7341ThreadParams(
     uint32_t delay,

@@ -5,6 +5,7 @@
 
 namespace Comms {
 
+// No class necessary for single handler.
 esp_err_t WAPIndexHandler(httpd_req_t *req);
 
 }

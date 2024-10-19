@@ -40,15 +40,6 @@ void DHTTask(void* parameter) { // DHT
 
     float temp{0.0f}, hum{0.0f};
     Peripheral::TempHum th;
-    Peripheral::Relay relay = params->relays[0];
-    Peripheral::RELAY_CONFIG temp1 = {
-        .tripVal = 22,
-        .relay = &relay,
-        .condition = Peripheral::CONDITION::LESS_THAN,
-        .relayControlID = 1
-    };
-
-    th.setTempConf(temp1);
 
     while (true) {
         bool read = params->dht.read(temp, hum);
@@ -72,7 +63,7 @@ void DHTTask(void* parameter) { // DHT
         }
 
         LOCK_DHT;
-        // th.checkBounds();
+        th.checkBounds();
         UNLOCK_DHT;
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
@@ -105,7 +96,7 @@ void soilTask(void* parameter) { // Soil sensors
     while (true) {
 
         adc_oneshot_read(params->adc_unit, soilCh, &soil);
-        printf("Soil: %d\n", soil);
+        // printf("Soil: %d\n", soil);
 
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));

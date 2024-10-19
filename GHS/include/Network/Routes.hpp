@@ -2,6 +2,7 @@
 #define ROUTES_HPP
 
 #include "esp_http_server.h"
+#include "Network/Handlers/WAPsetupHandler.hpp"
 
 namespace Comms {
 

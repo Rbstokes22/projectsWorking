@@ -29,13 +29,11 @@ struct DHTThreadParams {
     Threads::Mutex mutex;
     DHT_DRVR::DHT &dht;
     Messaging::MsgLogHandler &msglogerr;
-    Peripheral::Relay* relays;
 
     DHTThreadParams(
         uint32_t delay, 
         DHT_DRVR::DHT &dht,
-        Messaging::MsgLogHandler &msglogerr,
-        Peripheral::Relay* relays);
+        Messaging::MsgLogHandler &msglogerr);
 };
 
 struct AS7341ThreadParams {
