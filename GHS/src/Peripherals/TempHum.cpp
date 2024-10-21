@@ -7,8 +7,8 @@ namespace Peripheral {
 // STATIC SETUP
 float TempHum::temp = 0.0f;
 float TempHum::hum = 0.0f;
-RELAY_CONFIG TempHum::humConf = {0, nullptr, CONDITION::LESS_THAN};
-RELAY_CONFIG TempHum::tempConf = {0, nullptr, CONDITION::LESS_THAN};
+BOUNDARY_CONFIG TempHum::humConf = {0, 0, false, CONDITION::NONE, nullptr, 0, 0};
+BOUNDARY_CONFIG TempHum::tempConf = {0, 0, false, CONDITION::NONE, nullptr, 0, 0};
 bool TempHum::isUp = false;
 
 float TempHum::getHum() {
@@ -27,62 +27,51 @@ void TempHum::setTemp(float val) {
     TempHum::temp = val;
 }
 
-// void TempHum::setHumConf(RELAY_CONFIG &config) {
-//     TempHum::humConf.tripVal = config.tripVal;
-//     TempHum::humConf.relay = config.relay;
-//     TempHum::humConf.condition = config.condition;
-//     TempHum::humConf.relayControlID = config.relayControlID;
-// }
-
-// void TempHum::setTempConf(RELAY_CONFIG &config) {
-//     TempHum::tempConf.tripVal = config.tripVal;
-//     TempHum::tempConf.relay = config.relay;
-//     TempHum::tempConf.condition = config.condition;
-//     TempHum::tempConf.relayControlID = config.relayControlID;
-// }
-
-RELAY_CONFIG* TempHum::getHumConf() {
+BOUNDARY_CONFIG* TempHum::getHumConf() {
     return &TempHum::humConf;
 }
 
-RELAY_CONFIG* TempHum::getTempConf() {
+BOUNDARY_CONFIG* TempHum::getTempConf() {
     return &TempHum::tempConf;
 }
 
 void TempHum::checkBounds() {
 
-    if (humConf.relay == nullptr) {
-        printf("Humidity not configured\n");
-        return;
-    }
-
-    if (tempConf.relay == nullptr) {
-        printf("Temperature not configured\n");
-        return;
-    }
-
-    // Truns relay on when the trip value and condition is met.
+    // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
-    auto chkCondition = [this](float val, RELAY_CONFIG &conf){
-        float tripValue = static_cast<float>(conf.tripVal);
-        float lowerBound = tripValue - TEMP_HUM_PADDING;
-        float upperBound = tripValue + TEMP_HUM_PADDING;
+    auto chkCondition = [this](float val, BOUNDARY_CONFIG &conf){
+        float tripValueRelay = static_cast<float>(conf.tripValRelay);
+        float lowerBound = tripValueRelay - TEMP_HUM_PADDING;
+        float upperBound = tripValueRelay + TEMP_HUM_PADDING;
+        float tripValueAlert = static_cast<float>(conf.tripValAlert);
 
         switch (conf.condition) {
      
             case CONDITION::LESS_THAN:
-            if (val < tripValue) {
+            if (val < tripValueRelay) {
                 this->handleRelay(conf, true);
             } else if (val >= upperBound) {
                 this->handleRelay(conf, false);
             }
+
+            if (val < tripValueAlert) {
+                this->handleAlert();
+            } else {
+                this->handleAlert(); // Add a boolean or something to reset
+            }
             break;
 
             case CONDITION::GTR_THAN:
-            if (val > tripValue) {
+            if (val > tripValueRelay) {
                 this->handleRelay(conf, true);
             } else if (val <= lowerBound) {
                 this->handleRelay(conf, false);
+            }
+
+            if (val > tripValueAlert) {
+                this->handleAlert();
+            } else {
+                this->handleAlert(); // Add a boolean or something to reset
             }
             break;
 
@@ -95,9 +84,10 @@ void TempHum::checkBounds() {
     chkCondition(TempHum::hum, TempHum::humConf);
 }
 
-void TempHum::handleRelay(RELAY_CONFIG &config, bool relayOn) {
+void TempHum::handleRelay(BOUNDARY_CONFIG &config, bool relayOn) {
+    // This is used because If the relay is set to none from the client,
+    // nullptr will be chosen, this is by design and doesnt need err handling.
     if (config.relay == nullptr) {
-        printf("Config must not equal nullptr\n");
         return;
     }
 
@@ -106,6 +96,10 @@ void TempHum::handleRelay(RELAY_CONFIG &config, bool relayOn) {
     } else {
         config.relay->off(config.relayControlID);
     }
+}
+
+void TempHum::handleAlert() { // if alerts enable == true logic here
+    // Build this once the alert.hpp/cpp is built.
 }
 
 void TempHum::setStatus(bool isUp) {

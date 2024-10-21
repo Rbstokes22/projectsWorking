@@ -103,6 +103,19 @@ void SOCKHAND::ws_async_send(void* arg) {
 
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
+
+    auto attachRelay = [](int relayNum, Peripheral::BOUNDARY_CONFIG &conf){
+        if (relayNum >= 0 && relayNum < 4) {
+            uint16_t IDTemp = SOCKHAND::Relays[relayNum].getID();
+            conf.relay = &SOCKHAND::Relays[relayNum];
+            conf.relayControlID = IDTemp;
+            conf.relayNum = relayNum + 1;
+        } else if (relayNum == 4) {
+            conf.relay = nullptr;
+            conf.relayNum = 0;
+        } 
+    };
+
     // All commands work from here.
     switch(data.cmd) {
         case CMDS::GET_ALL:
@@ -110,7 +123,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"re1\":%d,\"re2\":%d,\"re3\":%d,\
-        \"re4\":%d,\"temp\":%.2f,\"hum\":%.2f}",
+        \"re4\":%d,\"temp\":%.2f,\"hum\":%.2f,\"tempRelay\":%d,\"tempCond\"\
+        :%u,\"tempRelayVal\":%d,\"tempAlertVal\":%d,\"tempAlertEn\":%d,\
+        \"humRelay\":%d,\"humCond\":%u,\"humRelayVal\":%d,\"humAlertVal\":%d,\
+        \"humAlertEn\":%d}",
         FIRMWARE_VERSION, 
         data.idNum,
         SOCKHAND::Relays[0].isOn(),
@@ -118,7 +134,17 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         SOCKHAND::Relays[2].isOn(),
         SOCKHAND::Relays[3].isOn(),
         Peripheral::TempHum::getTemp(),
-        Peripheral::TempHum::getHum()
+        Peripheral::TempHum::getHum(),
+        Peripheral::TempHum::tempConf.relayNum,
+        static_cast<uint8_t>(Peripheral::TempHum::tempConf.condition),
+        Peripheral::TempHum::tempConf.tripValRelay,
+        Peripheral::TempHum::tempConf.tripValAlert,
+        Peripheral::TempHum::tempConf.alertsEn,
+        Peripheral::TempHum::humConf.relayNum,
+        static_cast<uint8_t>(Peripheral::TempHum::humConf.condition),
+        Peripheral::TempHum::humConf.tripValRelay,
+        Peripheral::TempHum::humConf.tripValAlert,
+        Peripheral::TempHum::humConf.alertsEn
         );
 
         SOCKHAND::DHTmtx->unlock();
@@ -126,7 +152,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_1:
-        static uint8_t IDR1 = SOCKHAND::Relays->getID(); // Perm ID
+        static uint16_t IDR1 = SOCKHAND::Relays[0].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[0].off(IDR1);
         } else {
@@ -135,7 +161,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_2:
-        static uint8_t IDR2 = SOCKHAND::Relays->getID(); // Perm ID
+        static uint16_t IDR2 = SOCKHAND::Relays[1].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[1].off(IDR2);
         } else {
@@ -144,7 +170,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_3:
-        static uint8_t IDR3 = SOCKHAND::Relays->getID(); // Perm ID
+        static uint16_t IDR3 = SOCKHAND::Relays[2].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[2].off(IDR3);
         } else {
@@ -154,7 +180,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
 
         case CMDS::RELAY_4:
-        static uint8_t IDR4 = SOCKHAND::Relays->getID(); // Perm ID
+        static uint16_t IDR4 = SOCKHAND::Relays[3].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[3].off(IDR4);
         } else {
@@ -163,26 +189,57 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::ATTACH_TEMP_RELAY:
-        Peripheral::TempHum::tempConf.relay = &SOCKHAND::Relays[data.suppData];
-        Peripheral::TempHum::tempConf.relayControlID = SOCKHAND::Relays->getID();
+        attachRelay(data.suppData, Peripheral::TempHum::tempConf);
         break;
 
         case CMDS::SET_TEMP_LWR_THAN:
+        Peripheral::TempHum::tempConf.condition = Peripheral::CONDITION::LESS_THAN;
+        Peripheral::TempHum::tempConf.tripValRelay = data.suppData;
         break;
 
         case CMDS::SET_TEMP_GTR_THAN:
+        Peripheral::TempHum::tempConf.condition = Peripheral::CONDITION::GTR_THAN;
+        Peripheral::TempHum::tempConf.tripValRelay = data.suppData;
+        break;
+
+        case CMDS::SET_TEMP_COND_NONE:
+        Peripheral::TempHum::tempConf.condition = Peripheral::CONDITION::NONE;
+        break;
+
+        case CMDS::ENABLE_TEMP_ALERT:
+        Peripheral::TempHum::tempConf.tripValAlert = data.suppData;
+        Peripheral::TempHum::tempConf.alertsEn = true;
+        break;
+
+        case CMDS::DISABLE_TEMP_ALERT:
+        Peripheral::TempHum::tempConf.alertsEn = false;
         break;
 
         case CMDS::ATTACH_HUM_RELAY:
-        Peripheral::TempHum::humConf.relay = &SOCKHAND::Relays[data.suppData];
-        Peripheral::TempHum::humConf.relayControlID = SOCKHAND::Relays->getID();
+        attachRelay(data.suppData, Peripheral::TempHum::humConf);
         break;
 
         case CMDS::SET_HUM_LWR_THAN:
+        Peripheral::TempHum::humConf.condition = Peripheral::CONDITION::LESS_THAN;
+        Peripheral::TempHum::humConf.tripValRelay = data.suppData;
         break;
 
         case CMDS::SET_HUM_GTR_THAN:
+        Peripheral::TempHum::humConf.condition = Peripheral::CONDITION::GTR_THAN;
+        Peripheral::TempHum::humConf.tripValRelay = data.suppData;
         break;
+
+        case CMDS::SET_HUM_COND_NONE:
+        Peripheral::TempHum::humConf.condition = Peripheral::CONDITION::NONE;
+        break;
+
+        case CMDS::ENABLE_HUM_ALERT:
+        Peripheral::TempHum::humConf.tripValAlert = data.suppData;
+        Peripheral::TempHum::humConf.alertsEn = true;
+        break;
+
+        case CMDS::DISABLE_HUM_ALERT:
+        Peripheral::TempHum::humConf.alertsEn = false;
     }
 
     if (written < 0) {

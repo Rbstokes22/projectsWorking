@@ -4,9 +4,6 @@
 
 namespace Peripheral {
 
-// Static setup
-uint16_t Relay::IDReg{1};
-
 // Requires the controller ID. Returns true if exists and false if not.
 bool Relay::checkID(uint16_t ID) {
     for (int i = 0; i < RELAY_IDS; i++) {
@@ -48,7 +45,7 @@ bool Relay::delID(uint16_t ID) {
 }
 
 Relay::Relay(gpio_num_t pin) : 
-    pin(pin), _isOn(false), clientQty(0) {
+    pin(pin), _isOn(false), clientQty(0), IDReg(1) {
 
     memset(this->IDs, 0, RELAY_IDS);
 }

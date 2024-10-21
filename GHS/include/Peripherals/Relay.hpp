@@ -20,7 +20,7 @@ class Relay {
     // off.
     uint16_t IDs[RELAY_IDS];
     uint16_t clientQty;
-    static uint16_t IDReg;
+    uint16_t IDReg;
     bool checkID(uint16_t ID);
     bool addID(uint16_t ID);
     bool delID(uint16_t ID);
@@ -33,10 +33,13 @@ class Relay {
     bool isOn();
 };
 
-struct RELAY_CONFIG {
-    int tripVal;
-    Relay* relay;
+struct BOUNDARY_CONFIG {
+    int tripValRelay;
+    int tripValAlert;
+    bool alertsEn;
     CONDITION condition;
+    Relay* relay;
+    uint8_t relayNum;
     uint16_t relayControlID;
 };
 

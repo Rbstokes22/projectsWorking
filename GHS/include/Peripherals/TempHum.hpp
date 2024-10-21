@@ -3,6 +3,7 @@
 
 #include "driver/gpio.h"
 #include "Peripherals/Relay.hpp"
+#include "Peripherals/Alert.hpp"
 
 namespace Peripheral {
 
@@ -17,23 +18,19 @@ class TempHum {
     static bool isUp;
 
     public:
-    static RELAY_CONFIG humConf;
-    static RELAY_CONFIG tempConf;
+    static BOUNDARY_CONFIG humConf;
+    static BOUNDARY_CONFIG tempConf;
     static float getHum();
     static float getTemp();
     void setHum(float val);
     void setTemp(float val);
-    // static void setHumConf(RELAY_CONFIG &config);
-    // static void setTempConf(RELAY_CONFIG &config);
-    static RELAY_CONFIG* getHumConf();
-    static RELAY_CONFIG* getTempConf();
+    static BOUNDARY_CONFIG* getHumConf();
+    static BOUNDARY_CONFIG* getTempConf();
     void checkBounds();
-    void handleRelay(RELAY_CONFIG &config, bool relayOn);
+    void handleRelay(BOUNDARY_CONFIG &config, bool relayOn);
+    void handleAlert();
     static void setStatus(bool isUp);
     static bool getStatus();
-
-
-
 };
 
 

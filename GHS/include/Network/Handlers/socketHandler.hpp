@@ -8,19 +8,16 @@
 
 namespace Comms {
 
-#define BUF_SIZE 256
+#define BUF_SIZE 512
 #define MAX_RESP_ARGS 10
-
-// extern Threads::Mutex* DHTmutex;
-// extern Threads::Mutex* AS7341mutex;
-// extern Threads::Mutex* SOILmutex;
-// extern Peripheral::Relay* Relays;
 
 enum class CMDS {
     GET_ALL = 1, 
     RELAY_1, RELAY_2, RELAY_3, RELAY_4,
-    ATTACH_TEMP_RELAY, SET_TEMP_LWR_THAN, SET_TEMP_GTR_THAN,
-    ATTACH_HUM_RELAY, SET_HUM_LWR_THAN, SET_HUM_GTR_THAN
+    ATTACH_TEMP_RELAY, SET_TEMP_LWR_THAN, SET_TEMP_GTR_THAN, 
+    SET_TEMP_COND_NONE, ENABLE_TEMP_ALERT, DISABLE_TEMP_ALERT,
+    ATTACH_HUM_RELAY, SET_HUM_LWR_THAN, SET_HUM_GTR_THAN, 
+    SET_HUM_COND_NONE, ENABLE_HUM_ALERT, DISABLE_HUM_ALERT
 };
 
 // Commands sent by the client to include command, supplementary

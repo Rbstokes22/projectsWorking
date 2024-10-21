@@ -5,9 +5,9 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: SOCKET handler is working. Currently have positive communication
-// via the websocket that can control and attach relays, as well as gives all data
-// back to the client for parsing.
+// CURRENT NOTES: SOCKET handler is working. Tested attaching relays to the DHT, and the 
+// humidity did trip the relay. Worked in an alert function as well for future use.
+// Next is build the soil sensors, each indiv sensor should have its own setting as well.
 
 // Create settable features such as alerts, boundaries, relay actions starting with DHT as 
 // prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
