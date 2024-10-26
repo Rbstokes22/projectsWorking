@@ -13,8 +13,6 @@ class TempHum {
     private:
     static float temp;
     static float hum;
-    static gpio_num_t humPin;
-    static gpio_num_t tempPin;
     static bool isUp;
 
     public:

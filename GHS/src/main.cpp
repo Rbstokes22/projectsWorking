@@ -1,13 +1,23 @@
 // TO DO:
 
-// 9. Once drivers are good, build everything and integrate into webpage.
-// 10. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
+// 2. Configure socketHandler relays to allow timers at 2 set times per day. Ensure
+// it works well with the relay force off, etc...
+// 3. Finish Soil class to be up and running. Create a soilConf that omits the relay
+// and allows for alerts only. I want relays for anything soil to be manual, or 
+// timed as opposed to conditionally based to prevent overwatering.
+// 4. Change the DHT to be a singleton to mirror the soil. Remove boundary config
+// to TempHumConf, and remove it from the relay.hpp.
+// 5. build the light class to mirror the DHt and soil.
+// 6. If the classes have similar features, make a base class, potentially abstract if needed
+// as well as remove mutexs from the threads since they are inbedded in the classes. This means
+// we can remove them from the SOCKHAND init as well.
+// 7. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: SOCKET handler is working. Tested attaching relays to the DHT, and the 
-// humidity did trip the relay. Worked in an alert function as well for future use.
-// Next is build the soil sensors, each indiv sensor should have its own setting as well.
+// CURRENT NOTES: Timer is good and relays are configured and tested on their run time 
+// both during the day, and through midnight. Calibration seems to work with no errors
+// in any of the timing procedures.
 
 // Create settable features such as alerts, boundaries, relay actions starting with DHT as 
 // prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
@@ -18,6 +28,7 @@
 // or something like that. Also consider a master alert manager or something like that.
 
 // PRE-production notes:
+// Create a datasheet for socket handling codes.
 // Change in config.cpp, devmode = false for production.
 // On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
 // settings apply to NGROK testing only. Do the same for OTAupdates.cpp. On Mutex.cpp, delete
@@ -99,9 +110,12 @@ Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
 Threads::soilThreadParams soilParams(1000, msglogerr, adc_unit);
 Threads::Thread soilThread(msglogerr, "soilThread");
 
-const size_t threadQty = 3;
+Threads::relayThreadParams relayParams(1000, relays);
+Threads::Thread relayThread(msglogerr, "relayThread");
+
+const size_t threadQty = 4;
 Threads::Thread* toSuspend[threadQty] = {
-    &DHTThread, &AS7341Thread, &soilThread
+    &DHTThread, &AS7341Thread, &soilThread, &relayThread
     };
 
 // OTA 
@@ -232,11 +246,11 @@ void app_main() {
         );
     printf("Socket Handler init: %d\n", isInit);
 
-
     // Start threads
     netThread.initThread(ThreadTask::netTask, 4096, &netParams, 1);
     DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 3);
     AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
     soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
+    relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
 }
 

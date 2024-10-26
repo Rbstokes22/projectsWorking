@@ -43,4 +43,10 @@ soilThreadParams::soilThreadParams(
     delay(delay), mutex(msglogerr), msglogerr(msglogerr),
     adc_unit(adc_unit) {}
 
+relayThreadParams::relayThreadParams(
+    uint32_t delay, 
+    Peripheral::Relay* relays) :
+
+    delay(delay), relays(relays) {}
+
 }

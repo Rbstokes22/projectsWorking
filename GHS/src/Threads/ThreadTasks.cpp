@@ -8,6 +8,7 @@
 #include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
+#include "Peripherals/Soil.hpp"
 
 namespace ThreadTask {
 
@@ -90,15 +91,35 @@ void soilTask(void* parameter) { // Soil sensors
     #define LOCK_SOIL params->mutex.lock();
     #define UNLOCK_SOIL params->mutex.unlock();
 
-    int soil{0};
-    adc_channel_t soilCh = pinMapA[static_cast<uint8_t>(APIN::SOIL1)];
+    // Initialize here to set up the singleton class object.
+    Peripheral::Soil* soil = Peripheral::Soil::getInstance(&params->msglogerr);
+    
+    static adc_channel_t channels[SOIL_SENSORS] = {
+        pinMapA[static_cast<uint8_t>(APIN::SOIL1)],
+        pinMapA[static_cast<uint8_t>(APIN::SOIL2)],
+        pinMapA[static_cast<uint8_t>(APIN::SOIL3)],
+        pinMapA[static_cast<uint8_t>(APIN::SOIL4)]
+    };
+
+    soil->setHandle(params->adc_unit);
+    soil->setChannels(channels);
 
     while (true) {
+        soil->readAll();
+  
+        vTaskDelay(pdMS_TO_TICKS(params->delay));
+    }
+}
 
-        adc_oneshot_read(params->adc_unit, soilCh, &soil);
-        // printf("Soil: %d\n", soil);
+void relayTask(void* parameter) {
+    Threads::relayThreadParams* params = 
+        static_cast<Threads::relayThreadParams*>(parameter);
 
-
+    while (true) {
+        params->relays[0].manageTimer();
+        params->relays[1].manageTimer();
+        params->relays[2].manageTimer();
+        params->relays[3].manageTimer();
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
