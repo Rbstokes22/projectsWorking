@@ -142,7 +142,7 @@ void Relay::manageTimer() {
     static uint16_t ID = this->getID();
 
     if (timer.isReady) {
-        Clock::DateTime* time = Clock::DateTime::getInstance();
+        Clock::DateTime* time = Clock::DateTime::get();
 
         // Logis applies to see if the timer runs through midnight.
         bool runsThruMid = (timer.offTime < timer.onTime);
@@ -163,6 +163,10 @@ void Relay::manageTimer() {
             }
         }
     }
+}
+
+Timer* Relay::getTimer() {
+    return &this->timer;
 }
 
 }

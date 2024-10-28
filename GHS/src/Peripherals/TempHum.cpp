@@ -4,42 +4,64 @@
 
 namespace Peripheral {
 
-// STATIC SETUP
-float TempHum::temp = 0.0f;
-float TempHum::hum = 0.0f;
-BOUNDARY_CONFIG TempHum::humConf = {0, 0, false, CONDITION::NONE, nullptr, 0, 0};
-BOUNDARY_CONFIG TempHum::tempConf = {0, 0, false, CONDITION::NONE, nullptr, 0, 0};
-bool TempHum::isUp = false;
+TempHum::TempHum(TempHumParams &params) : 
 
-float TempHum::getHum() {
-    return TempHum::hum;
+    temp(0.0f), hum(0.0f), isUp(false), mtx(params.msglogerr),
+    humConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
+    tempConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0} {}
+
+TempHum* TempHum::get(void* parameter) {
+    static bool isInit{false};
+
+    if (parameter == nullptr && !isInit) {
+        return nullptr; // Blocks instance from being created.
+    } else if (parameter != nullptr) {
+        isInit = true; // Opens gate after proper init
+    }
+
+    TempHumParams* params = static_cast<TempHumParams*>(parameter);
+    static TempHum instance(*params);
+    
+    return &instance;
 }
 
-float TempHum::getTemp() {
-    return TempHum::temp;
+void TempHum::getHum(float &hum) {
+    this->mtx.lock();
+    hum = this->hum;
+    this->mtx.unlock();
+}
+
+void TempHum::getTemp(float &temp) {
+    this->mtx.lock();
+    temp = this->temp;
+    this->mtx.unlock();
 }
 
 void TempHum::setHum(float val) {
-    TempHum::hum = val;
+    this->mtx.lock();
+    this->hum = val;
+    this->mtx.unlock();
 }
 
 void TempHum::setTemp(float val) {
-    TempHum::temp = val;
+    this->mtx.lock();
+    this->temp = val;
+    this->mtx.unlock();
 }
 
-BOUNDARY_CONFIG* TempHum::getHumConf() {
-    return &TempHum::humConf;
+TH_TRIP_CONFIG* TempHum::getHumConf() {
+    return &this->humConf;
 }
 
-BOUNDARY_CONFIG* TempHum::getTempConf() {
-    return &TempHum::tempConf;
+TH_TRIP_CONFIG* TempHum::getTempConf() {
+    return &this->tempConf;
 }
 
 void TempHum::checkBounds() {
 
     // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
-    auto chkCondition = [this](float val, BOUNDARY_CONFIG &conf){
+    auto chkCondition = [this](float val, TH_TRIP_CONFIG &conf){
         float tripValueRelay = static_cast<float>(conf.tripValRelay);
         float lowerBound = tripValueRelay - TEMP_HUM_PADDING;
         float upperBound = tripValueRelay + TEMP_HUM_PADDING;
@@ -55,9 +77,9 @@ void TempHum::checkBounds() {
             }
 
             if (val < tripValueAlert) {
-                this->handleAlert();
+                this->handleAlert(conf, true);
             } else {
-                this->handleAlert(); // Add a boolean or something to reset
+                this->handleAlert(conf, false); 
             }
             break;
 
@@ -69,9 +91,9 @@ void TempHum::checkBounds() {
             }
 
             if (val > tripValueAlert) {
-                this->handleAlert();
+                this->handleAlert(conf, true);
             } else {
-                this->handleAlert(); // Add a boolean or something to reset
+                this->handleAlert(conf, false); 
             }
             break;
 
@@ -80,11 +102,11 @@ void TempHum::checkBounds() {
         }
     };
 
-    chkCondition(TempHum::temp, TempHum::tempConf);
-    chkCondition(TempHum::hum, TempHum::humConf);
+    chkCondition(this->temp, this->tempConf);
+    chkCondition(this->hum, this->humConf);
 }
 
-void TempHum::handleRelay(BOUNDARY_CONFIG &config, bool relayOn) {
+void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn) {
     // This is used because If the relay is set to none from the client,
     // nullptr will be chosen, this is by design and doesnt need err handling.
     if (config.relay == nullptr) {
@@ -98,16 +120,18 @@ void TempHum::handleRelay(BOUNDARY_CONFIG &config, bool relayOn) {
     }
 }
 
-void TempHum::handleAlert() { // if alerts enable == true logic here
+void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn) { 
     // Build this once the alert.hpp/cpp is built.
 }
 
 void TempHum::setStatus(bool isUp) {
-    TempHum::isUp = isUp;
+    this->mtx.lock();
+    this->isUp = isUp;
+    this->mtx.unlock();
 }
 
 bool TempHum::getStatus() {
-    return TempHum::isUp;
+    return this->isUp;
 }
 
 }

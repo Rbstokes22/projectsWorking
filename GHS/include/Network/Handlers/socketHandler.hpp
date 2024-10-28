@@ -21,7 +21,12 @@ enum class CMDS : uint8_t {
     ATTACH_TEMP_RELAY, SET_TEMP_LWR_THAN, SET_TEMP_GTR_THAN, 
     SET_TEMP_COND_NONE, ENABLE_TEMP_ALERT, DISABLE_TEMP_ALERT,
     ATTACH_HUM_RELAY, SET_HUM_LWR_THAN, SET_HUM_GTR_THAN, 
-    SET_HUM_COND_NONE, ENABLE_HUM_ALERT, DISABLE_HUM_ALERT
+    SET_HUM_COND_NONE, ENABLE_HUM_ALERT, DISABLE_HUM_ALERT,
+    SET_SOIL1_LWR_THAN, SET_SOIL1_GTR_THAN, SET_SOIL1_COND_NONE,
+    SET_SOIL2_LWR_THAN, SET_SOIL2_GTR_THAN, SET_SOIL2_COND_NONE,
+    SET_SOIL3_LWR_THAN, SET_SOIL3_GTR_THAN, SET_SOIL3_COND_NONE,
+    SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE,
+    
 };
 
 // Commands sent by the client to include command, supplementary
@@ -52,9 +57,7 @@ class argPool {
 
 class SOCKHAND {
     private:
-    static Threads::Mutex* DHTmtx;
     static Threads::Mutex* AS7341mtx;
-    static Threads::Mutex* SOILmtx;
     static Peripheral::Relay* Relays;
     static bool isInit;
     static argPool pool;
@@ -68,9 +71,7 @@ class SOCKHAND {
     
     public:
     static bool init(
-        Threads::Mutex &dhtMUTEX, 
         Threads::Mutex &as7341MUTEX, 
-        Threads::Mutex &soilMUTEX,
         Peripheral::Relay* relays
         );
     static esp_err_t wsHandler(httpd_req_t* req);

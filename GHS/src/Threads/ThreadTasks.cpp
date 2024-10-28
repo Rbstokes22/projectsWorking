@@ -33,39 +33,31 @@ void DHTTask(void* parameter) { // DHT
     Threads::DHTThreadParams* params = 
         static_cast<Threads::DHTThreadParams*>(parameter);
 
-    #define LOCK_DHT params->mutex.lock();
-    #define UNLOCK_DHT params->mutex.unlock();
-
     size_t errCt{0};
     size_t errCtMax{5};
-
     float temp{0.0f}, hum{0.0f};
-    Peripheral::TempHum th;
+
+    Peripheral::TempHumParams thParams = {params->msglogerr};
+    Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {
         bool read = params->dht.read(temp, hum);
 
         if (read) {
-            LOCK_DHT;
-            th.setTemp(temp);
-            th.setHum(hum);
-            Peripheral::TempHum::setStatus(true);
-            UNLOCK_DHT;
+            th->setTemp(temp);
+            th->setHum(hum);
+            th->setStatus(true);
             errCt = 0;
         } else {
             errCt++;
         }
 
         if (errCt >= errCtMax) { // Handles if the device is up or down.
-            LOCK_DHT;
-            Peripheral::TempHum::setStatus(false);
-            UNLOCK_DHT;
+            th->setStatus(false);
             errCt = 0;
         }
 
-        LOCK_DHT;
-        th.checkBounds();
-        UNLOCK_DHT;
+        th->checkBounds();
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
@@ -87,12 +79,6 @@ void AS7341Task(void* parameter) { // AS7341, photo Resistor
 void soilTask(void* parameter) { // Soil sensors
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
-
-    #define LOCK_SOIL params->mutex.lock();
-    #define UNLOCK_SOIL params->mutex.unlock();
-
-    // Initialize here to set up the singleton class object.
-    Peripheral::Soil* soil = Peripheral::Soil::getInstance(&params->msglogerr);
     
     static adc_channel_t channels[SOIL_SENSORS] = {
         pinMapA[static_cast<uint8_t>(APIN::SOIL1)],
@@ -101,12 +87,18 @@ void soilTask(void* parameter) { // Soil sensors
         pinMapA[static_cast<uint8_t>(APIN::SOIL4)]
     };
 
-    soil->setHandle(params->adc_unit);
-    soil->setChannels(channels);
+    Peripheral::SoilParams soilParams = {
+        params->msglogerr,
+        params->adc_unit,
+        channels
+    };
+
+    // Init here to get a singleton class
+    Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
 
     while (true) {
         soil->readAll();
-  
+        soil->checkBounds();
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -116,10 +108,10 @@ void relayTask(void* parameter) {
         static_cast<Threads::relayThreadParams*>(parameter);
 
     while (true) {
-        params->relays[0].manageTimer();
-        params->relays[1].manageTimer();
-        params->relays[2].manageTimer();
-        params->relays[3].manageTimer();
+        for (size_t i = 0; i < params->relayQty; i++) {
+            params->relays[i].manageTimer();
+        }
+
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }

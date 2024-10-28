@@ -26,7 +26,6 @@ struct netThreadParams {
 
 struct DHTThreadParams {
     uint32_t delay;
-    Threads::Mutex mutex;
     DHT_DRVR::DHT &dht;
     Messaging::MsgLogHandler &msglogerr;
 
@@ -52,7 +51,6 @@ struct AS7341ThreadParams {
 
 struct soilThreadParams {
     uint32_t delay;
-    Threads::Mutex mutex;
     Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t &adc_unit;
 
@@ -65,7 +63,13 @@ struct soilThreadParams {
 struct relayThreadParams {
     uint32_t delay;
     Peripheral::Relay* relays;
-    relayThreadParams(uint32_t delay, Peripheral::Relay* relays);
+    size_t relayQty;
+    
+    relayThreadParams(
+        uint32_t delay, 
+        Peripheral::Relay* relays, 
+        size_t relayQty
+        );
 };
 
 }

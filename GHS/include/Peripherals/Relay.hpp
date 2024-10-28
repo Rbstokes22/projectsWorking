@@ -45,16 +45,7 @@ class Relay {
     STATE getState();
     bool timerSet(bool on, int time);
     void manageTimer();
-};
-
-struct BOUNDARY_CONFIG {
-    int tripValRelay;
-    int tripValAlert;
-    bool alertsEn;
-    CONDITION condition;
-    Relay* relay;
-    uint8_t relayNum;
-    uint16_t relayControlID;
+    Timer* getTimer();
 };
 
 }

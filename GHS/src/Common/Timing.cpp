@@ -68,7 +68,7 @@ DateTime::DateTime() :
     time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {}
 
 // Singleton class, returns instance a pointer instance of this class.
-DateTime* DateTime::getInstance() {
+DateTime* DateTime::get() {
     static DateTime instance;
     return &instance;
 }

@@ -1,10 +1,5 @@
 // TO DO:
 
-// 2. Configure socketHandler relays to allow timers at 2 set times per day. Ensure
-// it works well with the relay force off, etc...
-// 3. Finish Soil class to be up and running. Create a soilConf that omits the relay
-// and allows for alerts only. I want relays for anything soil to be manual, or 
-// timed as opposed to conditionally based to prevent overwatering.
 // 4. Change the DHT to be a singleton to mirror the soil. Remove boundary config
 // to TempHumConf, and remove it from the relay.hpp.
 // 5. build the light class to mirror the DHt and soil.
@@ -15,9 +10,8 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: Timer is good and relays are configured and tested on their run time 
-// both during the day, and through midnight. Calibration seems to work with no errors
-// in any of the timing procedures.
+// CURRENT NOTES: Soil class is up and running with the exception of alerts. DHT is now 
+// a singleton, do the same with as7341 while building it.
 
 // Create settable features such as alerts, boundaries, relay actions starting with DHT as 
 // prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
@@ -90,11 +84,13 @@ Comms::NetManager netManager(station, wap, creds, OLED);
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
-Peripheral::Relay relays[4] = { // Passes to socket handler
-    pinMapD[static_cast<uint8_t>(DPIN::RE1)],
-    pinMapD[static_cast<uint8_t>(DPIN::RE2)],
-    pinMapD[static_cast<uint8_t>(DPIN::RE3)],
-    pinMapD[static_cast<uint8_t>(DPIN::RE4)]
+
+const size_t totalRelays{4};
+Peripheral::Relay relays[totalRelays] = { // Passes to socket handler
+    {pinMapD[static_cast<uint8_t>(DPIN::RE1)]},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE2)]},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE3)]},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE4)]}
 };
 
 // THREADS
@@ -110,7 +106,7 @@ Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
 Threads::soilThreadParams soilParams(1000, msglogerr, adc_unit);
 Threads::Thread soilThread(msglogerr, "soilThread");
 
-Threads::relayThreadParams relayParams(1000, relays);
+Threads::relayThreadParams relayParams(1000, relays, totalRelays);
 Threads::Thread relayThread(msglogerr, "relayThread");
 
 const size_t threadQty = 4;
@@ -241,9 +237,7 @@ void app_main() {
 
     // Sends the peripheral threads to the socket handler to allow mutex
     // usage. Also sends relays to allow client to configured them.
-    isInit = Comms::SOCKHAND::init(
-        DHTParams.mutex, AS7341Params.mutex, soilParams.mutex, relays
-        );
+    isInit = Comms::SOCKHAND::init(AS7341Params.mutex, relays);
     printf("Socket Handler init: %d\n", isInit);
 
     // Start threads

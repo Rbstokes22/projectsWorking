@@ -8,130 +8,111 @@
 
 namespace Peripheral {
 
-Soil::Soil(Messaging::MsgLogHandler* msglogerr) : 
+Soil::Soil(SoilParams &params) : 
 
-    flags{false, false, false}, mtx(*msglogerr),
-    msglogerr(msglogerr), settings{
-        {0, 0, false, CONDITION::NONE, nullptr, 0, 0}, 
-        {0, 0, false, CONDITION::NONE, nullptr, 0, 0}, 
-        {0, 0, false, CONDITION::NONE, nullptr, 0, 0}, 
-        {0, 0, false, CONDITION::NONE, nullptr, 0, 0}
-    }, channels(nullptr) {
+    mtx(params.msglogerr), settings{
+        {0, false, CONDITION::NONE}, 
+        {0, false, CONDITION::NONE},
+        {0, false, CONDITION::NONE},
+        {0, false, CONDITION::NONE}
+    }, params(params) {
     
     memset(this->readings, 0, SOIL_SENSORS);
-    if (msglogerr != nullptr) this->flags.msgLogErr = true;
+
 }
 
-// Requires reference to msglogerr. Defaults to nullptr, and the first call
-// must contain the appropriate reference to the msglogerr. Returns pointer
-// of the instance.
-Soil* Soil::getInstance(Messaging::MsgLogHandler* msglogerr) {
-    static Soil instance(msglogerr);
+// Requires void* parameter which will be cast to SoilParams*
+// within the method. Default setting = nullptr. Must be init
+// with a non nullptr to create the instance, and will return a 
+// pointer to the instance upon proper completion.
+Soil* Soil::get(void* parameter) {
+    static bool isInit{false};
+    if (parameter == nullptr && !isInit) {
+        return nullptr; // Blocks instance from being created.
+    } else if (parameter != nullptr) {
+        isInit = true; // Opens gate after proper init
+    }
+
+    SoilParams* params = static_cast<SoilParams*>(parameter);
+    static Soil instance(*params);
+    
     return &instance;
 }
 
-void Soil::setHandle(adc_oneshot_unit_handle_t handle) {
-    this->handle = handle;
-    this->flags.handle = true;
-}
-
-// Must pass array of adc channels that do not go out of scope.
-void Soil::setChannels(adc_channel_t* channels) {
-    if (channels == nullptr) {
-        printf("Soil.cpp Channels cannot = nullptr\n");
-        return;
-    }
-
-    this->channels = channels;
-}
-
-BOUNDARY_CONFIG* Soil::getConfig(uint8_t indexNum) {
+// Requires the index number of the soil sensor, and returns a 
+// pointer to its settings for modification.
+SOIL_TRIP_CONFIG* Soil::getConfig(uint8_t indexNum) {
     return &settings[indexNum];
 }
 
+// Reads all sensors and stores the values in the class array
+// called readings.
 void Soil::readAll() {
     this->mtx.lock();
     for (int i = 0; i < SOIL_SENSORS; i++) {
-        adc_oneshot_read(this->handle, this->channels[i], &this->readings[i]);
+        adc_oneshot_read(
+            this->params.handle, 
+            this->params.channels[i], 
+            &this->readings[i]
+            );
     }
+
     this->mtx.unlock();
 }   
 
-// Must equal the quantity of readings expected
-void Soil::getAll(int* readings, size_t size) {
+// Requires an int array and its size in bytes. This copies
+// the current readings into the array. This function does 
+// not return the array in order to take full advantage of 
+// the mutex.
+void Soil::getAll(int* readings, size_t bytes) {
     this->mtx.lock();
-    memcpy(readings, this->readings, size);
+    memcpy(readings, this->readings, bytes);
     this->mtx.unlock();
 }
 
+// Requires no parameters. Checks the configuration setting
+// for each sensor, and if tripped, handles the alert. 
 void Soil::checkBounds() {
-    // Turns relay on when the trip value and condition is met.
-    // When the padded bound is reached, turns the relay off.
-    // auto chkCondition = [this](float val, BOUNDARY_CONFIG &conf){
-    //     float tripValueRelay = static_cast<float>(conf.tripValRelay);
-    //     float lowerBound = tripValueRelay - TEMP_HUM_PADDING;
-    //     float upperBound = tripValueRelay + TEMP_HUM_PADDING;
-    //     float tripValueAlert = static_cast<float>(conf.tripValAlert);
 
-    //     switch (conf.condition) {
+    // Checks condition to see if it trips the settings, and
+    // handles the alert.
+    auto chkCondition = [this](int val, SOIL_TRIP_CONFIG &conf){
+ 
+        switch (conf.condition) {
      
-    //         case CONDITION::LESS_THAN:
-    //         if (val < tripValueRelay) {
-    //             this->handleRelay(conf, true);
-    //         } else if (val >= upperBound) {
-    //             this->handleRelay(conf, false);
-    //         }
+            case CONDITION::LESS_THAN:
+           
+            if (val < conf.tripValAlert) {
+                this->handleAlert(conf, true);
+            } else {
+                this->handleAlert(conf, false); 
+            }
+            break;
 
-    //         if (val < tripValueAlert) {
-    //             this->handleAlert();
-    //         } else {
-    //             this->handleAlert(); // Add a boolean or something to reset
-    //         }
-    //         break;
+            case CONDITION::GTR_THAN:
+           
+            if (val > conf.tripValAlert) {
+                this->handleAlert(conf, true);
+            } else {
+                this->handleAlert(conf, false); 
+            }
+            break;
 
-    //         case CONDITION::GTR_THAN:
-    //         if (val > tripValueRelay) {
-    //             this->handleRelay(conf, true);
-    //         } else if (val <= lowerBound) {
-    //             this->handleRelay(conf, false);
-    //         }
+            case CONDITION::NONE:
+            break;
+        }
+    };
 
-    //         if (val > tripValueAlert) {
-    //             this->handleAlert();
-    //         } else {
-    //             this->handleAlert(); // Add a boolean or something to reset
-    //         }
-    //         break;
-
-    //         case CONDITION::NONE:
-    //         break;
-    //     }
-    // };
-
-    // chkCondition(TempHum::temp, TempHum::tempConf);
-    // chkCondition(TempHum::hum, TempHum::humConf);
-}
-
-void Soil::handleRelay() {
-
-}
-
-void Soil::handleAlert() {
-
-}
-
-bool Soil::isInit() {
-    uint8_t totalReq{3};
-
-    bool required[totalReq] = {
-        this->flags.msgLogErr, this->flags.handle, this->flags.channels
-        };
-
-    for (uint8_t i = 0; i < totalReq; i++) {
-        if (required[i] == false) return false;
+    for (int i = 0; i < SOIL_SENSORS; i++) {
+        chkCondition(this->readings[i], this->settings[i]);
     }
-
-    return true;
 }
+
+// Requires SOIL_TRIP_CONFIG and whethere to employ the alert or not.
+void Soil::handleAlert(SOIL_TRIP_CONFIG &config, bool alertOn) {
+    // CONFIGURE EVERYTHING HERE ONCE BUILT
+}
+
+
 
 }

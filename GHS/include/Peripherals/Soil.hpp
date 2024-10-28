@@ -11,37 +11,36 @@ namespace Peripheral {
 
 #define SOIL_SENSORS 4
 
-struct soilFlags {
-    bool msgLogErr;
-    bool handle;
-    bool channels;
+struct SOIL_TRIP_CONFIG {
+    int tripValAlert;
+    bool alertsEn;
+    CONDITION condition;
+};
+
+struct SoilParams {
+    Messaging::MsgLogHandler &msglogerr;
+    adc_oneshot_unit_handle_t handle;
+    adc_channel_t* channels;
 };
 
 class Soil {
     private:
-    soilFlags flags;
     int readings[SOIL_SENSORS];
     Threads::Mutex mtx;
-    Messaging::MsgLogHandler* msglogerr;
-    BOUNDARY_CONFIG settings[SOIL_SENSORS];
-    Soil(Messaging::MsgLogHandler* msglogerr); 
+    SOIL_TRIP_CONFIG settings[SOIL_SENSORS];
+    SoilParams &params;
+    Soil(SoilParams &params); 
     Soil(const Soil&) = delete; // prevent copying
     Soil &operator=(const Soil&) = delete; // prevent assignment
-    adc_oneshot_unit_handle_t handle;
-    adc_channel_t* channels;
-
+    
     public:
     // set to nullptr to reduce arguments when calling after init.
-    static Soil* getInstance(Messaging::MsgLogHandler* msglogerr = nullptr);
-    void setHandle(adc_oneshot_unit_handle_t handle);
-    void setChannels(adc_channel_t* channels);
-    BOUNDARY_CONFIG* getConfig(uint8_t indexNum);
+    static Soil* get(void* parameter = nullptr);
+    SOIL_TRIP_CONFIG* getConfig(uint8_t indexNum);
     void readAll();
-    void getAll(int* readings, size_t size);
+    void getAll(int* readings, size_t bytes);
     void checkBounds();
-    void handleRelay();
-    void handleAlert();
-    bool isInit();
+    void handleAlert(SOIL_TRIP_CONFIG &config, bool alertOn);
 };
 
 }

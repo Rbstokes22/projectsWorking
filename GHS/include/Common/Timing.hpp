@@ -40,7 +40,7 @@ class DateTime { // Singleton class
     DateTime &operator=(const DateTime&) = delete; // prevent assignment
 
     public:
-    static DateTime* getInstance();
+    static DateTime* get();
     void calibrate(int secsPastMid); 
     TIME* getTime();
     bool isCalibrated();
