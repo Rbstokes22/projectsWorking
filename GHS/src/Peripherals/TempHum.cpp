@@ -6,11 +6,12 @@ namespace Peripheral {
 
 TempHum::TempHum(TempHumParams &params) : 
 
-    temp(0.0f), hum(0.0f), isUp(false), mtx(params.msglogerr),
+    temp(0.0f), hum(0.0f), flags{false, false}, mtx(params.msglogerr),
     humConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
-    tempConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0} {}
+    tempConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
+    params(params) {}
 
-TempHum* TempHum::get(void* parameter) {
+TempHum* TempHum::get(TempHumParams* parameter) {
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
@@ -19,10 +20,33 @@ TempHum* TempHum::get(void* parameter) {
         isInit = true; // Opens gate after proper init
     }
 
-    TempHumParams* params = static_cast<TempHumParams*>(parameter);
-    static TempHum instance(*params);
+    static TempHum instance(*parameter);
     
     return &instance;
+}
+
+bool TempHum::read() {
+    static size_t errCt{0};
+    const size_t errCtMax{5};
+
+    this->mtx.lock();
+    bool read = this->params.dht.read(this->temp, this->hum);
+    this->mtx.unlock();
+    
+    if (read) {
+        this->flags.display = true;
+        this->flags.immediate = true;
+        errCt = 0;
+    } else {
+        this->flags.immediate = false;
+        errCt++;
+    }
+
+    if (errCt >= errCtMax) {
+        this->flags.display = false;
+    }
+
+    return this->flags.immediate;
 }
 
 void TempHum::getHum(float &hum) {
@@ -34,18 +58,6 @@ void TempHum::getHum(float &hum) {
 void TempHum::getTemp(float &temp) {
     this->mtx.lock();
     temp = this->temp;
-    this->mtx.unlock();
-}
-
-void TempHum::setHum(float val) {
-    this->mtx.lock();
-    this->hum = val;
-    this->mtx.unlock();
-}
-
-void TempHum::setTemp(float val) {
-    this->mtx.lock();
-    this->temp = val;
     this->mtx.unlock();
 }
 
@@ -109,7 +121,9 @@ void TempHum::checkBounds() {
 void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn) {
     // This is used because If the relay is set to none from the client,
     // nullptr will be chosen, this is by design and doesnt need err handling.
-    if (config.relay == nullptr) {
+    // This also returns if the immediate flag is false, which prevent relay
+    // from activating if data is garbage due to read error.
+    if (config.relay == nullptr || !this->flags.immediate) {
         return;
     }
 
@@ -124,14 +138,8 @@ void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn) {
     // Build this once the alert.hpp/cpp is built.
 }
 
-void TempHum::setStatus(bool isUp) {
-    this->mtx.lock();
-    this->isUp = isUp;
-    this->mtx.unlock();
-}
-
-bool TempHum::getStatus() {
-    return this->isUp;
+isUpTH TempHum::getStatus() {
+    return this->flags;
 }
 
 }

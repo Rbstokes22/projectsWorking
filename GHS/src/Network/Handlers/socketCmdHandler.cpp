@@ -7,7 +7,6 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Light.hpp"
 #include "Peripherals/Soil.hpp"
-
 #include "Common/Timing.hpp"
 
 namespace Comms {

@@ -1,12 +1,13 @@
 #include "Network/NetCreds.hpp"
 #include "NVS/NVS.hpp"
-#include "Network/NetConfig.hpp"
+#include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
 
 namespace NVS {
 
-Creds::Creds(char nameSpace[12], Messaging::MsgLogHandler &msglogerr) :
+// namespace must be under 12 chars long.
+Creds::Creds(const char nameSpace[12], Messaging::MsgLogHandler &msglogerr) :
 
     msglogerr(msglogerr), nvs(msglogerr, nameSpace) {
 

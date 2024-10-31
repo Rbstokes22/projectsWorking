@@ -33,32 +33,12 @@ void DHTTask(void* parameter) { // DHT
     Threads::DHTThreadParams* params = 
         static_cast<Threads::DHTThreadParams*>(parameter);
 
-    size_t errCt{0};
-    size_t errCtMax{5};
-    float temp{0.0f}, hum{0.0f};
-
-    Peripheral::TempHumParams thParams = {params->msglogerr};
+    Peripheral::TempHumParams thParams = {params->msglogerr, params->dht};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {
-        bool read = params->dht.read(temp, hum);
-
-        if (read) {
-            th->setTemp(temp);
-            th->setHum(hum);
-            th->setStatus(true);
-            errCt = 0;
-        } else {
-            errCt++;
-        }
-
-        if (errCt >= errCtMax) { // Handles if the device is up or down.
-            th->setStatus(false);
-            errCt = 0;
-        }
-
+        th->read();
         th->checkBounds();
-
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }

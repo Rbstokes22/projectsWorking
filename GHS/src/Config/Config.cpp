@@ -17,3 +17,12 @@ gpio_num_t pinMapD[DigitalPinQty]{
     GPIO_NUM_27, GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33
 }; 
 
+// NETCONFIG EXCLUSIVE
+namespace Comms {
+
+const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)] {
+    "ssid", "pass", "phone", "WAPpass"
+};
+
+}
+

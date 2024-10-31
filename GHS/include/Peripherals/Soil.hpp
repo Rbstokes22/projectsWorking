@@ -35,7 +35,7 @@ class Soil {
     
     public:
     // set to nullptr to reduce arguments when calling after init.
-    static Soil* get(void* parameter = nullptr);
+    static Soil* get(SoilParams* parameter = nullptr);
     SOIL_TRIP_CONFIG* getConfig(uint8_t indexNum);
     void readAll();
     void getAll(int* readings, size_t bytes);

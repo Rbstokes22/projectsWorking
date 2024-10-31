@@ -6,7 +6,7 @@
 #include "Network/NetCreds.hpp"
 #include "cJSON.h"
 #include "Network/webPages.hpp"
-#include "Network/NetConfig.hpp"
+#include "Config/config.hpp"
 
 namespace Comms {
 

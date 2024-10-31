@@ -18,23 +18,22 @@ Soil::Soil(SoilParams &params) :
     }, params(params) {
     
     memset(this->readings, 0, SOIL_SENSORS);
-
 }
 
 // Requires void* parameter which will be cast to SoilParams*
 // within the method. Default setting = nullptr. Must be init
 // with a non nullptr to create the instance, and will return a 
 // pointer to the instance upon proper completion.
-Soil* Soil::get(void* parameter) {
+Soil* Soil::get(SoilParams* parameter) {
     static bool isInit{false};
+    
     if (parameter == nullptr && !isInit) {
         return nullptr; // Blocks instance from being created.
     } else if (parameter != nullptr) {
         isInit = true; // Opens gate after proper init
     }
 
-    SoilParams* params = static_cast<SoilParams*>(parameter);
-    static Soil instance(*params);
+    static Soil instance(*parameter);
     
     return &instance;
 }

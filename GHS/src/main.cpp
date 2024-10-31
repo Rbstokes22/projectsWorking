@@ -10,8 +10,13 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: Soil class is up and running with the exception of alerts. DHT is now 
-// a singleton, do the same with as7341 while building it.
+// CURRENT NOTES: Mirror the DHT style error handling where relays and alerts are prevented
+// from accidental change based on garbage data. Offer the same for soil, and then finish
+// the light class by doing the same.
+//
+
+// Finish the AS7341 class and once complete start building twilio stuff
+// for alerts. That part looks to use https requests, similiar to the OTA updates.
 
 // Create settable features such as alerts, boundaries, relay actions starting with DHT as 
 // prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
@@ -70,11 +75,6 @@ UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
 
-// NET SETUP (default IP is 192.168.1.1).
-const char APssid[]{"GreenHouse"};
-const char mdnsName[]{"greenhouse"}; // must be under 11 chars.
-char APdefPass[]{"12345678"};
-char credNamespace[] = "netcreds";
 NVS::Creds creds(credNamespace, msglogerr);
 Comms::NetSTA station(msglogerr, creds, mdnsName);
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);

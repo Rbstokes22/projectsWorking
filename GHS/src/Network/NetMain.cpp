@@ -1,5 +1,5 @@
 #include "Network/NetMain.hpp"
-#include "Network/NetConfig.hpp"
+#include "Config/config.hpp"
 #include "esp_http_server.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
