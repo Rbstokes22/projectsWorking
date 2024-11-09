@@ -17,12 +17,18 @@ struct LightParams {
     AS7341_DRVR::AS7341basic &as7341;
 };
 
+struct isUpLight {
+    bool photoDisplay;
+    bool photoImmediate;
+    bool specDisplay;
+    bool specImmediate;
+};
+
 class Light {
     private:
     AS7341_DRVR::COLOR readings;
     int photoVal;
-    bool isPhotoUp;
-    bool isSpecUp;
+    isUpLight flags;
     Threads::Mutex mtx;
     LightParams &params;
     Light(LightParams &params); 
@@ -31,10 +37,13 @@ class Light {
 
     public:
     static Light* get(LightParams* parameter = nullptr);
-    void readSpectrum(); // Send readings
+    bool readSpectrum(); // read as7341
     bool readPhoto(); // read photoresistor
+    void getSpectrum(AS7341_DRVR::COLOR &readings);
+    void getPhoto(int &photVal);
     void handleRelay();
     void handleAlert();
+    isUpLight getStatus();
 };
 
 }

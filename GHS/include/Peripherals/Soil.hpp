@@ -23,9 +23,15 @@ struct SoilParams {
     adc_channel_t* channels;
 };
 
+struct isUpSoil {
+    bool display;
+    bool immediate;
+};
+
 class Soil {
     private:
     int readings[SOIL_SENSORS];
+    isUpSoil flags[SOIL_SENSORS];
     Threads::Mutex mtx;
     SOIL_TRIP_CONFIG settings[SOIL_SENSORS];
     SoilParams &params;
@@ -41,6 +47,7 @@ class Soil {
     void getAll(int* readings, size_t bytes);
     void checkBounds();
     void handleAlert(SOIL_TRIP_CONFIG &config, bool alertOn);
+    isUpSoil* getStatus(uint8_t indexNum);
 };
 
 }

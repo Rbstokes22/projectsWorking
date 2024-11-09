@@ -22,6 +22,12 @@ struct TH_TRIP_CONFIG { // Config relays and alerts
     uint16_t relayControlID;
 };
 
+struct TH_Averages {
+    size_t pollCt;
+    float temp;
+    float hum;
+};
+
 struct TempHumParams {
     Messaging::MsgLogHandler &msglogerr;
     DHT_DRVR::DHT &dht;
@@ -36,6 +42,7 @@ class TempHum {
     private:
     float temp;
     float hum;
+    TH_Averages averages;
     isUpTH flags;
     Threads::Mutex mtx;
     TH_TRIP_CONFIG humConf;
@@ -56,6 +63,7 @@ class TempHum {
     void handleRelay(TH_TRIP_CONFIG &config, bool relayOn);
     void handleAlert(TH_TRIP_CONFIG &config, bool alertOn);
     isUpTH getStatus();
+    TH_Averages* getAverages(bool reset = false);
 };
 
 

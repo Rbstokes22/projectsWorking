@@ -10,21 +10,20 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: Mirror the DHT style error handling where relays and alerts are prevented
-// from accidental change based on garbage data. Offer the same for soil, and then finish
-// the light class by doing the same.
-//
-
-// Finish the AS7341 class and once complete start building twilio stuff
-// for alerts. That part looks to use https requests, similiar to the OTA updates.
-
-// Create settable features such as alerts, boundaries, relay actions starting with DHT as 
-// prototype. Figure out a way to have this settable by sockets, and a way to ensure that 
-// the correct data is being passed through sockets so that the client can confirm everything
-// such as settings, boundaries, alerts, etc.. Once DHT is solid and up and running, configure
-// everything else. Implement a method to prevent several alerts from being sent, Like It sends
-// an alert when the criteria is met, but will not send again until it is good, and then bad again,
-// or something like that. Also consider a master alert manager or something like that.
+// CURRENT NOTES: Continue working on averages. I should be done for the TempHum, maybe soil
+// doesnt need an average. Light should definitely include an average for the spectral 
+// reading. For the Light, Alerts might not be needed since it isnt critical. Maybe just
+// a relay. Maybe scrap twilio and look at a strict linode PWA with push notifications.
+// This will be a much more manageable and cheaper method. The phone number can be scrapped
+// from the WAP setup since twilio will not need to be used. Look at having a remote subscription
+// which will be a subscription to data storage, access with minute updates, and also alerts.
+// The PWA will include a button for LOCAL which will open a greenhouse.local up in the web
+// browser. For non-subsciptions, only the browser will be used. A cheap subscription fee 
+// can pay for this, say 3 dollars per month, which means that even at 1000 customers, you
+// could pay for each user to get upates several times a minute and still make like 2000 bucks
+// a month with the best subscription plan that linode offers. Consider the differences between
+// LAN mode and PWA mode, they will look like, its just that on the minute, the json data will 
+// be sent to the PWA.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.

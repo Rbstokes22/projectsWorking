@@ -14,7 +14,6 @@ namespace Comms {
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
     
-
     auto attachRelay = [](int relayNum, Peripheral::TH_TRIP_CONFIG &conf){
         if (relayNum >= 0 && relayNum < 4) {
             uint16_t IDTemp = SOCKHAND::Relays[relayNum].getID();
@@ -56,11 +55,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"temp\":%.2f,\"tempRelay\":%d,\"tempCond\":%u,\"tempRelayVal\":%d,"
         "\"tempAlertVal\":%d,\"tempAlertEn\":%d,"
         "\"hum\":%.2f,\"humRelay\":%d,\"humCond\":%u,\"humRelayVal\":%d,"
-        "\"humAlertVal\":%d,\"humAlertEn\":%d,"
+        "\"humAlertVal\":%d,\"humAlertEn\":%d,\"dHTUp\":%d,"
         "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\"%d,"
         "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\"%d,"
         "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\"%d,"
-        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\"%d,",
+        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\"%d,"
+        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d",
         FIRMWARE_VERSION, 
         data.idNum,
         static_cast<size_t>(time->raw),
@@ -86,6 +86,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getHumConf()->tripValRelay,
         th->getHumConf()->tripValAlert,
         th->getHumConf()->alertsEn,
+        th->getStatus().display,
         soilReadings[0], static_cast<uint8_t>(soil->getConfig(0)->condition),
         soil->getConfig(0)->tripValAlert, soil->getConfig(0)->alertsEn,
         soilReadings[1], static_cast<uint8_t>(soil->getConfig(1)->condition),
@@ -93,7 +94,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soilReadings[2], static_cast<uint8_t>(soil->getConfig(2)->condition),
         soil->getConfig(2)->tripValAlert, soil->getConfig(2)->alertsEn,
         soilReadings[3], static_cast<uint8_t>(soil->getConfig(3)->condition),
-        soil->getConfig(3)->tripValAlert, soil->getConfig(3)->alertsEn
+        soil->getConfig(3)->tripValAlert, soil->getConfig(3)->alertsEn,
+        soil->getStatus(0)->display, soil->getStatus(1)->display,
+        soil->getStatus(2)->display, soil->getStatus(3)->display
         );
         }
         break;

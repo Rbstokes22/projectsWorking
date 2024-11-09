@@ -18,6 +18,7 @@ Soil::Soil(SoilParams &params) :
     }, params(params) {
     
     memset(this->readings, 0, SOIL_SENSORS);
+    memset(this->flags, false, sizeof(this->flags));
 }
 
 // Requires void* parameter which will be cast to SoilParams*
@@ -47,15 +48,39 @@ SOIL_TRIP_CONFIG* Soil::getConfig(uint8_t indexNum) {
 // Reads all sensors and stores the values in the class array
 // called readings.
 void Soil::readAll() {
-    this->mtx.lock();
-    for (int i = 0; i < SOIL_SENSORS; i++) {
-        adc_oneshot_read(
-            this->params.handle, 
-            this->params.channels[i], 
-            &this->readings[i]
-            );
-    }
+    esp_err_t err;
+    static size_t errCt[SOIL_SENSORS]{0};
+    const size_t errCtMax{5};
 
+    this->mtx.lock();
+    try {
+        for (int i = 0; i < SOIL_SENSORS; i++) {
+            err = adc_oneshot_read(
+                this->params.handle, 
+                this->params.channels[i], 
+                &this->readings[i]
+                );
+
+            if (err == ESP_OK) {
+                this->flags[i].display = true;
+                this->flags[i].immediate = true;
+                errCt[i] = 0;
+
+            } else {
+                this->flags[i].immediate = false;
+                errCt[i]++;
+            }
+
+            if (errCt[i] >= errCtMax) {
+                this->flags[i].display = false;
+                errCt[i] = 0;
+            }
+        }
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception
+    }
+    
     this->mtx.unlock();
 }   
 
@@ -65,7 +90,13 @@ void Soil::readAll() {
 // the mutex.
 void Soil::getAll(int* readings, size_t bytes) {
     this->mtx.lock();
-    memcpy(readings, this->readings, bytes);
+    try {
+        memcpy(readings, this->readings, bytes);
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception
+    }
+    
     this->mtx.unlock();
 }
 
@@ -109,7 +140,12 @@ void Soil::checkBounds() {
 
 // Requires SOIL_TRIP_CONFIG and whethere to employ the alert or not.
 void Soil::handleAlert(SOIL_TRIP_CONFIG &config, bool alertOn) {
-    // CONFIGURE EVERYTHING HERE ONCE BUILT
+    // CONFIGURE EVERYTHING HERE ONCE BUILT, check for flags.immediate
+}
+
+isUpSoil* Soil::getStatus(uint8_t indexNum) { // pointer return to handle index err.
+    if (indexNum > (SOIL_SENSORS - 1)) return nullptr;
+    return &this->flags[indexNum];
 }
 
 

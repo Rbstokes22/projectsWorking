@@ -6,7 +6,8 @@ namespace Peripheral {
 
 TempHum::TempHum(TempHumParams &params) : 
 
-    temp(0.0f), hum(0.0f), flags{false, false}, mtx(params.msglogerr),
+    temp(0.0f), hum(0.0f), averages{0, 0, 0}, 
+    flags{false, false}, mtx(params.msglogerr),
     humConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
     tempConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
     params(params) {}
@@ -28,36 +29,62 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 bool TempHum::read() {
     static size_t errCt{0};
     const size_t errCtMax{5};
+    bool read{false};
 
     this->mtx.lock();
-    bool read = this->params.dht.read(this->temp, this->hum);
+    try {
+        read = this->params.dht.read(this->temp, this->hum);
+
+        if (read) {
+            this->averages.pollCt++;
+            this->averages.temp += this->temp; // accumulate
+            this->averages.temp /= this->averages.pollCt; // average
+            this->averages.hum += this->hum;
+            this->averages.hum /= this->averages.pollCt;
+            this->flags.display = true;
+            this->flags.immediate = true;
+            errCt = 0;
+        } else {
+            this->flags.immediate = false;
+            errCt++;
+        }
+
+        if (errCt >= errCtMax) {
+            this->flags.display = false;
+            errCt = 0;
+        }
+
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception.
+    }   
+    
     this->mtx.unlock();
     
-    if (read) {
-        this->flags.display = true;
-        this->flags.immediate = true;
-        errCt = 0;
-    } else {
-        this->flags.immediate = false;
-        errCt++;
-    }
-
-    if (errCt >= errCtMax) {
-        this->flags.display = false;
-    }
-
     return this->flags.immediate;
 }
 
 void TempHum::getHum(float &hum) {
     this->mtx.lock();
-    hum = this->hum;
+    try {
+        hum = this->hum;
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception.
+    }
+    
     this->mtx.unlock();
 }
 
 void TempHum::getTemp(float &temp) {
     this->mtx.lock();
-    temp = this->temp;
+    try {
+        temp = this->temp;
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception.
+    }
+    
     this->mtx.unlock();
 }
 
@@ -140,6 +167,28 @@ void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn) {
 
 isUpTH TempHum::getStatus() {
     return this->flags;
+}
+
+TH_Averages* TempHum::getAverages(bool reset) {
+    TH_Averages avs;
+
+    this->mtx.lock();
+    try {
+        avs = this->averages;
+    } catch(...) {
+        this->mtx.unlock();
+        throw; // rethrow exception
+    }
+
+    this->mtx.unlock();
+
+    if (reset) { // used to get daily average and clear.
+        this->averages.hum = 0.0f;
+        this->averages.temp = 0.0f;
+        this->averages.pollCt = 0;
+    }
+
+    return &avs;
 }
 
 }
