@@ -8,14 +8,13 @@
 namespace Comms {
 
 // Static Setup
-Threads::Mutex* SOCKHAND::AS7341mtx{nullptr};
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
 argPool SOCKHAND::pool;
 
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack.
-argPool::argPool() : pool{0}, inUse{false} {}
+argPool::argPool() : pool(), inUse{false} {}
 
 // Iterates the arg pool and returns a pointer to an open allocation.
 async_resp_arg* argPool::getArg() {
@@ -100,15 +99,10 @@ void SOCKHAND::ws_async_send(void* arg) {
 
 // Requires the address of the DHT, AS7341, and soil sensor mutex, and the
 // relays. Returns true if none of those values == nullptr. False if false.
-bool SOCKHAND::init(Threads::Mutex &as7341MUTEX, Peripheral::Relay* relays) {
-        AS7341mtx = &as7341MUTEX;
+bool SOCKHAND::init(Peripheral::Relay* relays) {
+
         Relays = relays;
-
-        if (AS7341mtx != nullptr && relays != nullptr) {
-
-            SOCKHAND::isInit = true;
-        }
-
+        if (relays != nullptr) SOCKHAND::isInit = true;
         return SOCKHAND::isInit;
     }
 

@@ -308,8 +308,6 @@ const char* NetWAP::getPass(bool def) const {
 
 // Abstract methods not needed in the scope of NetWAP.
 void NetWAP::setSSID(const char* ssid) {}
-void NetWAP::setPhone(const char* phone) {}
-const char* NetWAP::getPhone() const {return "";}
 const char* NetWAP::getSSID() const {return "";}
 
 // Runs an iteration of all flags pertaining to the station 

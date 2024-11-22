@@ -8,8 +8,13 @@ TempHum::TempHum(TempHumParams &params) :
 
     temp(0.0f), hum(0.0f), averages{0, 0, 0}, 
     flags{false, false}, mtx(params.msglogerr),
-    humConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
-    tempConf{0, 0, false, CONDITION::NONE, nullptr, 0, 0},
+
+    humConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
+        nullptr, 0, 0, 0, 0, 0, 0},
+
+    tempConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
+        nullptr, 0, 0, 0, 0, 0, 0},
+
     params(params) {}
 
 TempHum* TempHum::get(TempHumParams* parameter) {
@@ -45,12 +50,12 @@ bool TempHum::read() {
             this->flags.immediate = true;
             errCt = 0;
         } else {
-            this->flags.immediate = false;
+            this->flags.immediate = false; // Indicates error
             errCt++;
         }
 
         if (errCt >= errCtMax) {
-            this->flags.display = false;
+            this->flags.display = false; // Indicates error on display
             errCt = 0;
         }
 
@@ -64,7 +69,9 @@ bool TempHum::read() {
     return this->flags.immediate;
 }
 
-void TempHum::getHum(float &hum) {
+float TempHum::getHum() {
+    static float hum = 0.0f;
+
     this->mtx.lock();
     try {
         hum = this->hum;
@@ -74,9 +81,12 @@ void TempHum::getHum(float &hum) {
     }
     
     this->mtx.unlock();
+    return hum;
 }
 
-void TempHum::getTemp(float &temp) {
+float TempHum::getTemp() {
+    static float temp = 0.0f;
+
     this->mtx.lock();
     try {
         temp = this->temp;
@@ -86,6 +96,7 @@ void TempHum::getTemp(float &temp) {
     }
     
     this->mtx.unlock();
+    return temp;
 }
 
 TH_TRIP_CONFIG* TempHum::getHumConf() {
@@ -106,38 +117,76 @@ void TempHum::checkBounds() {
         float upperBound = tripValueRelay + TEMP_HUM_PADDING;
         float tripValueAlert = static_cast<float>(conf.tripValAlert);
 
-        switch (conf.condition) {
-     
-            case CONDITION::LESS_THAN:
-            if (val < tripValueRelay) {
-                this->handleRelay(conf, true);
-            } else if (val >= upperBound) {
-                this->handleRelay(conf, false);
+        switch (conf.condition) { 
+
+            // Zeros out all counts if the condition is changed.
+            if (conf.condition != conf.prevCondition) {
+                conf.relayOnCt = 0;
+                conf.relayOffCt = 0;
+                conf.alertOnCt = 0;
+                conf.alertOffCt = 0;
             }
 
-            if (val < tripValueAlert) {
-                this->handleAlert(conf, true);
-            } else {
-                this->handleAlert(conf, false); 
-            }
-            break;
+            conf.prevCondition = conf.condition; // set prev to current
 
-            case CONDITION::GTR_THAN:
-            if (val > tripValueRelay) {
-                this->handleRelay(conf, true);
-            } else if (val <= lowerBound) {
-                this->handleRelay(conf, false);
-            }
+            // The configuration relay/alert on and off counts accumulate
+            // and/or zero, and send the applicable count to the 
+            // handleRelays function. This is to prevent relay or alert
+            // activity from a single value, and ensures consecutive
+            // triggers are met.
 
-            if (val > tripValueAlert) {
-                this->handleAlert(conf, true);
-            } else {
-                this->handleAlert(conf, false); 
-            }
-            break;
+            case CONDITION::LESS_THAN: 
+
+                if (val < tripValueRelay) {
+                    conf.relayOnCt++;
+                    conf.relayOffCt = 0;
+                    this->handleRelay(conf, true, conf.relayOnCt);
+                } else if (val >= upperBound) {
+                    conf.relayOnCt = 0;
+                    conf.relayOffCt++;
+                    this->handleRelay(conf, false, conf.relayOffCt);
+                }
+
+                if (val < tripValueAlert) {
+                    conf.alertOnCt++;
+                    conf.alertOffCt = 0;
+                    this->handleAlert(conf, true, conf.alertOnCt);
+                } else { // Alerts turning off will reset to allow follow on alerts
+                    conf.alertOnCt = 0;
+                    conf.alertOffCt++;
+                    this->handleAlert(conf, false, conf.alertOffCt); 
+                }
+
+                break;
+            
+            
+            case CONDITION::GTR_THAN: 
+
+                if (val > tripValueRelay) {
+                    conf.relayOnCt++;
+                    conf.relayOffCt = 0;
+                    this->handleRelay(conf, true, conf.relayOnCt);
+                } else if (val <= lowerBound) {
+                    conf.relayOnCt = 0;
+                    conf.relayOffCt++;
+                    this->handleRelay(conf, false, conf.relayOffCt);
+                }
+
+                if (val > tripValueAlert) {
+                    conf.alertOnCt++;
+                    conf.alertOffCt = 0;
+                    this->handleAlert(conf, true, conf.alertOnCt);
+                } else {;
+                conf.alertOnCt = 0;
+                    conf.alertOnCt = 0;
+                    conf.alertOffCt++;
+                    this->handleAlert(conf, false, conf.alertOffCt); 
+                }
+
+                break;
 
             case CONDITION::NONE:
-            break;
+                break;
         }
     };
 
@@ -145,12 +194,16 @@ void TempHum::checkBounds() {
     chkCondition(this->hum, this->humConf);
 }
 
-void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn) {
-    // This is used because If the relay is set to none from the client,
-    // nullptr will be chosen, this is by design and doesnt need err handling.
-    // This also returns if the immediate flag is false, which prevent relay
-    // from activating if data is garbage due to read error.
-    if (config.relay == nullptr || !this->flags.immediate) {
+void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
+    // Returns to prevent relay activity if:
+    //  1. relay is set to none, which will set it to nullptr.
+    //  2. immediate flag is false, indicating in a DHT read error
+    //  preventing false triggers.
+    //  3. count of consecutive triggers is less than setting.
+    if (
+        config.relay == nullptr || 
+        !this->flags.immediate || 
+        ct < TEMP_HUM_CONSECUTIVE_CTS) {
         return;
     }
 
@@ -161,16 +214,18 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn) {
     }
 }
 
-void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn) { 
+void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
     // Build this once the alert.hpp/cpp is built.
+    // This is going to ping webpage instead of twilio so use http
+    // client to build.
 }
 
 isUpTH TempHum::getStatus() {
     return this->flags;
 }
 
-TH_Averages* TempHum::getAverages(bool reset) {
-    TH_Averages avs;
+TH_Averages* TempHum::getAverages(bool reset) { 
+    static TH_Averages avs; // Ensures it does not go out of scope
 
     this->mtx.lock();
     try {

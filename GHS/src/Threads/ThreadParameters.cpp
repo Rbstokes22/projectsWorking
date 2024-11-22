@@ -31,7 +31,7 @@ AS7341ThreadParams::AS7341ThreadParams(
     Messaging::MsgLogHandler &msglogerr,
     adc_oneshot_unit_handle_t &adc_unit) :
 
-    delay(delay), mutex(msglogerr), light(light),
+    delay(delay), light(light),
     msglogerr(msglogerr), adc_unit(adc_unit) {}
 
 soilThreadParams::soilThreadParams(

@@ -14,13 +14,14 @@ namespace Comms {
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
     
+    // Relay num passed starting from index 0 for assignment.
     auto attachRelay = [](int relayNum, Peripheral::TH_TRIP_CONFIG &conf){
         if (relayNum >= 0 && relayNum < 4) {
             uint16_t IDTemp = SOCKHAND::Relays[relayNum].getID();
             conf.relay = &SOCKHAND::Relays[relayNum];
             conf.relayControlID = IDTemp;
-            conf.relayNum = relayNum + 1;
-        } else if (relayNum == 4) {
+            conf.relayNum = relayNum + 1; // Display purposes only
+        } else if (relayNum == 4) { // 4 indicates no relay attached
             conf.relay = nullptr;
             conf.relayNum = 0;
         } 
@@ -31,7 +32,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         case CMDS::GET_ALL: {
         int soilReadings[SOIL_SENSORS] = {0, 0, 0, 0};
-        float temp{0.0f}, hum{0.0f};
 
         Clock::DateTime* dtg = Clock::DateTime::get();
         Clock::TIME* time = dtg->getTime();
@@ -42,8 +42,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Timer* re4Timer = SOCKHAND::Relays[3].getTimer();
         Peripheral::Soil* soil = Peripheral::Soil::get();
         soil->getAll(soilReadings, sizeof(int) * SOIL_SENSORS);
-        th->getTemp(temp);
-        th->getHum(hum);
         
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"sysTime\":%zu,\"hhmmss\":%d:%d:%d,"
@@ -74,13 +72,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         re3Timer->isReady, (size_t)re3Timer->onTime, (size_t)re3Timer->offTime,
         static_cast<uint8_t>(SOCKHAND::Relays[3].getState()),
         re4Timer->isReady, (size_t)re4Timer->onTime, (size_t)re4Timer->offTime,
-        temp,
+        th->getTemp(),
         th->getTempConf()->relayNum,
         static_cast<uint8_t>(th->getTempConf()->condition),
         th->getTempConf()->tripValRelay,
         th->getTempConf()->tripValAlert,
         th->getTempConf()->alertsEn,
-        hum,
+        th->getHum(),
         th->getHumConf()->relayNum,
         static_cast<uint8_t>(th->getHumConf()->condition),
         th->getHumConf()->tripValRelay,

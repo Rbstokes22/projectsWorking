@@ -20,8 +20,9 @@ gpio_num_t pinMapD[DigitalPinQty]{
 // NETCONFIG EXCLUSIVE
 namespace Comms {
 
-const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)] {
-    "ssid", "pass", "phone", "WAPpass"
+// Match the case with the HTML/JS page.
+const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)] { 
+    "ssid", "pass", "phone", "WAPpass", "APIkey"
 };
 
 }

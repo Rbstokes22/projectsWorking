@@ -1,7 +1,6 @@
 #include "Network/NetSTA.hpp"
 #include "Network/NetMain.hpp"
 #include "esp_wifi.h"
-#include "Network/NetCreds.hpp"
 #include <cstdint>
 #include "Network/Routes.hpp"
 #include "string.h"
@@ -50,13 +49,12 @@ void NetSTA::IPEvent(
 
 NetSTA::NetSTA(
     Messaging::MsgLogHandler &msglogerr, 
-    NVS::Creds &creds, const char* mdnsName) : 
+    const char* mdnsName) : 
 
-    NetMain(msglogerr, mdnsName), creds(creds) {
+    NetMain(msglogerr, mdnsName) {
 
         memset(this->ssid, 0, sizeof(this->ssid));
         memset(this->pass, 0, sizeof(this->pass));
-        memset(this->phone, 0, sizeof(this->phone));
     }
 
 // Second step in the init process.
@@ -273,24 +271,12 @@ void NetSTA::setSSID(const char* ssid) {
     } 
 }
 
-// Sets the phone number. Max length is 14 chars.
-void NetSTA::setPhone(const char* phone) {
-    if (strlen(phone) != 0) {
-        strncpy(this->phone, phone, sizeof(this->phone) -1);
-        this->phone[sizeof(this->phone) - 1] = '\0';
-    } 
-}
-
 const char* NetSTA::getPass(bool def) const {
     return this->pass;
 }
 
 const char* NetSTA::getSSID() const {
     return this->ssid;
-}
-
-const char* NetSTA::getPhone() const {
-    return this->phone;
 }
 
 // Runs an iteration of all flags pertaining to the station 

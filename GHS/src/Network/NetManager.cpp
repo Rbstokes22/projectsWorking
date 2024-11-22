@@ -61,7 +61,6 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     }
 
     else {
-
         this->runningWifi(mode);
     }
 }
@@ -72,7 +71,8 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
 // password.
 void NetManager::startServer(NetMain &mode) { 
     NetMode curSrvr = mode.getNetType();
-
+    NVS::Creds* creds = NVS::Creds::get();
+    
     // All logic depending on returns from the read functions, will be handled
     // in the WAP and STA classes.
     if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
@@ -80,15 +80,15 @@ void NetManager::startServer(NetMain &mode) {
         // DEF(ault) button, if pressed, will start with the default password.
         // This is to ensure access if for some reason the NVS password is 
         // forgotten.
-        bool DEF = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::defWAP)]);
+        bool nDEF = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::defWAP)]);
 
-        if (DEF) { // Indicates non default mode.
+        if (nDEF) { // Indicates non-default mode.
 
             // shows if the current set pass = the default pass
             if (strcmp(mode.getPass(), mode.getPass(true)) == 0) {
                 char tempPass[static_cast<int>(IDXSIZE::PASS)]{0};
 
-                strcpy(tempPass, this->creds.read("WAPpass"));
+                strcpy(tempPass, creds->read("WAPpass"));
 
                 // If the NVS pass is not null, sets pass from the NVS.
                 if (strcmp(tempPass, "") != 0) {
@@ -106,15 +106,11 @@ void NetManager::startServer(NetMain &mode) {
         // in the event that the NVS is corrupt. It allows the credentials to be
         // written from the WAPSetup page into volatile storage only.
         if (strcmp(mode.getPass(), "") == 0) {
-            mode.setPass(this->creds.read("pass"));
+            mode.setPass(creds->read("pass"));
         }
 
         if (strcmp(mode.getSSID(), "") == 0) {
-            mode.setSSID(this->creds.read("ssid"));
-        }
-
-        if (strcmp(mode.getPhone(), "") == 0) {
-            mode.setPhone(this->creds.read("phone"));
+            mode.setSSID(creds->read("ssid"));
         }
     }
 
@@ -174,21 +170,13 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
 NetManager::NetManager(
     NetSTA &station, 
     NetWAP &wap, 
-    NVS::Creds &creds, 
     UI::Display &OLED) :
 
-    station{station}, wap{wap},  
-    creds(creds), OLED(OLED), isWifiInit(false) {}
+    station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {}
 
 void NetManager::handleNet() { 
     NetMode mode = this->checkNetSwitch();
     setNetType(mode);
 }
-
-
-
-
-
-
 
 }

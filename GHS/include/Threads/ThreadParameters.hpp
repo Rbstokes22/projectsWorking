@@ -37,7 +37,6 @@ struct DHTThreadParams {
 
 struct AS7341ThreadParams {
     uint32_t delay;
-    Threads::Mutex mutex;
     AS7341_DRVR::AS7341basic &light;
     Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t &adc_unit;

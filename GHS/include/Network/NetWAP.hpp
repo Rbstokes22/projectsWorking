@@ -38,10 +38,8 @@ class NetWAP : public NetMain{
     wifi_ret_t destroy() override;
     void setPass(const char* pass) override;
     void setSSID(const char* ssid) override;
-    void setPhone(const char* phone) override;
     const char* getPass(bool def = false) const override;
     const char* getSSID() const override;
-    const char* getPhone() const override;
     bool isActive() override;
     void getDetails(WAPdetails &details);
     void setWAPtype(char* WAPtype);

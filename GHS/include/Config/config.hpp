@@ -34,10 +34,10 @@ enum class APIN : uint8_t {
 };
 
 // NET SETUP (default IP is 192.168.1.1).
-const char APssid[]{"GreenHouse"};
-const char mdnsName[]{"greenhouse"}; // must be under 11 chars.
-const char APdefPass[]{"12345678"};
-const char credNamespace[] = "netcreds";
+const char APssid[] = "GreenHouse";
+const char mdnsName[] = "greenhouse"; // must be under 11 chars.
+const char APdefPass[] = "12345678";
+#define credNamespace "netcreds"
 
 // NETCONFIG EXCLUSIVE
 namespace Comms {
@@ -51,15 +51,17 @@ enum class Constat {
 };
 
 enum class IDXSIZE {
-    SSID = 32,
-    PASS = 64,
-    PHONE = 15,
-    NETCREDKEYQTY = 4,
-    IPADDR = 16,
-    MDNS = 11
+    SSID = 33, // 1-32 chars
+    PASS = 65, // 8-64 chars
+    PHONE = 11, // 10 chars exactly
+    APIKEY = 9, // 8 chars exactly
+    NETCREDKEYQTY = 5,
+    IPADDR = 16, // 7-15 chars
+    MDNS = 11, // 1-10 chars
 };
 
-enum class KI {ssid, pass, phone, WAPpass}; // Key Index
+// Used in netCreds.cpp and WAPSetupHandler.cpp, used in NVS
+enum class KI {ssid, pass, phone, WAPpass, APIkey}; // Key Index
 extern const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
 
 }

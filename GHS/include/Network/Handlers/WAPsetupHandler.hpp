@@ -14,14 +14,13 @@ class WSHAND { // WAP SETUP HANDLER
     private:
     static NetSTA* station;
     static NetWAP* wap;
-    static NVS::Creds* creds;
     static bool isInit;
     static cJSON* receiveJSON(httpd_req_t* req);
     static esp_err_t processJSON(cJSON* json, httpd_req_t* req, char* writtenKey);
     static esp_err_t respondJSON(httpd_req_t* req, char* writtenKey);
     
     public:
-    static bool init(NetSTA &station, NetWAP &wap, NVS::Creds &creds);
+    static bool init(NetSTA &station, NetWAP &wap);
     static esp_err_t IndexHandler(httpd_req_t* req);
     static esp_err_t DataHandler(httpd_req_t* req);
 };

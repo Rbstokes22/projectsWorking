@@ -1,7 +1,6 @@
 // TO DO:
 
-// 4. Change the DHT to be a singleton to mirror the soil. Remove boundary config
-// to TempHumConf, and remove it from the relay.hpp.
+
 // 5. build the light class to mirror the DHt and soil.
 // 6. If the classes have similar features, make a base class, potentially abstract if needed
 // as well as remove mutexs from the threads since they are inbedded in the classes. This means
@@ -10,20 +9,19 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: Continue working on averages. I should be done for the TempHum, maybe soil
-// doesnt need an average. Light should definitely include an average for the spectral 
-// reading. For the Light, Alerts might not be needed since it isnt critical. Maybe just
-// a relay. Maybe scrap twilio and look at a strict linode PWA with push notifications.
-// This will be a much more manageable and cheaper method. The phone number can be scrapped
-// from the WAP setup since twilio will not need to be used. Look at having a remote subscription
-// which will be a subscription to data storage, access with minute updates, and also alerts.
-// The PWA will include a button for LOCAL which will open a greenhouse.local up in the web
-// browser. For non-subsciptions, only the browser will be used. A cheap subscription fee 
-// can pay for this, say 3 dollars per month, which means that even at 1000 customers, you
-// could pay for each user to get upates several times a minute and still make like 2000 bucks
-// a month with the best subscription plan that linode offers. Consider the differences between
-// LAN mode and PWA mode, they will look like, its just that on the minute, the json data will 
-// be sent to the PWA.
+// CURRENT NOTES: 
+
+// Averages seem to be good. Set up a consecutive count functionality in the relays
+// and alerts, hasnt been tested yet. Continue perfecting the DHT, test, and then 
+// follow suit with the other peripherals. Alert functionality will be done with 
+// the http client to our webserver. The webserver will figure out twilio or whatever.
+// Send API key and phone number to webserver to give alerts.
+
+// ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
+// subscribes, they will receive an API key that they would enter in the WAP setup page. This would
+// be the key they use to send alerts and communicate with the database. Probably include this with
+// the version check with the client page, that it sends back subscibed, non-subscribed, or 
+// expired. If not subscibed, it wouldnt even attempt sending any alerts to save on web traffic. 
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
@@ -74,10 +72,11 @@ UI::Display OLED;
 Messaging::MsgLogHandler msglogerr(OLED, 5, true);
 adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
 
-NVS::Creds creds(credNamespace, msglogerr);
-Comms::NetSTA station(msglogerr, creds, mdnsName);
+Comms::NetSTA station(msglogerr, mdnsName); 
 Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
-Comms::NetManager netManager(station, wap, creds, OLED);
+Comms::NetManager netManager(station, wap, OLED);
+
+NVS::CredParams cp = {credNamespace, msglogerr}; // used for creds init
 
 // PERIPHERALS
 DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
@@ -183,6 +182,8 @@ void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
 void app_main() {
     setupDigitalPins();
     setupAnalogPins(adc_unit);
+
+    // Init OLED and AS7341 light sensor
     OLED.init(0x3C);
     light.init(0x39);
 
@@ -194,6 +195,9 @@ void app_main() {
     }
 
     printf("NVS STATUS: %s\n", esp_err_to_name(nvsErr));
+
+    // Init credential singleton with global parameters above
+    NVS::Creds::get(&cp);
 
     // Mount spiffs
     esp_vfs_spiffs_conf_t spiffsConf = {
@@ -220,14 +224,15 @@ void app_main() {
             );
 
         if (err != Boot::VAL::VALID) {
-        OLED.invalidFirmware(); 
-        if (ota.rollback()) esp_restart(); 
-        return;
+            OLED.invalidFirmware(); 
+            
+            if (ota.rollback()) esp_restart(); 
+            return;
         }
     } 
 
     // Passes objects to the WAPSetup handler to allow for use.
-    bool isInit = Comms::WSHAND::init(station, wap, creds);
+    bool isInit = Comms::WSHAND::init(station, wap);
     printf("WAP Setup Handler init: %d\n", isInit);
 
     // Passes OTA object to the STAOTA handler to allow for use.
@@ -236,7 +241,7 @@ void app_main() {
 
     // Sends the peripheral threads to the socket handler to allow mutex
     // usage. Also sends relays to allow client to configured them.
-    isInit = Comms::SOCKHAND::init(AS7341Params.mutex, relays);
+    isInit = Comms::SOCKHAND::init(relays);
     printf("Socket Handler init: %d\n", isInit);
 
     // Start threads

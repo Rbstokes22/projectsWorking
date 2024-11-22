@@ -13,7 +13,6 @@ class NetManager {
     private:
     NetSTA &station;
     NetWAP &wap;
-    NVS::Creds &creds;
     UI::Display &OLED;
     bool isWifiInit;
     NetMode checkNetSwitch();
@@ -26,8 +25,7 @@ class NetManager {
     public:
     NetManager(
         NetSTA &station, 
-        NetWAP &wap, 
-        NVS::Creds &creds, 
+        NetWAP &wap,  
         UI::Display &OLED
         );
 

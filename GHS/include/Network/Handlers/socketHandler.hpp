@@ -8,7 +8,7 @@
 
 namespace Comms {
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 1024 // Large to accomodate the get all call
 #define MAX_RESP_ARGS 10
 
 enum class CMDS : uint8_t {
@@ -57,7 +57,6 @@ class argPool {
 
 class SOCKHAND {
     private:
-    static Threads::Mutex* AS7341mtx;
     static Peripheral::Relay* Relays;
     static bool isInit;
     static argPool pool;
@@ -70,10 +69,7 @@ class SOCKHAND {
     static void compileData(cmdData &data, char* buffer, size_t size);
     
     public:
-    static bool init(
-        Threads::Mutex &as7341MUTEX, 
-        Peripheral::Relay* relays
-        );
+    static bool init(Peripheral::Relay* relays);
     static esp_err_t wsHandler(httpd_req_t* req);
     
 };

@@ -7,14 +7,35 @@
 namespace NVS {
 
 // namespace must be under 12 chars long.
-Creds::Creds(const char nameSpace[12], Messaging::MsgLogHandler &msglogerr) :
+Creds::Creds(CredParams &params) :
 
-    msglogerr(msglogerr), nvs(msglogerr, nameSpace) {
+    nvs(params.msglogerr, params.nameSpace), params(params) {
 
         memset(this->credData, 0, sizeof(this->credData));
+        memset(this->smsreq.phone, 0, sizeof(this->smsreq.phone));
+        memset(this->smsreq.APIkey, 0, sizeof(this->smsreq.APIkey));
         // this->nvs.eraseAll(); // UNCOMMENT AS NEEDED FOR TESTING.
     }
+
+// Requires CredParams pointer, which is default set to nullptr,
+// and must be passed to initialize the object. Once complete,
+// a call with no parameters will return a pointer to the object.
+Creds* Creds::get(CredParams* parameter) {
+    static bool isInit{false};
+
+    if (parameter == nullptr && !isInit) {
+        printf("Creds has not been init\n");
+        return nullptr; // Blocks instance from being created.
+    } else if (parameter != nullptr) {
+        printf("Creds has been init with namespace %s\n", parameter->nameSpace);
+        isInit = true; // Opens gate after proper init
+    }
+
+    static Creds instance(*parameter);
     
+    return &instance;
+}
+
 // writes the char array to the NVS. Takes const char* key and buffer, as 
 // well as size_t length. Ensure to use strlen for length, as not to mess up 
 // the checksum. Returns NVS_WRITE_OK or NVS_WRITE_FAIL.
@@ -22,7 +43,7 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t length) {
     nvs_ret_t stat = this->nvs.writeArray(key, data_t::CHAR, buffer, length);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
-        msglogerr.handle(
+        params.msglogerr.handle(
                 Messaging::Levels::ERROR,
                 "NVS Creds were not written",
                 Messaging::Method::SRL
@@ -45,7 +66,7 @@ const char* Creds::read(const char* key) {
             sizeof(this->credData)); 
         
         if (stat != nvs_ret_t::NVS_READ_OK) {
-            msglogerr.handle(
+            params.msglogerr.handle(
                 Messaging::Levels::ERROR,
                 "NVS Creds were not read",
                 Messaging::Method::SRL
@@ -61,6 +82,10 @@ const char* Creds::read(const char* key) {
     }
 
     return this->credData;
+}
+
+SMSreq* Creds::getSMSReq() {
+    return &this->smsreq;
 }
 
 }

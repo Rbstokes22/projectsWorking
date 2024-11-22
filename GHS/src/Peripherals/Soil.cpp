@@ -21,8 +21,8 @@ Soil::Soil(SoilParams &params) :
     memset(this->flags, false, sizeof(this->flags));
 }
 
-// Requires void* parameter which will be cast to SoilParams*
-// within the method. Default setting = nullptr. Must be init
+// Requires SoilParms* parameter.
+// Default setting = nullptr. Must be init
 // with a non nullptr to create the instance, and will return a 
 // pointer to the instance upon proper completion.
 Soil* Soil::get(SoilParams* parameter) {

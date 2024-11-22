@@ -138,7 +138,7 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
   
     if (json == NULL) {
      
-        if (httpd_resp_sendstr(req, "{\"version\": \"Invalid JSON\"}") != ESP_OK) {
+        if (httpd_resp_sendstr(req, "{\"version\":\"Invalid JSON\"}") != ESP_OK) {
             OTAHAND::OTA->sendErr("Error sending response");
         }
 
@@ -152,7 +152,7 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
     if (*version != NULL && cJSON_IsString(*version)) {
         return ESP_OK;
     } else {
-        if (httpd_resp_sendstr(req, "{\"version\": \"Invalid JSON\"}") != ESP_OK) {
+        if (httpd_resp_sendstr(req, "{\"version\":\"Invalid JSON\"}") != ESP_OK) {
             OTAHAND::OTA->sendErr("Error sending response");
         }
 
@@ -177,7 +177,7 @@ esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, const char* bu
 
         if (strcmp(_version, FIRMWARE_VERSION) == 0) { // Match, no update
  
-            if (httpd_resp_sendstr(req, "{\"version\": \"match\"}") != ESP_OK) {
+            if (httpd_resp_sendstr(req, "{\"version\":\"match\"}") != ESP_OK) {
                 OTAHAND::OTA->sendErr("Error sending response");
             } 
 

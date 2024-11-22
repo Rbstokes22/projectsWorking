@@ -41,9 +41,9 @@ const char WAPSetupPage[] = R"rawliteral(
     </style>
 </head>
 <body>
-    <h1>Project Greenhouse Network Setup</h1><br>
+    <h1>Greenhouse Network Setup</h1><br>
 
-    <p class="p1">Required for LAN</p>
+    <p class="p1">LAN Connection Information</p>
     <input id="ssid" placeholder="Network Name">
     <button onclick="submit('ssid')">Send</button><br><br>
 
@@ -54,9 +54,13 @@ const char WAPSetupPage[] = R"rawliteral(
     <input id="WAPpass" placeholder="WAP password">
     <button onclick="submit('WAPpass')">Send</button><br>
     
-    <p class="p1">Optional: (10 digit phone)</p>
-    <input id="phone" placeholder="8002256776">
+    <p class="p1">Phone (10 Digits)</p>
+    <input id="phone" placeholder="Ex: 8002256776">
     <button onclick="submit('phone')">Send</button><br>
+
+    <p class="p1">API Key (8 characters)</p>
+    <input id="APIkey" placeholder="Ex: D316AA14">
+    <button onclick="submit('APIkey')">Send</button><br>
 
     <p class="p1">Status:</p>
     <b><p id="status"></p></b>
@@ -77,9 +81,9 @@ const char WAPSetupPage[] = R"rawliteral(
 
             switch (inputID) {
                 case "ssid":
-                    if (temp.value.length > 31) {
+                    if (temp.value.length > 32) {
                         temp.style.border = "4px solid red";
-                        status.innerText = "SSID must be less than 32 chars";
+                        status.innerText = "SSID must be less than 33 chars";
                         return false;
 
                     } else {
@@ -88,9 +92,9 @@ const char WAPSetupPage[] = R"rawliteral(
                     }
 
                 case "pass":
-                    if (temp.value.length > 63) {
+                    if (temp.value.length > 64) {
                         temp.style.border = "4px solid red";
-                        status.innerText = "Pass must be less than 64 chars";
+                        status.innerText = "Pass must be less than 65 chars";
                         return false;
 
                     } else {
@@ -99,11 +103,11 @@ const char WAPSetupPage[] = R"rawliteral(
                     }
 
                 case "WAPpass":
-                    if (temp.value.length >= 8 && temp.value.length <= 63) {
+                    if (temp.value.length >= 8 && temp.value.length <= 64) {
                         temp.style.border = "2px solid black";
                         return true;
                     } else {
-                        status.innerText = "Password must be between 8 & 63 chars";
+                        status.innerText = "Password must be between 8 & 64 chars";
                         temp.style.border = "4px solid red";
                         return false;
                     }
@@ -124,6 +128,17 @@ const char WAPSetupPage[] = R"rawliteral(
                         temp.style.border = "2px solid black";
                         return true;
                     }
+
+                case "APIkey":
+                    const re = /^([a-fA-F0-9]{8})$/;
+                    if (!re.test(temp.value)) {
+                        temp.style.border = "4px solid red";
+                        status.innerText = "API key format is incorrect";
+                        return false;
+                    } else {
+                        temp.style.border = "2px solid black";
+                        return true;
+                    }
             }
         }
         
@@ -132,7 +147,7 @@ const char WAPSetupPage[] = R"rawliteral(
             const status = document.getElementById("status");
 
             let curURL = `${window.location.href}SubmitCreds`;
-            
+     
             if (validate(inputID)) {
                 temp.style.border = "2px solid black";
                 fetch(curURL, {
@@ -146,7 +161,7 @@ const char WAPSetupPage[] = R"rawliteral(
                     status.innerText = response.status;
                     temp.value = "";
                     if (response.status == "Accepted" || 
-                        response.status == "Accepted, Reconnect to WiFi"
+                        response.status == "Accepted: Reconnect to WiFi"
                     ) {
                         temp.style.border = "4px solid green";
                     }

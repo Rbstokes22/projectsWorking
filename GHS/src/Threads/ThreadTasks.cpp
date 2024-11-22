@@ -9,6 +9,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
+#include "Network/NetCreds.hpp" // REMOVE AFTER TESTING
 
 namespace ThreadTask {
 
@@ -46,9 +47,6 @@ void DHTTask(void* parameter) { // DHT
 void AS7341Task(void* parameter) { // AS7341, photo Resistor
     Threads::AS7341ThreadParams* params = 
         static_cast<Threads::AS7341ThreadParams*>(parameter);
-
-    #define LOCK_AS7341 params->mutex.lock();
-    #define UNLOCK_AS7341 params->mutex.unlock();
 
     while (true) {
 
