@@ -25,6 +25,18 @@ class Mutex {
     ~Mutex();
 };
 
+// Since CPP doesn't have a finally block, this is a scope guard or
+// simple Resource Acquisition Is Initialization (RAII) pattern to 
+// ensure the mutex is always unlocked when it goes out of scope.
+class MutexLock {
+    private:
+    Mutex &mtx;
+
+    public:
+    MutexLock(Mutex &mtx);
+    ~MutexLock();
+};
+
 }
 
 #endif // MUTEX_HPP

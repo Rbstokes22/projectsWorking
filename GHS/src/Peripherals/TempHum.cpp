@@ -17,6 +17,32 @@ TempHum::TempHum(TempHumParams &params) :
 
     params(params) {}
 
+void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
+    // Returns to prevent relay activity if:
+    //  1. relay is set to none, which will set it to nullptr.
+    //  2. immediate flag is false, indicating in a DHT read error
+    //  preventing false triggers.
+    //  3. count of consecutive triggers is less than setting.
+    if (
+        config.relay == nullptr || 
+        !this->flags.immediate || 
+        ct < TEMP_HUM_CONSECUTIVE_CTS) {
+        return;
+    }
+
+    if (relayOn) {
+        config.relay->on(config.relayControlID);
+    } else {
+        config.relay->off(config.relayControlID);
+    }
+}
+
+void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
+    // Build this once the alert.hpp/cpp is built.
+    // This is going to ping webpage instead of twilio so use http
+    // client to build.
+}
+
 TempHum* TempHum::get(TempHumParams* parameter) {
     static bool isInit{false};
 
@@ -33,14 +59,13 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 
 bool TempHum::read() {
     static size_t errCt{0};
-    const size_t errCtMax{5};
     bool read{false};
 
-    this->mtx.lock();
-    try {
-        read = this->params.dht.read(this->temp, this->hum);
+    Threads::MutexLock(this->mtx);
 
-        if (read) {
+    read = this->params.dht.read(this->temp, this->hum);
+
+    if (read) {
             this->averages.pollCt++;
             this->averages.temp += this->temp; // accumulate
             this->averages.temp /= this->averages.pollCt; // average
@@ -54,56 +79,31 @@ bool TempHum::read() {
             errCt++;
         }
 
-        if (errCt >= errCtMax) {
+        if (errCt >= TEMP_HUM_ERR_CT_MAX) {
             this->flags.display = false; // Indicates error on display
             errCt = 0;
         }
 
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // rethrow exception.
-    }   
-    
-    this->mtx.unlock();
-    
     return this->flags.immediate;
 }
 
 float TempHum::getHum() {
-    static float hum = 0.0f;
-
-    this->mtx.lock();
-    try {
-        hum = this->hum;
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // rethrow exception.
-    }
-    
-    this->mtx.unlock();
-    return hum;
+    Threads::MutexLock(this->mtx);
+    return this->hum;
 }
 
 float TempHum::getTemp() {
-    static float temp = 0.0f;
-
-    this->mtx.lock();
-    try {
-        temp = this->temp;
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // rethrow exception.
-    }
-    
-    this->mtx.unlock();
-    return temp;
+    Threads::MutexLock(this->mtx);
+    return this->temp; 
 }
 
 TH_TRIP_CONFIG* TempHum::getHumConf() {
+    Threads::MutexLock(this->mtx);
     return &this->humConf;
 }
 
 TH_TRIP_CONFIG* TempHum::getTempConf() {
+    Threads::MutexLock(this->mtx);
     return &this->tempConf;
 }
 
@@ -117,17 +117,17 @@ void TempHum::checkBounds() {
         float upperBound = tripValueRelay + TEMP_HUM_PADDING;
         float tripValueAlert = static_cast<float>(conf.tripValAlert);
 
+        // Zeros out all counts if the condition is changed.
+        if (conf.condition != conf.prevCondition) {
+            conf.relayOnCt = 0;
+            conf.relayOffCt = 0;
+            conf.alertOnCt = 0;
+            conf.alertOffCt = 0;
+        }
+
+        conf.prevCondition = conf.condition; // set prev to current
+
         switch (conf.condition) { 
-
-            // Zeros out all counts if the condition is changed.
-            if (conf.condition != conf.prevCondition) {
-                conf.relayOnCt = 0;
-                conf.relayOffCt = 0;
-                conf.alertOnCt = 0;
-                conf.alertOffCt = 0;
-            }
-
-            conf.prevCondition = conf.condition; // set prev to current
 
             // The configuration relay/alert on and off counts accumulate
             // and/or zero, and send the applicable count to the 
@@ -194,56 +194,19 @@ void TempHum::checkBounds() {
     chkCondition(this->hum, this->humConf);
 }
 
-void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
-    // Returns to prevent relay activity if:
-    //  1. relay is set to none, which will set it to nullptr.
-    //  2. immediate flag is false, indicating in a DHT read error
-    //  preventing false triggers.
-    //  3. count of consecutive triggers is less than setting.
-    if (
-        config.relay == nullptr || 
-        !this->flags.immediate || 
-        ct < TEMP_HUM_CONSECUTIVE_CTS) {
-        return;
-    }
-
-    if (relayOn) {
-        config.relay->on(config.relayControlID);
-    } else {
-        config.relay->off(config.relayControlID);
-    }
-}
-
-void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
-    // Build this once the alert.hpp/cpp is built.
-    // This is going to ping webpage instead of twilio so use http
-    // client to build.
-}
-
 isUpTH TempHum::getStatus() {
     return this->flags;
 }
 
-TH_Averages* TempHum::getAverages(bool reset) { 
-    static TH_Averages avs; // Ensures it does not go out of scope
+TH_Averages* TempHum::getAverages() { 
+    Threads::MutexLock(this->mtx);
+    return &this->averages;
+}
 
-    this->mtx.lock();
-    try {
-        avs = this->averages;
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // rethrow exception
-    }
-
-    this->mtx.unlock();
-
-    if (reset) { // used to get daily average and clear.
-        this->averages.hum = 0.0f;
-        this->averages.temp = 0.0f;
-        this->averages.pollCt = 0;
-    }
-
-    return &avs;
+void TempHum::clearAverages() {
+    this->averages.hum = 0.0f;
+    this->averages.temp = 0.0f;
+    this->averages.pollCt = 0;
 }
 
 }

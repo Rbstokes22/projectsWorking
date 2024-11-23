@@ -12,6 +12,7 @@ namespace Peripheral {
 
 #define TEMP_HUM_PADDING 1.0f
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
+#define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
 
 struct TH_TRIP_CONFIG { // Config relays and alerts
     int tripValRelay; // Value that will turn relay on
@@ -24,7 +25,7 @@ struct TH_TRIP_CONFIG { // Config relays and alerts
     uint16_t relayControlID; // Used to control relay
 
     // Ensures that relay and alert action is not taken at 
-    // first trip value, but successive values being met.
+    // first trip value, but consecutive values being met.
     uint32_t relayOnCt; 
     uint32_t relayOffCt;
     uint32_t alertOnCt;
@@ -60,6 +61,8 @@ class TempHum {
     TempHum(TempHumParams &params); 
     TempHum(const TempHum&) = delete; // prevent copying
     TempHum &operator=(const TempHum&) = delete; // prevent assignment
+    void handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct);
+    void handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct);
 
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
@@ -69,12 +72,10 @@ class TempHum {
     TH_TRIP_CONFIG* getHumConf();
     TH_TRIP_CONFIG* getTempConf();
     void checkBounds();
-    void handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct);
-    void handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct);
     isUpTH getStatus();
-    TH_Averages* getAverages(bool reset = false);
+    TH_Averages* getAverages();
+    void clearAverages();
 };
-
 
 }
 

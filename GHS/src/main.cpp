@@ -9,13 +9,14 @@
 // Also include active sensors, or any other type of logging things. Can create a separate 
 // status header/source, include it when needed, and update it by reference in the source.
 
-// CURRENT NOTES: 
-
-// Averages seem to be good. Set up a consecutive count functionality in the relays
-// and alerts, hasnt been tested yet. Continue perfecting the DHT, test, and then 
-// follow suit with the other peripherals. Alert functionality will be done with 
-// the http client to our webserver. The webserver will figure out twilio or whatever.
-// Send API key and phone number to webserver to give alerts.
+// CURRENT NOTES: Completed Alerts class. Test this out use local server to ensure data 
+// is posted correctly. Consecutive count functionality in the relays and alerts is good
+// but needs testing along side the alerts class. DHT is almost complete, it just needs 
+// a way of sending the alert, and then it can be tested entirely. Once solid, mirror 
+// the soil and as7341 with the same functionality. Probably dont need averages for the 
+// soil though. The AS7341 will be a bit tricky with the different modes and the relay
+// on and off, like will it turn on if dark and levels are below set amount, and shut 
+// of when levels surpass the set amount? Explore this.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

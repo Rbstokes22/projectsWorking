@@ -69,10 +69,10 @@ bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
 // cJSON* pointer, or NULL.
 cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
 
-    // Use WEBURL from config.hpp, and concats it with the endpoint URL.
+    // Use WEBURL from config.hpp, and concat it with the endpoint URL.
     char url[100]{0};
     strcpy(url, WEBURL);
-    strcat(url, "/checkOTA");
+    strcat(url, OTA_VERSION_PATH);
     esp_err_t err;
 
     // Client configuration with the crt bundle attached for webserver 
@@ -247,8 +247,8 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
         // Copes the fw url to the sig followed by a concat of the appropriate
         // endpoints.
         strcpy(LANurl.signature, LANurl.firmware);
-        strcat(LANurl.firmware, "/FWUpdate");
-        strcat(LANurl.signature, "/sigUpdate");
+        strcat(LANurl.firmware, LAN_OTA_FIRMWARE_PATH);
+        strcat(LANurl.signature, LAN_OTA_SIG_PATH);
 
         if (OTAHAND::OTA->update(LANurl, true) == OTA::OTA_RET::OTA_OK) {
 

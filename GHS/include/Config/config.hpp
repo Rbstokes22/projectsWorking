@@ -11,8 +11,15 @@
 // OTA Updates
 #define FIRMWARE_VERSION "1.0.0"
 #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
+// #define WEBURL "http://shadyside.local:8080"
+#define OTA_VERSION_PATH "/checkOTA"
+#define LAN_OTA_SIG_PATH "/sigUpdate" 
+#define LAN_OTA_FIRMWARE_PATH "/FWUpdate"
 #define FIRMWARE_SIZE 1198720
 #define FIRMWARE_SIG_SIZE 260
+
+// Web Paths
+#define ALERT_PATH "/Alerts"
 
 // Developer mode, This affects certain things like NGROK server.
 extern bool DEVmode;
