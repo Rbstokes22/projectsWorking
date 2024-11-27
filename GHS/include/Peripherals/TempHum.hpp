@@ -75,6 +75,7 @@ class TempHum {
     isUpTH getStatus();
     TH_Averages* getAverages();
     void clearAverages();
+    void test();
 };
 
 }

@@ -16,7 +16,7 @@ enum class TEMP {
 class DHT {
     private:
     gpio_num_t pin;
-    uint32_t getDuration(PVAL pinVal, uint16_t timeout);
+    uint32_t getDuration(PVAL pinVal, uint16_t timeout_us);
     void calcF(float &temp);
 
     public:

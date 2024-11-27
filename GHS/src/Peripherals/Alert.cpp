@@ -7,12 +7,17 @@
 
 namespace Peripheral {
 
+Alert::Alert() {} // No def
+
+// Returns pointer to Alert instance.
 Alert* Alert::get() {
     static Alert instance;
     return &instance;
 }
 
-// POST to server
+// Requires 8-char API key, 10 Digit Phone, and message. Generates a POST 
+// request in JSON format and sends to the server. Returns true if successful
+// and false if not.
 bool Alert::sendMessage(
     const char* APIkey,
     const char* phone,
@@ -22,12 +27,12 @@ bool Alert::sendMessage(
     esp_err_t err;
 
     char url[100] = WEBURL;
-    strcat(url, ALERT_PATH);
+    strcat(url, ALERT_PATH); // Append API path.
 
     int written = 0;
 
     // Creates JSON from passed arguments.
-    char jsonData[256](0);
+    char jsonData[256](0); // Should be plenty large for this purpose.
     written = snprintf(jsonData, sizeof(jsonData), 
         "{\"APIkey\":\"%s\",\"phone\":\"%s\",\"msg\":\"%s\"}",
         APIkey, phone, msg);
@@ -35,6 +40,7 @@ bool Alert::sendMessage(
     // Ensures that the appropriate amount of data is written.
     if (written < 0 || written > 256) return false;
 
+    // Configure POST message
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = NULL,
@@ -72,7 +78,6 @@ bool Alert::sendMessage(
 
     esp_http_client_cleanup(client);
     return (err == ESP_OK);
-
 }
     
 }

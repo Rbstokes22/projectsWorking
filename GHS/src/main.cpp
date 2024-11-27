@@ -1,22 +1,18 @@
-// TO DO:
+// CURRENT NOTES: // Scrap the DHT, tested several different methods, and isolated the
+// peripheral threads from the net thread, there were no issues, which means that the 
+// net thread is the cause of the timing issue. Ordered SHT31, which will be in on friday
+// and an I2C device, so we can omit the worries of the specific timing. 
+// Order of business is:
 
-
-// 5. build the light class to mirror the DHt and soil.
-// 6. If the classes have similar features, make a base class, potentially abstract if needed
-// as well as remove mutexs from the threads since they are inbedded in the classes. This means
-// we can remove them from the SOCKHAND init as well.
-// 7. Include stats in webpage. This way the user can see if spiffs, nvs, etc... is mounted
-// Also include active sensors, or any other type of logging things. Can create a separate 
-// status header/source, include it when needed, and update it by reference in the source.
-
-// CURRENT NOTES: Completed Alerts class. Test this out use local server to ensure data 
-// is posted correctly. Consecutive count functionality in the relays and alerts is good
-// but needs testing along side the alerts class. DHT is almost complete, it just needs 
-// a way of sending the alert, and then it can be tested entirely. Once solid, mirror 
-// the soil and as7341 with the same functionality. Probably dont need averages for the 
-// soil though. The AS7341 will be a bit tricky with the different modes and the relay
-// on and off, like will it turn on if dark and levels are below set amount, and shut 
-// of when levels surpass the set amount? Explore this.
+// 2. Build a driver for the SHT31. This will be untestable until the device arrives.
+// 3. The current DHT class is solid, just change all DHT to SHT. Mirror the setup,
+// after the alert is configured, to the soil and light. Soil might not require any
+// additional averages or anything. The AS7341 is about 70% complete. Explore how
+// relays will work with light, it might not need any alerts, or it may, hard to say
+// right now. Relays might turn on if dark and light condition hasnt been met, it can
+// be like total hours of light, or soemthing like that. Just explore. Dont forget
+// about adding commands to clear and get averages, but that will be incorporated 
+// into the socketCmdHandler.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -34,6 +30,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "I2C/I2C.hpp"
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
@@ -184,10 +181,13 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins(adc_unit);
 
+    // Init I2C at frequency 400 khz.
+    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::FAST);
+
     // Init OLED and AS7341 light sensor
     OLED.init(0x3C);
     light.init(0x39);
-
+ 
     // Initialize NVS
     esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
     if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -200,7 +200,7 @@ void app_main() {
     // Init credential singleton with global parameters above
     NVS::Creds::get(&cp);
 
-    // Mount spiffs
+    // Mount spiffs with path /spiffs.
     esp_vfs_spiffs_conf_t spiffsConf = {
         .base_path = "/spiffs",
         .partition_label = NULL,
@@ -208,7 +208,8 @@ void app_main() {
         .format_if_mount_failed = true
     };
 
-    // Do not unregister for OTA update purposes.
+    // Do not unregister for OTA update purposes since signature and checksum are
+    // uploaded to spiffs.
     esp_err_t spiffs = esp_vfs_spiffs_register(&spiffsConf);
     if (spiffs != ESP_OK) {
         printf("SPIFFS FAILED TO MOUNT");
@@ -246,8 +247,8 @@ void app_main() {
     printf("Socket Handler init: %d\n", isInit);
 
     // Start threads
-    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 1);
-    DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 3);
+    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
+    // DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 1); // Touchy protocol with single line
     AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
     soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
     relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);

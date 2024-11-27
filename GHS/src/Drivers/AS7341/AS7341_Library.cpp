@@ -153,22 +153,14 @@ AS7341basic::AS7341basic(CONFIG &conf) : conf(conf), isInit(false) {}
 // and writes to the device all configuration settings. Returns true 
 // if successful or false if not.
 bool AS7341basic::init(uint8_t address) {
-    I2C::I2C_RET ret = I2C::i2c_master_init(I2C_DEF_FRQ);
-
-    // Only returns false if the init fails. This library has returns
-    // for OK, Already running, or fail.
-    if (ret == I2C::I2C_RET::INIT_FAIL) {
-        return false;
-    } 
+    Serial::I2C* i2c = Serial::I2C::get();
+    i2c_device_config_t devCon = i2c->configDev(address);
+    this->i2cHandle = i2c->addDev(devCon);
 
     // Compares at the end, expected validations vs actual validations.
     // If equal, sets isInit to true;
     uint8_t expVal{10};
     uint8_t actualVal{0};
-
-    // Configure the i2c handle by adding device to I2C.
-    i2c_device_config_t devCon = I2C::configDev(address);
-    this->i2cHandle = I2C::addDev(devCon);
 
     actualVal += this->power(PWR::OFF); // Clear register before config
     actualVal += this->power(PWR::ON); // Powers on device.

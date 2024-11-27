@@ -6,12 +6,10 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
-#define I2C_DEF_FRQ 400000
-
 // OTA Updates
 #define FIRMWARE_VERSION "1.0.0"
-#define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
-// #define WEBURL "http://shadyside.local:8080"
+// #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
+#define WEBURL "http://shadyside.local:8080"
 #define OTA_VERSION_PATH "/checkOTA"
 #define LAN_OTA_SIG_PATH "/sigUpdate" 
 #define LAN_OTA_FIRMWARE_PATH "/FWUpdate"

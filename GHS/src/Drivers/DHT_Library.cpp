@@ -15,26 +15,30 @@ namespace DHT_DRVR {
 // checking for a timeout. Once the value equals the expected value, it will
 // break the loop, and compute the duration the pin is in the expected value.
 // Returns 0 indicating timeout, or a unit32_t elapsed time in micros.
-uint32_t DHT::getDuration(PVAL pinVal, uint16_t timeout) {
-    int64_t start = esp_timer_get_time();
-    int64_t _timeout = start + timeout;
+uint32_t DHT::getDuration(PVAL pinVal, uint16_t timeout_us) {
+    uint16_t timeoutCt = 0;
 
     // Wait for state change before computing duration.
     while(gpio_get_level(this->pin) != static_cast<int>(pinVal)) {
-        if (esp_timer_get_time() > _timeout) {
+        if (timeoutCt >= timeout_us) {
             return 0; // Indicates timeout.
         }
 
+        timeoutCt++;
         ets_delay_us(1); // wait 1 micro to relax CPU.
     }
 
     // Measure the duration once the pin is in the correct mode.
-    start = esp_timer_get_time(); // Reset start time
-    _timeout = start + timeout;
+    timeoutCt = 0; // Reset counter
+    int64_t start = esp_timer_get_time(); // Reset start time
+
     while (gpio_get_level(this->pin) == static_cast<int>(pinVal)) {
-        if (esp_timer_get_time() > _timeout) {
+        if (timeoutCt >= timeout_us) {
             return 0; // Indicates timeout
         }
+
+        timeoutCt++;
+        ets_delay_us(1); // wait 1 micro to relax CPU
     }
 
     return esp_timer_get_time() - start;
@@ -54,23 +58,24 @@ DHT::DHT(gpio_num_t pin) : pin(pin) {}
 // temperature and humidity. Compares values against checksum
 // and returns false if error, and true if data is good.
 bool DHT::read(float &temp, float &hum, TEMP scale) {
+    printf("Read\n");
     uint8_t data[5]{0};
     size_t bytesExp{5};
-    uint32_t cycles[80]{0}; // maybe not needed
+    uint32_t cycles[80]{0}; 
 
     // Set values to 0.
     temp = 0.0;
     hum = 0.0;
 
     // Set pin to input pullup and delay 1ms.
-    gpio_set_direction(this->pin, GPIO_MODE_INPUT);
-    gpio_pullup_en(this->pin);
-    ets_delay_us(1000);
+    // gpio_set_direction(this->pin, GPIO_MODE_INPUT); // PROBABLY CAN BE OMITTED, NOT CRITICAL IN DATASHEET
+    // gpio_pullup_en(this->pin);
+    // ets_delay_us(1000);
 
     // Send Signal to receive transmission
     gpio_set_direction(this->pin, GPIO_MODE_OUTPUT);
     gpio_set_level(this->pin, 0); // Pull pin low
-    ets_delay_us(7000); // wait 7 ms (1-10ms to ensure detection)
+    ets_delay_us(5000); // wait 5 ms datasheet says at least 1ms
 
     // Switch to input pullup mode to bring pin to high.
     gpio_set_direction(this->pin, GPIO_MODE_INPUT);
@@ -96,8 +101,8 @@ bool DHT::read(float &temp, float &hum, TEMP scale) {
     // for a 0 bit, and ~70 micros for a 1 bit. This is separate to avoid 
     // as much lag as possible to ensure time criticality. 
     for (int i = 0; i < 80; i += 2) {
-        cycles[i] = this->getDuration(PVAL::LOW, 1000);
-        cycles[i + 1] = this->getDuration(PVAL::HIGH, 1000);
+        cycles[i] = this->getDuration(PVAL::LOW, 100);
+        cycles[i + 1] = this->getDuration(PVAL::HIGH, 100);
     }
 
     // Iterates each bit of each byte. References the index value of the 
@@ -136,6 +141,9 @@ bool DHT::read(float &temp, float &hum, TEMP scale) {
     // will be the LSB of the value, so we want 8 values only.
     if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
         printf("DHT Checksum Error\n");
+        for (int i = 0; i < 80; i += 2) {
+            printf("signal: %zu, value: %zu\n", (size_t)cycles[i], (size_t)cycles[i+1]);
+        }
         return false;
     } else {
         return true; // data is good to use.

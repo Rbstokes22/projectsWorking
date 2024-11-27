@@ -1,6 +1,7 @@
 #include "Peripherals/TempHum.hpp"
 #include "driver/gpio.h"
 #include "Peripherals/Relay.hpp"
+#include "Peripherals/Alert.hpp"
 
 namespace Peripheral {
 
@@ -207,6 +208,17 @@ void TempHum::clearAverages() {
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0;
+}
+
+void TempHum::test() {
+    Alert* alt = Alert::get();
+    bool testing = alt->sendMessage(
+        "FF022286",
+        "7346740543",
+        "Temperature exceeding 90 Degrees"
+    );
+
+    printf("Message Sent %d\n", testing);
 }
 
 }

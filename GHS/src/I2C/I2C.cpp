@@ -6,21 +6,25 @@
 // Once error handling is implemeneted after OLED, use throughout here as well as info messges,
 // such as startup frequency, device connected, etc...
 
-namespace I2C {
+namespace Serial {
 
-static uint32_t i2cFrequency{I2C_DEF_FRQ}; // standard frequency
-static I2C_RET isInit{I2C_RET::INIT_FAIL};
-static i2c_master_bus_handle_t busHandle;
+// Defaults frequency to 100 khz. Can be set higher when initializing the
+// master.
+I2C::I2C() : freq(I2C_FREQ::STD), isInit(false) {}
 
-// Frequency between 100000 and 400000.
-I2C_RET i2c_master_init(uint32_t frequency) {
-    if (isInit == I2C_RET::RUNNING) return I2C_RET::RUNNING;
+// Returns a pointer to the I2C instance.
+I2C* I2C::get() {
+    static I2C instance;
+    return &instance;
+}
 
-    // Only matters if the frequency exceeds 400k, if less than 100k,
-    // the default frequency persists.
+// Requires I2C_FREQ parameter with STD (100k) or FAST (400k).
+// Initializes the I2C with SCL on GPIO 22 and SDA on GPIO 21.
+// Returns true of false depending on if it was init.
+bool I2C::i2c_master_init(I2C_FREQ freq) {
+    if (this->isInit) return true;
 
-    if (frequency > 400000) {i2cFrequency = 400000;}
-    else if (frequency < 100000) {i2cFrequency = 100000;}
+    this->freq = freq; // Resets the frequency
 
     i2c_master_bus_config_t i2c_mst_config = {};
     i2c_mst_config.clk_source = I2C_CLK_SRC_DEFAULT;
@@ -30,36 +34,37 @@ I2C_RET i2c_master_init(uint32_t frequency) {
     i2c_mst_config.glitch_ignore_cnt = 7;
     i2c_mst_config.flags.enable_internal_pullup = true;
 
-    esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &busHandle); 
+    esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &this->busHandle);
 
-    // ADD ERROR HANDLING
     if (err != ESP_OK) {
         printf("err: %s\n", esp_err_to_name(err)); 
-        return I2C_RET::INIT_FAIL;
+        return false;
     } else {
-        isInit = I2C_RET::RUNNING;
-        return I2C_RET::INIT_OK;   
+        return true;  
     }
 }
 
-// Configures the individual device by address, Uses a static frequency
-// pased in the init function.
-i2c_device_config_t configDev(uint8_t i2cAddr) {
-    i2c_device_config_t dev_cfg = { // Do I make this a class an dev_cfg each dev?
+// Requires the i2c address of the device. Configures device
+// and returns i2c_device_config_t struct.
+i2c_device_config_t I2C::configDev(uint8_t i2cAddr) {
+    i2c_device_config_t dev_cfg = { 
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = i2cAddr,
-        .scl_speed_hz = i2cFrequency,
+        .scl_speed_hz = static_cast<uint32_t>(this->freq),
         .scl_wait_us = 0,
     };
 
     return dev_cfg;
 }
 
-// Returns the device handle used in the i2c transmission.
-i2c_master_dev_handle_t addDev(i2c_device_config_t &dev_cfg) {
+// Requires the i2c_device_config_t configuration. Adds the device to the
+// i2c master bus and returns the device handle.
+i2c_master_dev_handle_t I2C::addDev(i2c_device_config_t &dev_cfg) {
     i2c_master_dev_handle_t devHandle;
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(busHandle, &dev_cfg, &devHandle));
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(
+        this->busHandle, &dev_cfg, &devHandle
+        ));
 
     return devHandle;
 }

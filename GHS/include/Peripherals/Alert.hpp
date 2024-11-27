@@ -10,7 +10,7 @@ class Alert {
     Alert &operator=(const Alert&) = delete; // prevent assignment
 
     public:
-    Alert* get();
+    static Alert* get();
     bool sendMessage(
         const char* APIkey,
         const char* phone,

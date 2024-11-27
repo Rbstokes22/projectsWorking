@@ -93,20 +93,18 @@ OLEDbasic::OLEDbasic() :
 // Initializes at 400khz. Configures the i2c settings, and adds the i2c 
 // device to the bus, receiving the handle in return.
 bool OLEDbasic::init(uint8_t address) {
-    I2C::I2C_RET ret = I2C::i2c_master_init(I2C_DEF_FRQ);
-    if (ret == I2C::I2C_RET::INIT_FAIL) {
-        return false;
-    } 
 
-    i2c_device_config_t devCon = I2C::configDev(address); 
-    this->i2cHandle = I2C::addDev(devCon);
+    Serial::I2C* i2c = Serial::I2C::get();
+    i2c_device_config_t devCon = i2c->configDev(address);
+    this->i2cHandle = i2c->addDev(devCon);
 
-    ESP_ERROR_CHECK(i2c_master_transmit(
+    esp_err_t err = i2c_master_transmit(
         this->i2cHandle, this->init_sequence,
-        sizeof(this->init_sequence), -1));
+        sizeof(this->init_sequence), -1);
 
-    this->reset(true); // sets Worker buffer to clear screen.
-    return true;
+    this->reset(true);
+
+    return (err == ESP_OK);
 }
 
 // Creates a template to be written to. This sets the command sequence

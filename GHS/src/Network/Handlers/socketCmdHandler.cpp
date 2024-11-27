@@ -44,7 +44,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getAll(soilReadings, sizeof(int) * SOIL_SENSORS);
         
         written = snprintf(buffer, size,  
-        "{\"firmv\":\"%s\",\"id\":\"%s\",\"sysTime\":%zu,\"hhmmss\":%d:%d:%d,"
+        "{\"firmv\":\"%s\",\"id\":\"%s\",\"sysTime\":%zu,\"hhmmss\":\"%d:%d:%d\","
         "\"timeCalib\":%d,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
@@ -54,11 +54,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"tempAlertVal\":%d,\"tempAlertEn\":%d,"
         "\"hum\":%.2f,\"humRelay\":%d,\"humCond\":%u,\"humRelayVal\":%d,"
         "\"humAlertVal\":%d,\"humAlertEn\":%d,\"dHTUp\":%d,"
-        "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\"%d,"
-        "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\"%d,"
-        "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\"%d,"
-        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\"%d,"
-        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d",
+        "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\":%d,"
+        "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\":%d,"
+        "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\":%d,"
+        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\":%d,"
+        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d}",
         FIRMWARE_VERSION, 
         data.idNum,
         static_cast<size_t>(time->raw),
@@ -329,6 +329,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(0)->condition = Peripheral::CONDITION::LESS_THAN;
         soil->getConfig(0)->alertsEn = true;
         soil->getConfig(0)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 1 ALT < %d", data.suppData);
         }
         break;
 
@@ -337,6 +338,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(0)->condition = Peripheral::CONDITION::GTR_THAN;
         soil->getConfig(0)->alertsEn = true;
         soil->getConfig(0)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 1 ALT > %d", data.suppData);
         }
         break;
 
@@ -344,6 +346,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         soil->getConfig(0)->condition = Peripheral::CONDITION::NONE;
         soil->getConfig(0)->alertsEn = false;
+        written = snprintf(buffer, size, "Soil 1 ALT None");
         }
         break;
 
@@ -352,6 +355,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(1)->condition = Peripheral::CONDITION::LESS_THAN;
         soil->getConfig(1)->alertsEn = true;
         soil->getConfig(1)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 2 ALT < %d", data.suppData);
         }
         break;
 
@@ -360,6 +364,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(1)->condition = Peripheral::CONDITION::GTR_THAN;
         soil->getConfig(1)->alertsEn = true;
         soil->getConfig(1)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 2 ALT > %d", data.suppData);
         }
         break;
 
@@ -367,6 +372,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         soil->getConfig(1)->condition = Peripheral::CONDITION::NONE;
         soil->getConfig(1)->alertsEn = false;
+        written = snprintf(buffer, size, "Soil 2 ALT None");
         }
         break;
 
@@ -375,6 +381,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(2)->condition = Peripheral::CONDITION::LESS_THAN;
         soil->getConfig(2)->alertsEn = true;
         soil->getConfig(2)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 3 ALT < %d", data.suppData);
         }
         break;
 
@@ -383,6 +390,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(2)->condition = Peripheral::CONDITION::GTR_THAN;
         soil->getConfig(2)->alertsEn = true;
         soil->getConfig(2)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 3 ALT > %d", data.suppData);
         }
         break;
 
@@ -390,6 +398,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         soil->getConfig(2)->condition = Peripheral::CONDITION::NONE;
         soil->getConfig(2)->alertsEn = false;
+        written = snprintf(buffer, size, "Soil 3 ALT None");
         }
         break;
 
@@ -398,6 +407,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(3)->condition = Peripheral::CONDITION::LESS_THAN;
         soil->getConfig(3)->alertsEn = true;
         soil->getConfig(3)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 4 ALT < %d", data.suppData);
         }
         break;
 
@@ -406,6 +416,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(3)->condition = Peripheral::CONDITION::GTR_THAN;
         soil->getConfig(3)->alertsEn = true;
         soil->getConfig(3)->tripValAlert = data.suppData;
+        written = snprintf(buffer, size, "Soil 4 ALT > %d", data.suppData);
         }
         break;
 
@@ -413,8 +424,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         soil->getConfig(3)->condition = Peripheral::CONDITION::NONE;
         soil->getConfig(3)->alertsEn = false;
+        written = snprintf(buffer, size, "Soil 4 ALT None");
         }
         break;
+
+        case CMDS::TEST: { // DELETE AFTER TESTING WEB SERVER EXCHANGE
+        Peripheral::TempHum* th = Peripheral::TempHum::get();
+        th->test();
+        written = snprintf(buffer, size, "Testing Web exchange");
+        }
+        
 
         default:
         break;
