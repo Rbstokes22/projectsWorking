@@ -153,6 +153,8 @@ AS7341basic::AS7341basic(CONFIG &conf) : conf(conf), isInit(false) {}
 // and writes to the device all configuration settings. Returns true 
 // if successful or false if not.
 bool AS7341basic::init(uint8_t address) {
+    if (this->isInit) return true; // Prevents from being re-init.
+
     Serial::I2C* i2c = Serial::I2C::get();
     i2c_device_config_t devCon = i2c->configDev(address);
     this->i2cHandle = i2c->addDev(devCon);

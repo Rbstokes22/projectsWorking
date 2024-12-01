@@ -94,7 +94,7 @@ class AS7341basic {
     CONFIG &conf;
     bool isInit;
     bool setBank(REG reg);
-    void writeRegister(REG reg, uint8_t val);
+    bool writeRegister(REG reg, uint8_t val);
     uint8_t readRegister(REG reg, bool &dataSafe);
     bool validateWrite(REG reg, uint8_t dataOut, bool verbose = true);
     bool power(PWR state, bool verbose = true);

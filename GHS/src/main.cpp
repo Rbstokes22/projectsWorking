@@ -1,12 +1,8 @@
-// CURRENT NOTES: // Scrap the DHT, tested several different methods, and isolated the
-// peripheral threads from the net thread, there were no issues, which means that the 
-// net thread is the cause of the timing issue. Ordered SHT31, which will be in on friday
-// and an I2C device, so we can omit the worries of the specific timing. 
-// Order of business is:
-
-// 2. Build a driver for the SHT31. This will be untestable until the device arrives.
-// 3. The current DHT class is solid, just change all DHT to SHT. Mirror the setup,
-// after the alert is configured, to the soil and light. Soil might not require any
+// CURRENT NOTES: Complete with the SHT driver and it works as expected.
+// Before switching the tempHum stuff over, incorporate a similar RW Packet
+// in the AS7341 driver that includes a timeout method, I am not too fond of the
+// -1, or wait forever since it is blocking. Once done, knock out the tempHum, and
+// mirror the setup to the soil and light. Soil might not require any
 // additional averages or anything. The AS7341 is about 70% complete. Explore how
 // relays will work with light, it might not need any alerts, or it may, hard to say
 // right now. Relays might turn on if dark and light condition hasnt been met, it can
@@ -54,7 +50,8 @@
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include <cstddef>
-#include "Drivers/DHT_Library.hpp" 
+#include "Drivers/DHT_Library.hpp" // DELETE ONCE SHT IS COMPLETE
+#include "Drivers/SHT_Library.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp" 
 #include "Peripherals/Relay.hpp"
 
@@ -77,7 +74,8 @@ Comms::NetManager netManager(station, wap, OLED);
 NVS::CredParams cp = {credNamespace, msglogerr}; // used for creds init
 
 // PERIPHERALS
-DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]);
+SHT_DRVR::SHT sht; // Temp hum driver 
+// DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]); REPLACE WITH SHT!!!!!!!!!!!!!!!!!!!
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
 
@@ -93,8 +91,8 @@ Peripheral::Relay relays[totalRelays] = { // Passes to socket handler
 Threads::netThreadParams netParams(1000, netManager, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-Threads::DHTThreadParams DHTParams(1000, dht, msglogerr);
-Threads::Thread DHTThread(msglogerr, "DHTThread");
+// Threads::DHTThreadParams DHTParams(1000, dht, msglogerr); // REPLACE WITH SHT
+// Threads::Thread DHTThread(msglogerr, "DHTThread");
 
 Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
 Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
@@ -107,7 +105,7 @@ Threads::Thread relayThread(msglogerr, "relayThread");
 
 const size_t threadQty = 4;
 Threads::Thread* toSuspend[threadQty] = {
-    &DHTThread, &AS7341Thread, &soilThread, &relayThread
+    /*&DHTThread, REPLACE WITH SHT*/ &AS7341Thread, &soilThread, &relayThread
     };
 
 // OTA 
@@ -125,7 +123,6 @@ void setupDigitalPins() {
         {DPIN::WAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
         {DPIN::STA, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
         {DPIN::defWAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
-        {DPIN::DHT, GPIO_MODE_INPUT, GPIO_FLOATING},
         {DPIN::RE1, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE2, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING},
@@ -184,10 +181,11 @@ void app_main() {
     // Init I2C at frequency 400 khz.
     Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::FAST);
 
-    // Init OLED and AS7341 light sensor
+    // Init OLED, AS7341 light sensor, and sht temp/hum sensor.
     OLED.init(0x3C);
     light.init(0x39);
- 
+    sht.init(0x44); 
+
     // Initialize NVS
     esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
     if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -247,10 +245,10 @@ void app_main() {
     printf("Socket Handler init: %d\n", isInit);
 
     // Start threads
-    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
+    // netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
     // DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 1); // Touchy protocol with single line
-    AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
-    soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
-    relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
+    // AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
+    // soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
+    // relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
 }
 

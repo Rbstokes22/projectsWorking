@@ -82,6 +82,7 @@ OLEDbasic::OLEDbasic() :
     pageMax{static_cast<int>(Size::pages) - 1}, // index 127
     cmdSeqLgth(sizeof(OLEDbasic::charCMD) - 1), // excludes the 0x40
     lineLgth(static_cast<int>(Size::columns) + 1), // includes 0x40
+    isInit(false),
     Worker{this->bufferA}, // sets worker pointer to buffer A
     Display{this->bufferB},
     bufferIDX{0}, isBufferA{true} {
@@ -93,6 +94,7 @@ OLEDbasic::OLEDbasic() :
 // Initializes at 400khz. Configures the i2c settings, and adds the i2c 
 // device to the bus, receiving the handle in return.
 bool OLEDbasic::init(uint8_t address) {
+    if (this->isInit) return true; // Prevents from re-init.
 
     Serial::I2C* i2c = Serial::I2C::get();
     i2c_device_config_t devCon = i2c->configDev(address);
@@ -102,6 +104,7 @@ bool OLEDbasic::init(uint8_t address) {
         this->i2cHandle, this->init_sequence,
         sizeof(this->init_sequence), -1);
 
+    this->isInit = true;
     this->reset(true);
 
     return (err == ESP_OK);

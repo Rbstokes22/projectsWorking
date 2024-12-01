@@ -51,7 +51,7 @@ bool AS7341basic::setBank(REG reg) {
 }
 
 // Requires register and value to write. Writes value to register address.
-void AS7341basic::writeRegister(REG reg, uint8_t val) {
+bool AS7341basic::writeRegister(REG reg, uint8_t val) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
 
@@ -61,8 +61,14 @@ void AS7341basic::writeRegister(REG reg, uint8_t val) {
 
         if (err != ESP_OK) {
             printf("Err writing register: %s\n", esp_err_to_name(err));
+            return false;
         }
-    };
+
+    } else {
+        return false;
+    }
+
+    return true;
 }
 
 // Requires register and dataSafe boolean. Writes to I2C the register 
@@ -75,7 +81,7 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
     uint8_t addr = static_cast<uint8_t>(reg);
 
     if (this->setBank(reg)) {
-        uint8_t readBuf[1]{0}; // Single bit value.
+        uint8_t readBuf[1]{0}; // Single byte value.
         uint8_t writeBuf[1] = {addr}; // Address to send to.
 
         err = i2c_master_transmit_receive(

@@ -49,6 +49,7 @@ class OLEDbasic {
     i2c_master_dev_handle_t i2cHandle;    
     static const uint8_t init_sequence[];
     static uint8_t charCMD[];
+    bool isInit;
 
     uint8_t* Worker;
     uint8_t* Display;

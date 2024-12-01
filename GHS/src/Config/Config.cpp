@@ -13,8 +13,8 @@ adc_channel_t pinMapA[AnalogPinQty]{
 };
 
 gpio_num_t pinMapD[DigitalPinQty]{
-    GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_4, GPIO_NUM_18, 
-    GPIO_NUM_27, GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33
+    GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_4, GPIO_NUM_27, 
+    GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33
 }; 
 
 // NETCONFIG EXCLUSIVE

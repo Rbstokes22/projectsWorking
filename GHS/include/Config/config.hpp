@@ -24,14 +24,14 @@ extern bool DEVmode;
 
 // PINS
 #define AnalogPinQty 5
-#define DigitalPinQty 8
+#define DigitalPinQty 7
 
 extern adc_channel_t pinMapA[AnalogPinQty];
 extern gpio_num_t pinMapD[DigitalPinQty];
 
 // Used with pinMap above.
 enum class DPIN : uint8_t {
-    WAP, STA, defWAP, DHT, RE1, RE2, RE3, RE4
+    WAP, STA, defWAP, RE1, RE2, RE3, RE4
 };
 
 enum class APIN : uint8_t {
