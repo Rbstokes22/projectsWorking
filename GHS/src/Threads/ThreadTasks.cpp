@@ -2,7 +2,7 @@
 #include "Threads/Threads.hpp"
 #include "Threads/ThreadParameters.hpp"
 #include "Config/config.hpp"
-#include "Drivers/DHT_Library.hpp"
+#include "Drivers/SHT_Library.hpp"
 #include "driver/gpio.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
@@ -29,12 +29,12 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     }
 }
 
-// CREATE A SEPARATE CLASS HERE EXCLUSIVE TO THE DHT SETTINGS.
-void DHTTask(void* parameter) { // DHT
-    Threads::DHTThreadParams* params = 
-        static_cast<Threads::DHTThreadParams*>(parameter);
+// CREATE A SEPARATE CLASS HERE EXCLUSIVE TO THE SHT SETTINGS.
+void SHTTask(void* parameter) { // SHT
+    Threads::SHTThreadParams* params = 
+        static_cast<Threads::SHTThreadParams*>(parameter);
 
-    Peripheral::TempHumParams thParams = {params->msglogerr, params->dht};
+    Peripheral::TempHumParams thParams = {params->msglogerr, params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {

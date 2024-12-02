@@ -15,16 +15,27 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
     
     // Relay num passed starting from index 0 for assignment.
-    auto attachRelay = [](int relayNum, Peripheral::TH_TRIP_CONFIG &conf){
+    auto attachRelay = [](int relayNum, Peripheral::TH_TRIP_CONFIG &conf){ 
         if (relayNum >= 0 && relayNum < 4) {
-            uint16_t IDTemp = SOCKHAND::Relays[relayNum].getID();
+
+            // If relay is reassigned while it is active, this will ensure that 
+            // the previous relay is shut off before assigning it a new ID 
+            // during attachment.
+            if (conf.relay != nullptr) {
+                conf.relay->off(conf.relayControlID);
+            }
+
             conf.relay = &SOCKHAND::Relays[relayNum];
-            conf.relayControlID = IDTemp;
+            conf.relayControlID = SOCKHAND::Relays[relayNum].getID();
             conf.relayNum = relayNum + 1; // Display purposes only
         } else if (relayNum == 4) { // 4 indicates no relay attached
+            // Properly shuts relay off if detached and it is currently on.
+            conf.relay->off(conf.relayControlID);
             conf.relay = nullptr;
             conf.relayNum = 0;
-        } 
+        } else {
+            printf("Must be a relay number 0 - 4\n");
+        }
     };
 
     // All commands work from here.
@@ -241,39 +252,55 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_TEMP_LWR_THAN: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getTempConf()->condition = Peripheral::CONDITION::LESS_THAN;
-        th->getTempConf()->tripValRelay = data.suppData;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getTempConf();
+        
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->tripValRelay = data.suppData;
         written = snprintf(buffer, size, "Temp RE < %d", data.suppData);
         }
         break;
 
         case CMDS::SET_TEMP_GTR_THAN: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getTempConf()->condition = Peripheral::CONDITION::GTR_THAN;
-        th->getTempConf()->tripValRelay = data.suppData;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getTempConf();
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->tripValRelay = data.suppData;
         written = snprintf(buffer, size, "Temp RE > %d", data.suppData);
         }     
         break;
 
         case CMDS::SET_TEMP_COND_NONE: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getTempConf()->condition = Peripheral::CONDITION::NONE;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getTempConf();
+
+        // If relay is active, switching to condtion NONE will 
+        // shut off the relay.
+        if (conf->relay != nullptr) {
+            conf->relay->off(conf->relayControlID);
+        }
+
+        conf->condition = Peripheral::CONDITION::NONE;
         written = snprintf(buffer, size, "Temp RE NONE");
         }    
         break;
 
         case CMDS::ENABLE_TEMP_ALERT: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getTempConf()->tripValAlert = data.suppData;
-        th->getTempConf()->alertsEn = true;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getTempConf();
+  
+        conf->tripValAlert = data.suppData;
+        conf->alertsEn = true;
         written = snprintf(buffer, size, "Temp ALT en @ %d", data.suppData);
         }    
         break;
 
         case CMDS::DISABLE_TEMP_ALERT: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getTempConf()->alertsEn = false;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getTempConf();
+
+        conf->alertsEn = false;
         written = snprintf(buffer, size, "Temp ALT disabled");
         }    
         break;
@@ -286,151 +313,190 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_HUM_LWR_THAN: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getHumConf()->condition = Peripheral::CONDITION::LESS_THAN;
-        th->getHumConf()->tripValRelay = data.suppData;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getHumConf();
+
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->tripValRelay = data.suppData;
         written = snprintf(buffer, size, "Hum RE < %d", data.suppData);
         }    
         break;
 
         case CMDS::SET_HUM_GTR_THAN: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getHumConf()->condition = Peripheral::CONDITION::GTR_THAN;
-        th->getHumConf()->tripValRelay = data.suppData;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getHumConf();
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->tripValRelay = data.suppData;
         written = snprintf(buffer, size, "Hum RE > %d", data.suppData);
         }    
         break;
 
         case CMDS::SET_HUM_COND_NONE: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getHumConf()->condition = Peripheral::CONDITION::NONE;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getHumConf();
+
+        // If relay is active, switching to condtion NONE will 
+        // shut off the relay.
+        if (conf->relay != nullptr) {
+            conf->relay->off(conf->relayControlID);
+        }
+
+        conf->condition = Peripheral::CONDITION::NONE;
         written = snprintf(buffer, size, "Hum RE NONE");
         }            
         break;
 
         case CMDS::ENABLE_HUM_ALERT: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getHumConf()->tripValAlert = data.suppData;
-        th->getHumConf()->alertsEn = true;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getHumConf();
+
+        conf->tripValAlert = data.suppData;
+        conf->alertsEn = true;
         written = snprintf(buffer, size, "Hum ALT en @ %d", data.suppData);
         }      
         break;
 
         case CMDS::DISABLE_HUM_ALERT: {
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->getHumConf()->alertsEn = false;
-        th->getHumConf()->tripValRelay = data.suppData;
+        Peripheral::TH_TRIP_CONFIG* conf = 
+            Peripheral::TempHum::get()->getHumConf();
+
+        conf->alertsEn = false;
+        conf->tripValRelay = data.suppData;
         written = snprintf(buffer, size, "Hum ALT disabled");
         }    
         break;
 
         case CMDS::SET_SOIL1_LWR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(0)->condition = Peripheral::CONDITION::LESS_THAN;
-        soil->getConfig(0)->alertsEn = true;
-        soil->getConfig(0)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(0);
+      
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 1 ALT < %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL1_GTR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(0)->condition = Peripheral::CONDITION::GTR_THAN;
-        soil->getConfig(0)->alertsEn = true;
-        soil->getConfig(0)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(0);
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 1 ALT > %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL1_COND_NONE: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(0)->condition = Peripheral::CONDITION::NONE;
-        soil->getConfig(0)->alertsEn = false;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(0);
+
+        conf->condition = Peripheral::CONDITION::NONE;
+        conf->alertsEn = false;
         written = snprintf(buffer, size, "Soil 1 ALT None");
         }
         break;
 
         case CMDS::SET_SOIL2_LWR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(1)->condition = Peripheral::CONDITION::LESS_THAN;
-        soil->getConfig(1)->alertsEn = true;
-        soil->getConfig(1)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(1);
+      
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 2 ALT < %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL2_GTR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(1)->condition = Peripheral::CONDITION::GTR_THAN;
-        soil->getConfig(1)->alertsEn = true;
-        soil->getConfig(1)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(1);
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 2 ALT > %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL2_COND_NONE: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(1)->condition = Peripheral::CONDITION::NONE;
-        soil->getConfig(1)->alertsEn = false;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(1);
+
+        conf->condition = Peripheral::CONDITION::NONE;
+        conf->alertsEn = false;
         written = snprintf(buffer, size, "Soil 2 ALT None");
         }
         break;
 
         case CMDS::SET_SOIL3_LWR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(2)->condition = Peripheral::CONDITION::LESS_THAN;
-        soil->getConfig(2)->alertsEn = true;
-        soil->getConfig(2)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(2);
+      
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 3 ALT < %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL3_GTR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(2)->condition = Peripheral::CONDITION::GTR_THAN;
-        soil->getConfig(2)->alertsEn = true;
-        soil->getConfig(2)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(2);
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 3 ALT > %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL3_COND_NONE: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(2)->condition = Peripheral::CONDITION::NONE;
-        soil->getConfig(2)->alertsEn = false;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(2);
+
+        conf->condition = Peripheral::CONDITION::NONE;
+        conf->alertsEn = false;
         written = snprintf(buffer, size, "Soil 3 ALT None");
         }
         break;
 
         case CMDS::SET_SOIL4_LWR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(3)->condition = Peripheral::CONDITION::LESS_THAN;
-        soil->getConfig(3)->alertsEn = true;
-        soil->getConfig(3)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(3);
+      
+        conf->condition = Peripheral::CONDITION::LESS_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 4 ALT < %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL4_GTR_THAN: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(3)->condition = Peripheral::CONDITION::GTR_THAN;
-        soil->getConfig(3)->alertsEn = true;
-        soil->getConfig(3)->tripValAlert = data.suppData;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(3);
+
+        conf->condition = Peripheral::CONDITION::GTR_THAN;
+        conf->alertsEn = true;
+        conf->tripValAlert = data.suppData;
         written = snprintf(buffer, size, "Soil 4 ALT > %d", data.suppData);
         }
         break;
 
         case CMDS::SET_SOIL4_COND_NONE: {
-        Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getConfig(3)->condition = Peripheral::CONDITION::NONE;
-        soil->getConfig(3)->alertsEn = false;
+        Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::Soil::get()->getConfig(3);
+
+        conf->condition = Peripheral::CONDITION::NONE;
+        conf->alertsEn = false;
         written = snprintf(buffer, size, "Soil 4 ALT None");
         }
         break;
 
         case CMDS::TEST: { // DELETE AFTER TESTING WEB SERVER EXCHANGE
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->test();
+        // Test case here
         written = snprintf(buffer, size, "Testing Web exchange");
         }
         

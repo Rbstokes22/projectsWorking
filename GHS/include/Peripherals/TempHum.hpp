@@ -2,7 +2,7 @@
 #define TEMPHUM_HPP
 
 #include "driver/gpio.h"
-#include "Drivers/DHT_Library.hpp"
+#include "Drivers/SHT_Library.hpp"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
@@ -10,7 +10,7 @@
 
 namespace Peripheral {
 
-#define TEMP_HUM_PADDING 1.0f
+#define TEMP_HUM_HYSTERESIS 2.0f 
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
 
@@ -40,7 +40,7 @@ struct TH_Averages {
 
 struct TempHumParams {
     Messaging::MsgLogHandler &msglogerr;
-    DHT_DRVR::DHT &dht;
+    SHT_DRVR::SHT &sht;
 };
 
 struct isUpTH { // is up Temp Hum
@@ -50,8 +50,7 @@ struct isUpTH { // is up Temp Hum
 
 class TempHum {
     private:
-    float temp;
-    float hum;
+    SHT_DRVR::SHT_VALS data;
     TH_Averages averages;
     isUpTH flags;
     Threads::Mutex mtx;
@@ -68,14 +67,13 @@ class TempHum {
     static TempHum* get(TempHumParams* parameter = nullptr);
     bool read();
     float getHum();
-    float getTemp();
+    float getTemp(char CorF = 'C');
     TH_TRIP_CONFIG* getHumConf();
     TH_TRIP_CONFIG* getTempConf();
     void checkBounds();
     isUpTH getStatus();
     TH_Averages* getAverages();
     void clearAverages();
-    void test();
 };
 
 }

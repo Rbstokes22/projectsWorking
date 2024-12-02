@@ -6,7 +6,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Network/NetManager.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp"
-#include "Drivers/DHT_Library.hpp"
+#include "Drivers/SHT_Library.hpp"
 #include "esp_adc/adc_oneshot.h"
 #include "Peripherals/Relay.hpp"
 
@@ -24,14 +24,14 @@ struct netThreadParams {
         Messaging::MsgLogHandler &msglogerr);
 };
 
-struct DHTThreadParams {
+struct SHTThreadParams {
     uint32_t delay;
-    DHT_DRVR::DHT &dht;
+    SHT_DRVR::SHT &SHT;
     Messaging::MsgLogHandler &msglogerr;
 
-    DHTThreadParams(
+    SHTThreadParams(
         uint32_t delay, 
-        DHT_DRVR::DHT &dht,
+        SHT_DRVR::SHT &SHT,
         Messaging::MsgLogHandler &msglogerr);
 };
 

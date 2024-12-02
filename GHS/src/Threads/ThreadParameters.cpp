@@ -4,7 +4,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Network/NetManager.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp"
-#include "Drivers/DHT_Library.hpp"
+#include "Drivers/SHT_Library.hpp"
 #include "esp_adc/adc_oneshot.h"
 #include "Peripherals/Relay.hpp"
 
@@ -18,12 +18,12 @@ netThreadParams::netThreadParams(
     delay(delay), mutex(msglogerr), netManager(netManager), 
     msglogerr(msglogerr) {}
 
-DHTThreadParams::DHTThreadParams(
+SHTThreadParams::SHTThreadParams(
     uint32_t delay, 
-    DHT_DRVR::DHT &dht,
+    SHT_DRVR::SHT &SHT,
     Messaging::MsgLogHandler &msglogerr) :
 
-    delay(delay), dht(dht), msglogerr(msglogerr) {}
+    delay(delay), SHT(SHT), msglogerr(msglogerr) {}
 
 AS7341ThreadParams::AS7341ThreadParams(
     uint32_t delay,

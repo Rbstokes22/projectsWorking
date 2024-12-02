@@ -42,7 +42,7 @@ bool Relay::delID(uint16_t ID) {
         }
     }
 
-    return false; // Not Deleted.
+    return false; // Not Deleted or non-existant.
 }
 
 Relay::Relay(gpio_num_t pin) : 

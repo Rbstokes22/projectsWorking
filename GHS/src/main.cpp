@@ -1,20 +1,35 @@
-// CURRENT NOTES: Complete with the SHT driver and it works as expected.
-// Before switching the tempHum stuff over, incorporate a similar RW Packet
-// in the AS7341 driver that includes a timeout method, I am not too fond of the
-// -1, or wait forever since it is blocking. Once done, knock out the tempHum, and
-// mirror the setup to the soil and light. Soil might not require any
-// additional averages or anything. The AS7341 is about 70% complete. Explore how
-// relays will work with light, it might not need any alerts, or it may, hard to say
-// right now. Relays might turn on if dark and light condition hasnt been met, it can
-// be like total hours of light, or soemthing like that. Just explore. Dont forget
-// about adding commands to clear and get averages, but that will be incorporated 
-// into the socketCmdHandler.
+// CURRENT NOTES: SHT complete, and TempHumn 99% Done. Ensure that the relays and
+// alerts are on point. A relay needs to be shut off if the condition changes to
+// none, and/or the device changes it relay. Relays are meant to trigger on when 
+// attached, conditions are set, and it meets the criteria such as consecutive 
+// trip counts and there is no error within the data. Relays are meant to shut off
+// upone meeting criteria such as consecutive trip counts and no error within the
+// data. Relays, like alerts, have hysteresis and will reset/shut off when the 
+// value is met. I want to send an alert for when it is triggered, as well as when
+// it is reset. Ensure the logic is on point with the relays and alerts before 
+// proceeding. Once complete, test.
+
+// Next, inforporate a similar RW packet into the AS7341 driver, maybe even the soil
+// if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
+// SHT driver.
+
+// Finally, mirror the soil and light with the tempHum setup. Explore how relays
+// and/or alerts will work for the as7341. Will a relay be energized at a certain
+// darkness level, which will turn on artifical light, and once total light has been
+// met, shut the relay off? How will total light be met? Do we use an accumulation
+// of timing at a certain intensity. Since the photoresistor will be above any artifical
+// lighting, it will not be affected by it, once turned on. Maybe we use the clear
+// channel to count for total accumulation? I dont think this will be too difficult
+// when implementing. 
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
 // be the key they use to send alerts and communicate with the database. Probably include this with
 // the version check with the client page, that it sends back subscibed, non-subscribed, or 
 // expired. If not subscibed, it wouldnt even attempt sending any alerts to save on web traffic. 
+// Maybe that isnt too feasible, explore when crossing this bridge. Maybe alerts should be 
+// exclusive to critical things. Such as temperature, humidity, dryness. I dont think light will
+// warrant an alerts, since a daily wrapup will show them their averages and their light quality.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
@@ -50,7 +65,6 @@
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include <cstddef>
-#include "Drivers/DHT_Library.hpp" // DELETE ONCE SHT IS COMPLETE
 #include "Drivers/SHT_Library.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp" 
 #include "Peripherals/Relay.hpp"
@@ -75,7 +89,6 @@ NVS::CredParams cp = {credNamespace, msglogerr}; // used for creds init
 
 // PERIPHERALS
 SHT_DRVR::SHT sht; // Temp hum driver 
-// DHT_DRVR::DHT dht(pinMapD[static_cast<int>(DPIN::DHT)]); REPLACE WITH SHT!!!!!!!!!!!!!!!!!!!
 AS7341_DRVR::CONFIG lightConf(599, 29, 0);
 AS7341_DRVR::AS7341basic light(lightConf);
 
@@ -91,8 +104,8 @@ Peripheral::Relay relays[totalRelays] = { // Passes to socket handler
 Threads::netThreadParams netParams(1000, netManager, msglogerr);
 Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
 
-// Threads::DHTThreadParams DHTParams(1000, dht, msglogerr); // REPLACE WITH SHT
-// Threads::Thread DHTThread(msglogerr, "DHTThread");
+Threads::SHTThreadParams SHTParams(1000, sht, msglogerr); // REPLACE WITH SHT
+Threads::Thread SHTThread(msglogerr, "SHTThread");
 
 Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
 Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
@@ -105,7 +118,7 @@ Threads::Thread relayThread(msglogerr, "relayThread");
 
 const size_t threadQty = 4;
 Threads::Thread* toSuspend[threadQty] = {
-    /*&DHTThread, REPLACE WITH SHT*/ &AS7341Thread, &soilThread, &relayThread
+    &SHTThread, &AS7341Thread, &soilThread, &relayThread
     };
 
 // OTA 
@@ -245,10 +258,10 @@ void app_main() {
     printf("Socket Handler init: %d\n", isInit);
 
     // Start threads
-    // netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
-    // DHTThread.initThread(ThreadTask::DHTTask, 4096, &DHTParams, 1); // Touchy protocol with single line
-    // AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
-    // soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
-    // relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
+    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
+    SHTThread.initThread(ThreadTask::SHTTask, 4096, &SHTParams, 1); 
+    AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
+    soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
+    relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
 }
 

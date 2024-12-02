@@ -7,7 +7,7 @@ namespace Peripheral {
 
 TempHum::TempHum(TempHumParams &params) : 
 
-    temp(0.0f), hum(0.0f), averages{0, 0, 0}, 
+    data{0.0f, 0.0f, 0.0f, false}, averages{0, 0, 0}, 
     flags{false, false}, mtx(params.msglogerr),
 
     humConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
@@ -18,30 +18,59 @@ TempHum::TempHum(TempHumParams &params) :
 
     params(params) {}
 
-void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
-    // Returns to prevent relay activity if:
-    //  1. relay is set to none, which will set it to nullptr.
-    //  2. immediate flag is false, indicating in a DHT read error
-    //  preventing false triggers.
-    //  3. count of consecutive triggers is less than setting.
-    if (
-        config.relay == nullptr || 
-        !this->flags.immediate || 
-        ct < TEMP_HUM_CONSECUTIVE_CTS) {
-        return;
-    }
 
-    if (relayOn) {
+// RELAY AND ALERT CONSIDERATIONS. THINGS NEED BE BE CHANGED HERE IN ORDER TO ENSURE THE RELAY
+// WILL SOMEHOW BE SHUT OFF EVEN IF THE CONFIGURATION CHANGES. MAYBE MEET ALL CONDITIONS TO TURN
+// RELAY ON, AND ONLY COUNTS TO SHUT IT OFF?
+void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
+   
+    // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
+    // Returns to prevent relay activity if:
+    // RELAY ON:
+    //  1. Relay is set to none, which sets it to nullptr and turns it off.
+    //  2. Immediate flag is false, indicating an SHT read error preventing
+    //     false triggers.
+    //  3. Count of consecutive trigger criteria being met is less than setting.
+    //  4. The condition to trigger the relay is set to none.
+    // RELAY OFF:
+    //  1. Immediate flag is false, indiciating an SHT read error preventing
+    //     false triggers.
+    //  2. Count of consecutive trigger criteria being met is less than setting.
+    // This is to prevent an active relay from being unable to shut off if its
+    // conditions were changed, which means that if the data is good
+    switch (relayOn) {
+        case true:
+        if (config.relay == nullptr || !this->flags.immediate ||
+        ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) {
+            return;
+        }
+
         config.relay->on(config.relayControlID);
-    } else {
+        break;
+
+        case false:
+        if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS) {
+            return;
+        }
+
         config.relay->off(config.relayControlID);
+        break;
     }
 }
 
 void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
-    // Build this once the alert.hpp/cpp is built.
-    // This is going to ping webpage instead of twilio so use http
-    // client to build.
+    // Mirrors the same setup as the relay activity.
+    if (!config.alertsEn || !this->flags.immediate ||
+        ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) { 
+        return;
+    }
+
+    if (alertOn) {
+        Alert* alt = Alert::get();
+    } else {
+
+    }
+
 }
 
 TempHum* TempHum::get(TempHumParams* parameter) {
@@ -60,42 +89,46 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 
 bool TempHum::read() {
     static size_t errCt{0};
-    bool read{false};
+    SHT_DRVR::SHT_RET read;
 
     Threads::MutexLock(this->mtx);
 
-    read = this->params.dht.read(this->temp, this->hum);
+    read = this->params.sht.readAll(
+        SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, this->data
+        );
 
-    if (read) {
-            this->averages.pollCt++;
-            this->averages.temp += this->temp; // accumulate
-            this->averages.temp /= this->averages.pollCt; // average
-            this->averages.hum += this->hum;
-            this->averages.hum /= this->averages.pollCt;
-            this->flags.display = true;
-            this->flags.immediate = true;
-            errCt = 0;
-        } else {
-            this->flags.immediate = false; // Indicates error
-            errCt++;
-        }
+    if (read == SHT_DRVR::SHT_RET::READ_OK) {
+        this->averages.pollCt++;
+        this->averages.temp += this->data.tempC; // accumulate
+        this->averages.temp /= this->averages.pollCt; // average
+        this->averages.hum += this->data.hum;
+        this->averages.hum /= this->averages.pollCt;
+        this->flags.display = true;
+        this->flags.immediate = true;
+        errCt = 0;
+    } else {
+        this->flags.immediate = false; // Indicates error
+        errCt++;
+    }
 
-        if (errCt >= TEMP_HUM_ERR_CT_MAX) {
-            this->flags.display = false; // Indicates error on display
-            errCt = 0;
-        }
+    if (errCt >= TEMP_HUM_ERR_CT_MAX) {
+        this->flags.display = false; // Indicates error on display
+        errCt = 0;
+    }
 
     return this->flags.immediate;
 }
 
 float TempHum::getHum() {
     Threads::MutexLock(this->mtx);
-    return this->hum;
+    return this->data.hum;
 }
 
-float TempHum::getTemp() {
+// Defaults to Celcius.
+float TempHum::getTemp(char CorF) {
     Threads::MutexLock(this->mtx);
-    return this->temp; 
+    if (CorF == 'F' || CorF == 'f') return this->data.tempF;
+    return this->data.tempC;
 }
 
 TH_TRIP_CONFIG* TempHum::getHumConf() {
@@ -108,15 +141,23 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
     return &this->tempConf;
 }
 
-void TempHum::checkBounds() {
+void TempHum::checkBounds() { 
+
+    if (!this->data.dataSafe) return; // Only works with good data.
 
     // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
     auto chkCondition = [this](float val, TH_TRIP_CONFIG &conf){
+        // Relay bounds
         float tripValueRelay = static_cast<float>(conf.tripValRelay);
-        float lowerBound = tripValueRelay - TEMP_HUM_PADDING;
-        float upperBound = tripValueRelay + TEMP_HUM_PADDING;
-        float tripValueAlert = static_cast<float>(conf.tripValAlert);
+        float lowerBoundRelay = tripValueRelay - TEMP_HUM_HYSTERESIS; 
+        float upperBoundRelay = tripValueRelay + TEMP_HUM_HYSTERESIS;
+
+        // Float bounds
+        float tripValueAlert = static_cast<float>(conf.tripValAlert); 
+        float lowerBoundAlert = tripValueAlert - TEMP_HUM_HYSTERESIS;
+        float upperBoundAlert = tripValueAlert + TEMP_HUM_HYSTERESIS;
+        
 
         // Zeros out all counts if the condition is changed.
         if (conf.condition != conf.prevCondition) {
@@ -142,7 +183,7 @@ void TempHum::checkBounds() {
                     conf.relayOnCt++;
                     conf.relayOffCt = 0;
                     this->handleRelay(conf, true, conf.relayOnCt);
-                } else if (val >= upperBound) {
+                } else if (val >= upperBoundRelay) {
                     conf.relayOnCt = 0;
                     conf.relayOffCt++;
                     this->handleRelay(conf, false, conf.relayOffCt);
@@ -152,7 +193,7 @@ void TempHum::checkBounds() {
                     conf.alertOnCt++;
                     conf.alertOffCt = 0;
                     this->handleAlert(conf, true, conf.alertOnCt);
-                } else { // Alerts turning off will reset to allow follow on alerts
+                } else if (val >= upperBoundAlert) { 
                     conf.alertOnCt = 0;
                     conf.alertOffCt++;
                     this->handleAlert(conf, false, conf.alertOffCt); 
@@ -167,7 +208,7 @@ void TempHum::checkBounds() {
                     conf.relayOnCt++;
                     conf.relayOffCt = 0;
                     this->handleRelay(conf, true, conf.relayOnCt);
-                } else if (val <= lowerBound) {
+                } else if (val <= lowerBoundRelay) {
                     conf.relayOnCt = 0;
                     conf.relayOffCt++;
                     this->handleRelay(conf, false, conf.relayOffCt);
@@ -177,8 +218,7 @@ void TempHum::checkBounds() {
                     conf.alertOnCt++;
                     conf.alertOffCt = 0;
                     this->handleAlert(conf, true, conf.alertOnCt);
-                } else {;
-                conf.alertOnCt = 0;
+                } else if (val <= lowerBoundAlert) {
                     conf.alertOnCt = 0;
                     conf.alertOffCt++;
                     this->handleAlert(conf, false, conf.alertOffCt); 
@@ -191,8 +231,9 @@ void TempHum::checkBounds() {
         }
     };
 
-    chkCondition(this->temp, this->tempConf);
-    chkCondition(this->hum, this->humConf);
+    chkCondition(this->data.tempC, this->tempConf);
+    chkCondition(this->data.hum, this->humConf);
+   
 }
 
 isUpTH TempHum::getStatus() {
@@ -208,17 +249,6 @@ void TempHum::clearAverages() {
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0;
-}
-
-void TempHum::test() {
-    Alert* alt = Alert::get();
-    bool testing = alt->sendMessage(
-        "FF022286",
-        "7346740543",
-        "Temperature exceeding 90 Degrees"
-    );
-
-    printf("Message Sent %d\n", testing);
 }
 
 }

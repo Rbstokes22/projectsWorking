@@ -55,7 +55,7 @@ void DateTime::adjustTime() {
     this->setHHMMSS(this->time.raw);
 }
 
-// Requires the seconds past midnight. Convers to hour minute and second.
+// Requires the seconds past midnight. Converts to hour, minute, and second.
 void DateTime::setHHMMSS(uint32_t seconds) {
     this->time.hour = seconds / 3600;
     this->time.minute = (seconds - (this->time.hour * 3600)) / 60;
