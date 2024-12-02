@@ -5,6 +5,7 @@
 #include "Network/NetSTA.hpp"
 #include "Threads/Mutex.hpp"
 #include "Peripherals/Relay.hpp"
+#include "Peripherals/TempHum.hpp"
 
 namespace Comms {
 
@@ -66,6 +67,10 @@ class SOCKHAND {
         );
     static void ws_async_send(void* arg);
     static void compileData(cmdData &data, char* buffer, size_t size);
+    static void attachRelayTH(
+        uint8_t relayNum, 
+        Peripheral::TH_TRIP_CONFIG* conf
+        );
     
     public:
     static bool init(Peripheral::Relay* relays);

@@ -14,30 +14,6 @@ namespace Comms {
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
     
-    // Relay num passed starting from index 0 for assignment.
-    auto attachRelay = [](int relayNum, Peripheral::TH_TRIP_CONFIG &conf){ 
-        if (relayNum >= 0 && relayNum < 4) {
-
-            // If relay is reassigned while it is active, this will ensure that 
-            // the previous relay is shut off before assigning it a new ID 
-            // during attachment.
-            if (conf.relay != nullptr) {
-                conf.relay->off(conf.relayControlID);
-            }
-
-            conf.relay = &SOCKHAND::Relays[relayNum];
-            conf.relayControlID = SOCKHAND::Relays[relayNum].getID();
-            conf.relayNum = relayNum + 1; // Display purposes only
-        } else if (relayNum == 4) { // 4 indicates no relay attached
-            // Properly shuts relay off if detached and it is currently on.
-            conf.relay->off(conf.relayControlID);
-            conf.relay = nullptr;
-            conf.relayNum = 0;
-        } else {
-            printf("Must be a relay number 0 - 4\n");
-        }
-    };
-
     // All commands work from here.
     switch(data.cmd) {
 
@@ -245,7 +221,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::ATTACH_TEMP_RELAY: 
-        attachRelay(data.suppData, *(Peripheral::TempHum::get()->getTempConf()));
+        SOCKHAND::attachRelayTH( // If 4 will detach.
+            data.suppData, Peripheral::TempHum::get()->getTempConf()
+            );
+
         written = snprintf(
             buffer, size, "Relay %d attached to temp", data.suppData
             );
@@ -279,7 +258,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // shut off the relay.
         if (conf->relay != nullptr) {
             conf->relay->off(conf->relayControlID);
-        }
+        } 
 
         conf->condition = Peripheral::CONDITION::NONE;
         written = snprintf(buffer, size, "Temp RE NONE");
@@ -306,7 +285,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::ATTACH_HUM_RELAY:
-        attachRelay(data.suppData, *(Peripheral::TempHum::get()->getHumConf())); 
+        SOCKHAND::attachRelayTH( // if 4, will detach
+            data.suppData, Peripheral::TempHum::get()->getHumConf()
+            ); 
+
         written = snprintf(
             buffer, size, "Relay %d attached to hum", data.suppData
             );
@@ -500,7 +482,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         written = snprintf(buffer, size, "Testing Web exchange");
         }
         
-
         default:
         break;
     }
@@ -511,6 +492,41 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         printf("Output was truncated. Buffer size: %zu, Output size: %d\n",
         size, written);
     } 
+}
+
+// Requires relay number and pointer to TempHum configuration. Ensures relay
+// number is between 0 and 4, 0 - 3 (relays 1 - 4), and 4 sets the relay to
+// nullptr. 
+void SOCKHAND::attachRelayTH( // Temp Hum relay attach
+    uint8_t relayNum, 
+    Peripheral::TH_TRIP_CONFIG* conf) {
+        
+    if (relayNum >= 0 && relayNum < 4) { // Checks for valid relay number.
+        // If active relay is currently assigned, ensures that it is 
+        // removed from control and shut off prior to a reissue.
+        if (conf->relay != nullptr) {
+            conf->relay->removeID(conf->relayControlID);
+        }
+
+        conf->relay = &SOCKHAND::Relays[relayNum];
+        conf->relayControlID = SOCKHAND::Relays[relayNum].getID();
+        conf->relayNum = relayNum + 1; // Display purposes only
+
+        printf("Relay %u, IDX %u, attached with ID %u\n", 
+        relayNum + 1, relayNum, conf->relayControlID);
+
+    } else if (relayNum == 4) { // 4 indicates no relay attached
+        // Shuts relay off and removes its ID from array of controlling 
+        // clients making it available.
+        conf->relay->removeID(conf->relayControlID); 
+        conf->relay = nullptr;
+        conf->relayNum = 0;
+
+        printf("Relay detached\n");
+    } else {
+        printf("Must be a relay number 0 - 4\n");
+    }
+
 }
 
 }

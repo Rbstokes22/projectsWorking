@@ -11,6 +11,10 @@ namespace Peripheral {
 enum class CONDITION : uint8_t {LESS_THAN, GTR_THAN, NONE};
 enum class STATE : uint8_t {OFF, ON, FORCED_OFF, FORCE_REMOVED};
 
+// Client ID availability/state. RESERVED is reserved for initial
+// acquisition.
+enum class CLIENTS : uint8_t {AVAILABLE, RESERVED, ON, OFF};
+
 struct Timer {
     uint32_t onTime;
     uint32_t offTime;
@@ -22,28 +26,24 @@ struct Timer {
 class Relay {
     private:
     gpio_num_t pin;
+    uint8_t ReNum;
     STATE state;
-
-    // Each controlling sensor, when turning relay on, will have its
-    // unique ID added to this array. It will be deleted when turning
-    // off.
-    uint16_t IDs[RELAY_IDS];
-    uint16_t clientQty;
-    uint16_t IDReg;
+    CLIENTS clients[RELAY_IDS];
+    uint8_t clientQty; // Clients currently energizing relay.
     Timer timer;
-    bool checkID(uint16_t ID);
-    bool addID(uint16_t ID);
-    bool delID(uint16_t ID);
+    bool checkID(uint8_t ID);
+    bool changeIDState(uint8_t ID, CLIENTS newState);
 
     public:
-    Relay(gpio_num_t pin);
-    void on(uint16_t ID);
-    void off(uint16_t ID);
+    Relay(gpio_num_t pin, uint8_t ReNum);
+    bool on(uint8_t ID);
+    bool off(uint8_t ID);
     void forceOff();
     void removeForce();
-    uint16_t getID();
+    uint8_t getID();
+    bool removeID(uint8_t ID);
     STATE getState();
-    bool timerSet(bool on, int time);
+    bool timerSet(bool on, uint32_t time);
     void manageTimer();
     Timer* getTimer();
 };

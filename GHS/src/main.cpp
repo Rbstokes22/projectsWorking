@@ -94,10 +94,10 @@ AS7341_DRVR::AS7341basic light(lightConf);
 
 const size_t totalRelays{4};
 Peripheral::Relay relays[totalRelays] = { // Passes to socket handler
-    {pinMapD[static_cast<uint8_t>(DPIN::RE1)]},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE2)]},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE3)]},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE4)]}
+    {pinMapD[static_cast<uint8_t>(DPIN::RE1)], 1},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE2)], 2},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE3)], 3},
+    {pinMapD[static_cast<uint8_t>(DPIN::RE4)], 4}
 };
 
 // THREADS

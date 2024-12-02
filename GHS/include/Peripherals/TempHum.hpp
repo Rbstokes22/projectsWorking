@@ -22,7 +22,7 @@ struct TH_TRIP_CONFIG { // Config relays and alerts
     CONDITION prevCondition; // Used for resetting counts
     Relay* relay; // relay assigned to device
     uint8_t relayNum; // Relay 1 - 4, used for display
-    uint16_t relayControlID; // Used to control relay
+    uint8_t relayControlID; // Used to control relay
 
     // Ensures that relay and alert action is not taken at 
     // first trip value, but consecutive values being met.

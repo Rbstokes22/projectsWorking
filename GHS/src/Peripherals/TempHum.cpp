@@ -66,11 +66,10 @@ void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) {
     }
 
     if (alertOn) {
-        Alert* alt = Alert::get();
+        Alert* alt = Alert::get(); // WORK THIS SUCKER
     } else {
 
     }
-
 }
 
 TempHum* TempHum::get(TempHumParams* parameter) {
@@ -143,17 +142,19 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 
 void TempHum::checkBounds() { 
 
-    if (!this->data.dataSafe) return; // Only works with good data.
+    if (!this->data.dataSafe) return; // Filters bad data.
 
     // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
     auto chkCondition = [this](float val, TH_TRIP_CONFIG &conf){
-        // Relay bounds
+
+        // Relay bounds. Will reverse action once appropriate bound
+        // is met.
         float tripValueRelay = static_cast<float>(conf.tripValRelay);
         float lowerBoundRelay = tripValueRelay - TEMP_HUM_HYSTERESIS; 
         float upperBoundRelay = tripValueRelay + TEMP_HUM_HYSTERESIS;
 
-        // Float bounds
+        // Float bounds. same as relay.
         float tripValueAlert = static_cast<float>(conf.tripValAlert); 
         float lowerBoundAlert = tripValueAlert - TEMP_HUM_HYSTERESIS;
         float upperBoundAlert = tripValueAlert + TEMP_HUM_HYSTERESIS;
@@ -227,6 +228,7 @@ void TempHum::checkBounds() {
                 break;
 
             case CONDITION::NONE:
+            // If condition is changed to none, The relay will be shut off
                 break;
         }
     };
