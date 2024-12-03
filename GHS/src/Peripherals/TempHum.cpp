@@ -23,7 +23,7 @@ TempHum::TempHum(TempHumParams &params) :
 // WILL SOMEHOW BE SHUT OFF EVEN IF THE CONFIGURATION CHANGES. MAYBE MEET ALL CONDITIONS TO TURN
 // RELAY ON, AND ONLY COUNTS TO SHUT IT OFF?
 void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
-   
+    Threads::MutexLock(this->mtx);
     // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
     // Returns to prevent relay activity if:
     // RELAY ON:
@@ -59,16 +59,23 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
 }
 
 void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
+    Threads::MutexLock(this->mtx);
+
     // Mirrors the same setup as the relay activity.
     if (!config.alertsEn || !this->flags.immediate ||
         ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) { 
         return;
     }
 
+    // ENSURE that messages are not sent without a proper phone number or API key.
+    // Once those are non-blank, the messages can send.
     if (alertOn) {
-        Alert* alt = Alert::get(); // WORK THIS SUCKER
+        Alert* alt = Alert::get(); 
+        // Send message and read from creds here, API key should be stored.
     } else {
-
+        // Send message that alert has cleared. Implement some sort of reset
+        // here, like a toggle that alert message cant send until clear
+        // message sends. And clear cant send witout following an alert.
     }
 }
 
@@ -141,9 +148,9 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 }
 
 void TempHum::checkBounds() { 
-
+    
     if (!this->data.dataSafe) return; // Filters bad data.
-
+    Threads::MutexLock(this->mtx);
     // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
     auto chkCondition = [this](float val, TH_TRIP_CONFIG &conf){
@@ -162,10 +169,8 @@ void TempHum::checkBounds() {
 
         // Zeros out all counts if the condition is changed.
         if (conf.condition != conf.prevCondition) {
-            conf.relayOnCt = 0;
-            conf.relayOffCt = 0;
-            conf.alertOnCt = 0;
-            conf.alertOffCt = 0;
+            conf.relayOnCt = 0; conf.relayOffCt = 0;
+            conf.alertOnCt = 0; conf.alertOffCt = 0;
         }
 
         conf.prevCondition = conf.condition; // set prev to current
@@ -184,6 +189,7 @@ void TempHum::checkBounds() {
                     conf.relayOnCt++;
                     conf.relayOffCt = 0;
                     this->handleRelay(conf, true, conf.relayOnCt);
+
                 } else if (val >= upperBoundRelay) {
                     conf.relayOnCt = 0;
                     conf.relayOffCt++;
@@ -194,6 +200,7 @@ void TempHum::checkBounds() {
                     conf.alertOnCt++;
                     conf.alertOffCt = 0;
                     this->handleAlert(conf, true, conf.alertOnCt);
+
                 } else if (val >= upperBoundAlert) { 
                     conf.alertOnCt = 0;
                     conf.alertOffCt++;
@@ -209,6 +216,7 @@ void TempHum::checkBounds() {
                     conf.relayOnCt++;
                     conf.relayOffCt = 0;
                     this->handleRelay(conf, true, conf.relayOnCt);
+
                 } else if (val <= lowerBoundRelay) {
                     conf.relayOnCt = 0;
                     conf.relayOffCt++;
@@ -219,6 +227,7 @@ void TempHum::checkBounds() {
                     conf.alertOnCt++;
                     conf.alertOffCt = 0;
                     this->handleAlert(conf, true, conf.alertOnCt);
+
                 } else if (val <= lowerBoundAlert) {
                     conf.alertOnCt = 0;
                     conf.alertOffCt++;
@@ -228,14 +237,14 @@ void TempHum::checkBounds() {
                 break;
 
             case CONDITION::NONE:
-            // If condition is changed to none, The relay will be shut off
+            // If condition is changed to none, The relay will be detached
+            // from the client.
                 break;
         }
     };
 
     chkCondition(this->data.tempC, this->tempConf);
     chkCondition(this->data.hum, this->humConf);
-   
 }
 
 isUpTH TempHum::getStatus() {
@@ -248,6 +257,7 @@ TH_Averages* TempHum::getAverages() {
 }
 
 void TempHum::clearAverages() {
+    Threads::MutexLock(this->mtx);
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0;

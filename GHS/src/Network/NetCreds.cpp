@@ -85,6 +85,15 @@ const char* Creds::read(const char* key) {
 }
 
 SMSreq* Creds::getSMSReq() {
+    // Work something here where it checks the value. Maybe
+    // checks to see if blank, and if not blank, it returns 
+    // the value. This is because if the WAP setup is used during
+    // operation, which will change the value of the struct items,
+    // it will always be up to date. If nothing exists, then read
+    // from the NVS and populate it. 
+    
+
+
     return &this->smsreq;
 }
 

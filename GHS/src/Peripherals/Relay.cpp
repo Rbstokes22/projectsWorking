@@ -14,7 +14,7 @@ bool Relay::checkID(uint8_t ID) {
 // Requires controller ID and the new state. Returns true upon a 
 // state change, and false if error.
 bool Relay::changeIDState(uint8_t ID, CLIENTS newState) {
-    if (ID < 0 || ID >= RELAY_IDS) return false; // prevent error
+    if (ID >= RELAY_IDS) return false; // prevent error
 
     // Not grouped within the if-statement above, to prevent calling 
     // and ID outside the scope of the array.
@@ -127,7 +127,7 @@ uint8_t Relay::getID() {
 // you do not have to call off() specifically before removing ID.
 // Returns true if successful, and false if ID is out of range.
 bool Relay::removeID(uint8_t ID) {
-    if (ID < 0 || ID >= RELAY_IDS) return false; // prevent error.
+    if (ID >= RELAY_IDS) return false; // prevent error.
     this->off(ID);
     this->changeIDState(ID, CLIENTS::AVAILABLE);
     printf("Relay %u Detached from ID %u\n", this->ReNum, ID);
@@ -147,7 +147,7 @@ bool Relay::timerSet(bool on, uint32_t time) {
     if (time == 99999) { // 99999 Will disable the timer.
         timer.onSet = timer.offSet = false;
         return true;
-    } else if (time < 0 || time >= 86400) { // Seconds per day
+    } else if (time >= 86400) { // Seconds per day
         return false; // Prevents overflow
     }
     

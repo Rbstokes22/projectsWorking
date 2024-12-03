@@ -1,13 +1,8 @@
-// CURRENT NOTES: SHT complete, and TempHumn 99% Done. Ensure that the relays and
-// alerts are on point. A relay needs to be shut off if the condition changes to
-// none, and/or the device changes it relay. Relays are meant to trigger on when 
-// attached, conditions are set, and it meets the criteria such as consecutive 
-// trip counts and there is no error within the data. Relays are meant to shut off
-// upone meeting criteria such as consecutive trip counts and no error within the
-// data. Relays, like alerts, have hysteresis and will reset/shut off when the 
-// value is met. I want to send an alert for when it is triggered, as well as when
-// it is reset. Ensure the logic is on point with the relays and alerts before 
-// proceeding. Once complete, test.
+// CURRENT NOTES: TempHum 99% done, did some relay work and everything seem good,
+// just needs to be tested. Workin alerts now, on TempHum as well as NetCreds.cpp
+// to ensure that the SMS requirements are the most up to date when called. Once
+// TempHum is good, test by sending alerts (just mimick the twilio thing and ensure
+// data is passed to the page).
 
 // Next, inforporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
