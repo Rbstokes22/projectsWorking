@@ -40,6 +40,7 @@ nvs_ret_t NVSctrl::writeToNVS(const char* key, const void* data, size_t size, bo
         // This will set the blob to whatever is passed without erasing
         // existing information to prevent wear and tear on the NVS.
         // If problems arise uncomment the below line.
+        
         // nvs_erase_key(this->handle, key);
         
         this->err = nvs_set_blob(this->handle, key, bytes, size);

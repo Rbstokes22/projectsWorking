@@ -84,15 +84,40 @@ const char* Creds::read(const char* key) {
     return this->credData;
 }
 
+// Requires no parameters.
 SMSreq* Creds::getSMSReq() {
-    // Work something here where it checks the value. Maybe
-    // checks to see if blank, and if not blank, it returns 
-    // the value. This is because if the WAP setup is used during
-    // operation, which will change the value of the struct items,
-    // it will always be up to date. If nothing exists, then read
-    // from the NVS and populate it. 
-    
+    size_t strSize = sizeof(this->smsreq.phone); // string size
 
+    // Check is phone is empty. If so, read from the NVS to 
+    if (strlen(this->smsreq.phone) == 0) {
+        strncpy(
+            this->smsreq.phone, 
+            this->read("phone"), 
+            strSize - 1
+            );
+
+        this->smsreq.phone[strSize - 1] = '\0';
+    }
+
+    strSize = sizeof(this->smsreq.APIkey);
+
+    if (strlen(this->smsreq.APIkey) == 0) {
+        strncpy(
+            this->smsreq.APIkey, 
+            this->read("APIkey"), 
+            strSize - 1
+            );
+
+        this->smsreq.phone[strSize - 1] = '\0';
+    }
+
+    strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1;
+
+    if (strlen(this->smsreq.phone) != strSize) return nullptr;
+    
+    strSize = static_cast<size_t>(Comms::IDXSIZE::APIKEY) - 1;
+
+    if (strlen(this->smsreq.phone) != strSize) return nullptr;
 
     return &this->smsreq;
 }

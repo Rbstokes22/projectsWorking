@@ -12,7 +12,9 @@ namespace NVS {
 // NVS_READ_OK and NVS_READ_FAIL.
 nvs_ret_t NVSctrl::readFromNVS(const char* key, void* carrier, size_t size, bool isChar) {
 
-    bool isNewEntry{false}; // allows bypass of checksum fail on new entries.
+    // allows bypass of checksum fail on new entries. This is because before anything 
+    // is written to the NVS, it is first read to ensure it doesn't already exist.
+    bool isNewEntry{false}; 
 
     if(this->basicErrCheck(key, carrier, size) == nvs_ret_t::NVS_FAIL) {
         return nvs_ret_t::NVS_READ_FAIL;

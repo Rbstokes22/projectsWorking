@@ -1,4 +1,9 @@
-// CURRENT NOTES: TempHum 99% done, did some relay work and everything seem good,
+// CURRENT NOTES: Took a small detour to fix the NVS before going forward with the
+// Alerts functionality. Used reinterpret cast and eliminated 80% of the old NVS,
+// just need to finish up the read and write to NVS methods, and should be good for 
+// testing. Once good, adjust Creds, and then being working the alerts.
+
+// TempHum 99% done, did some relay work and everything seem good,
 // just needs to be tested. Workin alerts now, on TempHum as well as NetCreds.cpp
 // to ensure that the SMS requirements are the most up to date when called. Once
 // TempHum is good, test by sending alerts (just mimick the twilio thing and ensure
@@ -194,6 +199,7 @@ void app_main() {
     light.init(0x39);
     sht.init(0x44); 
 
+    // THIS CAN NOW BE AN INIT STATIC CALL.
     // Initialize NVS
     esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
     if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
