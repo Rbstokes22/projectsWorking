@@ -1,5 +1,5 @@
 #include "Network/NetCreds.hpp"
-#include "NVS/NVS.hpp"
+#include "NVS2/NVS.hpp"
 #include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
@@ -9,7 +9,7 @@ namespace NVS {
 // namespace must be under 12 chars long.
 Creds::Creds(CredParams &params) :
 
-    nvs(params.msglogerr, params.nameSpace), params(params) {
+    nvs(params.nameSpace), params(params) {
 
         memset(this->credData, 0, sizeof(this->credData));
         memset(this->smsreq.phone, 0, sizeof(this->smsreq.phone));
@@ -37,10 +37,11 @@ Creds* Creds::get(CredParams* parameter) {
 }
 
 // writes the char array to the NVS. Takes const char* key and buffer, as 
-// well as size_t length. Ensure to use strlen for length, as not to mess up 
+// well as size_t bytes. Ensure to use strlen for length, as not to mess up 
 // the checksum. Returns NVS_WRITE_OK or NVS_WRITE_FAIL.
-nvs_ret_t Creds::write(const char* key, const char* buffer, size_t length) {
-    nvs_ret_t stat = this->nvs.writeArray(key, data_t::CHAR, buffer, length);
+nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
+
+    nvs_ret_t stat = this->nvs.write(key, (uint8_t*)buffer, bytes);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
         params.msglogerr.handle(
@@ -57,14 +58,13 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t length) {
 // and if it exists in the key array, it will return a const char* 
 // that will be available to strcpy or memcpy.
 const char* Creds::read(const char* key) {
-    memset(this->credData, 0, sizeof(this->credData));
- 
+   
     auto getCred = [this](const char* key) {
-        nvs_ret_t stat = this->nvs.readArray(
-            key, data_t::CHAR, 
-            this->credData, 
-            sizeof(this->credData)); 
-        
+
+        nvs_ret_t stat = this->nvs.read(
+            key, this->credData, sizeof(this->credData)
+            );
+
         if (stat != nvs_ret_t::NVS_READ_OK) {
             params.msglogerr.handle(
                 Messaging::Levels::ERROR,
@@ -84,11 +84,18 @@ const char* Creds::read(const char* key) {
     return this->credData;
 }
 
-// Requires no parameters.
+// Requires no parameters. Returns the SMS requirements pointer
+// if the the phone and API key length meet the requirements.
+// If not, will return nullptr, and those values will remain
+// unpopulated.
 SMSreq* Creds::getSMSReq() {
-    size_t strSize = sizeof(this->smsreq.phone); // string size
+    // Shouldnt have to ensure proper format when reading since that
+    // is controlled during the write phase.
+    
+    size_t strSize = sizeof(this->smsreq.phone); // phone size
 
     // Check is phone is empty. If so, read from the NVS to 
+    // to the char array in the sms requirement.
     if (strlen(this->smsreq.phone) == 0) {
         strncpy(
             this->smsreq.phone, 
@@ -96,11 +103,13 @@ SMSreq* Creds::getSMSReq() {
             strSize - 1
             );
 
-        this->smsreq.phone[strSize - 1] = '\0';
+        this->smsreq.phone[strSize - 1] = '\0'; // null term.
     }
 
-    strSize = sizeof(this->smsreq.APIkey);
+    strSize = sizeof(this->smsreq.APIkey); // API key size.
 
+    // Check if the API key is empty. If so, read from the NVS
+    // to the char array in the sms requirement.
     if (strlen(this->smsreq.APIkey) == 0) {
         strncpy(
             this->smsreq.APIkey, 
@@ -108,16 +117,25 @@ SMSreq* Creds::getSMSReq() {
             strSize - 1
             );
 
-        this->smsreq.phone[strSize - 1] = '\0';
+        this->smsreq.phone[strSize - 1] = '\0'; // null term.
     }
 
-    strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1;
+    // In this section we compare the the expected string length, of course
+    // omitting the null terminator. If they do not meet the requirements,
+    // a nullptr will be returned.
+    strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1; 
 
-    if (strlen(this->smsreq.phone) != strSize) return nullptr;
+    if (strlen(this->smsreq.phone) != strSize) {
+        printf("SMS Request: phone does not meet requirements\n");
+        return nullptr;
+    }
     
     strSize = static_cast<size_t>(Comms::IDXSIZE::APIKEY) - 1;
 
-    if (strlen(this->smsreq.phone) != strSize) return nullptr;
+    if (strlen(this->smsreq.APIkey) != strSize) {
+        printf("SMS Request: APIkey does not meet requirements\n");
+        return nullptr;
+    }
 
     return &this->smsreq;
 }

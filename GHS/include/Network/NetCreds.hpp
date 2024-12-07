@@ -1,7 +1,7 @@
 #ifndef NETCREDS_HPP
 #define NETCREDS_HPP
 
-#include "NVS/NVS.hpp"
+#include "NVS2/NVS.hpp"
 #include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
 

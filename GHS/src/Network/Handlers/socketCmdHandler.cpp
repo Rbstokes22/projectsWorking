@@ -40,7 +40,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"temp\":%.2f,\"tempRelay\":%d,\"tempCond\":%u,\"tempRelayVal\":%d,"
         "\"tempAlertVal\":%d,\"tempAlertEn\":%d,"
         "\"hum\":%.2f,\"humRelay\":%d,\"humCond\":%u,\"humRelayVal\":%d,"
-        "\"humAlertVal\":%d,\"humAlertEn\":%d,\"dHTUp\":%d,"
+        "\"humAlertVal\":%d,\"humAlertEn\":%d,\"SHTUp\":%d,"
         "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\":%d,"
         "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\":%d,"
         "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\":%d,"
@@ -501,7 +501,7 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
     uint8_t relayNum, 
     Peripheral::TH_TRIP_CONFIG* conf) {
         
-    if (relayNum >= 0 && relayNum < 4) { // Checks for valid relay number.
+    if (relayNum < 4) { // Checks for valid relay number.
         // If active relay is currently assigned, ensures that it is 
         // removed from control and shut off prior to a reissue.
         if (conf->relay != nullptr) {

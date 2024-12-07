@@ -321,10 +321,9 @@ OTAhandler::OTAhandler(
     size_t threadQty) : 
 
     station(station), msglogerr(msglogerr), toSuspend(toSuspend), 
-    threadQty(threadQty), OTAhandle(0) 
+    threadQty(threadQty), OTAhandle(0), config{}
     
     {
-        this->config = {0},
         OTAhandler::OLED = &OLED; 
     }
 

@@ -2,6 +2,7 @@
 #include "driver/gpio.h"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/Alert.hpp"
+#include "Network/NetCreds.hpp"
 
 namespace Peripheral {
 
@@ -61,21 +62,49 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
 void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
     Threads::MutexLock(this->mtx);
 
+    // Toggle that will not allow alerts to be sent several times. When an 
+    // alert is sent, this is changed to false, and will not change back to
+    // true until temp and/or hum, has entered back into acceptable values.
+    static bool altToggle = true;
+
     // Mirrors the same setup as the relay activity.
     if (!config.alertsEn || !this->flags.immediate ||
         ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) { 
         return;
     }
 
-    // ENSURE that messages are not sent without a proper phone number or API key.
-    // Once those are non-blank, the messages can send.
+    // Check to see if the alert is being called to send. If yes, ensures that
+    // the toggle is set to true. If yes to both, it will send the message and
+    // change the altToggle to false preventing it from sending another message
+    // without being reset. 
     if (alertOn) {
+        if (!altToggle) return; // return if toggle hasnt been reset.
+
+        NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
+
+        // Returned val is nullptr if API key and/or phone
+        // do not meet the criteria.
+        if (sms == nullptr) { 
+            printf("Temp Hum Alerts: Not able to send, "
+            "missing API key and/or phone\n");
+            return;
+        }
+
+        char msg[75](0);
         Alert* alt = Alert::get(); 
-        // Send message and read from creds here, API key should be stored.
+
+        snprintf(msg, sizeof(msg), 
+                "Alert: Temp at %0.2fC/%0.2fF, Humidity at %0.2f%%",
+                this->data.tempC, this->data.tempF, this->data.hum
+                );
+
+        altToggle = alt->sendMessage(sms->APIkey, sms->phone, msg);
+
     } else {
-        // Send message that alert has cleared. Implement some sort of reset
-        // here, like a toggle that alert message cant send until clear
-        // message sends. And clear cant send witout following an alert.
+        // Resets the toggle when the alert is set to off meaning that
+        // satisfactory conditions prevail. This will allow a message
+        // to be sent if it exceeds the limitations.
+        altToggle = false;
     }
 }
 

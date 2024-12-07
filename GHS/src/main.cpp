@@ -1,15 +1,6 @@
-// CURRENT NOTES: Took a small detour to fix the NVS before going forward with the
-// Alerts functionality. Used reinterpret cast and eliminated 80% of the old NVS,
-// just need to finish up the read and write to NVS methods, and should be good for 
-// testing. Once good, adjust Creds, and then being working the alerts.
-
-// TempHum 99% done, did some relay work and everything seem good,
-// just needs to be tested. Workin alerts now, on TempHum as well as NetCreds.cpp
-// to ensure that the SMS requirements are the most up to date when called. Once
-// TempHum is good, test by sending alerts (just mimick the twilio thing and ensure
-// data is passed to the page).
-
-// Next, inforporate a similar RW packet into the AS7341 driver, maybe even the soil
+// CURRENT NOTES: The NVS has been re-done and tested with all functioning well.
+// TempHum should be finished, just needs to be tested to ensure alarm sends. Once good
+// incorporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
 // SHT driver.
 
@@ -191,8 +182,8 @@ void app_main() {
     setupDigitalPins();
     setupAnalogPins(adc_unit);
 
-    // Init I2C at frequency 400 khz.
-    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::FAST);
+    // Init I2C at frequency 100 khz.
+    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::STD);
 
     // Init OLED, AS7341 light sensor, and sht temp/hum sensor.
     OLED.init(0x3C);
