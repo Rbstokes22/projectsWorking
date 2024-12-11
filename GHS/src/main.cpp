@@ -1,6 +1,11 @@
-// CURRENT NOTES: The NVS has been re-done and tested with all functioning well.
-// TempHum should be finished, just needs to be tested to ensure alarm sends. Once good
-// incorporate a similar RW packet into the AS7341 driver, maybe even the soil
+// CURRENT NOTES: Relay testing was good, notice issue with data.suppData. There
+// need to be a range check which is now implemented. Before testing alerts,
+// build range tests to mirror attach temp relay to the rest of the items to
+// ensure proper error handling and that data does not cause issues, such as 
+// attaching relay 6, which will cause a reboot. Once complete, test alerts with
+// actual server. Once both relays and temperatures are good, continue on.
+
+// Next incorporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
 // SHT driver.
 

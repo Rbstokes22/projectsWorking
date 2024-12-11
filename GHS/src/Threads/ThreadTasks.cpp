@@ -9,7 +9,6 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
-#include "Network/NetCreds.hpp" // REMOVE AFTER TESTING
 
 namespace ThreadTask {
 
@@ -38,8 +37,8 @@ void SHTTask(void* parameter) { // SHT
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {
-        th->read();
-        th->checkBounds();
+        // Only check bounds upon successful read.
+        // if (th->read()) th->checkBounds(); // Read. Comment out when testing.
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -87,7 +86,7 @@ void relayTask(void* parameter) {
 
     while (true) {
         for (size_t i = 0; i < params->relayQty; i++) {
-            params->relays[i].manageTimer();
+            params->relays[i].manageTimer(); // Acquires first control ID
         }
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));

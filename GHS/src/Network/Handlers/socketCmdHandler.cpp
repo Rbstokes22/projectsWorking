@@ -13,6 +13,7 @@ namespace Comms {
 
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{0};
+    const char* reply = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d}";
     
     // All commands work from here.
     switch(data.cmd) {
@@ -86,18 +87,20 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
         break;
 
-        case CMDS::CALIBRATE_TIME: {
-        Clock::DateTime::get()->calibrate(data.suppData);
-
-        written = snprintf(
-            buffer, size, "Time Calibrated to %zu", 
-            static_cast<size_t>(Clock::DateTime::get()->getTime()->raw)
-            );
+        case CMDS::CALIBRATE_TIME: 
+        if (!SOCKHAND::inRange(0, 86399, data.suppData)) {
+            written = snprintf(buffer, size, reply, 0, 
+            "Time out of range", data.suppData);
+        } else {
+            Clock::DateTime::get()->calibrate(data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Time calibrated to", data.suppData);
         }
+        
         break;
 
-        case CMDS::RELAY_1:
-        static uint16_t IDR1 = SOCKHAND::Relays[0].getID(); // Perm ID
+        case CMDS::RELAY_1: // inRange not required here due to else block.
+        static uint8_t IDR1 = SOCKHAND::Relays[0].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[0].off(IDR1);
         } else if (data.suppData == 1) {
@@ -108,13 +111,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::Relays[0].removeForce();
         }
 
-        written = snprintf(
-            buffer, size, "Relay 1 set to %d", data.suppData
-        );
+        written = snprintf(buffer, size, reply, 1, "Re1 set", data.suppData);
+
         break;
 
-        case CMDS::RELAY_2:
-        static uint16_t IDR2 = SOCKHAND::Relays[1].getID(); // Perm ID
+        case CMDS::RELAY_2: // inRange not required here due to else block.
+        static uint8_t IDR2 = SOCKHAND::Relays[1].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[1].off(IDR2);
         } else if (data.suppData == 1) {
@@ -125,13 +127,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::Relays[1].removeForce();
         }
 
-        written = snprintf(
-            buffer, size, "Relay 2 set to %d", data.suppData
-        );
+        written = snprintf(buffer, size, reply, 1, "Re2 set", data.suppData);
+
         break;
 
-        case CMDS::RELAY_3:
-        static uint16_t IDR3 = SOCKHAND::Relays[2].getID(); // Perm ID
+        case CMDS::RELAY_3: // inRange not required here due to else block.
+        static uint8_t IDR3 = SOCKHAND::Relays[2].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[2].off(IDR3);
         } else if (data.suppData == 1) {
@@ -142,13 +143,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::Relays[2].removeForce();
         }
 
-        written = snprintf(
-            buffer, size, "Relay 3 set to %d", data.suppData
-        );
+        written = snprintf(buffer, size, reply, 1, "Re3 set", data.suppData);
         break;
 
-        case CMDS::RELAY_4:
-        static uint16_t IDR4 = SOCKHAND::Relays[3].getID(); // Perm ID
+        case CMDS::RELAY_4: // inRange not required here due to else block.
+        static uint8_t IDR4 = SOCKHAND::Relays[3].getID(); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[3].off(IDR4);
         } else if (data.suppData == 1) {
@@ -159,95 +158,139 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::Relays[3].removeForce();
         }
 
-        written = snprintf(
-            buffer, size, "Relay 4 set to %d", data.suppData
-        );
+        written = snprintf(buffer, size, reply, 1, "Re4 set", data.suppData);
+
         break;
 
-        case CMDS::RELAY_1_TIMER_ON: 
-        SOCKHAND::Relays[0].timerSet(true, data.suppData);
-        if (data.suppData == 99999) {
-            written = snprintf(buffer, size, "RE1 Timer off");
+        case CMDS::RELAY_1_TIMER_ON:
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0);
         } else {
-            written = snprintf(buffer, size, "RE1 Timer on set");
+            SOCKHAND::Relays[0].timerSet(true, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re1 timer on time set", data.suppData);
         }
+
         break;
 
         case CMDS::RELAY_1_TIMER_OFF:
-        SOCKHAND::Relays[0].timerSet(false, data.suppData);
-        written = snprintf(buffer, size, "RE1 Timer off set");
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0);
+        } else {
+            SOCKHAND::Relays[0].timerSet(false, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re1 timer off time set", data.suppData);
+        }
+
         break;
 
-        case CMDS::RELAY_2_TIMER_ON: 
-        SOCKHAND::Relays[1].timerSet(true, data.suppData);
-        if (data.suppData == 99999) {
-            written = snprintf(buffer, size, "RE2 Timer off");
+        case CMDS::RELAY_2_TIMER_ON:
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0);
         } else {
-            written = snprintf(buffer, size, "RE2 Timer on set");
+            SOCKHAND::Relays[1].timerSet(true, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re2 timer on time set", data.suppData);
         }
+
         break;
 
         case CMDS::RELAY_2_TIMER_OFF:
-        SOCKHAND::Relays[1].timerSet(false, data.suppData);
-        written = snprintf(buffer, size, "RE2 Timer off set");
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0);
+        } else {
+            SOCKHAND::Relays[1].timerSet(false, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re2 timer off time set", data.suppData);
+        }
+
         break;
 
-        case CMDS::RELAY_3_TIMER_ON: 
-        SOCKHAND::Relays[2].timerSet(true, data.suppData);
-        if (data.suppData == 99999) {
-            written = snprintf(buffer, size, "RE3 Timer off");
+        case CMDS::RELAY_3_TIMER_ON:
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0);
         } else {
-            written = snprintf(buffer, size, "RE3 Timer on set");
+            SOCKHAND::Relays[2].timerSet(true, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re3 timer on time set", data.suppData);
         }
+
         break;
 
         case CMDS::RELAY_3_TIMER_OFF:
-        SOCKHAND::Relays[2].timerSet(false, data.suppData);
-        written = snprintf(buffer, size, "RE3 Timer off set");
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0);
+        } else {
+            SOCKHAND::Relays[2].timerSet(false, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re3 timer off time set", data.suppData);
+        }
+
         break;
 
-        case CMDS::RELAY_4_TIMER_ON: 
-        SOCKHAND::Relays[3].timerSet(true, data.suppData);
-        if (data.suppData == 99999) {
-            written = snprintf(buffer, size, "RE4 Timer off");
+        case CMDS::RELAY_4_TIMER_ON:
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0);
         } else {
-            written = snprintf(buffer, size, "RE4 Timer on set");
+            SOCKHAND::Relays[3].timerSet(true, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re4 timer on time set", data.suppData);
         }
+
         break;
 
         case CMDS::RELAY_4_TIMER_OFF:
-        SOCKHAND::Relays[3].timerSet(false, data.suppData);
-        written = snprintf(buffer, size, "RE4 Timer off set");
+        if (!SOCKHAND::inRange(0,86399, data.suppData)) { // seconds per day
+            written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0);
+        } else {
+            SOCKHAND::Relays[3].timerSet(false, data.suppData);
+            written = snprintf(buffer, size, reply, 1, 
+            "Re4 timer off time set", data.suppData);
+        }
+
         break;
 
         case CMDS::ATTACH_TEMP_RELAY: 
-        SOCKHAND::attachRelayTH( // If 4 will detach.
+        if (!SOCKHAND::inRange(0, 4, data.suppData)) {
+            written = snprintf(buffer, size, reply, 0, "Temp Re att fail", 0);
+        } else { // attach relay if within range.
+            SOCKHAND::attachRelayTH( // If 4 will detach.
             data.suppData, Peripheral::TempHum::get()->getTempConf()
             );
 
-        written = snprintf(
-            buffer, size, "Relay %d attached to temp", data.suppData
-            );
-        break;
-
-        case CMDS::SET_TEMP_LWR_THAN: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getTempConf();
-        
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->tripValRelay = data.suppData;
-        written = snprintf(buffer, size, "Temp RE < %d", data.suppData);
+            written = snprintf(buffer, size, reply, 1, "Temp Re att", 0);
         }
+
         break;
 
-        case CMDS::SET_TEMP_GTR_THAN: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getTempConf();
+        case CMDS::SET_TEMP_LWR_THAN: 
+        if (!SOCKHAND::inRange(-39, 124, data.suppData)) { // SHT limits in C
+            written = snprintf(buffer, size, reply, 0, "Temp Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getTempConf();
+            
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->tripValRelay = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->tripValRelay = data.suppData;
-        written = snprintf(buffer, size, "Temp RE > %d", data.suppData);
-        }     
+            written = snprintf(buffer, size, reply, 1, "Temp <", data.suppData);
+        }
+
+        break;
+
+        case CMDS::SET_TEMP_GTR_THAN:
+        if (!SOCKHAND::inRange(-39, 124, data.suppData)) { // SHT limits in C
+            written = snprintf(buffer, size, reply, 0, "Temp Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getTempConf();
+            
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->tripValRelay = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "Temp >", data.suppData);
+        }
+            
         break;
 
         case CMDS::SET_TEMP_COND_NONE: {
@@ -255,63 +298,86 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TempHum::get()->getTempConf();
 
         // If relay is active, switching to condtion NONE will 
-        // shut off the relay.
+        // shut off the relay if energized.
         if (conf->relay != nullptr) {
             conf->relay->off(conf->relayControlID);
         } 
 
         conf->condition = Peripheral::CONDITION::NONE;
-        written = snprintf(buffer, size, "Temp RE NONE");
+        conf->tripValRelay = 0;
+        written = snprintf(buffer, size, reply, 1, "Temp condition NONE", 0);
         }    
+
         break;
 
-        case CMDS::ENABLE_TEMP_ALERT: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getTempConf();
-  
-        conf->tripValAlert = data.suppData;
-        conf->alertsEn = true;
-        written = snprintf(buffer, size, "Temp ALT en @ %d", data.suppData);
-        }    
+        case CMDS::ENABLE_TEMP_ALERT: 
+        if (!SOCKHAND::inRange(-39, 124, data.suppData)) { // SHT limits in C
+            written = snprintf(buffer, size, reply, 0, "Temp Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getTempConf();
+            
+            conf->tripValAlert = data.suppData;
+            conf->alertsEn = true;
+
+            written = snprintf(buffer, size, reply, 1, "Temp alert EN", 
+                               data.suppData);
+        }
+
         break;
 
         case CMDS::DISABLE_TEMP_ALERT: {
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getTempConf();
 
+        conf->tripValAlert = 0; // zero out.
         conf->alertsEn = false;
-        written = snprintf(buffer, size, "Temp ALT disabled");
+        written = snprintf(buffer, size, reply, 1, "Temp alert DEN", 0);
         }    
+        
         break;
 
         case CMDS::ATTACH_HUM_RELAY:
-        SOCKHAND::attachRelayTH( // if 4, will detach
+        if (!SOCKHAND::inRange(0, 4, data.suppData)) { 
+            written = snprintf(buffer, size, reply, 0, "Hum Re att fail", 0);
+        } else { // attach relay if within range.
+            SOCKHAND::attachRelayTH( // If 4 will detach.
             data.suppData, Peripheral::TempHum::get()->getHumConf()
-            ); 
-
-        written = snprintf(
-            buffer, size, "Relay %d attached to hum", data.suppData
             );
+
+            written = snprintf(buffer, size, reply, 1, "Hum Relay att", 0);
+        }
+
         break;
 
-        case CMDS::SET_HUM_LWR_THAN: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getHumConf();
+        case CMDS::SET_HUM_LWR_THAN: 
+        if (!SOCKHAND::inRange(1, 99, data.suppData)) { // 1 - 99% hum
+            written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getHumConf();
+            
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->tripValRelay = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->tripValRelay = data.suppData;
-        written = snprintf(buffer, size, "Hum RE < %d", data.suppData);
-        }    
+            written = snprintf(buffer, size, reply, 1, "Hum <", data.suppData);
+        }
+
         break;
 
-        case CMDS::SET_HUM_GTR_THAN: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getHumConf();
+        case CMDS::SET_HUM_GTR_THAN: 
+        if (!SOCKHAND::inRange(1, 99, data.suppData)) { // 1 - 99% hum.
+            written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getHumConf();
+            
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->tripValRelay = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->tripValRelay = data.suppData;
-        written = snprintf(buffer, size, "Hum RE > %d", data.suppData);
-        }    
+            written = snprintf(buffer, size, reply, 1, "Hum >", data.suppData);
+        }
+        
         break;
 
         case CMDS::SET_HUM_COND_NONE: {
@@ -325,18 +391,25 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         conf->condition = Peripheral::CONDITION::NONE;
-        written = snprintf(buffer, size, "Hum RE NONE");
+        conf->tripValRelay = 0;
+        written = snprintf(buffer, size, reply, 1, "Hum condition NONE", 0);
         }            
         break;
 
-        case CMDS::ENABLE_HUM_ALERT: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getHumConf();
+        case CMDS::ENABLE_HUM_ALERT: 
+        if (!SOCKHAND::inRange(1, 99, data.suppData)) { // 1 - 99% hum.
+            written = snprintf(buffer, size, reply, 0, "Temp Range Bust", 0);
+        } else {
+            Peripheral::TH_TRIP_CONFIG* conf = 
+                Peripheral::TempHum::get()->getHumConf();
+            
+            conf->tripValAlert = data.suppData;
+            conf->alertsEn = true;
 
-        conf->tripValAlert = data.suppData;
-        conf->alertsEn = true;
-        written = snprintf(buffer, size, "Hum ALT en @ %d", data.suppData);
-        }      
+            written = snprintf(buffer, size, reply, 1, "Hum alert EN", 
+                               data.suppData);
+        }
+            
         break;
 
         case CMDS::DISABLE_HUM_ALERT: {
@@ -344,31 +417,41 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TempHum::get()->getHumConf();
 
         conf->alertsEn = false;
-        conf->tripValRelay = data.suppData;
-        written = snprintf(buffer, size, "Hum ALT disabled");
+        conf->tripValRelay = 0; // zero out
+        written = snprintf(buffer, size, reply, 1, "Hum alert DEN", 0);
         }    
         break;
 
-        case CMDS::SET_SOIL1_LWR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(0);
-      
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 1 ALT < %d", data.suppData);
+        case CMDS::SET_SOIL1_LWR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(0);
+        
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "so1 <", data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL1_GTR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(0);
+        case CMDS::SET_SOIL1_GTR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(0);
+        
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 1 ALT > %d", data.suppData);
+            written = snprintf(buffer, size, reply, 1, "so1 >", data.suppData);
         }
+        
         break;
 
         case CMDS::SET_SOIL1_COND_NONE: {
@@ -377,30 +460,43 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         conf->condition = Peripheral::CONDITION::NONE;
         conf->alertsEn = false;
-        written = snprintf(buffer, size, "Soil 1 ALT None");
+        conf->tripValAlert = 0;
+        written = snprintf(buffer, size, reply, 1, "so1 alt None", 
+                           data.suppData);
         }
+
         break;
 
-        case CMDS::SET_SOIL2_LWR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(1);
-      
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 2 ALT < %d", data.suppData);
+        case CMDS::SET_SOIL2_LWR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(1);
+        
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "so2 <", data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL2_GTR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(1);
+        case CMDS::SET_SOIL2_GTR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(1);
+        
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 2 ALT > %d", data.suppData);
+            written = snprintf(buffer, size, reply, 1, "so2 >", data.suppData);
         }
+        
         break;
 
         case CMDS::SET_SOIL2_COND_NONE: {
@@ -409,30 +505,43 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         conf->condition = Peripheral::CONDITION::NONE;
         conf->alertsEn = false;
-        written = snprintf(buffer, size, "Soil 2 ALT None");
+        conf->tripValAlert = 0;
+        written = snprintf(buffer, size, reply, 1, "so2 alt None", 
+                           data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL3_LWR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(2);
-      
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 3 ALT < %d", data.suppData);
+        case CMDS::SET_SOIL3_LWR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(2);
+        
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "so3 <", data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL3_GTR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(2);
+        case CMDS::SET_SOIL3_GTR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(2);
+        
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 3 ALT > %d", data.suppData);
+            written = snprintf(buffer, size, reply, 1, "so3 >", data.suppData);
         }
+        
         break;
 
         case CMDS::SET_SOIL3_COND_NONE: {
@@ -441,30 +550,43 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         conf->condition = Peripheral::CONDITION::NONE;
         conf->alertsEn = false;
-        written = snprintf(buffer, size, "Soil 3 ALT None");
+        conf->tripValAlert = 0;
+        written = snprintf(buffer, size, reply, 1, "so3 alt None", 
+                           data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL4_LWR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(3);
-      
-        conf->condition = Peripheral::CONDITION::LESS_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 4 ALT < %d", data.suppData);
+        case CMDS::SET_SOIL4_LWR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(3);
+        
+            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "so4 <", data.suppData);
         }
+        
         break;
 
-        case CMDS::SET_SOIL4_GTR_THAN: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
-            Peripheral::Soil::get()->getConfig(3);
+        case CMDS::SET_SOIL4_GTR_THAN: 
+        if (!SOCKHAND::inRange(1, 4094, data.suppData)) { // 12 bit val
+            written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0);
+        } else {
+            Peripheral::SOIL_TRIP_CONFIG* conf =
+                Peripheral::Soil::get()->getConfig(3);
+        
+            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->alertsEn = true;
+            conf->tripValAlert = data.suppData;
 
-        conf->condition = Peripheral::CONDITION::GTR_THAN;
-        conf->alertsEn = true;
-        conf->tripValAlert = data.suppData;
-        written = snprintf(buffer, size, "Soil 4 ALT > %d", data.suppData);
+            written = snprintf(buffer, size, reply, 1, "so4 >", data.suppData);
         }
+        
         break;
 
         case CMDS::SET_SOIL4_COND_NONE: {
@@ -473,14 +595,27 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         conf->condition = Peripheral::CONDITION::NONE;
         conf->alertsEn = false;
-        written = snprintf(buffer, size, "Soil 4 ALT None");
+        conf->tripValAlert = 0;
+        written = snprintf(buffer, size, reply, 1, "so4 alt None", 
+                           data.suppData);
+        }
+        
+        break;
+
+        case CMDS::TEST1: { // COMMENT OUT AFTER TESTING
+        // Test case here
+        written = snprintf(buffer, size, reply, 1, "Testing Web exchange");
+        Peripheral::TempHum* th = Peripheral::TempHum::get();
+        th->test(true, data.suppData);
         }
         break;
 
-        case CMDS::TEST: { // DELETE AFTER TESTING WEB SERVER EXCHANGE
-        // Test case here
-        written = snprintf(buffer, size, "Testing Web exchange");
+        case CMDS::TEST2: { // COMMENT OUT AFTER TESTINGS
+        written = snprintf(buffer, size, reply, 1, "Testing Web exchange");
+        Peripheral::TempHum* th = Peripheral::TempHum::get();
+        th->test(false, data.suppData);
         }
+        break;
         
         default:
         break;
@@ -526,7 +661,13 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
     } else {
         printf("Must be a relay number 0 - 4\n");
     }
+}
 
+// Requires lower and upper bounds, and the value. Returns true
+// if the value is within the bounds. Use this for all data that
+// uses data.suppData.
+int SOCKHAND::inRange(int lower, int upper, int value) {
+        return (value >= lower && value <= upper);
 }
 
 }

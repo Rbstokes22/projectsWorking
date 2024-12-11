@@ -7,42 +7,52 @@ namespace Peripheral {
 
 // Requires controller ID. Returns true if currently attached to a
 // client, or false if available.
-bool Relay::checkID(uint8_t ID) {
-    return (clients[ID] != CLIENTS::AVAILABLE);
+bool Relay::isAttached(uint8_t ID) {
+    return (clients[ID] != IDSTATE::AVAILABLE);
 }
 
 // Requires controller ID and the new state. Returns true upon a 
 // state change, and false if error.
-bool Relay::changeIDState(uint8_t ID, CLIENTS newState) {
-    if (ID >= RELAY_IDS) return false; // prevent error
+bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
+    // Immediately filters IDs outside the index scope.
+    if (ID >= RELAY_IDS) return false;
 
-    // Not grouped within the if-statement above, to prevent calling 
-    // and ID outside the scope of the array.
-    if (!this->checkID(ID)) return false;
+    // Returns true if the new state matches the previous state.
+    if (clients[ID] == newState) return true; 
 
-    clients[ID] = newState;
+    // Reserved will be the newState being called when client calls getID().
+    // This filter ensures if an action is called, such as on, off, or to
+    // switch back to available, that it is currently attached. If action is
+    // called and it is not attached, returns false, proceeds if true.
+    if (newState != IDSTATE::RESERVED && !this->isAttached(ID)) {
+        return false;
+    } 
+
+    // Returns true indicating a success, despite the state not changing.
+    if (clients[ID] == newState) {
+        return true; 
+    } else {
+        clients[ID] = newState;
+    }
 
     // Client quantity is limited to the amount of clients actively
-    // energizing the relay. This is manage everytime the state toggles
+    // energizing the relay. This is managed everytime the state toggles
     // between on and off. Client quantity will have to equal 0 in order
     // for relay to shut off, meaning there are no active clients
     // currently energizing it.
-    if (newState == CLIENTS::ON) {
-        clientQty++;
-    } else if (newState == CLIENTS::OFF) {
-        clientQty--;
-    }
+    if (newState == IDSTATE::ON) {clientQty++;}
+    else if (newState == IDSTATE::OFF) {clientQty--;}
 
     return true;
 }
 
 // Requires gpio pin number, and the relay number.
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
-    pin(pin), ReNum(ReNum), state(STATE::OFF), clients{
-    CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, 
-    CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, 
-    CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, CLIENTS::AVAILABLE, 
-    CLIENTS::AVAILABLE}, clientQty(0),
+    pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clients{
+    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
+    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
+    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
+    IDSTATE::AVAILABLE}, clientQty(0),
     timer{0, 0, false, false, false} {}
 
 // Requires controller ID. Checks if ID is currently registered as a client
@@ -50,20 +60,20 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
 // state and energizes relay, returning true.
 bool Relay::on(uint8_t ID) {
     // Will not run if relay is forced off.
-    if (this->state == STATE::FORCED_OFF) return false;
+    if (this->relayState == RESTATE::FORCED_OFF) return false;
 
     // Ensures the ID is registerd, and then changes state to on. If 
     // unsuccessful, returns false.
-    if (!this->changeIDState(ID, CLIENTS::ON)) {
+    if (!this->changeIDState(ID, IDSTATE::ON)) {
         printf("Relay: %u, ID: %u unable to change ID state\n", 
         this->ReNum, ID);
         return false;
     }
 
     // Turns on only if previously off or force removed.
-    if (this->state != STATE::ON) {
+    if (this->relayState != RESTATE::ON) {
         gpio_set_level(this->pin, 1);
-        this->state = STATE::ON;
+        this->relayState = RESTATE::ON;
     }
 
     return true;
@@ -77,7 +87,8 @@ bool Relay::on(uint8_t ID) {
 // acceptable range, but the humidity does not, the temperature will not be
 // able to de-energize the relay.
 bool Relay::off(uint8_t ID) {
-    if (!this->changeIDState(ID, CLIENTS::OFF)) {
+
+    if (!this->changeIDState(ID, IDSTATE::OFF)) {
         printf("Relay: %u, ID: %u unable to change ID state\n", 
         this->ReNum, ID);
         return false;
@@ -85,9 +96,9 @@ bool Relay::off(uint8_t ID) {
 
     // Turns off only if previously on and clientQty = 0, which signals
     // that no sensor is currently employing the relay.
-    if (this->state == STATE::ON && clientQty == 0) {
+    if (this->relayState == RESTATE::ON && clientQty == 0) {
         gpio_set_level(this->pin, 0);
-        this->state = STATE::OFF;
+        this->relayState = RESTATE::OFF;
     }
     return true;
 }
@@ -95,7 +106,7 @@ bool Relay::off(uint8_t ID) {
 // Requires no parameters. Forces the relay to turn off despite
 // what is currently dependent upon it. Good for emergencies.
 void Relay::forceOff() {
-    this->state = STATE::FORCED_OFF;
+    this->relayState = RESTATE::FORCED_OFF;
     printf("Relay %u forced off\n", this->ReNum);
     gpio_set_level(this->pin, 0);
 }
@@ -103,7 +114,7 @@ void Relay::forceOff() {
 // Requires no parameters. Removes the Force Off block.
 void Relay::removeForce() {
     printf("Relay %u force off is removed\n", this->ReNum);
-    this->state = STATE::FORCE_REMOVED;
+    this->relayState = RESTATE::FORCE_REMOVED;
 }
 
 // Iterates clients array and reserves the first spot available.
@@ -112,9 +123,9 @@ void Relay::removeForce() {
 // are available.
 uint8_t Relay::getID() {
     for (int i = 0; i < RELAY_IDS; i++) {
-        if (clients[i] == CLIENTS::AVAILABLE) {
-            this->changeIDState(i, CLIENTS::RESERVED);
-            printf("Relay %u attached to ID %u\n",this->ReNum, i);
+        if (clients[i] == IDSTATE::AVAILABLE) {
+            this->changeIDState(i, IDSTATE::RESERVED);
+            printf("Relay %u attached to ID %u\n", this->ReNum, i);
             return i;
         }
     }
@@ -129,15 +140,15 @@ uint8_t Relay::getID() {
 bool Relay::removeID(uint8_t ID) {
     if (ID >= RELAY_IDS) return false; // prevent error.
     this->off(ID);
-    this->changeIDState(ID, CLIENTS::AVAILABLE);
+    this->changeIDState(ID, IDSTATE::AVAILABLE);
     printf("Relay %u Detached from ID %u\n", this->ReNum, ID);
     return true;
 }
 
 // Gets the current state of the relay. Returns 0, 1, 2, 3 for 
 // off, on, forced off, and force removed, respetively.
-STATE Relay::getState() {
-    return this->state;
+RESTATE Relay::getState() {
+    return this->relayState;
 }
 
 // Used to set single relay timer. Requires true or false if setting
@@ -173,7 +184,7 @@ bool Relay::timerSet(bool on, uint32_t time) {
 // Requires no params. This manages any set relay timers and will both
 // turn them on and off during their set times.
 void Relay::manageTimer() {
-    static uint16_t ID = this->getID();
+    static uint8_t ID = this->getID();
 
     if (timer.isReady) {
         Clock::DateTime* time = Clock::DateTime::get();

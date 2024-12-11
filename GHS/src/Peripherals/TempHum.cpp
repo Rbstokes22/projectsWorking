@@ -8,8 +8,8 @@ namespace Peripheral {
 
 TempHum::TempHum(TempHumParams &params) : 
 
-    data{0.0f, 0.0f, 0.0f, false}, averages{0, 0, 0}, 
-    flags{false, false}, mtx(params.msglogerr),
+    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0}, 
+    flags{false, true}, mtx(params.msglogerr), // !!! Change these back to false once testing complete, this forces bypass
 
     humConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
         nullptr, 0, 0, 0, 0, 0, 0},
@@ -19,12 +19,10 @@ TempHum::TempHum(TempHumParams &params) :
 
     params(params) {}
 
-
-// RELAY AND ALERT CONSIDERATIONS. THINGS NEED BE BE CHANGED HERE IN ORDER TO ENSURE THE RELAY
-// WILL SOMEHOW BE SHUT OFF EVEN IF THE CONFIGURATION CHANGES. MAYBE MEET ALL CONDITIONS TO TURN
-// RELAY ON, AND ONLY COUNTS TO SHUT IT OFF?
+// NOTES HERE ONCE TESTED
 void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock(this->mtx); 
     // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
     // Returns to prevent relay activity if:
     // RELAY ON:
@@ -53,7 +51,7 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
         if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS) {
             return;
         }
-
+        
         config.relay->off(config.relayControlID);
         break;
     }
@@ -61,7 +59,7 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
 
 void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
     Threads::MutexLock(this->mtx);
-
+    printf("Counts: %zu from ID: %d\n", (size_t)ct, config.relayControlID); // !!! Remove after testing
     // Toggle that will not allow alerts to be sent several times. When an 
     // alert is sent, this is changed to false, and will not change back to
     // true until temp and/or hum, has entered back into acceptable values.
@@ -104,7 +102,7 @@ void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) {
         // Resets the toggle when the alert is set to off meaning that
         // satisfactory conditions prevail. This will allow a message
         // to be sent if it exceeds the limitations.
-        altToggle = false;
+        altToggle = true;
     }
 }
 
@@ -151,6 +149,7 @@ bool TempHum::read() {
         errCt = 0;
     }
 
+    // Returns true of data is ok.
     return this->flags.immediate;
 }
 
@@ -176,9 +175,12 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
     return &this->tempConf;
 }
 
+// Best to call this after read like "if (read) checkbounds()" due
+// to the handle relay call count.
 void TempHum::checkBounds() { 
     
     if (!this->data.dataSafe) return; // Filters bad data.
+
     Threads::MutexLock(this->mtx);
     // Turns relay on when the trip value and condition is met.
     // When the padded bound is reached, turns the relay off.
@@ -215,7 +217,7 @@ void TempHum::checkBounds() {
             case CONDITION::LESS_THAN: 
 
                 if (val < tripValueRelay) {
-                    conf.relayOnCt++;
+                    conf.relayOnCt++; // !!! Work this part. This needs to only inc/dec upon receipt of new value
                     conf.relayOffCt = 0;
                     this->handleRelay(conf, true, conf.relayOnCt);
 
@@ -272,6 +274,7 @@ void TempHum::checkBounds() {
         }
     };
 
+    // Checks to see if the temp/hum has exceeded its set boundaries.
     chkCondition(this->data.tempC, this->tempConf);
     chkCondition(this->data.hum, this->humConf);
 }
@@ -290,6 +293,16 @@ void TempHum::clearAverages() {
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0;
+}
+
+void TempHum::test(bool isTemp, float val) { // COMMENT OUT WHEN NOT USED
+    Threads::MutexLock(this->mtx);
+    if (isTemp) {
+        this->data.tempC = val;
+    } else {
+        this->data.hum = val;
+    }
+    this->checkBounds(); 
 }
 
 }

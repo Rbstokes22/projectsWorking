@@ -26,7 +26,8 @@ enum class CMDS : uint8_t {
     SET_SOIL1_LWR_THAN, SET_SOIL1_GTR_THAN, SET_SOIL1_COND_NONE,
     SET_SOIL2_LWR_THAN, SET_SOIL2_GTR_THAN, SET_SOIL2_COND_NONE,
     SET_SOIL3_LWR_THAN, SET_SOIL3_GTR_THAN, SET_SOIL3_COND_NONE,
-    SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE, TEST
+    SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE, 
+    TEST1, TEST2
 };
 
 // Commands sent by the client to include command, supplementary
@@ -71,6 +72,7 @@ class SOCKHAND {
         uint8_t relayNum, 
         Peripheral::TH_TRIP_CONFIG* conf
         );
+    static int inRange(int lower, int upper, int value);
     
     public:
     static bool init(Peripheral::Relay* relays);

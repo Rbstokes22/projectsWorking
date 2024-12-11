@@ -9,11 +9,11 @@ namespace Peripheral {
 #define RELAY_IDS 10 
 
 enum class CONDITION : uint8_t {LESS_THAN, GTR_THAN, NONE};
-enum class STATE : uint8_t {OFF, ON, FORCED_OFF, FORCE_REMOVED};
+enum class RESTATE : uint8_t {OFF, ON, FORCED_OFF, FORCE_REMOVED};
 
 // Client ID availability/state. RESERVED is reserved for initial
 // acquisition.
-enum class CLIENTS : uint8_t {AVAILABLE, RESERVED, ON, OFF};
+enum class IDSTATE : uint8_t {AVAILABLE, RESERVED, ON, OFF};
 
 struct Timer {
     uint32_t onTime;
@@ -27,12 +27,12 @@ class Relay {
     private:
     gpio_num_t pin;
     uint8_t ReNum;
-    STATE state;
-    CLIENTS clients[RELAY_IDS];
+    RESTATE relayState;
+    IDSTATE clients[RELAY_IDS];
     uint8_t clientQty; // Clients currently energizing relay.
     Timer timer;
-    bool checkID(uint8_t ID);
-    bool changeIDState(uint8_t ID, CLIENTS newState);
+    bool isAttached(uint8_t ID);
+    bool changeIDState(uint8_t ID, IDSTATE newState);
 
     public:
     Relay(gpio_num_t pin, uint8_t ReNum);
@@ -42,7 +42,7 @@ class Relay {
     void removeForce();
     uint8_t getID();
     bool removeID(uint8_t ID);
-    STATE getState();
+    RESTATE getState();
     bool timerSet(bool on, uint32_t time);
     void manageTimer();
     Timer* getTimer();
