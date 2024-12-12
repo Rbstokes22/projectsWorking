@@ -61,17 +61,17 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         static_cast<uint8_t>(SOCKHAND::Relays[3].getState()),
         re4Timer->isReady, (size_t)re4Timer->onTime, (size_t)re4Timer->offTime,
         th->getTemp(),
-        th->getTempConf()->relayNum,
-        static_cast<uint8_t>(th->getTempConf()->condition),
-        th->getTempConf()->tripValRelay,
-        th->getTempConf()->tripValAlert,
-        th->getTempConf()->alertsEn,
+        th->getTempConf()->relay.num,
+        static_cast<uint8_t>(th->getTempConf()->relay.condition),
+        th->getTempConf()->relay.tripVal,
+        th->getTempConf()->alt.tripVal,
+        th->getTempConf()->alertsEn, // Mark to delete, will be replace to mirror !!!
         th->getHum(),
-        th->getHumConf()->relayNum,
-        static_cast<uint8_t>(th->getHumConf()->condition),
-        th->getHumConf()->tripValRelay,
-        th->getHumConf()->tripValAlert,
-        th->getHumConf()->alertsEn,
+        th->getHumConf()->relay.num,
+        static_cast<uint8_t>(th->getHumConf()->relay.condition),
+        th->getHumConf()->relay.tripVal,
+        th->getHumConf()->alt.tripVal,
+        th->getHumConf()->alertsEn, // !!! Mark to delete
         th->getStatus().display,
         soilReadings[0], static_cast<uint8_t>(soil->getConfig(0)->condition),
         soil->getConfig(0)->tripValAlert, soil->getConfig(0)->alertsEn,
@@ -258,7 +258,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             data.suppData, Peripheral::TempHum::get()->getTempConf()
             );
 
-            written = snprintf(buffer, size, reply, 1, "Temp Re att", 0);
+            written = snprintf(buffer, size, reply, 1, "Temp Re att", 
+                               data.suppData);
         }
 
         break;
@@ -270,8 +271,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getTempConf();
             
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
-            conf->tripValRelay = data.suppData;
+            conf->relay.condition = Peripheral::RECOND::LESS_THAN;
+            conf->relay.tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "Temp <", data.suppData);
         }
@@ -285,8 +286,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getTempConf();
             
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
-            conf->tripValRelay = data.suppData;
+            conf->relay.condition = Peripheral::RECOND::GTR_THAN;
+            conf->relay.tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "Temp >", data.suppData);
         }
@@ -299,12 +300,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // If relay is active, switching to condtion NONE will 
         // shut off the relay if energized.
-        if (conf->relay != nullptr) {
-            conf->relay->off(conf->relayControlID);
+        if (conf->relay.relay != nullptr) {
+            conf->relay.relay->off(conf->relay.controlID);
         } 
 
-        conf->condition = Peripheral::CONDITION::NONE;
-        conf->tripValRelay = 0;
+        conf->relay.condition = Peripheral::RECOND::NONE;
+        conf->relay.tripVal = 0;
         written = snprintf(buffer, size, reply, 1, "Temp condition NONE", 0);
         }    
 
@@ -317,8 +318,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getTempConf();
             
-            conf->tripValAlert = data.suppData;
-            conf->alertsEn = true;
+            conf->alt.tripVal = data.suppData;
+            conf->alertsEn = true; // Change to mirror !!!
 
             written = snprintf(buffer, size, reply, 1, "Temp alert EN", 
                                data.suppData);
@@ -330,8 +331,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getTempConf();
 
-        conf->tripValAlert = 0; // zero out.
-        conf->alertsEn = false;
+        conf->alt.tripVal = 0; // zero out.
+        conf->alertsEn = false; // !!! Change to mirror
         written = snprintf(buffer, size, reply, 1, "Temp alert DEN", 0);
         }    
         
@@ -345,7 +346,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             data.suppData, Peripheral::TempHum::get()->getHumConf()
             );
 
-            written = snprintf(buffer, size, reply, 1, "Hum Relay att", 0);
+            written = snprintf(buffer, size, reply, 1, "Hum Relay att", 
+                               data.suppData);
         }
 
         break;
@@ -357,8 +359,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getHumConf();
             
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
-            conf->tripValRelay = data.suppData;
+            conf->relay.condition = Peripheral::RECOND::LESS_THAN;
+            conf->relay.tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "Hum <", data.suppData);
         }
@@ -372,8 +374,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getHumConf();
             
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
-            conf->tripValRelay = data.suppData;
+            conf->relay.condition = Peripheral::RECOND::GTR_THAN;
+            conf->relay.tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "Hum >", data.suppData);
         }
@@ -386,12 +388,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // If relay is active, switching to condtion NONE will 
         // shut off the relay.
-        if (conf->relay != nullptr) {
-            conf->relay->off(conf->relayControlID);
+        if (conf->relay.relay != nullptr) {
+            conf->relay.relay->off(conf->relay.controlID);
         }
 
-        conf->condition = Peripheral::CONDITION::NONE;
-        conf->tripValRelay = 0;
+        conf->relay.condition = Peripheral::RECOND::NONE;
+        conf->relay.tripVal = 0;
         written = snprintf(buffer, size, reply, 1, "Hum condition NONE", 0);
         }            
         break;
@@ -403,8 +405,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getHumConf();
             
-            conf->tripValAlert = data.suppData;
-            conf->alertsEn = true;
+            conf->alt.tripVal = data.suppData;
+            conf->alertsEn = true; // !!! DELETE
 
             written = snprintf(buffer, size, reply, 1, "Hum alert EN", 
                                data.suppData);
@@ -416,8 +418,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getHumConf();
 
-        conf->alertsEn = false;
-        conf->tripValRelay = 0; // zero out
+        conf->alertsEn = false; // !!! Delete
+        conf->alt.tripVal = 0; // zero out
         written = snprintf(buffer, size, reply, 1, "Hum alert DEN", 0);
         }    
         break;
@@ -429,7 +431,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(0);
         
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->condition = Peripheral::RECOND::LESS_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -445,7 +447,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(0);
         
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->condition = Peripheral::RECOND::GTR_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -458,7 +460,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::SOIL_TRIP_CONFIG* conf =
             Peripheral::Soil::get()->getConfig(0);
 
-        conf->condition = Peripheral::CONDITION::NONE;
+        conf->condition = Peripheral::RECOND::NONE;
         conf->alertsEn = false;
         conf->tripValAlert = 0;
         written = snprintf(buffer, size, reply, 1, "so1 alt None", 
@@ -474,7 +476,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(1);
         
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->condition = Peripheral::RECOND::LESS_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -490,7 +492,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(1);
         
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->condition = Peripheral::RECOND::GTR_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -503,7 +505,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::SOIL_TRIP_CONFIG* conf =
             Peripheral::Soil::get()->getConfig(1);
 
-        conf->condition = Peripheral::CONDITION::NONE;
+        conf->condition = Peripheral::RECOND::NONE;
         conf->alertsEn = false;
         conf->tripValAlert = 0;
         written = snprintf(buffer, size, reply, 1, "so2 alt None", 
@@ -519,7 +521,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(2);
         
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->condition = Peripheral::RECOND::LESS_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -535,7 +537,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(2);
         
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->condition = Peripheral::RECOND::GTR_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -548,7 +550,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::SOIL_TRIP_CONFIG* conf =
             Peripheral::Soil::get()->getConfig(2);
 
-        conf->condition = Peripheral::CONDITION::NONE;
+        conf->condition = Peripheral::RECOND::NONE;
         conf->alertsEn = false;
         conf->tripValAlert = 0;
         written = snprintf(buffer, size, reply, 1, "so3 alt None", 
@@ -564,7 +566,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(3);
         
-            conf->condition = Peripheral::CONDITION::LESS_THAN;
+            conf->condition = Peripheral::RECOND::LESS_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -580,7 +582,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::SOIL_TRIP_CONFIG* conf =
                 Peripheral::Soil::get()->getConfig(3);
         
-            conf->condition = Peripheral::CONDITION::GTR_THAN;
+            conf->condition = Peripheral::RECOND::GTR_THAN;
             conf->alertsEn = true;
             conf->tripValAlert = data.suppData;
 
@@ -593,7 +595,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::SOIL_TRIP_CONFIG* conf =
             Peripheral::Soil::get()->getConfig(3);
 
-        conf->condition = Peripheral::CONDITION::NONE;
+        conf->condition = Peripheral::RECOND::NONE;
         conf->alertsEn = false;
         conf->tripValAlert = 0;
         written = snprintf(buffer, size, reply, 1, "so4 alt None", 
@@ -639,23 +641,23 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
     if (relayNum < 4) { // Checks for valid relay number.
         // If active relay is currently assigned, ensures that it is 
         // removed from control and shut off prior to a reissue.
-        if (conf->relay != nullptr) {
-            conf->relay->removeID(conf->relayControlID);
+        if (conf->relay.relay != nullptr) {
+            conf->relay.relay->removeID(conf->relay.controlID);
         }
 
-        conf->relay = &SOCKHAND::Relays[relayNum];
-        conf->relayControlID = SOCKHAND::Relays[relayNum].getID();
-        conf->relayNum = relayNum + 1; // Display purposes only
+        conf->relay.relay = &SOCKHAND::Relays[relayNum];
+        conf->relay.controlID = SOCKHAND::Relays[relayNum].getID();
+        conf->relay.num = relayNum + 1; // Display purposes only
 
         printf("Relay %u, IDX %u, attached with ID %u\n", 
-        relayNum + 1, relayNum, conf->relayControlID);
+        relayNum + 1, relayNum, conf->relay.controlID);
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
         // clients making it available.
-        conf->relay->removeID(conf->relayControlID); 
-        conf->relay = nullptr;
-        conf->relayNum = 0;
+        conf->relay.relay->removeID(conf->relay.controlID); 
+        conf->relay.relay = nullptr;
+        conf->relay.num = 0;
 
         printf("Relay detached\n");
     } else {

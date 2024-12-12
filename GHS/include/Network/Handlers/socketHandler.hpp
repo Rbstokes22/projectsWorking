@@ -19,7 +19,11 @@ enum class CMDS : uint8_t {
     RELAY_2_TIMER_ON, RELAY_2_TIMER_OFF,
     RELAY_3_TIMER_ON, RELAY_3_TIMER_OFF,
     RELAY_4_TIMER_ON, RELAY_4_TIMER_OFF,
-    ATTACH_TEMP_RELAY, SET_TEMP_LWR_THAN, SET_TEMP_GTR_THAN, 
+    ATTACH_TEMP_RELAY, SET_TEMP_LWR_THAN, SET_TEMP_GTR_THAN,
+    // Work here the same stuff for the relay as the alert,
+    // de couple it, so that a user may set alert conditions
+    // independently from relay.
+
     SET_TEMP_COND_NONE, ENABLE_TEMP_ALERT, DISABLE_TEMP_ALERT,
     ATTACH_HUM_RELAY, SET_HUM_LWR_THAN, SET_HUM_GTR_THAN, 
     SET_HUM_COND_NONE, ENABLE_HUM_ALERT, DISABLE_HUM_ALERT,

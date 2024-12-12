@@ -11,16 +11,16 @@ TempHum::TempHum(TempHumParams &params) :
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0}, 
     flags{false, true}, mtx(params.msglogerr), // !!! Change these back to false once testing complete, this forces bypass
 
-    humConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
-        nullptr, 0, 0, 0, 0, 0, 0},
+    humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
+            {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
-    tempConf{0, 0, false, CONDITION::NONE, CONDITION::NONE, 
-        nullptr, 0, 0, 0, 0, 0, 0},
+    tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
+            {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
     params(params) {}
 
 // NOTES HERE ONCE TESTED
-void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
+void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
     
     Threads::MutexLock(this->mtx); 
     // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
@@ -39,12 +39,12 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
     // conditions were changed, which means that if the data is good
     switch (relayOn) {
         case true:
-        if (config.relay == nullptr || !this->flags.immediate ||
-        ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) {
+        if (conf.relay == nullptr || !this->flags.immediate ||
+        ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == RECOND::NONE) {
             return;
         }
 
-        config.relay->on(config.relayControlID);
+        conf.relay->on(conf.controlID);
         break;
 
         case false:
@@ -52,22 +52,22 @@ void TempHum::handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct) {
             return;
         }
         
-        config.relay->off(config.relayControlID);
+        conf.relay->off(conf.controlID);
         break;
     }
 }
 
-void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) { 
+void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
     Threads::MutexLock(this->mtx);
-    printf("Counts: %zu from ID: %d\n", (size_t)ct, config.relayControlID); // !!! Remove after testing
+
     // Toggle that will not allow alerts to be sent several times. When an 
     // alert is sent, this is changed to false, and will not change back to
     // true until temp and/or hum, has entered back into acceptable values.
     static bool altToggle = true;
 
     // Mirrors the same setup as the relay activity.
-    if (!config.alertsEn || !this->flags.immediate ||
-        ct < TEMP_HUM_CONSECUTIVE_CTS || config.condition == CONDITION::NONE) { 
+    if (!conf.alertsEn || !this->flags.immediate ||
+        ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == ALTCOND::NONE) { 
         return;
     }
 
@@ -103,6 +103,101 @@ void TempHum::handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct) {
         // satisfactory conditions prevail. This will allow a message
         // to be sent if it exceeds the limitations.
         altToggle = true;
+    }
+}
+
+void TempHum::relayBounds(float value, relayConfig &conf) {
+    Threads::MutexLock(this->mtx);
+
+    float tripVal = static_cast<float>(conf.tripVal);
+    float lowerBound = tripVal - TEMP_HUM_HYSTERESIS; 
+    float upperBound = tripVal + TEMP_HUM_HYSTERESIS;
+
+    // Checks to see if the relay conditions have changed. If true,
+    // resets the counts and changes the previous condition to current
+    // condition.
+    if (conf.condition != conf.prevCondition) {
+        conf.onCt = 0; conf.offCt = 0;
+        conf.prevCondition = conf.condition;
+    }
+
+    switch (conf.condition) {
+        case RECOND::LESS_THAN:
+        if (value < tripVal) {
+            conf.onCt++; 
+            conf.offCt = 0;
+            this->handleRelay(conf, true, conf.onCt);
+
+        } else if (value >= upperBound) {
+            conf.onCt = 0;
+            conf.offCt++;
+            this->handleRelay(conf, false, conf.offCt);
+        }        
+        break;
+
+        case RECOND::GTR_THAN:
+            if (value > tripVal) {
+                conf.onCt++;
+                conf.offCt = 0;
+                this->handleRelay(conf, true, conf.onCt);
+
+            } else if (value <= lowerBound) {
+                conf.onCt = 0;
+                conf.offCt++;
+                this->handleRelay(conf, false, conf.offCt);
+            }
+        break;
+
+        case RECOND::NONE: // Placeholder
+        // If set to none, relay will be detached from the sensor.
+        break;
+    }
+}
+
+void TempHum::alertBounds(float value, alertConfig &conf) {
+    Threads::MutexLock(this->mtx);
+
+    float tripVal = static_cast<float>(conf.tripVal); 
+    float lowerBound = tripVal - TEMP_HUM_HYSTERESIS;
+    float upperBound = tripVal + TEMP_HUM_HYSTERESIS;
+
+    // Checks to see if the alert conditions have changed. If true,
+    // resets the counts and changes the previous condition to current
+    // condition.
+    if (conf.condition != conf.prevCondition) {
+        conf.onCt = 0; conf.offCt = 0;
+        conf.prevCondition = conf.condition;
+    }
+
+    switch (conf.condition) {
+        case ALTCOND::LESS_THAN:
+        if (value < tripVal) {
+            conf.onCt++;
+            conf.offCt = 0;
+            this->handleAlert(conf, true, conf.onCt);
+
+        } else if (value >= upperBound) { 
+            conf.onCt = 0;
+            conf.offCt++;
+            this->handleAlert(conf, false, conf.offCt); 
+        }        
+        break;
+
+        case ALTCOND::GTR_THAN:
+        if (value > tripVal) {
+            conf.onCt++;
+            conf.offCt = 0;
+            this->handleAlert(conf, true, conf.onCt);
+
+        } else if (value <= lowerBound) {
+            conf.onCt = 0;
+            conf.offCt++;
+            this->handleAlert(conf, false, conf.offCt); 
+        }
+        break;
+
+        case ALTCOND::NONE: // Placeholder
+        break;
     }
 }
 
@@ -177,106 +272,17 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 
 // Best to call this after read like "if (read) checkbounds()" due
 // to the handle relay call count.
-void TempHum::checkBounds() { 
+bool TempHum::checkBounds() { 
     
-    if (!this->data.dataSafe) return; // Filters bad data.
+    if (!this->data.dataSafe) return false; // Filters bad data.
 
-    Threads::MutexLock(this->mtx);
-    // Turns relay on when the trip value and condition is met.
-    // When the padded bound is reached, turns the relay off.
-    auto chkCondition = [this](float val, TH_TRIP_CONFIG &conf){
+    // Checks each individual bound after confirming data is safe.
+    this->relayBounds(this->data.tempC, this->tempConf.relay);
+    this->relayBounds(this->data.hum, this->humConf.relay);
+    this->alertBounds(this->data.tempC, this->tempConf.alt);
+    this->alertBounds(this->data.hum, this->humConf.alt);
 
-        // Relay bounds. Will reverse action once appropriate bound
-        // is met.
-        float tripValueRelay = static_cast<float>(conf.tripValRelay);
-        float lowerBoundRelay = tripValueRelay - TEMP_HUM_HYSTERESIS; 
-        float upperBoundRelay = tripValueRelay + TEMP_HUM_HYSTERESIS;
-
-        // Float bounds. same as relay.
-        float tripValueAlert = static_cast<float>(conf.tripValAlert); 
-        float lowerBoundAlert = tripValueAlert - TEMP_HUM_HYSTERESIS;
-        float upperBoundAlert = tripValueAlert + TEMP_HUM_HYSTERESIS;
-        
-
-        // Zeros out all counts if the condition is changed.
-        if (conf.condition != conf.prevCondition) {
-            conf.relayOnCt = 0; conf.relayOffCt = 0;
-            conf.alertOnCt = 0; conf.alertOffCt = 0;
-        }
-
-        conf.prevCondition = conf.condition; // set prev to current
-
-        switch (conf.condition) { 
-
-            // The configuration relay/alert on and off counts accumulate
-            // and/or zero, and send the applicable count to the 
-            // handleRelays function. This is to prevent relay or alert
-            // activity from a single value, and ensures consecutive
-            // triggers are met.
-
-            case CONDITION::LESS_THAN: 
-
-                if (val < tripValueRelay) {
-                    conf.relayOnCt++; // !!! Work this part. This needs to only inc/dec upon receipt of new value
-                    conf.relayOffCt = 0;
-                    this->handleRelay(conf, true, conf.relayOnCt);
-
-                } else if (val >= upperBoundRelay) {
-                    conf.relayOnCt = 0;
-                    conf.relayOffCt++;
-                    this->handleRelay(conf, false, conf.relayOffCt);
-                }
-
-                if (val < tripValueAlert) {
-                    conf.alertOnCt++;
-                    conf.alertOffCt = 0;
-                    this->handleAlert(conf, true, conf.alertOnCt);
-
-                } else if (val >= upperBoundAlert) { 
-                    conf.alertOnCt = 0;
-                    conf.alertOffCt++;
-                    this->handleAlert(conf, false, conf.alertOffCt); 
-                }
-
-                break;
-            
-            
-            case CONDITION::GTR_THAN: 
-
-                if (val > tripValueRelay) {
-                    conf.relayOnCt++;
-                    conf.relayOffCt = 0;
-                    this->handleRelay(conf, true, conf.relayOnCt);
-
-                } else if (val <= lowerBoundRelay) {
-                    conf.relayOnCt = 0;
-                    conf.relayOffCt++;
-                    this->handleRelay(conf, false, conf.relayOffCt);
-                }
-
-                if (val > tripValueAlert) {
-                    conf.alertOnCt++;
-                    conf.alertOffCt = 0;
-                    this->handleAlert(conf, true, conf.alertOnCt);
-
-                } else if (val <= lowerBoundAlert) {
-                    conf.alertOnCt = 0;
-                    conf.alertOffCt++;
-                    this->handleAlert(conf, false, conf.alertOffCt); 
-                }
-
-                break;
-
-            case CONDITION::NONE:
-            // If condition is changed to none, The relay will be detached
-            // from the client.
-                break;
-        }
-    };
-
-    // Checks to see if the temp/hum has exceeded its set boundaries.
-    chkCondition(this->data.tempC, this->tempConf);
-    chkCondition(this->data.hum, this->humConf);
+    return true;
 }
 
 isUpTH TempHum::getStatus() {

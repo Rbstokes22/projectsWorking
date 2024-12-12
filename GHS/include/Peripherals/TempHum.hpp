@@ -14,22 +14,31 @@ namespace Peripheral {
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
 
-struct TH_TRIP_CONFIG { // Config relays and alerts
-    int tripValRelay; // Value that will turn relay on
-    int tripValAlert; // Value that will trigger alert
-    bool alertsEn; // Are alerts enabled
-    CONDITION condition; // Lower than or greater than
-    CONDITION prevCondition; // Used for resetting counts
-    Relay* relay; // relay assigned to device
-    uint8_t relayNum; // Relay 1 - 4, used for display
-    uint8_t relayControlID; // Used to control relay
+// Alert configuration. The on and off counts are to ensure that consecutive
+// counts are taken into consideration before sending or resetting alert.
+struct alertConfig {
+    int tripVal; // Sends alert
+    ALTCOND condition; // Alert condition.
+    ALTCOND prevCondition; // ALert previous condition.
+    uint32_t onCt; // Consecutive on counts to send alert.
+    uint32_t offCt; // Consecutive off counts to reset alert.
+};
 
-    // Ensures that relay and alert action is not taken at 
-    // first trip value, but consecutive values being met.
-    uint32_t relayOnCt; 
-    uint32_t relayOffCt;
-    uint32_t alertOnCt;
-    uint32_t alertOffCt;
+struct relayConfig {
+    int tripVal; // Turns relay on.
+    RECOND condition; // Relay condition.
+    RECOND prevCondition; // Relays previous condition.
+    Relay* relay; // Relay attached to device.
+    uint8_t num; // relay index + 1, for display purposes.
+    uint8_t controlID; // ID given by relay to allow this device to control it.
+    uint32_t onCt; // Consecutive on counts to turn relay on.
+    uint32_t offCt; // Consecutive off counts to turn relay off.
+};
+
+// Combined alert and relay configurations.
+struct TH_TRIP_CONFIG { 
+    alertConfig alt;
+    relayConfig relay;
 };
 
 struct TH_Averages {
@@ -60,8 +69,10 @@ class TempHum {
     TempHum(TempHumParams &params); 
     TempHum(const TempHum&) = delete; // prevent copying
     TempHum &operator=(const TempHum&) = delete; // prevent assignment
-    void handleRelay(TH_TRIP_CONFIG &config, bool relayOn, uint32_t ct);
-    void handleAlert(TH_TRIP_CONFIG &config, bool alertOn, uint32_t ct);
+    void handleRelay(relayConfig &conf, bool relayOn, uint32_t ct);
+    void handleAlert(alertConfig &config, bool alertOn, uint32_t ct);
+    void relayBounds(float value, relayConfig &conf);
+    void alertBounds(float value, alertConfig &conf);
 
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
@@ -70,7 +81,7 @@ class TempHum {
     float getTemp(char CorF = 'C');
     TH_TRIP_CONFIG* getHumConf();
     TH_TRIP_CONFIG* getTempConf();
-    void checkBounds();
+    bool checkBounds();
     isUpTH getStatus();
     TH_Averages* getAverages();
     void clearAverages();

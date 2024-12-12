@@ -1,9 +1,6 @@
-// CURRENT NOTES: Relay testing was good, notice issue with data.suppData. There
-// need to be a range check which is now implemented. Before testing alerts,
-// build range tests to mirror attach temp relay to the rest of the items to
-// ensure proper error handling and that data does not cause issues, such as 
-// attaching relay 6, which will cause a reboot. Once complete, test alerts with
-// actual server. Once both relays and temperatures are good, continue on.
+// CURRENT NOTES: TH config has been broken down into alert and relay. All the work
+// has been done. Now work on removing the alt enable part, and ensure everything mirrors
+// the relay on both the socketCmdhandler and TempHum. Test again. 
 
 // Next incorporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
