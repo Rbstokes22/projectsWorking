@@ -3,7 +3,7 @@
 
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
-#include "Peripherals/Relay.hpp"
+#include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 
@@ -14,7 +14,7 @@ namespace Peripheral {
 struct SOIL_TRIP_CONFIG {
     int tripValAlert;
     bool alertsEn;
-    CONDITION condition;
+    ALTCOND condition;
 };
 
 struct SoilParams {

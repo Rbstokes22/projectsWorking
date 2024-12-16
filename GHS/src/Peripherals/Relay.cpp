@@ -20,13 +20,15 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
     // Returns true if the new state matches the previous state.
     if (clients[ID] == newState) return true; 
 
-    // Reserved will be the newState being called when client calls getID().
-    // This filter ensures if an action is called, such as on, off, or to
-    // switch back to available, that it is currently attached. If action is
-    // called and it is not attached, returns false, proceeds if true.
-    if (newState != IDSTATE::RESERVED && !this->isAttached(ID)) {
+    // Filters requests to ensure that the ID is currently attached to the 
+    // relay. If not, there is only one way this will pass, and that is if
+    // the IDSTATE passed is RESERVED which happens only when calling the 
+    // getID().This means that the ID is still listed as AVAILABLE which
+    // returns a false from isAttached(). A typical actionable call will
+    // have isAttached() return true, which passes this filter.
+    if (!this->isAttached(ID) && newState != IDSTATE::RESERVED) {
         return false;
-    } 
+    }
 
     // Returns true indicating a success, despite the state not changing.
     if (clients[ID] == newState) {
@@ -104,14 +106,16 @@ bool Relay::off(uint8_t ID) {
 }
 
 // Requires no parameters. Forces the relay to turn off despite
-// what is currently dependent upon it. Good for emergencies.
+// what is currently dependent upon it. Does not delete
+// the current clients powering the device, those must be deleted
+// using off(). Works well for emergencies.
 void Relay::forceOff() {
     this->relayState = RESTATE::FORCED_OFF;
     printf("Relay %u forced off\n", this->ReNum);
     gpio_set_level(this->pin, 0);
 }
 
-// Requires no parameters. Removes the Force Off block.
+// Requires no parameters. Removes the Force Off block to allow normal op.
 void Relay::removeForce() {
     printf("Relay %u force off is removed\n", this->ReNum);
     this->relayState = RESTATE::FORCE_REMOVED;

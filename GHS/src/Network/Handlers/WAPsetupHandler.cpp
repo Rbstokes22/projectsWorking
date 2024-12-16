@@ -62,8 +62,8 @@ esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
         return ESP_FAIL;
     }
 
-    // SMS requirements for alerts.
-    NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
+    // SMS requirements for alerts. Pass true to bypass validation to manip.
+    NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(true);
 
     // Iterates the netKeys from netConfig.hpp. These are the only
     // acceptable keys in this scope.
@@ -105,7 +105,7 @@ esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
                     meetsReq = true;
                 }
     
-            } else if (strcmp(key, "phone") == 0) {
+            } else if ((strcmp(key, "phone") == 0) && (sms != nullptr)) {
                 // equal to exactly 10 with no letters is the requirement.
                 if (valueLen == (static_cast<int>(IDXSIZE::PHONE) - 1)) {
                     strncpy(sms->phone, value, sizeof(sms->phone) - 1);
@@ -113,7 +113,7 @@ esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
                     meetsReq = true;
                 }
 
-            } else if (strcmp(key, "APIkey") == 0) {
+            } else if ((strcmp(key, "APIkey") == 0) && (sms != nullptr)) {
                 // equal to exactly 8 with characters within the scope
                 // of hexadecimal format.
                 if (valueLen == (static_cast<int>(IDXSIZE::APIKEY) - 1)) {
@@ -147,7 +147,7 @@ esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
                 NVS::nvs_ret_t stat = NVS::Creds::get()->write(
                     key, 
                     item->valuestring, 
-                    strlen(item->valuestring)
+                    strlen(item->valuestring) + 1 // Null terminator
                     );
 
                 if (stat == NVS::nvs_ret_t::NVS_WRITE_OK) {

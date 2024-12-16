@@ -1,7 +1,7 @@
 #include "Peripherals/Soil.hpp"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
-#include "Peripherals/Relay.hpp"
+#include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
@@ -11,10 +11,10 @@ namespace Peripheral {
 Soil::Soil(SoilParams &params) : 
 
     mtx(params.msglogerr), settings{
-        {0, false, CONDITION::NONE}, 
-        {0, false, CONDITION::NONE},
-        {0, false, CONDITION::NONE},
-        {0, false, CONDITION::NONE}
+        {0, false, ALTCOND::NONE}, 
+        {0, false, ALTCOND::NONE},
+        {0, false, ALTCOND::NONE},
+        {0, false, ALTCOND::NONE}
     }, params(params) {
     
     memset(this->readings, 0, SOIL_SENSORS);
@@ -110,7 +110,7 @@ void Soil::checkBounds() {
  
         switch (conf.condition) {
      
-            case CONDITION::LESS_THAN:
+            case ALTCOND::LESS_THAN:
            
             if (val < conf.tripValAlert) {
                 this->handleAlert(conf, true);
@@ -119,7 +119,7 @@ void Soil::checkBounds() {
             }
             break;
 
-            case CONDITION::GTR_THAN:
+            case ALTCOND::GTR_THAN:
            
             if (val > conf.tripValAlert) {
                 this->handleAlert(conf, true);
@@ -128,7 +128,7 @@ void Soil::checkBounds() {
             }
             break;
 
-            case CONDITION::NONE:
+            case ALTCOND::NONE:
             break;
         }
     };

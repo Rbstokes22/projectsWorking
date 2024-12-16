@@ -1,6 +1,8 @@
-// CURRENT NOTES: TH config has been broken down into alert and relay. All the work
-// has been done. Now work on removing the alt enable part, and ensure everything mirrors
-// the relay on both the socketCmdhandler and TempHum. Test again. 
+// CURRENT NOTES: Ready to test the alerts. Test both the relays again and the 
+// alerts to ensure they both set and unset. Ensure we detach as well by passing
+// condition none to turn off the relay. The only time the relay is detached is
+// when code 4 is passed. 
+
 
 // Next incorporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
@@ -192,17 +194,8 @@ void app_main() {
     light.init(0x39);
     sht.init(0x44); 
 
-    // THIS CAN NOW BE AN INIT STATIC CALL.
-    // Initialize NVS
-    esp_err_t nvsErr = nvs_flash_init();  // Handle err in future.
-    if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-       ESP_ERROR_CHECK(nvs_flash_erase());
-       nvsErr = nvs_flash_init();
-    }
-
-    printf("NVS STATUS: %s\n", esp_err_to_name(nvsErr));
-
     // Init credential singleton with global parameters above
+    // which will also init the NVS.
     NVS::Creds::get(&cp);
 
     // Mount spiffs with path /spiffs.

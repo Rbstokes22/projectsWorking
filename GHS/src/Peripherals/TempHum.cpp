@@ -66,8 +66,8 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
     static bool altToggle = true;
 
     // Mirrors the same setup as the relay activity.
-    if (!conf.alertsEn || !this->flags.immediate ||
-        ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == ALTCOND::NONE) { 
+    if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
+        conf.condition == ALTCOND::NONE) { 
         return;
     }
 
@@ -96,7 +96,8 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
                 this->data.tempC, this->data.tempF, this->data.hum
                 );
 
-        altToggle = alt->sendMessage(sms->APIkey, sms->phone, msg);
+        // Upon success, set to false.
+        altToggle = !alt->sendMessage(sms->APIkey, sms->phone, msg);
 
     } else {
         // Resets the toggle when the alert is set to off meaning that

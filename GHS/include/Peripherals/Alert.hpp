@@ -1,6 +1,8 @@
 #ifndef ALERT_HPP
 #define ALERT_HPP
 
+#include <cstdint>
+
 namespace Peripheral {
 
 enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
@@ -19,7 +21,6 @@ class Alert {
         const char* msg
     );
 };
-
 
 }
 

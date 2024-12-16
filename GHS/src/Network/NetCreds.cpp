@@ -88,10 +88,14 @@ const char* Creds::read(const char* key) {
 // if the the phone and API key length meet the requirements.
 // If not, will return nullptr, and those values will remain
 // unpopulated.
-SMSreq* Creds::getSMSReq() {
+SMSreq* Creds::getSMSReq(bool sendRaw) {
+    // Since this function returns a non-nullptr iff data meets requirements,
+    // this is called in the WAPSetupHandler so that it can populate this
+    // data and bypass the checks.
+    if (sendRaw) return &this->smsreq;
+
     // Shouldnt have to ensure proper format when reading since that
     // is controlled during the write phase.
-    
     size_t strSize = sizeof(this->smsreq.phone); // phone size
 
     // Check is phone is empty. If so, read from the NVS to 
@@ -117,7 +121,7 @@ SMSreq* Creds::getSMSReq() {
             strSize - 1
             );
 
-        this->smsreq.phone[strSize - 1] = '\0'; // null term.
+        this->smsreq.APIkey[strSize - 1] = '\0'; // null term.
     }
 
     // In this section we compare the the expected string length, of course
@@ -126,6 +130,7 @@ SMSreq* Creds::getSMSReq() {
     strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1; 
 
     if (strlen(this->smsreq.phone) != strSize) {
+        // printf("Size: %zu vs strlen %d, Data: %s\n", strSize, strlen(this->smsreq.phone), this->smsreq.phone);
         printf("SMS Request: phone does not meet requirements\n");
         return nullptr;
     }

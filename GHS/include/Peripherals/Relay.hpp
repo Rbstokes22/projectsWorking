@@ -2,6 +2,7 @@
 #define RELAY_HPP
 
 #include "driver/gpio.h"
+#include <cstdint>
 
 namespace Peripheral {
 
