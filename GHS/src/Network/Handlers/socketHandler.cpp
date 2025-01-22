@@ -14,7 +14,7 @@ argPool SOCKHAND::pool;
 
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack.
-argPool::argPool() : pool(), inUse{false} {}
+argPool::argPool() : pool() {memset(this->inUse, false, MAX_RESP_ARGS);}
 
 // Iterates the arg pool and returns a pointer to an open allocation.
 async_resp_arg* argPool::getArg() {
@@ -49,7 +49,10 @@ esp_err_t SOCKHAND::trigger_async_send(
     async_resp_arg* arg
     ) {
 
-    // parse the data for the cmd, supp, and id.
+    // parse/tokenize the data for the cmd, supp, and id. Must be ran 
+    // sequentially. cmd is the command, supp is supplementary data such 
+    // as temperature value, and id is the message ID sent by the client to
+    // ensure the async response is to the requested message.
     const char* cmd = strtok((char*)arg->Buf, "/");
     const char* supp = strtok(NULL, "/");
     const char* id = strtok(NULL, "/");
@@ -60,13 +63,12 @@ esp_err_t SOCKHAND::trigger_async_send(
     }
 
     // Set up the arg struct with the required data for the queue.
-    arg->hd = req->handle;
-    arg->fd = httpd_req_to_sockfd(req);
+    arg->hd = req->handle; // hd = handle
+    arg->fd = httpd_req_to_sockfd(req); // fd = file desriptor
     arg->data.cmd = static_cast<CMDS>(atoi(cmd));
     arg->data.suppData = atoi(supp);
-
     strncpy(arg->data.idNum, id, sizeof(arg->data.idNum));
-    arg->data.idNum[sizeof(arg->data.idNum)] = '\0';
+    arg->data.idNum[sizeof(arg->data.idNum)] = '\0'; // ensures null term
     
     return httpd_queue_work(handle, SOCKHAND::ws_async_send, arg);
 }
@@ -81,23 +83,31 @@ void SOCKHAND::ws_async_send(void* arg) {
     size_t bufSize = sizeof(respArg->Buf);
 
     memset(respArg->Buf, 0, bufSize);
+
+    // compiles data by executing commands and populating the buffer with the
+    // reply.
     SOCKHAND::compileData(respArg->data, (char*)respArg->Buf, bufSize);
 
-    // Sets payload to send back to client.
+    // Sets payload to buffer, to send back to client.
     wsPkt.payload = respArg->Buf;
     wsPkt.len = strlen((char*)respArg->Buf);
     wsPkt.type = HTTPD_WS_TYPE_TEXT;
 
     // Async sends response.
-    httpd_ws_send_frame_async(respArg->hd, respArg->fd, &wsPkt);
+    esp_err_t asyncSend = httpd_ws_send_frame_async(
+        respArg->hd, respArg->fd, &wsPkt
+        );
+
+    if (asyncSend != ESP_OK) {
+        printf("Socket error sending async response\n");
+    }
+
     // printf("Sending: %s\n", wsPkt.payload); 
 
     SOCKHAND::pool.releaseArg(respArg); // Release from arg Pool.
 }
 
-
-
-// Requires the address of the DHT, AS7341, and soil sensor mutex, and the
+// Requires the addresses of the SHT, AS7341, and soil sensor mutex, and the
 // relays. Returns true if none of those values == nullptr. False if false.
 bool SOCKHAND::init(Peripheral::Relay* relays) {
 
@@ -112,7 +122,7 @@ bool SOCKHAND::init(Peripheral::Relay* relays) {
 // returned.
 esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
     // NOTE 1: Returns ESP_OK to block the rest of the code being ran in 
-    // compliance of httpd_uri_t. 
+    // compliance of httpd_uri_t requirements. 
 
     // Upon the handshake from the client, completes the handshake returning
     // ESP_OK.
@@ -121,17 +131,12 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
         return ESP_OK;
     }
 
-    // Gets arg from the argPool.
+    // Gets first open arg from the argPool.
     async_resp_arg* arg = SOCKHAND::pool.getArg();
-    if (arg == NULL) {
+    if (arg == NULL) { // No availabilities
         printf("No available structures\n");
         return ESP_OK; // NOTE 1
     }
-
-    // Works off a dual buffer system, alternating buffers to allow copying of 
-    // data to the async_resp_arg structure, to be handle async.
-    // uint8_t* buffer = getBuffer();
-    esp_err_t ret;
 
     httpd_ws_frame_t wsPkt;
     memset(&wsPkt, 0, sizeof(httpd_ws_frame_t));
@@ -140,7 +145,7 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
     // Receives the frame from the client to determine the length of the 
     // incomming frame. By passing 0, we are asking the function to fill
     // in the wsPkt.len field with the requested size.
-    ret = httpd_ws_recv_frame(req, &wsPkt, 0);
+    esp_err_t ret = httpd_ws_recv_frame(req, &wsPkt, 0);
     if (ret != ESP_OK) {
         printf("httpd_ws_rec_frame failed to get frame len with %d\n", ret);
         return ESP_OK; // NOTE 1
@@ -164,7 +169,8 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     // printf("Frame length is %d\n", wsPkt.len);
 
-    // If the packet type matches, an async trigger is sent.
+    // If the packet type matches, an async trigger is sent,
+    // this is completed by request from the client.
     if (wsPkt.type == HTTPD_WS_TYPE_TEXT) {
         // printf("From Client: %s\n", wsPkt.payload);
         SOCKHAND::trigger_async_send(req->handle, req, arg);
@@ -172,9 +178,5 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     return ESP_OK;
 }
-
-
-
-
 
 }

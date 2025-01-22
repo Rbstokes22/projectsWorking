@@ -1,53 +1,67 @@
 #!/bin/bash
 
+pvt_key_path="buildData/keys/private_key.pem"
+pub_key_path="buildData/keys/public_key.pem"
+pvt_key_bits=2048
+primary_sig_path="data/app0firmware.sig"
+secondary_sig_path="data/app1firmware.sig"
+firmware_location=".pio/build/esp32dev/firmware.bin"
 signatureDest="/home/shadyside/Desktop/Programming/testServer/firmware/signature"
 firmwareDest="/home/shadyside/Desktop/Programming/testServer/firmware/firmware"
 
 # Generate keys if they do not exist
-if [ ! -f "buildData/keys/private_key.pem" ]; then 
-    openssl genpkey -algorithm RSA -out buildData/keys/private_key.pem -pkeyopt rsa_keygen_bits:2048
+if [ ! -f "${pvt_key_path}" ]; then 
+    openssl genpkey -algorithm RSA -out "${pvt_key_path}" -pkeyopt rsa_keygen_bits:"${pvt_key_bits}"
     echo "Private Key Created in buildData/keys"
 fi 
 
-if [ ! -f "buildData/keys/public_key.pem" ]; then 
-    openssl rsa -pubout -in buildData/keys/private_key.pem -out buildData/keys/public_key.pem
+if [ ! -f "${pub_key_path}" ]; then 
+    openssl rsa -pubout -in "${pvt_key_path}" -out "${pub_key_path}"
     echo "Public Key Created in buildData/keys. Copy public key into firmwareVal.cpp"
 fi 
 
 # Compiles the firmware.bin
-pio run 
+if ! pio run; then 
+    echo "Error compiling firmware"
+    exit 1
+fi
 
-# Once compiled you will see the byte size
-firmware_size=$(stat -c %s .pio/build/esp32dev/firmware.bin)
-signature_size=$(stat -c %s data/app0firmware.sig);
-echo "Update config.hpp FIRMWARE_SIZE = $firmware_size, FIRMWARE_SIG_SIZE = $signature_size"
+# Once compiled you will see the byte size based on the size of the private
+# key used. 
+firmware_size=$(stat -c %s "${firmware_location}")
+signature_size=$((pvt_key_bits / 8)); 
+echo "Update config.hpp FIRMWARE_SIZE = ${firmware_size}, FIRMWARE_SIG_SIZE = ${signature_size}"
 
 # prompts use to save the updated size
 read -p "Press enter once size is updated and saved"
 
 # Recompiles with the updated size 
-pio run
+if ! pio run; then 
+    echo "Error recompiling firmware"
+    exit 1
+fi
 
 # The file is ready to be written to esp32. Generates the signatures and writes
 # them as app0firmware.sig. Generates the crc of the signature and appends
 # it to the file. Copies the data to app1firmware.sig to be uploaded together.
-openssl dgst -sha256 -sign buildData/keys/private_key.pem -out data/app0firmware.sig .pio/build/esp32dev/firmware.bin 
-./buildData/gencrc >> data/app0firmware.sig # appends checksum to signature file.
-cp data/app0firmware.sig data/app1firmware.sig
+# The signature will be 256 bytes + 4 bytes for the checksum. Using -sha256 says
+# first hash this document using -sha256, and then sign it using that key. The file
+# size will always be the size of the key, in this case a 2048 is 256 bytes. 
+openssl dgst -sha256 -sign "${pvt_key_path}" -out "${primary_sig_path}" "${firmware_location}" 
+cp "${primary_sig_path}" "${secondary_sig_path}"
 
 # run a prompt to automatically write
 read -p "a) USB write b) LAN OTA write c) manual write: " response
 
-if [[ "$response" == [aA] ]]; then 
+if [[ "${response}" == [aA] ]]; then 
     echo "Proceeding to write to the ESP via USB..."
-    pio run --target uploadfs 
-    pio run --target upload 
+    pio run --target uploadfs && pio run --target upload 
 
-elif [[ "$response" ==  [bB] ]]; then
+elif [[ "${response}" ==  [bB] ]]; then
     echo "Proceeding to write to the ESP via OTA..."
     isRunning=$(curl -s http://localhost:5555)
 
-    if [ "$isRunning" != "Success" ]; then 
+    if [ "${isRunning}" != "Success" ]; then 
         node buildData/OTAserver/server.js &
         serverPID=$!
         echo "Server started with PID: ${serverPID}"
@@ -59,7 +73,7 @@ elif [[ "$response" ==  [bB] ]]; then
 
     echo "Running http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:5555"
     curl "http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:5555"
-    kill $serverPID
+    kill "${serverPID}"
 
     # Server self terminates
 
@@ -68,14 +82,14 @@ else
 
     read -p "Would you like to send the signature and firmware to the server? (y/n)" copyData
 
-    if [[ "$copyData" == [yY] ]]; then
+    if [[ "${copyData}" == [yY] ]]; then
         read -p "What version is your firmware? " version
         
         echo "Copying signature to ${signatureDest}"
-        cp data/app0firmware.sig ${signatureDest}/S${version}.sig
+        cp "${primary_sig_path}" "${signatureDest}"/S"${version}".sig
 
         echo "Copying firmware to ${firmwareDest}"
-        cp .pio/build/esp32dev/firmware.bin ${firmwareDest}/F${version}.bin
+        cp "${firmware_location}" "${firmwareDest}"/F"${version}".bin
 
         echo "Complete"
     fi 

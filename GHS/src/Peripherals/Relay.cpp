@@ -155,9 +155,11 @@ RESTATE Relay::getState() {
     return this->relayState;
 }
 
-// Used to set single relay timer. Requires true or false if setting
-// the on or off position, as well as the time in seconds. Returns
-// true for successful setting, and false if not.
+// Requires bool on or off, to set the on or off time, as well as the time.
+// The value passed must be between 0 and 86399, and the value 99999 will
+// set the on and off setting to false preventing the relay from being 
+// energized on time schedule. Returns true if successful, or false if
+// parameters are exceeded.
 bool Relay::timerSet(bool on, uint32_t time) {
     if (time == 99999) { // 99999 Will disable the timer.
         timer.onSet = timer.offSet = false;

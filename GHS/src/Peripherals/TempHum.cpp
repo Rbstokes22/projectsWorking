@@ -9,8 +9,8 @@ namespace Peripheral {
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0}, 
-    flags{false, true}, mtx(params.msglogerr), // !!! Change these back to false once testing complete, this forces bypass
-
+    flags{false, true}, // !!!change immediate flag to true for testing
+    mtx(params.msglogerr), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
@@ -21,7 +21,6 @@ TempHum::TempHum(TempHumParams &params) :
 
 // NOTES HERE ONCE TESTED
 void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
-    
     Threads::MutexLock(this->mtx); 
     // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
     // Returns to prevent relay activity if:
@@ -98,6 +97,12 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
 
         // Upon success, set to false.
         altToggle = !alt->sendMessage(sms->APIkey, sms->phone, msg);
+        
+        if (!altToggle) {
+            printf("Alert: Message Sent.\n");
+        } else {
+            printf("Alert: Message Not Sent.\n");
+        }
 
     } else {
         // Resets the toggle when the alert is set to off meaning that
@@ -255,7 +260,7 @@ float TempHum::getHum() {
 }
 
 // Defaults to Celcius.
-float TempHum::getTemp(char CorF) {
+float TempHum::getTemp(char CorF) { // Cel or Faren
     Threads::MutexLock(this->mtx);
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;

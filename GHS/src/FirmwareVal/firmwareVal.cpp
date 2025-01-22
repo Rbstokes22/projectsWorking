@@ -67,7 +67,7 @@ VAL validateSig(
     ) {
 
     uint8_t hash[32]{0};
-    uint8_t sig[FWSigSize - 4]{0}; // account for checksum Removal
+    uint8_t sig[FWSigSize]{0}; 
 
     char label[20]{0}; // Gets label name either app0 or app1
     strcpy(label, partition->label);
@@ -145,12 +145,10 @@ VAL readPartition(
 
 // Accepts uint8_t pointer that the signature will be copied to, as 
 // well as the size and partition label. Copies the spiffs file 
-// signature to the passed pointer and checks the integrity by
-// its appended crc32 value. Returns the size of the signature.
+// signature to the passed pointer and returns the size of the signature.
 size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
     size_t bytesRead{0};
-    uint8_t buffer[sigSize + 4]; // Account for checksum Addition
-    uint32_t storedCS{0};
+    uint8_t buffer[sigSize]; 
     char filepath[35]{0};
 
     sprintf(filepath, "/spiffs/%sfirmware.sig", label); // either app0 or app1
@@ -163,76 +161,13 @@ size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
 
     // Reads the file into the buffer.
     bytesRead = fread(buffer, 1, sizeof(buffer), f);
-    size_t sigLen = bytesRead - 4; // Account for CS removal.
     
     // Copies the signature portion of the buffer to the signature, and
     // the checksum portion to the storedCS value.
     memcpy(signature, buffer, sigSize); // 256 bytes for the signature
-    memcpy(&storedCS, buffer + sigSize, sizeof(storedCS)); // 4 bytes for the CS
     fclose(f);
 
-    // Computes the checksum of the signature.
-    uint32_t CS = computeCS(signature, sigLen);
-
-    // Proceeds if the checksum value is correct.
-    if (storedCS == CS && CSsafe) {
-        printf("Signature Checksum OK\n");
-        return sigLen;
-    } else {
-        printf("Signature Checksum FAIL. Exp: %zu, Act: %zu\n",
-            (size_t)storedCS, (size_t)CS);
-
-        return 0;
-    }
-}
-
-// Takes in a pointer to the unit8_t array, and its size in values,
-// and returns the uint32_t checksum. 
-uint32_t computeCS(const uint8_t* data, size_t size) {
-
-    // If bad data is sent to checksum, returns a max value and
-    // sets the flag for bad data.
-    if (data == nullptr || size == 0) {
-        CSsafe = false; 
-        printf("Checksum invalid\n");
-        return 0xFFFFFFFF;
-
-    } else {
-
-        // Creates a pointer that points to the bytes of the data
-        // by casting the pointer as a uint8_t type.
-        const uint8_t* bytes = static_cast<const uint8_t*>(data);
-
-        // Good data was sent, so flag is set to true.
-        CSsafe = true;
-
-        // Inits the crc32 at max value to ensure all leading bits 
-        // are set which helps process data starting with zeros.
-        uint32_t crc32 = 0xFFFFFFFF;
-
-        // Each byte is iterated for the size passed, which is why
-        // the correct size is crucial.
-        for(size_t addr = 0; addr < size; addr++) {
-
-            // The crc32 is then xor with the byte data, which is a method
-            // to integrate the bytes into the crc32 in a non destructive 
-            // way. Everything is reversable and bits. This iteration
-            // goes bit by bit shifting  or shifting and xoring with the 
-            // polynomial when the least significant bit == 1. 
-            crc32 ^= bytes[addr];
-
-            for(size_t bit = 0; bit < 8; bit++) {
-                if (crc32 & 1) {
-                    crc32 = (crc32 >> 1) ^ 0xEDB88320;
-                } else {
-                    crc32 >>= 1;
-                }
-            }
-        }
-
-        // Ensures it does not return 0 with a 0 input.
-        return crc32 ^ 0xFFFFFFFF;
-    }
+    return bytesRead; // Signature length
 }
 
 // Takes the firmware hash, signature hash, and the signature length.
@@ -243,7 +178,7 @@ VAL verifySig(
     size_t signatureLen
     ) {
 
-    mbedtls_pk_context pk;
+    mbedtls_pk_context pk; // public key container
     mbedtls_pk_init(&pk);
 
     // Load the public key from this source file.

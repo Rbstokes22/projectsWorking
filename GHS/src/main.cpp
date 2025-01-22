@@ -1,8 +1,21 @@
-// CURRENT NOTES: Ready to test the alerts. Test both the relays again and the 
-// alerts to ensure they both set and unset. Ensure we detach as well by passing
-// condition none to turn off the relay. The only time the relay is detached is
-// when code 4 is passed. 
+// CURRENT NOTES: In test mode for Alerts. Ensuring that the client receives the 
+// OK response from the server, and then it returns and makes adjustment knowing
+// that the status. I am getting a content length of 2 which is correct, but the
+// read length is 0. Consider doing each step manually, if this cannot be figured 
+// out, sort of like OTA handling.
 
+//Removed checksum appending and updated both firmwareVal.cpp and
+// buildData.sh. Needs testing to ensure that OTA is updated fine on both LAN write
+// and web write.
+
+// Ensure the alerts response from the server "OK" is read by the client when
+// sending an alert, and depending on that response, it will reply with a bool.
+
+// Continue building and commenting temphum. Currently on averages,
+// maybe look at building a command that clears, a command that emails or sends alert,
+// a command that does both, or maybe make it a timer thing. When the client sets the
+// time they want to receive it, a clear command will come following an alert being sent
+// the the client as well. Once done, test and comment temphum and move on.
 
 // Next incorporate a similar RW packet into the AS7341 driver, maybe even the soil
 // if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
@@ -15,7 +28,8 @@
 // of timing at a certain intensity. Since the photoresistor will be above any artifical
 // lighting, it will not be affected by it, once turned on. Maybe we use the clear
 // channel to count for total accumulation? I dont think this will be too difficult
-// when implementing. 
+// when implementing. FOR SOIL OR LIGHT, IF CONDITIOSN ARE CHANGED, THE NOTES IN THE 
+// COMMAND HANDLER MIGHT NEED TO BE AMENDED AS WELL.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

@@ -5,6 +5,8 @@
 
 namespace Peripheral {
 
+#define JSON_DATA_SIZE 256 // used in send message
+
 enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
 
 class Alert {

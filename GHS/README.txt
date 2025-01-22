@@ -75,4 +75,33 @@ The update will then commence
 
 To update via Webpage, ...
 
+// Socket Commands
+
+All commands are in the format <uint8_t command>/<int value>/<message ID>
+
+command: Passed to the socket indicating action
+value: value used in the command
+message ID: Sent back to client with info to allow client to execute callback
+            based on that ID.
+
+Below will be the commands and will be in a format like above. It will give
+the command/value range if applicable or NR (not required)/ID
+
+1/NR/ID: Gets all of the current data from the controller
+
+2/0-86399/ID: Calibrates the controller time in seconds past midnight with 
+    the client time. This allows all timers to execute at appropriate times.
+
+3/0-3/ID: Changes the relay 1 status to off (0), on (1), forceoff(2), or 
+    remove force (3). This is to control relays manually as opposed to having
+    them set to specific sensors only. All devices using a relay have their
+    ID in a list as being attached to that relay, and the relay cannot shut off
+    until all of these IDs are removed. Using forceoff, will override and shut
+    relay off despite other process using them. The force must be removed.
+
+4/0-3/ID: Same as 3, applies to relay 2.
+5/0-3/ID: Same as 3, applies to relay 3.
+6/0-3/ID: Same as 3, applies to relay 4.
+
+
 
