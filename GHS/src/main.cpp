@@ -1,15 +1,13 @@
-// CURRENT NOTES: In test mode for Alerts. Ensuring that the client receives the 
-// OK response from the server, and then it returns and makes adjustment knowing
-// that the status. I am getting a content length of 2 which is correct, but the
-// read length is 0. Consider doing each step manually, if this cannot be figured 
-// out, sort of like OTA handling.
+// CURRENT NOTES: 
 
-//Removed checksum appending and updated both firmwareVal.cpp and
+// Ave3rages almost built, build compile data. Once done, update the socketCmdhandler
+// to ensure that the get all command returns the timer information used for averages
+// and that the send_averages_set_time is set up. Once complete, go ahead and test
+// the alerts that it works with the server.
+
+// NEXT: Removed checksum appending and updated both firmwareVal.cpp and
 // buildData.sh. Needs testing to ensure that OTA is updated fine on both LAN write
 // and web write.
-
-// Ensure the alerts response from the server "OK" is read by the client when
-// sending an alert, and depending on that response, it will reply with a bool.
 
 // Continue building and commenting temphum. Currently on averages,
 // maybe look at building a command that clears, a command that emails or sends alert,

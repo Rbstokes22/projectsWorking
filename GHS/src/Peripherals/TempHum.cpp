@@ -63,6 +63,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
     // alert is sent, this is changed to false, and will not change back to
     // true until temp and/or hum, has entered back into acceptable values.
     static bool altToggle = true;
+    static uint8_t attempts = 0;
 
     // Mirrors the same setup as the relay activity.
     if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -96,12 +97,21 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
                 );
 
         // Upon success, set to false.
-        altToggle = !alt->sendMessage(sms->APIkey, sms->phone, msg);
+        altToggle = !alt->sendAlert(sms->APIkey, sms->phone, msg);
         
         if (!altToggle) {
             printf("Alert: Message Sent.\n");
+            attempts = 0; // Resets value
         } else {
             printf("Alert: Message Not Sent.\n");
+            attempts++; // Increase value to avoid oversending
+        }
+
+        // For an unsuccessful server response, after reaching max attempt 
+        // value, set to false to prevent further trying. Will reset once 
+        // the temp or hum is within its acceptable values.
+        if (attempts >= ALT_MSG_ATT) {
+            altToggle = false;
         }
 
     } else {
@@ -109,6 +119,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
         // satisfactory conditions prevail. This will allow a message
         // to be sent if it exceeds the limitations.
         altToggle = true;
+        attempts = 0;
     }
 }
 
@@ -307,7 +318,7 @@ void TempHum::clearAverages() {
     this->averages.pollCt = 0;
 }
 
-void TempHum::test(bool isTemp, float val) { // COMMENT OUT WHEN NOT USED
+void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT USED
     Threads::MutexLock(this->mtx);
     if (isTemp) {
         this->data.tempC = val;

@@ -55,7 +55,7 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
     IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
     IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
     IDSTATE::AVAILABLE}, clientQty(0),
-    timer{0, 0, false, false, false} {}
+    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false} {}
 
 // Requires controller ID. Checks if ID is currently registered as a client
 // of the relay, if not, returns false. If successful, changes the client
@@ -161,7 +161,7 @@ RESTATE Relay::getState() {
 // energized on time schedule. Returns true if successful, or false if
 // parameters are exceeded.
 bool Relay::timerSet(bool on, uint32_t time) {
-    if (time == 99999) { // 99999 Will disable the timer.
+    if (time == RELAY_TIMER_OFF) { // 99999 Will disable the timer.
         timer.onSet = timer.offSet = false;
         return true;
     } else if (time >= 86400) { // Seconds per day

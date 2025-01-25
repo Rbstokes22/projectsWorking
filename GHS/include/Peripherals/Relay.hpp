@@ -8,6 +8,7 @@ namespace Peripheral {
 
 // Specifies the max amount of devices that can control single relay.
 #define RELAY_IDS 10 
+#define RELAY_TIMER_OFF 99999
 
 enum class RECOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Relay condition
 enum class RESTATE : uint8_t {OFF, ON, FORCED_OFF, FORCE_REMOVED};

@@ -10,9 +10,10 @@
 
 namespace Peripheral {
 
-#define TEMP_HUM_HYSTERESIS 2.0f 
+#define TEMP_HUM_HYSTERESIS 2.0f // Padding for reset value
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
+#define ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess (< 256)
 
 // Alert configuration. The on and off counts are to ensure that consecutive
 // counts are taken into consideration before sending or resetting alert.
@@ -73,7 +74,7 @@ class TempHum {
     void handleAlert(alertConfig &config, bool alertOn, uint32_t ct);
     void relayBounds(float value, relayConfig &conf);
     void alertBounds(float value, alertConfig &conf);
-
+    
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
     bool read();

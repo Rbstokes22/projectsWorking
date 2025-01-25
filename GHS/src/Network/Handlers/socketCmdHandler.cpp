@@ -56,7 +56,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\":%d,"
         "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\":%d,"
         "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\":%d,"
-        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d}",
+        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d,"
+        "\"avgSendTime\":%zu}",
         FIRMWARE_VERSION, 
         data.idNum,
         static_cast<size_t>(time->raw),
@@ -95,6 +96,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getConfig(3)->tripValAlert, soil->getConfig(3)->alertsEn,
         soil->getStatus(0)->display, soil->getStatus(1)->display,
         soil->getStatus(2)->display, soil->getStatus(3)->display
+        // !!! AVERAGE SEND TIME HERE ONCE BUILT
         );
         }
         break;
@@ -540,15 +542,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Clears the temperature and humidity averages by resetting them to 
-        // 0. BEGIN HERE !!!
-        case CMDS::CLEAR_TH_AVERAGES:
-        Peripheral::TempHum::get()->clearAverages();
-        written = snprintf(buffer, size, reply, 1, "Averages cleared", 0,
-            data.idNum);
-
-        break;
-
         // Sets soil 1 alert to send if lower than that supp data passed.
         // Supp data will be between 1 and 4094, and is an analog reading of
         // the capacitance of the soil. There is no calibration, so each sensor
@@ -758,6 +751,23 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             data.suppData, data.idNum);
         }
         
+        break;
+
+        // Clears the temperature and humidity averages by resetting them to 
+        // 0. BEGIN HERE !!! MOVE THIS TO BOTTOM BEFORE TEST 1. THIS CAN SET
+        // A SEND TIME EACH DAY AND RUN THE ATTEMPTS TO SEND. 
+        // THIS WILL SERVE
+        // AS GET ALL AVERAGES. THIS WILL BE THE PRIMARY COMPILER TO SEND THE
+        // ALERT RATHER THAN IN THE SORCE FILES LIKE TEMPHUM.CPP. THOSE CLASSES
+        // STILL NEED TO HAVE A CLEAR PUBLIC METHOD, THAT CAN CLEAR. TAKE THE 
+        // IDEA IN TEMPHUM.CPP AND INCLUDE THE ATTEMPTS OR SOME SORT OF 8T VALUE
+        // THAT WILL MEAN SEND, OR SEND AND CLEAR, OR SEND AND FORCE...
+        // AND THIS WILL 
+        case CMDS::SEND_AVERAGES_SET_TIME:
+        if (SOCKHAND::inRange(0, 86399, data.suppData)) {
+            // ONCE BUILT, SET UP IN HERE
+        }
+
         break;
 
         // !!! Build light stuff here.
