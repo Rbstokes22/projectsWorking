@@ -9,6 +9,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
+#include "Peripherals/Report.hpp"
 
 namespace ThreadTask {
 
@@ -80,14 +81,18 @@ void soilTask(void* parameter) { // Soil sensors
     }
 }
 
-void relayTask(void* parameter) {
-    Threads::relayThreadParams* params = 
-        static_cast<Threads::relayThreadParams*>(parameter);
+void routineTask(void* parameter) {
+    Threads::routineThreadParams* params = 
+        static_cast<Threads::routineThreadParams*>(parameter);
 
     while (true) {
+        // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
             params->relays[i].manageTimer(); // Acquires first control ID
         }
+
+        // Manage the timer of the daily report.
+        Peripheral::Report::get()->manageTimer();
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }

@@ -9,7 +9,7 @@
 
 namespace Comms {
 
-#define BUF_SIZE 1024 // Large to accomodate the get all call
+#define BUF_SIZE 1500 // Large to accomodate the get all call
 #define MAX_RESP_ARGS 10 // Max response arguments
 
 #define SHT_MIN -39 // Datasheet is -40, but you cant set lower than that.
@@ -31,12 +31,12 @@ enum class CMDS : uint8_t {
     SET_TEMP_ALT_COND_NONE,
     ATTACH_HUM_RELAY, SET_HUM_RE_LWR_THAN, SET_HUM_RE_GTR_THAN, 
     SET_HUM_RE_COND_NONE, SET_HUM_ALT_LWR_THAN, SET_HUM_ALT_GTR_THAN,
-    SET_HUM_ALT_COND_NONE,
+    SET_HUM_ALT_COND_NONE, CLEAR_TEMPHUM_AVG,
     SET_SOIL1_LWR_THAN, SET_SOIL1_GTR_THAN, SET_SOIL1_COND_NONE,
     SET_SOIL2_LWR_THAN, SET_SOIL2_GTR_THAN, SET_SOIL2_COND_NONE,
     SET_SOIL3_LWR_THAN, SET_SOIL3_GTR_THAN, SET_SOIL3_COND_NONE,
     SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE,
-    SEND_AVERAGES_SET_TIME, 
+    SEND_REPORT_SET_TIME, 
     TEST1, TEST2
 };
 
@@ -82,7 +82,7 @@ class SOCKHAND {
         uint8_t relayNum, 
         Peripheral::TH_TRIP_CONFIG* conf
         );
-    static bool inRange(int lower, int upper, int value);
+    static bool inRange(int lower, int upper, int value, int exception = -999);
     
     public:
     static bool init(Peripheral::Relay* relays);

@@ -46,6 +46,8 @@ struct TH_Averages {
     size_t pollCt; // How many times has sensor been polled
     float temp; // temp accum / pollCt
     float hum; // hum accum / pollCt
+    float prevTemp; // Previous values copied when cleared.
+    float prevHum;
 };
 
 struct TempHumParams {

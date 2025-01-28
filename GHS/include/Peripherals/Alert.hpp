@@ -2,12 +2,14 @@
 #define ALERT_HPP
 
 #include <cstdint>
+#include "esp_http_client.h"
 
 namespace Peripheral {
 
 #define ALT_JSON_DATA_SIZE 256 // used in send alert
-#define AVG_JSON_DATA_SIZE 512 // used in send Averages
+#define REP_JSON_DATA_SIZE 512 // used in send report to server
 #define MSG_RESPONSE_SIZE 16 // used to receive response from server
+#define WEB_URL_SIZE 64 // used in prepMsg
 
 enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
 
@@ -22,7 +24,7 @@ class Alert {
     public:
     static Alert* get();
     bool sendAlert(const char* APIkey, const char* phone, const char* msg);
-    bool sendAverages(const char* JSONmsg);
+    bool sendReport(const char* JSONmsg);
 };
 
 }

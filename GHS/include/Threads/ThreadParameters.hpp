@@ -59,12 +59,12 @@ struct soilThreadParams {
         adc_oneshot_unit_handle_t &adc_unit);
 };
 
-struct relayThreadParams {
+struct routineThreadParams {
     uint32_t delay;
     Peripheral::Relay* relays;
     size_t relayQty;
     
-    relayThreadParams(
+    routineThreadParams(
         uint32_t delay, 
         Peripheral::Relay* relays, 
         size_t relayQty

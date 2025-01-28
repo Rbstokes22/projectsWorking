@@ -8,7 +8,7 @@ namespace Peripheral {
 
 TempHum::TempHum(TempHumParams &params) : 
 
-    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0}, 
+    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0, 0, 0}, 
     flags{false, true}, // !!!change immediate flag to true for testing
     mtx(params.msglogerr), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
@@ -165,7 +165,7 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
             }
         break;
 
-        case RECOND::NONE: // Placeholder
+        case RECOND::NONE: // Placeholder but required
         // If set to none, relay will be detached from the sensor.
         break;
     }
@@ -311,8 +311,11 @@ TH_Averages* TempHum::getAverages() {
     return &this->averages;
 }
 
+// Clears the current data after copying it over to the previous values.
 void TempHum::clearAverages() {
     Threads::MutexLock(this->mtx);
+    this->averages.prevHum = this->averages.hum;
+    this->averages.prevTemp = this->averages.temp;
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0;

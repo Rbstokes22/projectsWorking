@@ -1,4 +1,5 @@
 #include "Peripherals/Alert.hpp"
+#include <cstdint>
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
 #include "esp_transport.h"
@@ -21,7 +22,7 @@ Alert* Alert::get() {
 bool Alert::prepMsg(const char* jsonData) {
 
     esp_err_t err;
-    char url[100] = WEBURL; // URL stored in config.h
+    char url[WEB_URL_SIZE] = WEBURL; // URL stored in config.h
     strcat(url, ALERT_PATH); // Append API path to url.
 
     // Configure POST message and attach default crt bundle. 
@@ -145,15 +146,16 @@ bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg) {
 // Requires message of json type that have KV pairs of the average type, such
 // as tempCAvg. Ensure that server response with "OK" or "FAIL" depending on 
 // success. If "OK", returns true, if anything else, returns false.
-bool Alert::sendAverages(const char* JSONmsg) {
+bool Alert::sendReport(const char* JSONmsg) {
 
+    const char* jsonPrep = "{\"report\":%s}";
+    const size_t adjustedSize = strlen(jsonPrep) + REP_JSON_DATA_SIZE;
     // Create JSON from passed arguments and set the write length for headers.
-    char jsonData[AVG_JSON_DATA_SIZE] = {0}; // size should suffice
-    int written = snprintf(jsonData, sizeof(jsonData),
-        "{\"averages\":\"%s\"}", JSONmsg);
+    char jsonData[adjustedSize] = {0}; 
+    int written = snprintf(jsonData, adjustedSize, jsonPrep, JSONmsg);
 
     // Ensure that the appropriate amount of data is written.
-    if (written < 0 || written > AVG_JSON_DATA_SIZE) return false;
+    if (written < 0 || written > adjustedSize) return false;
 
     return this->prepMsg(jsonData);
 }

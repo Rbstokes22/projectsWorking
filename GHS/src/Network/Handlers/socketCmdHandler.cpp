@@ -8,6 +8,7 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Light.hpp"
 #include "Peripherals/Soil.hpp"
+#include "Peripherals/Report.hpp"
 #include "Common/Timing.hpp"
 
 namespace Comms {
@@ -52,12 +53,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
         "\"humAltCond\":%u,\"humAltVal\":%d,"
         "\"SHTUp\":%d,\"tempAvg\":%0.2f,\"humAvg\":%0.2f,"
+        "\"tempAvgPrev\":%0.2f,\"humAvgPrev\":%0.2f,"
         "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\":%d,"
         "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\":%d,"
         "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\":%d,"
         "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\":%d,"
         "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d,"
-        "\"avgSendTime\":%zu}",
+        "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
         static_cast<size_t>(time->raw),
@@ -86,6 +88,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getStatus().display,
         th->getAverages()->temp,
         th->getAverages()->hum,
+        th->getAverages()->prevTemp,
+        th->getAverages()->prevHum,
         soilReadings[0], static_cast<uint8_t>(soil->getConfig(0)->condition),
         soil->getConfig(0)->tripValAlert, soil->getConfig(0)->alertsEn,
         soilReadings[1], static_cast<uint8_t>(soil->getConfig(1)->condition),
@@ -95,8 +99,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soilReadings[3], static_cast<uint8_t>(soil->getConfig(3)->condition),
         soil->getConfig(3)->tripValAlert, soil->getConfig(3)->alertsEn,
         soil->getStatus(0)->display, soil->getStatus(1)->display,
-        soil->getStatus(2)->display, soil->getStatus(3)->display
-        // !!! AVERAGE SEND TIME HERE ONCE BUILT
+        soil->getStatus(2)->display, soil->getStatus(3)->display,
+        Peripheral::Report::get()->getTimeData()->isSet,
+        Peripheral::Report::get()->getTimeData()->timeSet
         );
         }
         break;
@@ -197,7 +202,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         //APPLIES FOR RELAYS 1 - 4
         case CMDS::RELAY_1_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0, 
                 data.idNum);
         } else {
@@ -212,7 +217,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // be passed and the timer will be set to turn off when the system time
         // reaches that value in seconds. APPLIES FOR RELAYS 1 - 4
         case CMDS::RELAY_1_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0, 
                 data.idNum);
         } else {
@@ -224,7 +229,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_2_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
                 data.idNum);
         } else {
@@ -236,7 +241,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_2_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
                 data.idNum);
         } else {
@@ -248,7 +253,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_3_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
                 data.idNum);
         } else {
@@ -260,7 +265,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_3_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) {
             written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
                 data.idNum);
         } else {
@@ -272,7 +277,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_4_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
                 data.idNum);
         } else {
@@ -284,7 +289,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::RELAY_4_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) { // seconds per day
+        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
                 data.idNum);
         } else {
@@ -542,6 +547,14 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Clears the temperature and humidity average values. This will 
+        // typically be done once 
+        case CMDS::CLEAR_TEMPHUM_AVG: {
+            Peripheral::TempHum::get()->clearAverages();
+            written = snprintf(buffer, size, reply, 1, "TH Avg Clear", 0, 
+                data.idNum);
+        }
+
         // Sets soil 1 alert to send if lower than that supp data passed.
         // Supp data will be between 1 and 4094, and is an analog reading of
         // the capacitance of the soil. There is no calibration, so each sensor
@@ -753,19 +766,18 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
-        // Clears the temperature and humidity averages by resetting them to 
-        // 0. BEGIN HERE !!! MOVE THIS TO BOTTOM BEFORE TEST 1. THIS CAN SET
-        // A SEND TIME EACH DAY AND RUN THE ATTEMPTS TO SEND. 
-        // THIS WILL SERVE
-        // AS GET ALL AVERAGES. THIS WILL BE THE PRIMARY COMPILER TO SEND THE
-        // ALERT RATHER THAN IN THE SORCE FILES LIKE TEMPHUM.CPP. THOSE CLASSES
-        // STILL NEED TO HAVE A CLEAR PUBLIC METHOD, THAT CAN CLEAR. TAKE THE 
-        // IDEA IN TEMPHUM.CPP AND INCLUDE THE ATTEMPTS OR SOME SORT OF 8T VALUE
-        // THAT WILL MEAN SEND, OR SEND AND CLEAR, OR SEND AND FORCE...
-        // AND THIS WILL 
-        case CMDS::SEND_AVERAGES_SET_TIME:
-        if (SOCKHAND::inRange(0, 86399, data.suppData)) {
-            // ONCE BUILT, SET UP IN HERE
+        // Sets the second past midnight that the daily report is set to send.
+        // IF value 99999 is passed, it will shut the timer down until reset
+        // with a proper integer.
+        case CMDS::SEND_REPORT_SET_TIME:
+        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, TIMER_OFF)) {
+            written = snprintf(buffer, size, reply, 0, "Report timer bust", 0, 
+                data.idNum);
+        } else {
+            Peripheral::Report::get()->setTimer(data.suppData);
+
+            written = snprintf(buffer, size, reply, 1, "Report Time set", 
+            data.suppData, data.idNum);
         }
 
         break;
@@ -835,11 +847,14 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
     }
 }
 
-// Requires lower and upper bounds, and the value. Returns true
-// if the value is within the bounds. Use this for all data that
-// uses data.suppData.
-bool SOCKHAND::inRange(int lower, int upper, int value) {
-        return (value >= lower && value <= upper);
+// Requires the lower and upper bounds, the value, and the exception value.
+// The exception value is if a value is out of range, but equals the exception,
+// it continues. An example is if you have the seconds of the day for a timer,
+// it can look like inRange(0, 86399, 4252, 99999), which will determine if 
+// 4252 is between 0 and 86399, or if it equals 99999. The default exception
+// is set to -999. Returns true if good, or false if not.
+bool SOCKHAND::inRange(int lower, int upper, int value, int exception) {
+        return ((value >= lower && value <= upper) || (value == exception));
 }
 
 }

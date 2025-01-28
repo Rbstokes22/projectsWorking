@@ -14,7 +14,7 @@
 #define LAN_OTA_SIG_PATH "/sigUpdate" 
 #define LAN_OTA_FIRMWARE_PATH "/FWUpdate"
 #define FIRMWARE_SIZE 1198720
-#define FIRMWARE_SIG_SIZE 260
+#define FIRMWARE_SIG_SIZE 256
 
 // Web Paths
 #define ALERT_PATH "/Alerts"

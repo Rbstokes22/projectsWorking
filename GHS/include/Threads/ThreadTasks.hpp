@@ -7,7 +7,7 @@ void netTask(void* parameter);
 void SHTTask(void* parameter);
 void AS7341Task(void* parameter);
 void soilTask(void* parameter);
-void relayTask(void* parameter);
+void routineTask(void* parameter);
 
 }
 

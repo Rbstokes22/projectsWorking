@@ -1,33 +1,26 @@
 // CURRENT NOTES: 
 
-// Ave3rages almost built, build compile data. Once done, update the socketCmdhandler
-// to ensure that the get all command returns the timer information used for averages
-// and that the send_averages_set_time is set up. Once complete, go ahead and test
-// the alerts that it works with the server.
+// Comment out temphum and then move to testing.
 
-// NEXT: Removed checksum appending and updated both firmwareVal.cpp and
-// buildData.sh. Needs testing to ensure that OTA is updated fine on both LAN write
-// and web write.
+// Reports done and need to be tested to ensure that they send with the programmed
+// and default modes, so programmed and at 2359.
 
-// Continue building and commenting temphum. Currently on averages,
-// maybe look at building a command that clears, a command that emails or sends alert,
-// a command that does both, or maybe make it a timer thing. When the client sets the
-// time they want to receive it, a clear command will come following an alert being sent
-// the the client as well. Once done, test and comment temphum and move on.
+// Removed checksum appending and updated firmwareVal. Test to ensure that OTA works
+// via LAN and web using ngrok.
 
-// Next incorporate a similar RW packet into the AS7341 driver, maybe even the soil
-// if warranted. Ensure with the AS7341 drvr, there is a timeout method that mirrors the
-// SHT driver.
+// Once tests are complete, move to soil and mirror some features of tempHum. Averages
+// are not important here, since all reporting will use only current values since not
+// a significant change in average is expected in a 24 hour basis. Look at potentially
+// creating a simliar RW packet into soil as there is in the temphum. This might not
+// work here.
 
-// Finally, mirror the soil and light with the tempHum setup. Explore how relays
-// and/or alerts will work for the as7341. Will a relay be energized at a certain
-// darkness level, which will turn on artifical light, and once total light has been
-// met, shut the relay off? How will total light be met? Do we use an accumulation
-// of timing at a certain intensity. Since the photoresistor will be above any artifical
-// lighting, it will not be affected by it, once turned on. Maybe we use the clear
-// channel to count for total accumulation? I dont think this will be too difficult
-// when implementing. FOR SOIL OR LIGHT, IF CONDITIOSN ARE CHANGED, THE NOTES IN THE 
-// COMMAND HANDLER MIGHT NEED TO BE AMENDED AS WELL.
+// Once soil is complete, move over to light and mirror features of temp hum. Averages 
+// will be important here. Read the reporting data to show how the averages will be 
+// obtained as well as max intensity using clear. Look at creating a similiar RW packet
+// into the AS7341 driver, and also that there is a timeout method that mirros the SHT
+// driver. Explor how relays and/or alerts work with the light meter, such as will a 
+// relay be energized at a certain darkness level, and be shut off after reaching a total
+// amount of light from the as7341? 
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -120,12 +113,12 @@ Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
 Threads::soilThreadParams soilParams(1000, msglogerr, adc_unit);
 Threads::Thread soilThread(msglogerr, "soilThread");
 
-Threads::relayThreadParams relayParams(1000, relays, totalRelays);
-Threads::Thread relayThread(msglogerr, "relayThread");
+Threads::routineThreadParams routineParams(1000, relays, totalRelays);
+Threads::Thread routineThread(msglogerr, "routineThread");
 
 const size_t threadQty = 4;
 Threads::Thread* toSuspend[threadQty] = {
-    &SHTThread, &AS7341Thread, &soilThread, &relayThread
+    &SHTThread, &AS7341Thread, &soilThread, &routineThread
     };
 
 // OTA 
@@ -261,6 +254,6 @@ void app_main() {
     SHTThread.initThread(ThreadTask::SHTTask, 4096, &SHTParams, 1); 
     AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
     soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
-    relayThread.initThread(ThreadTask::relayTask, 4096, &relayParams, 3);
+    routineThread.initThread(ThreadTask::routineTask, 4096, &routineParams, 3);
 }
 

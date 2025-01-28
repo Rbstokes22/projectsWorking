@@ -161,7 +161,7 @@ RESTATE Relay::getState() {
 // energized on time schedule. Returns true if successful, or false if
 // parameters are exceeded.
 bool Relay::timerSet(bool on, uint32_t time) {
-    if (time == RELAY_TIMER_OFF) { // 99999 Will disable the timer.
+    if (time == RELAY_TIMER_OFF || time >= 86400) { // Disables timer
         timer.onSet = timer.offSet = false;
         return true;
     } else if (time >= 86400) { // Seconds per day
