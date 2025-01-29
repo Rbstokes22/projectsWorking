@@ -796,8 +796,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         case CMDS::TEST2: { // COMMENT OUT AFTER TESTINGS
         written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
             0, data.idNum);
-        // Peripheral::TempHum* th = Peripheral::TempHum::get();
-        // th->test(false, data.suppData);
+        Peripheral::TempHum* th = Peripheral::TempHum::get();
+        th->test(false, data.suppData);
         }
         break;
         

@@ -1,6 +1,8 @@
 // CURRENT NOTES: 
 
-// Comment out temphum and then move to testing.
+// Temphum commented, slight changes to the alert and the reset conditions. Complete
+// and needs to be tested to ensure that good humidity values do not reset any alert
+// that has been set by excessive temp values, and vice versa.
 
 // Reports done and need to be tested to ensure that they send with the programmed
 // and default modes, so programmed and at 2359.

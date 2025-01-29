@@ -6,36 +6,33 @@
 
 namespace Peripheral {
 
+// Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0, 0, 0}, 
-    flags{false, true}, // !!!change immediate flag to true for testing
+    flags{false, false}, 
     mtx(params.msglogerr), 
-    humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
+    humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
-    tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0},
+    tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
     params(params) {}
 
-// NOTES HERE ONCE TESTED
+// Requires relay configuration, relay on boolean, true to turn on, false to
+// turn off, and counts of exceeding boundaries. If 5 consecutive counts are 
+// required, and a temp limit of 50, if the temp value exceeds 50 for 5 
+// consecutive readings, the relay will either energize, or de-endergize 
+// depending on settings.
 void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
     Threads::MutexLock(this->mtx); 
-    // Gate starts with relayOn (true) or relayOn (false), which shuts it off.
-    // Returns to prevent relay activity if:
-    // RELAY ON:
-    //  1. Relay is set to none, which sets it to nullptr and turns it off.
-    //  2. Immediate flag is false, indicating an SHT read error preventing
-    //     false triggers.
-    //  3. Count of consecutive trigger criteria being met is less than setting.
-    //  4. The condition to trigger the relay is set to none.
-    // RELAY OFF:
-    //  1. Immediate flag is false, indiciating an SHT read error preventing
-    //     false triggers.
-    //  2. Count of consecutive trigger criteria being met is less than setting.
-    // This is to prevent an active relay from being unable to shut off if its
-    // conditions were changed, which means that if the data is good
+    
+    // Checks if the relay is set to be energized or de-energized. If true,
+    // checks to ensure the relay is attached, there are no immediate flags
+    // indicating SHT read error, the counts are above the required counts,
+    // and that the condition is not set to NONE. If so, the relay will 
+    // energize once params are met.
     switch (relayOn) {
         case true:
         if (conf.relay == nullptr || !this->flags.immediate ||
@@ -46,6 +43,10 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
         conf.relay->on(conf.controlID);
         break;
 
+        // If false, the only gate is to ensure that it is not an error and
+        // that the counts are above the required counts. If so, the relay
+        // will signal that it is no longer being held in an energized position
+        // by the SHT.
         case false:
         if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS) {
             return;
@@ -56,14 +57,11 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
     }
 }
 
+// Requires alert configuration, alert on to be sent, and the count of 
+// consecutive value trips. Works like the relay; however, the alerts will be
+// reset once the values are back within range.
 void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
     Threads::MutexLock(this->mtx);
-
-    // Toggle that will not allow alerts to be sent several times. When an 
-    // alert is sent, this is changed to false, and will not change back to
-    // true until temp and/or hum, has entered back into acceptable values.
-    static bool altToggle = true;
-    static uint8_t attempts = 0;
 
     // Mirrors the same setup as the relay activity.
     if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -76,7 +74,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
     // change the altToggle to false preventing it from sending another message
     // without being reset. 
     if (alertOn) {
-        if (!altToggle) return; // return if toggle hasnt been reset.
+        if (!conf.toggle) return; // return if toggle hasnt been reset.
 
         NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
 
@@ -88,41 +86,49 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
             return;
         }
 
-        char msg[75](0);
+        char msg[ALT_MSG_SIZE] = {0}; // message to send to server
         Alert* alt = Alert::get(); 
 
+        // write the message to the msg array, in preparation to send to
+        // the server.
         snprintf(msg, sizeof(msg), 
                 "Alert: Temp at %0.2fC/%0.2fF, Humidity at %0.2f%%",
                 this->data.tempC, this->data.tempF, this->data.hum
                 );
 
-        // Upon success, set to false.
-        altToggle = !alt->sendAlert(sms->APIkey, sms->phone, msg);
+        // Upon success, set to false. If no success, it will keep trying until
+        // attempts are maxed.
+        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg);
         
-        if (!altToggle) {
+        if (!conf.toggle) {
             printf("Alert: Message Sent.\n");
-            attempts = 0; // Resets value
+            conf.attempts = 0; // Resets value
         } else {
             printf("Alert: Message Not Sent.\n");
-            attempts++; // Increase value to avoid oversending
+            conf.attempts++; // Increase value to avoid oversending
         }
 
         // For an unsuccessful server response, after reaching max attempt 
         // value, set to false to prevent further trying. Will reset once 
         // the temp or hum is within its acceptable values.
-        if (attempts >= ALT_MSG_ATT) {
-            altToggle = false;
+        if (conf.attempts >= ALT_MSG_ATT) {
+            conf.toggle = false;
         }
 
     } else {
         // Resets the toggle when the alert is set to off meaning that
         // satisfactory conditions prevail. This will allow a message
         // to be sent if it exceeds the limitations.
-        altToggle = true;
-        attempts = 0;
+        conf.toggle = true;
+        conf.attempts = 0;
     }
 }
 
+// Requires the value and relay configuration that lists the trip value and 
+// the relay condition, being less than, gtr than, or none. Once the value
+// exceeds the bound, it is handled appropriately to energize or de-energize
+// the attached relay. Hysteresis is applied to avoid oscillations around the
+// trip value.
 void TempHum::relayBounds(float value, relayConfig &conf) {
     Threads::MutexLock(this->mtx);
 
@@ -138,6 +144,9 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
         conf.prevCondition = conf.condition;
     }
 
+    // Once the criteria has been met, the counts are incremented for each
+    // consecutive count only. These counts are passed to the relay handler
+    // and once conditions are met, will energize or de-energize the relays.
     switch (conf.condition) {
         case RECOND::LESS_THAN:
         if (value < tripVal) {
@@ -165,12 +174,16 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
             }
         break;
 
-        case RECOND::NONE: // Placeholder but required
-        // If set to none, relay will be detached from the sensor.
+        default: // Empty but required using enum class
         break;
     }
 }
 
+// Requires the value and alert configuration that lists the trip value and 
+// the alert condition, being less than, gtr than, or none. Once the value
+// exceeds the bound, it is handled appropriately to send an alert to the
+// server, or reset the toggle once the value is within prescribed bounds.
+// Hysteresis is applied to avoid oscillations around the trip value.
 void TempHum::alertBounds(float value, alertConfig &conf) {
     Threads::MutexLock(this->mtx);
 
@@ -186,6 +199,10 @@ void TempHum::alertBounds(float value, alertConfig &conf) {
         conf.prevCondition = conf.condition;
     }
 
+    // Once the criteria has been met, the counts are incremented for each
+    // consecutive count only. These counts are passed to the alert handler
+    // and once conditions are met, will send alert or reset toggle allowing
+    // follow-on alerts for the same criteria being met.
     switch (conf.condition) {
         case ALTCOND::LESS_THAN:
         if (value < tripVal) {
@@ -213,11 +230,13 @@ void TempHum::alertBounds(float value, alertConfig &conf) {
         }
         break;
 
-        case ALTCOND::NONE: // Placeholder
+        default: // Placeholder
         break;
     }
 }
 
+// Singulton class object, requires temphum parameters for first init. Once
+// init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
     static bool isInit{false};
 
@@ -232,6 +251,9 @@ TempHum* TempHum::get(TempHumParams* parameter) {
     return &instance;
 }
 
+// Requires no parameters. Reads the temperature and humidity from the SHT
+// driver. Upon successful reading, data is available to include temp, hum,
+// and their averages. Returns true if read is successful, or false if not.
 bool TempHum::read() {
     static size_t errCt{0};
     SHT_DRVR::SHT_RET read;
@@ -242,6 +264,11 @@ bool TempHum::read() {
         SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, this->data
         );
 
+    // upon success, updates averages and changes both flags to true.
+    // If unsuccessful, will change the immediate flag to false indicating an
+    // immediate error, which means the data is garbage. Upon a pre-set 
+    // consecutive error read, display flag is set to false allowing the 
+    // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
         this->averages.pollCt++;
         this->averages.temp += this->data.tempC; // accumulate
@@ -257,7 +284,7 @@ bool TempHum::read() {
     }
 
     if (errCt >= TEMP_HUM_ERR_CT_MAX) {
-        this->flags.display = false; // Indicates error on display
+        this->flags.display = false; // Indicates error on client display
         errCt = 0;
     }
 
@@ -265,30 +292,38 @@ bool TempHum::read() {
     return this->flags.immediate;
 }
 
+// Returns humidity value float.
 float TempHum::getHum() {
     Threads::MutexLock(this->mtx);
     return this->data.hum;
 }
 
-// Defaults to Celcius.
+// Defaults to Celcius. Celcius is the standard for this device, and
+// F is built in but not used, for potential future employment. Returns
+// the temperature in requested value.
 float TempHum::getTemp(char CorF) { // Cel or Faren
     Threads::MutexLock(this->mtx);
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;
 }
 
+// Returns the humidity configuation for modification or viewing.
 TH_TRIP_CONFIG* TempHum::getHumConf() {
     Threads::MutexLock(this->mtx);
     return &this->humConf;
 }
 
+// Returns the temperature configuration for modification or viewing.
 TH_TRIP_CONFIG* TempHum::getTempConf() {
     Threads::MutexLock(this->mtx);
     return &this->tempConf;
 }
 
-// Best to call this after read like "if (read) checkbounds()" due
-// to the handle relay call count.
+// Requires no paramenter. Best used if called sequentially with a successful
+// read, such is if (read) checkBounds(); Checks the current values of temp
+// and hum against the trip values prescribed in their configuration. Returns
+// true if successful, and false if the data is marked as being corrupt by 
+// the SHT driver.
 bool TempHum::checkBounds() { 
     
     if (!this->data.dataSafe) return false; // Filters bad data.
@@ -302,10 +337,12 @@ bool TempHum::checkBounds() {
     return true;
 }
 
+// returns the current bool flags, specifically immediate and display in this.
 isUpTH TempHum::getStatus() {
     return this->flags;
 }
 
+// Returns current, and previous averages structure for modification or viewing.
 TH_Averages* TempHum::getAverages() { 
     Threads::MutexLock(this->mtx);
     return &this->averages;
@@ -321,7 +358,7 @@ void TempHum::clearAverages() {
     this->averages.pollCt = 0;
 }
 
-void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT USED
+void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST
     Threads::MutexLock(this->mtx);
     if (isTemp) {
         this->data.tempC = val;

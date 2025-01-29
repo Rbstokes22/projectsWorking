@@ -14,15 +14,20 @@ namespace Peripheral {
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
 #define ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess (< 256)
+#define ALT_MSG_SIZE 64 // Alert message size to send to server.
 
 // Alert configuration. The on and off counts are to ensure that consecutive
 // counts are taken into consideration before sending or resetting alert.
+// All the variables serve as a packet of data assigned to each sensor to 
+// allow proper handling and sending to the server.
 struct alertConfig {
     int tripVal; // Sends alert
     ALTCOND condition; // Alert condition.
     ALTCOND prevCondition; // ALert previous condition.
     uint32_t onCt; // Consecutive on counts to send alert.
     uint32_t offCt; // Consecutive off counts to reset alert.
+    bool toggle; // Blocker to ensure that only 1 message is sent per violation.
+    uint8_t attempts; // Attempt count to send alert
 };
 
 struct relayConfig {
@@ -42,6 +47,7 @@ struct TH_TRIP_CONFIG {
     relayConfig relay;
 };
 
+// Temperature and humidity averages. 
 struct TH_Averages {
     size_t pollCt; // How many times has sensor been polled
     float temp; // temp accum / pollCt
@@ -50,12 +56,14 @@ struct TH_Averages {
     float prevHum;
 };
 
+// temperature and humidity parameters.
 struct TempHumParams {
     Messaging::MsgLogHandler &msglogerr;
     SHT_DRVR::SHT &sht;
 };
 
-struct isUpTH { // is up Temp Hum
+// Serves to see if the temp and hum sensor is up or down.
+struct isUpTH { 
     bool display; // Used for display after consecutive errors
     bool immediate; // used immediately to prevent relay errors
 };
@@ -88,7 +96,7 @@ class TempHum {
     isUpTH getStatus();
     TH_Averages* getAverages();
     void clearAverages();
-    void test(bool isTemp, float val);
+    void test(bool isTemp, float val); // Uncomment out when testing.
 };
 
 }
