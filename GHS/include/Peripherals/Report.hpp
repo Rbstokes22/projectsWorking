@@ -17,7 +17,6 @@ namespace Peripheral {
 // timer is set to 82800 or 11PM(2300), that means that the message will be
 // sending from seconds 82800 to 82820.
 #define ATTEMPT_TIME_RANGE 20 // seconds past time set, must not exceed 50.
-#define AVG_JSON_SIZE 512 // bytes dedicated to all averages.
 
 struct TimerData {
     uint32_t timeSet; // Default to 99999

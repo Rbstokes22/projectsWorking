@@ -9,13 +9,13 @@ namespace Peripheral {
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
-    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0, 0, 0, 0}, 
+    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
     flags{false, false}, 
     mtx(params.msglogerr), 
-    humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true},
+    humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
-    tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true},
+    tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
     params(params) {}
@@ -235,6 +235,20 @@ void TempHum::alertBounds(float value, alertConfig &conf) {
     }
 }
 
+// Requires no parameters, and when called, computes the new average temp
+// and humidity.
+void TempHum::computeAvgs() {
+    // The deltas are the change between the current and averages. Then the
+    // new addition is added to the current running averages in a small amount.
+    // The actual formula is:
+    // NewAv = (Av * pollct + new temp)/(new poll ct)
+    float deltaT = this->data.tempC - this->averages.temp;
+    float deltaH = this->data.hum - this->averages.hum;
+    this->averages.pollCt++;
+    this->averages.temp += (deltaT / this->averages.pollCt); 
+    this->averages.hum += (deltaH / this->averages.pollCt);
+}
+
 // Singulton class object, requires temphum parameters for first init. Once
 // init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
@@ -260,6 +274,8 @@ bool TempHum::read() {
 
     Threads::MutexLock(this->mtx);
 
+    // boolean return. SHT driver reads data and populates the SHT_VALS
+    // struct carrier.
     read = this->params.sht.readAll(
         SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, this->data
         );
@@ -270,11 +286,7 @@ bool TempHum::read() {
     // consecutive error read, display flag is set to false allowing the 
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
-        this->averages.pollCt++;
-        this->averages.temp += this->data.tempC; // accumulate
-        this->averages.temp /= this->averages.pollCt; // average
-        this->averages.hum += this->data.hum;
-        this->averages.hum /= this->averages.pollCt;
+        this->computeAvgs();
         this->flags.display = true;
         this->flags.immediate = true;
         errCt = 0;
@@ -358,14 +370,14 @@ void TempHum::clearAverages() {
     this->averages.pollCt = 0;
 }
 
-void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST
-    Threads::MutexLock(this->mtx);
-    if (isTemp) {
-        this->data.tempC = val;
-    } else {
-        this->data.hum = val;
-    }
-    this->checkBounds(); 
-}
+// void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST
+//     Threads::MutexLock(this->mtx);
+//     if (isTemp) {
+//         this->data.tempC = val;
+//     } else {
+//         this->data.hum = val;
+//     }
+//     this->checkBounds(); 
+// }
 
 }

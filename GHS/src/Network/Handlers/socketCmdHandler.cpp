@@ -527,7 +527,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getHumConf();
 
-            conf->alt.condition = Peripheral::ALTCOND::LESS_THAN;
+            conf->alt.condition = Peripheral::ALTCOND::GTR_THAN;
             conf->alt.tripVal = data.suppData;
             written = snprintf(buffer, size, reply, 1, "Hum Alt >", 
                 data.suppData, data.idNum);
@@ -554,6 +554,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 1, "TH Avg Clear", 0, 
                 data.idNum);
         }
+
+        break;
 
         // Sets soil 1 alert to send if lower than that supp data passed.
         // Supp data will be between 1 and 4094, and is an analog reading of
@@ -788,16 +790,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Test case here
         written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
             0, data.idNum);
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->test(true, data.suppData);
+        // Peripheral::TempHum* th = Peripheral::TempHum::get();
+        // th->test(true, data.suppData);
         }
         break;
 
         case CMDS::TEST2: { // COMMENT OUT AFTER TESTINGS
         written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
             0, data.idNum);
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
-        th->test(false, data.suppData);
+        // Peripheral::TempHum* th = Peripheral::TempHum::get();
+        // th->test(false, data.suppData);
         }
         break;
         

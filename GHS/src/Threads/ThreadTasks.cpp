@@ -39,7 +39,7 @@ void SHTTask(void* parameter) { // SHT
 
     while (true) {
         // Only check bounds upon successful read.
-        // if (th->read()) th->checkBounds(); // Read. Comment out when testing.
+        if (th->read()) th->checkBounds(); // Read. Comment out when testing.
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }

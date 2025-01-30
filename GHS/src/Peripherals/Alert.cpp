@@ -83,8 +83,8 @@ bool Alert::executeMsg(esp_http_client_handle_t client, const char* jsonData) {
     // Writes the json data to the http connection.
     written = esp_http_client_write(client, jsonData, strlen(jsonData));
 
-    if (written >= sizeof(jsonData)) {
-        printf("Alert wrt: %d exceeds size: %d\n", written, sizeof(jsonData));
+    if (written >= ALT_JSON_DATA_SIZE) {
+        printf("Alert wrt: %d exceeds size: %d\n", written, ALT_JSON_DATA_SIZE);
 
     } else if (written <= 0) { // Indiactes no read or error.
         printf("Alert: message not written to server or error\n");

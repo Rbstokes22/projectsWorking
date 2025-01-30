@@ -7,16 +7,17 @@
 
 namespace SHT_DRVR {
 
-// Requires i2c timeout in milliseconds. resetes the packet to
-// default conditions.
-void RWPacket::reset(int timeout_ms) {
+// Requires bool to reset timeout value, and int of timeout. The resetTimeout
+// is default false, and timeout_ms is default 500. If left unspecified, 
+// default values will persist.
+void RWPacket::reset(bool resetTimeout, int timeout_ms) {
     this->dataSafe = false;
     memset(this->writeBuffer, 0, sizeof(this->writeBuffer));
     memset(this->readBuffer, 0, sizeof(this->readBuffer));
-    this->timeout = timeout_ms; // default value of -1
+    if (resetTimeout) this->timeout = timeout_ms;
 }
 
-SHT::SHT() : isInit(false) {this->packet.reset(500);}
+SHT::SHT() : isInit(false) {this->packet.reset();}
 
 // Requires no parameters. Writes the command in the RW Packet write
 // buffer to the SHT. Returns WRITE_TIMEOUT if timed out, WRITE_FAIL
@@ -92,7 +93,7 @@ SHT_RET SHT::read(size_t readSize) {
 // Bit 0 : 0 (Checksum of last write transfer was correct),
 //         1 (Checksum of last write transfer failed)
 uint16_t SHT::getStatus(bool &dataSafe) {
-    this->packet.reset(500);
+    this->packet.reset();
 
     this->packet.writeBuffer[0] =
         static_cast<uint16_t>(CMD::STATUS) >> 8;
@@ -173,8 +174,9 @@ void SHT::init(uint8_t address) {
 // both the temperature C/F, and humidity, which will populate to the
 // carrier, along with a boolean indicating if the data is non-corrupt.
 // Returns READ_FAIL, READ_FAIL_CHECKSUM, READ_TIMEOUT, or READ_OK.
-SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier) {
-    this->packet.reset(500);
+SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
+    this->packet.reset(true, timeout_ms);
+    
     carrier.dataSafe = false; // Sets to true once complete.
 
     this->packet.writeBuffer[0] = 
@@ -208,7 +210,7 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier) {
 // Requires enable true or false. Returns WRITE_OK, WRITE_FAIL, or
 // WRITE_TIMEOUT.
 SHT_RET SHT::enableHeater(bool enable) {
-    this->packet.reset(500);
+    this->packet.reset();
 
     switch (enable) {
         case true:
@@ -252,7 +254,7 @@ bool SHT::isHeaterEn(bool &dataSafe) {
 // bites 15, 11, 10, and 4 to zero IAW pg. 13 of the datasheet.
 // Returns WRITE_OK, WRITE_FAIL, or WRITE_TIMEOUT.
 SHT_RET SHT::clearStatus() {
-    this->packet.reset(500);
+    this->packet.reset();
 
     this->packet.writeBuffer[0] = 
         static_cast<uint16_t>(CMD::CLEAR_STATUS) >> 8;
@@ -266,7 +268,7 @@ SHT_RET SHT::clearStatus() {
 // Requires no arguments. Resets the device. Returns WRITE_OK,
 // WRITE_FAIL, or WRITE_TIMEOUT.
 SHT_RET SHT::softReset() {
-    this->packet.reset(500);
+    this->packet.reset();
 
     this->packet.writeBuffer[0] = 
         static_cast<uint16_t>(CMD::SOFT_RESET) >> 8;

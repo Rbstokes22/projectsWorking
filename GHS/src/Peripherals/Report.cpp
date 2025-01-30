@@ -30,7 +30,7 @@ bool Report::compileAll(char* jsonRep, size_t bytes) {
     "{\"temp\":%.2f,\"hum\":%.2f,"
     "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,"
     "\"green\":%u,\"yellow\":%u,\"orange\":%u,\"red\":%u,"
-    "\"nir\":%u,\"clear\":%u"
+    "\"nir\":%u,\"clear\":%u,"
     "\"soil1\":%u,\"soil2\":%u,\"soil3\":%u,\"soil4\":%u}",
     TempHum::get()->getAverages()->temp,
     TempHum::get()->getAverages()->hum,

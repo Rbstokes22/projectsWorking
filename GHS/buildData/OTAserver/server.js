@@ -5,6 +5,7 @@ const app = express();
 
 const FWpath = "/home/shadyside/Desktop/Programming/projects/GHS/.pio/build/esp32dev/firmware.bin";
 const SIGpath = "/home/shadyside/Desktop/Programming/projects/GHS/data/app0firmware.sig";
+const PORT = 5702;
 
 let getIP = () => {
     const interfaces = os.networkInterfaces();
@@ -69,9 +70,9 @@ app.get("/FWUpdate", (req, res) => {
     });
 });
 
-app.listen(5555, () => {
+app.listen(PORT, () => {
     console.log(`
         To update device use URL: 
-        http://greenhouse.local/OTAUpdateLAN?url=http://${getIP()}:5555
+        http://greenhouse.local/OTAUpdateLAN?url=http://${getIP()}:${PORT}
         `);
 });

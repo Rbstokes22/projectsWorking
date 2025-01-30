@@ -8,6 +8,10 @@
 
 namespace SHT_DRVR {
 
+#define DEF_READ_TIMEOUT 500 // 500 millis is the default timeout
+
+// SHT values to include floats for tempF, tempC and hum as well as a bool
+// dataSafe to ensure data is good to use.
 struct SHT_VALS {
     float tempF;
     float tempC;
@@ -15,12 +19,13 @@ struct SHT_VALS {
     bool dataSafe;
 };
 
+// SHT read and write packet. 
 struct RWPacket {
     bool dataSafe; // Updated upon successful read/write and checksum.
     uint8_t writeBuffer[2]; // Contains the MSB and LSB of the command.
     uint8_t readBuffer[6]; // Data read from i2c to this buffer
     int timeout; // timeout in ms
-    void reset(int timeout_ms = -1); // Resets default
+    void reset(bool resetTimeout = false, int timeout_ms = DEF_READ_TIMEOUT); 
 };
 
 // Return types for the SHT31.
@@ -64,7 +69,10 @@ class SHT {
     public:
     SHT();
     void init(uint8_t address); 
-    SHT_RET readAll(START_CMD cmd, SHT_VALS &carrier);
+    SHT_RET readAll(
+        START_CMD cmd, SHT_VALS &carrier, int timeout_ms = DEF_READ_TIMEOUT
+        );
+        
     SHT_RET enableHeater(bool enable);
     bool isHeaterEn(bool &dataSafe);
     SHT_RET clearStatus();

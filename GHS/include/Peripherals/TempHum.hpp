@@ -84,6 +84,7 @@ class TempHum {
     void handleAlert(alertConfig &config, bool alertOn, uint32_t ct);
     void relayBounds(float value, relayConfig &conf);
     void alertBounds(float value, alertConfig &conf);
+    void computeAvgs();
     
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
@@ -96,7 +97,7 @@ class TempHum {
     isUpTH getStatus();
     TH_Averages* getAverages();
     void clearAverages();
-    void test(bool isTemp, float val); // Uncomment out when testing.
+    // void test(bool isTemp, float val); // Uncomment out when testing.
 };
 
 }

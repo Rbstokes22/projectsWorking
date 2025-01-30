@@ -1,5 +1,6 @@
 #!/bin/bash
-
+URL="shadyside.local"
+PORT="5702"
 pvt_key_path="buildData/keys/private_key.pem"
 pub_key_path="buildData/keys/public_key.pem"
 pvt_key_bits=2048
@@ -19,6 +20,9 @@ if [ ! -f "${pub_key_path}" ]; then
     openssl rsa -pubout -in "${pvt_key_path}" -out "${pub_key_path}"
     echo "Public Key Created in buildData/keys. Copy public key into firmwareVal.cpp"
 fi 
+
+# Init conda
+source /home/shadyside/anaconda3/bin/activate
 
 # Compiles the firmware.bin
 if ! pio run; then 
@@ -59,7 +63,7 @@ if [[ "${response}" == [aA] ]]; then
 
 elif [[ "${response}" ==  [bB] ]]; then
     echo "Proceeding to write to the ESP via OTA..."
-    isRunning=$(curl -s http://localhost:5555)
+    isRunning=$(curl -s http://"${URL}:${PORT}")
 
     if [ "${isRunning}" != "Success" ]; then 
         node buildData/OTAserver/server.js &
@@ -69,10 +73,10 @@ elif [[ "${response}" ==  [bB] ]]; then
 
     # Sleep for 3 seconds
     sleep 3
-    otaURL=$(curl -s http://localhost:5555/IP)
+    otaURL=$(curl -s http://"${URL}:${PORT}"/IP)
 
-    echo "Running http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:5555"
-    curl "http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:5555"
+    echo "Running http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:${PORT}"
+    curl "http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:${PORT}"
     kill "${serverPID}"
 
     # Server self terminates

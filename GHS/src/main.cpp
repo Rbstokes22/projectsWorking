@@ -1,9 +1,5 @@
 // CURRENT NOTES: 
 
-// Temphum commented, slight changes to the alert and the reset conditions. Complete
-// and needs to be tested to ensure that good humidity values do not reset any alert
-// that has been set by excessive temp values, and vice versa.
-
 // Reports done and need to be tested to ensure that they send with the programmed
 // and default modes, so programmed and at 2359.
 
@@ -13,7 +9,7 @@
 // Once tests are complete, move to soil and mirror some features of tempHum. Averages
 // are not important here, since all reporting will use only current values since not
 // a significant change in average is expected in a 24 hour basis. Look at potentially
-// creating a simliar RW packet into soil as there is in the temphum. This might not
+// creating a simliar RW packet into soil as there is in the SHT. This might not
 // work here.
 
 // Once soil is complete, move over to light and mirror features of temp hum. Averages 
@@ -32,6 +28,13 @@
 // Maybe that isnt too feasible, explore when crossing this bridge. Maybe alerts should be 
 // exclusive to critical things. Such as temperature, humidity, dryness. I dont think light will
 // warrant an alerts, since a daily wrapup will show them their averages and their light quality.
+
+// TEST RESULTS:
+// Temphum. Tested relays and alerts for the SHT. Relays turn on and off when criteria met.
+// Alerts send, and reset when criteria is met. Both temp and hum are independent. Ran temphum
+// test in report to ensure it works. Without it being set, at 2359 the values were refreshed
+// and the previous values were populated. Clearing temphum average works. Report is sent properly
+// and turned off using 99999, works.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
@@ -75,7 +78,8 @@ extern "C" {
     void app_main();
 }
 
-// If set to true, will bypass firmware validation process in the startup.
+// If set to true, will bypass firmware validation process in the startup. 
+// Used for testing
 bool bypassValidation = true;
 
 // GLOBALS
