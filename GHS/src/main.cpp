@@ -1,16 +1,11 @@
 // CURRENT NOTES: 
 
-// Reports done and need to be tested to ensure that they send with the programmed
-// and default modes, so programmed and at 2359.
-
-// Removed checksum appending and updated firmwareVal. Test to ensure that OTA works
-// via LAN and web using ngrok.
-
-// Once tests are complete, move to soil and mirror some features of tempHum. Averages
-// are not important here, since all reporting will use only current values since not
-// a significant change in average is expected in a 24 hour basis. Look at potentially
-// creating a simliar RW packet into soil as there is in the SHT. This might not
-// work here.
+// Soil is complete and can be tested after the socketCmdHandler is fixed to accomodate
+// the changes made to soil. Once complete, test soil sensors in the same manner
+// that temp was tested using test1 and test2 ... Before testing and while modifying
+// socket cmd handler, ensure that mutexs are used there as well, as they should be.
+// Each sensor is a singleton so gettings its mtx will probably require a getMtx function
+// or something along the lines of that.
 
 // Once soil is complete, move over to light and mirror features of temp hum. Averages 
 // will be important here. Read the reporting data to show how the averages will be 

@@ -5,7 +5,7 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 #include "UI/MsgLogHandler.hpp"
-
+#include <atomic>
 // Mutex created for the share peripheral classes. The peripheral devices
 // are all ran on a thread. A good analogy to a semphore is that it acts 
 // like a traffic light alotting a certain bridge capacity. When clear,
@@ -13,15 +13,18 @@
 
 namespace Threads {
 
+#define LOCK_DELAY 100 // Delay in millis to attempt to acquire lock
+
 class Mutex {
     private:
     SemaphoreHandle_t xMutex;
     Messaging::MsgLogHandler &msglogerr;
+    std::atomic<bool> isLocked; // This is explicity checked for thread safety
 
     public:
     Mutex(Messaging::MsgLogHandler &msglogerr);
-    void lock();
-    void unlock();
+    bool lock();
+    bool unlock();
     ~Mutex();
 };
 

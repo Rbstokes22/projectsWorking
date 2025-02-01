@@ -1,7 +1,10 @@
 #include "Peripherals/TempHum.hpp"
 #include "driver/gpio.h"
+#include "Drivers/SHT_Library.hpp"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/Alert.hpp"
+#include "Threads/Mutex.hpp"
+#include "UI/MsgLogHandler.hpp"
 #include "Network/NetCreds.hpp"
 
 namespace Peripheral {
@@ -26,7 +29,7 @@ TempHum::TempHum(TempHumParams &params) :
 // consecutive readings, the relay will either energize, or de-endergize 
 // depending on settings.
 void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
-    Threads::MutexLock(this->mtx); 
+    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION. 
     
     // Checks if the relay is set to be energized or de-energized. If true,
     // checks to ensure the relay is attached, there are no immediate flags
@@ -61,7 +64,7 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
 // consecutive value trips. Works like the relay; however, the alerts will be
 // reset once the values are back within range.
 void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
-    Threads::MutexLock(this->mtx);
+    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     // Mirrors the same setup as the relay activity.
     if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -74,7 +77,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
     // change the altToggle to false preventing it from sending another message
     // without being reset. 
     if (alertOn) {
-        if (!conf.toggle) return; // return if toggle hasnt been reset.
+        if (!conf.toggle) return; // avoids repeated alerts.
 
         NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
 
@@ -86,7 +89,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
             return;
         }
 
-        char msg[ALT_MSG_SIZE] = {0}; // message to send to server
+        char msg[TEMP_HUM_ALT_MSG_SIZE] = {0}; // message to send to server
         Alert* alt = Alert::get(); 
 
         // write the message to the msg array, in preparation to send to
@@ -111,7 +114,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
         // For an unsuccessful server response, after reaching max attempt 
         // value, set to false to prevent further trying. Will reset once 
         // the temp or hum is within its acceptable values.
-        if (conf.attempts >= ALT_MSG_ATT) {
+        if (conf.attempts >= TEMP_HUM_ALT_MSG_ATT) {
             conf.toggle = false;
         }
 
@@ -130,7 +133,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
 // the attached relay. Hysteresis is applied to avoid oscillations around the
 // trip value.
 void TempHum::relayBounds(float value, relayConfig &conf) {
-    Threads::MutexLock(this->mtx);
+    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     float tripVal = static_cast<float>(conf.tripVal);
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS; 
@@ -185,7 +188,7 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
 // server, or reset the toggle once the value is within prescribed bounds.
 // Hysteresis is applied to avoid oscillations around the trip value.
 void TempHum::alertBounds(float value, alertConfig &conf) {
-    Threads::MutexLock(this->mtx);
+    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     float tripVal = static_cast<float>(conf.tripVal); 
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS;
@@ -238,6 +241,8 @@ void TempHum::alertBounds(float value, alertConfig &conf) {
 // Requires no parameters, and when called, computes the new average temp
 // and humidity.
 void TempHum::computeAvgs() {
+    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN READ FUNCTION.
+
     // The deltas are the change between the current and averages. Then the
     // new addition is added to the current running averages in a small amount.
     // The actual formula is:
@@ -295,10 +300,8 @@ bool TempHum::read() {
         errCt++;
     }
 
-    if (errCt >= TEMP_HUM_ERR_CT_MAX) {
-        this->flags.display = false; // Indicates error on client display
-        errCt = 0;
-    }
+    // Sets the display to true if error ct is less than max.
+    this->flags.display = (errCt < TEMP_HUM_ERR_CT_MAX);
 
     // Returns true of data is ok.
     return this->flags.immediate;
@@ -337,7 +340,10 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // true if successful, and false if the data is marked as being corrupt by 
 // the SHT driver.
 bool TempHum::checkBounds() { 
-    
+
+    // This mutex exists for each function call structure below.
+    Threads::MutexLock(this->mtx);
+
     if (!this->data.dataSafe) return false; // Filters bad data.
 
     // Checks each individual bound after confirming data is safe.
@@ -351,6 +357,7 @@ bool TempHum::checkBounds() {
 
 // returns the current bool flags, specifically immediate and display in this.
 isUpTH TempHum::getStatus() {
+    Threads::MutexLock(this->mtx);
     return this->flags;
 }
 

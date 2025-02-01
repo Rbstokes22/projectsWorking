@@ -58,6 +58,7 @@ void soilTask(void* parameter) { // Soil sensors
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
     
+    // Channels of the ADC to read.
     static adc_channel_t channels[SOIL_SENSORS] = {
         pinMapA[static_cast<uint8_t>(APIN::SOIL1)],
         pinMapA[static_cast<uint8_t>(APIN::SOIL2)],
@@ -65,6 +66,7 @@ void soilTask(void* parameter) { // Soil sensors
         pinMapA[static_cast<uint8_t>(APIN::SOIL4)]
     };
 
+    // Single soil parameter structure that include 4 channels.
     Peripheral::SoilParams soilParams = {
         params->msglogerr,
         params->adc_unit,
