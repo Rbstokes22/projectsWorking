@@ -3,6 +3,7 @@
 #include "stddef.h"
 #include "Common/Timing.hpp"
 #include "Peripherals/TempHum.hpp"
+#include "Peripherals/Soil.hpp"
 
 namespace Peripheral {
 
@@ -31,10 +32,14 @@ bool Report::compileAll(char* jsonRep, size_t bytes) {
     "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,"
     "\"green\":%u,\"yellow\":%u,\"orange\":%u,\"red\":%u,"
     "\"nir\":%u,\"clear\":%u,"
-    "\"soil1\":%u,\"soil2\":%u,\"soil3\":%u,\"soil4\":%u}",
+    "\"soil1\":%d,\"soil2\":%d,\"soil3\":%d,\"soil4\":%d}",
     TempHum::get()->getAverages()->temp,
     TempHum::get()->getAverages()->hum,
-    PH, PH, PH, PH, PH, PH, PH, PH, PH, PH, PH, PH, PH, PH
+    PH, PH, PH, PH, PH, PH, PH, PH, PH, PH,
+    Soil::get()->getReadings(0)->val,
+    Soil::get()->getReadings(1)->val,
+    Soil::get()->getReadings(2)->val,
+    Soil::get()->getReadings(3)->val
     );
 
     return (written >= 0 && written <= bytes); // false if bad write

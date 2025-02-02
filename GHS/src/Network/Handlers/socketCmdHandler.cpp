@@ -28,7 +28,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // Gets all sensor and some system data and sends JSON back to client.
         case CMDS::GET_ALL: {
-        int soilReadings[SOIL_SENSORS] = {0, 0, 0, 0}; // Maybe delete if mirroring temphum !!!
+        
 
         // Commonly used pointers
         Clock::DateTime* dtg = Clock::DateTime::get();
@@ -39,7 +39,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Timer* re3Timer = SOCKHAND::Relays[2].getTimer();
         Peripheral::Timer* re4Timer = SOCKHAND::Relays[3].getTimer();
         Peripheral::Soil* soil = Peripheral::Soil::get();
-        soil->getAll(soilReadings, sizeof(int) * SOIL_SENSORS);
         
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\","
@@ -54,11 +53,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"humAltCond\":%u,\"humAltVal\":%d,"
         "\"SHTUp\":%d,\"tempAvg\":%0.2f,\"humAvg\":%0.2f,"
         "\"tempAvgPrev\":%0.2f,\"humAvgPrev\":%0.2f,"
-        "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AlertVal\":%d,\"soil1AlertEn\":%d,"
-        "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AlertVal\":%d,\"soil2AlertEn\":%d,"
-        "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AlertVal\":%d,\"soil3AlertEn\":%d,"
-        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AlertVal\":%d,\"soil4AlertEn\":%d,"
-        "\"soil1Up\":%d,\"soil2Up\":%d,\"soil3Up\":%d,\"soil4Up\":%d,"
+        "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AltVal\":%d,\"soil1Up\":%d,"
+        "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AltVal\":%d,\"soil2Up\":%d,"
+        "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AltVal\":%d,\"soil3Up\":%d,"
+        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AltVal\":%d,\"soil4Up\":%d,"
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
@@ -90,16 +88,18 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getAverages()->hum,
         th->getAverages()->prevTemp,
         th->getAverages()->prevHum,
-        soilReadings[0], static_cast<uint8_t>(soil->getConfig(0)->condition),
-        soil->getConfig(0)->tripValAlert, soil->getConfig(0)->alertsEn,
-        soilReadings[1], static_cast<uint8_t>(soil->getConfig(1)->condition),
-        soil->getConfig(1)->tripValAlert, soil->getConfig(1)->alertsEn,
-        soilReadings[2], static_cast<uint8_t>(soil->getConfig(2)->condition),
-        soil->getConfig(2)->tripValAlert, soil->getConfig(2)->alertsEn,
-        soilReadings[3], static_cast<uint8_t>(soil->getConfig(3)->condition),
-        soil->getConfig(3)->tripValAlert, soil->getConfig(3)->alertsEn,
-        soil->getStatus(0)->display, soil->getStatus(1)->display,
-        soil->getStatus(2)->display, soil->getStatus(3)->display,
+        soil->getReadings(0)->val, 
+        static_cast<uint8_t>(soil->getConfig(0)->condition),
+        soil->getConfig(0)->tripVal, soil->getReadings(0)->display,
+        soil->getReadings(1)->val, 
+        static_cast<uint8_t>(soil->getConfig(1)->condition),
+        soil->getConfig(1)->tripVal, soil->getReadings(1)->display,
+        soil->getReadings(2)->val, 
+        static_cast<uint8_t>(soil->getConfig(2)->condition),
+        soil->getConfig(2)->tripVal, soil->getReadings(2)->display,
+        soil->getReadings(3)->val, 
+        static_cast<uint8_t>(soil->getConfig(3)->condition),
+        soil->getConfig(3)->tripVal, soil->getReadings(3)->display,
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
         );
@@ -327,7 +327,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 data.idNum);
         } else {
             Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getTempConf();
+                Peripheral::TempHum::get()->getTempConf(); 
             
             conf->relay.condition = Peripheral::RECOND::LESS_THAN;
             conf->relay.tripVal = data.suppData;
@@ -572,8 +572,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(0);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so1 <", data.suppData, 
                 data.idNum);
@@ -596,8 +595,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(0);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so1 >", data.suppData, 
                 data.idNum);
@@ -612,8 +610,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Soil::get()->getConfig(0);
 
         conf->condition = Peripheral::ALTCOND::NONE;
-        conf->alertsEn = false;
-        conf->tripValAlert = 0;
+        conf->tripVal = 0;
 
         written = snprintf(buffer, size, reply, 1, "so1 alt None", 
             data.suppData, data.idNum);
@@ -630,8 +627,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(1);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so2 <", data.suppData, 
                 data.idNum);
@@ -648,8 +644,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(1);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so2 >", data.suppData, 
                 data.idNum);
@@ -662,8 +657,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Soil::get()->getConfig(1);
 
         conf->condition = Peripheral::ALTCOND::NONE;
-        conf->alertsEn = false;
-        conf->tripValAlert = 0;
+        conf->tripVal = 0;
         written = snprintf(buffer, size, reply, 1, "so2 alt None", 
             data.suppData, data.idNum);
         }
@@ -679,8 +673,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(2);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so3 <", data.suppData, 
                 data.idNum);
@@ -697,8 +690,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(2);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so3 >", data.suppData, 
                 data.idNum);
@@ -711,8 +703,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Soil::get()->getConfig(2);
 
         conf->condition = Peripheral::ALTCOND::NONE;
-        conf->alertsEn = false;
-        conf->tripValAlert = 0;
+        conf->tripVal = 0;
         written = snprintf(buffer, size, reply, 1, "so3 alt None", 
             data.suppData, data.idNum);
         }
@@ -728,8 +719,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(3);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so4 <", data.suppData, 
                 data.idNum);
@@ -746,8 +736,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 Peripheral::Soil::get()->getConfig(3);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alertsEn = true;
-            conf->tripValAlert = data.suppData;
+            conf->tripVal = data.suppData;
 
             written = snprintf(buffer, size, reply, 1, "so4 >", data.suppData, 
                 data.idNum);
@@ -760,8 +749,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Soil::get()->getConfig(3);
 
         conf->condition = Peripheral::ALTCOND::NONE;
-        conf->alertsEn = false;
-        conf->tripValAlert = 0;
+        conf->tripVal = 0;
         written = snprintf(buffer, size, reply, 1, "so4 alt None", 
             data.suppData, data.idNum);
         }

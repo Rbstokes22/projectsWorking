@@ -1,11 +1,9 @@
 // CURRENT NOTES: 
 
-// Soil is complete and can be tested after the socketCmdHandler is fixed to accomodate
-// the changes made to soil. Once complete, test soil sensors in the same manner
-// that temp was tested using test1 and test2 ... Before testing and while modifying
-// socket cmd handler, ensure that mutexs are used there as well, as they should be.
-// Each sensor is a singleton so gettings its mtx will probably require a getMtx function
-// or something along the lines of that.
+// Look at making msglogerr a singleton and removing all references to it passed
+// in classes. This will make it easier to make modications in the future.
+
+// Test soil, and ensure that relays do not need mutexs.
 
 // Once soil is complete, move over to light and mirror features of temp hum. Averages 
 // will be important here. Read the reporting data to show how the averages will be 

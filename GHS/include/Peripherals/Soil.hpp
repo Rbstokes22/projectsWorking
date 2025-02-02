@@ -59,7 +59,7 @@ class Soil {
     static Soil* get(SoilParams* parameter = nullptr);
     SOIL_TRIP_CONFIG* getConfig(uint8_t indexNum);
     void readAll();
-    SoilReadings* getAll(uint8_t indexNum);
+    SoilReadings* getReadings(uint8_t indexNum);
     void checkBounds();
 };
 

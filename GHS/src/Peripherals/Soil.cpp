@@ -133,7 +133,7 @@ void Soil::readAll() {
 
 // Requires the sensor number you are trying to read. Returns pointer to the
 // soil reading data if correct sensor index value is used, and nullptr if not.
-SoilReadings* Soil::getAll(uint8_t indexNum) {
+SoilReadings* Soil::getReadings(uint8_t indexNum) {
     if (indexNum >= (SOIL_SENSORS)) return nullptr;
     Threads::MutexLock(this->mtx);
     return &this->data[indexNum];
