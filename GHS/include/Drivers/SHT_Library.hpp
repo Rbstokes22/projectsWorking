@@ -8,7 +8,11 @@
 
 namespace SHT_DRVR {
 
-#define DEF_READ_TIMEOUT 500 // 500 millis is the default timeout
+#define SHT_READ_TIMEOUT 500 // 500 millis is the default timeout
+#define SHT_MIN -39 // Datasheet is -40, but you cant set lower than that.
+#define SHT_MAX 124 // Datasheet is 125, but you cant set higher than that.
+#define SHT_MIN_HUM 1 // 0, but cant set below 0
+#define SHT_MAX_HUM 99 // 100, but cant set above 100.
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.
@@ -25,7 +29,7 @@ struct RWPacket {
     uint8_t writeBuffer[2]; // Contains the MSB and LSB of the command.
     uint8_t readBuffer[6]; // Data read from i2c to this buffer
     int timeout; // timeout in ms
-    void reset(bool resetTimeout = false, int timeout_ms = DEF_READ_TIMEOUT); 
+    void reset(bool resetTimeout = false, int timeout_ms = SHT_READ_TIMEOUT); 
 };
 
 // Return types for the SHT31.
@@ -70,7 +74,7 @@ class SHT {
     SHT();
     void init(uint8_t address); 
     SHT_RET readAll(
-        START_CMD cmd, SHT_VALS &carrier, int timeout_ms = DEF_READ_TIMEOUT
+        START_CMD cmd, SHT_VALS &carrier, int timeout_ms = SHT_READ_TIMEOUT
         );
         
     SHT_RET enableHeater(bool enable);

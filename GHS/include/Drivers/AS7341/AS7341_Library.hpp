@@ -3,6 +3,7 @@
 
 #include "stdint.h"
 #include "I2C/I2C.hpp"
+#include "Config/config.hpp"
 
 namespace AS7341_DRVR {
 
@@ -68,9 +69,9 @@ struct CONFIG {
     uint8_t ATIME;
     uint8_t WTIME;
     CONFIG(
-        uint16_t ASTEP = 599, 
-        uint8_t ATIME = 29, 
-        uint8_t WTIME = 0
+        uint16_t ASTEP = AS7341_ASTEP, 
+        uint8_t ATIME = AS7341_ATIME, 
+        uint8_t WTIME = AS7341_WTIME
         );
 };
 

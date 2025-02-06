@@ -33,9 +33,7 @@ class NetSTA : public NetMain {
         void* eventData);
 
     public:
-    NetSTA(
-        Messaging::MsgLogHandler &msglogerr, 
-        const char* mdnsName);
+    NetSTA(const char* mdnsName);
     wifi_ret_t start_wifi() override;
     wifi_ret_t start_server() override;
     wifi_ret_t destroy() override;

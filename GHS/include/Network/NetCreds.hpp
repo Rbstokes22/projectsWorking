@@ -3,13 +3,11 @@
 
 #include "NVS2/NVS.hpp"
 #include "Config/config.hpp"
-#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
 
 struct CredParams {
     const char nameSpace[12];
-    Messaging::MsgLogHandler &msglogerr;
 };
 
 // SMS requirements to communicate alerts to the client that

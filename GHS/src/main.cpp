@@ -1,7 +1,13 @@
 // CURRENT NOTES: 
 
-// Look at making msglogerr a singleton and removing all references to it passed
-// in classes. This will make it easier to make modications in the future.
+// 2 tests to run
+
+// Log function is complete, and testing went well. Built into getall skt 
+// function, a new entry flag, and added in a uri /getLog which should return
+// the log. This has not been tested, but need to have the client paged updated
+// to accomodate the log entry to ensure smooth delivery. Once received, the
+// skt command of NEW_LOG_RECEIVED should be sent back to clear the flag. Do
+// not make the log a separate page, but an expandable feature using AJAX.
 
 // Test soil, and ensure that relays do not need mutexs.
 
@@ -28,6 +34,11 @@
 // test in report to ensure it works. Without it being set, at 2359 the values were refreshed
 // and the previous values were populated. Clearing temphum average works. Report is sent properly
 // and turned off using 99999, works.
+
+// Log. Tested log to ensure that when new space was required, the beginning entry was deleted. 
+// Ran test for several attempts where a value, via text, was always added in and increased 
+// exponentially. When needed, The first several entries were stripped, showing it works as 
+// advertised. Awaiting web comm testing.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
@@ -71,135 +82,71 @@ extern "C" {
     void app_main();
 }
 
-// If set to true, will bypass firmware validation process in the startup. 
-// Used for testing
-bool bypassValidation = true;
-
-// GLOBALS
+// GLOBALS 
+// Prefered using globals over local variables declared statically.
 UI::Display OLED;
-Messaging::MsgLogHandler msglogerr(OLED, 5, true);
-adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
 
-Comms::NetSTA station(msglogerr, mdnsName); 
-Comms::NetWAP wap(msglogerr, APssid, APdefPass, mdnsName);
+// Network specific objects. Station, Wireless Access Point, and their manager.
+Comms::NetSTA station(MDNS_NAME); 
+Comms::NetWAP wap(AP_SSID, AP_DEF_PASS, MDNS_NAME);
 Comms::NetManager netManager(station, wap, OLED);
 
-NVS::CredParams cp = {credNamespace, msglogerr}; // used for creds init
+// Message, Log, and Error parameters and initialization. Init here since 
+// other features depend on its functionality.
+Messaging::MsgLogHandlerParams MLEParams = {OLED, MSG_CLEAR_SECS, SERIAL_ON};
+Messaging::MsgLogHandler* mlh = Messaging::MsgLogHandler::get(&MLEParams);
 
 // PERIPHERALS
 SHT_DRVR::SHT sht; // Temp hum driver 
-AS7341_DRVR::CONFIG lightConf(599, 29, 0);
+AS7341_DRVR::CONFIG lightConf(AS7341_ASTEP, AS7341_ATIME, AS7341_WTIME);
 AS7341_DRVR::AS7341basic light(lightConf);
 
-const size_t totalRelays{4};
-Peripheral::Relay relays[totalRelays] = { // Passes to socket handler
-    {pinMapD[static_cast<uint8_t>(DPIN::RE1)], 1},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE2)], 2},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE3)], 3},
-    {pinMapD[static_cast<uint8_t>(DPIN::RE4)], 4}
+Peripheral::Relay relays[TOTAL_RELAYS] = { // Passes to socket handler
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE1)], 1},
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE2)], 2},
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE3)], 3},
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE4)], 4}
 };
 
 // THREADS
-Threads::netThreadParams netParams(1000, netManager, msglogerr);
-Threads::Thread netThread(msglogerr, "NetThread"); // DO NOT SUSPEND
+Threads::netThreadParams netParams(NET_FRQ, netManager); // Net
+Threads::Thread netThread("NetThread"); // DO NOT SUSPEND
 
-Threads::SHTThreadParams SHTParams(1000, sht, msglogerr); // REPLACE WITH SHT
-Threads::Thread SHTThread(msglogerr, "SHTThread");
+Threads::SHTThreadParams SHTParams(SHT_FRQ, sht);  // Temp and Humidity
+Threads::Thread SHTThread("SHTThread");
 
-Threads::AS7341ThreadParams AS7341Params(2000, light, msglogerr, adc_unit);
-Threads::Thread AS7341Thread(msglogerr, "AS7341Thread");
+Threads::AS7341ThreadParams AS7341Params(AS7341_FRQ, light, 
+    CONF_PINS::adc_unit); // light
+Threads::Thread AS7341Thread("AS7341Thread");
 
-Threads::soilThreadParams soilParams(1000, msglogerr, adc_unit);
-Threads::Thread soilThread(msglogerr, "soilThread");
+Threads::soilThreadParams soilParams(SOIL_FRQ, CONF_PINS::adc_unit); // Soil 
+Threads::Thread soilThread("soilThread");
 
-Threads::routineThreadParams routineParams(1000, relays, totalRelays);
-Threads::Thread routineThread(msglogerr, "routineThread");
+// Routine thread such as randomly monitoring and managing sensor states.
+Threads::routineThreadParams routineParams(ROUTINE_FRQ, relays, TOTAL_RELAYS);
+Threads::Thread routineThread("routineThread");
 
-const size_t threadQty = 4;
-Threads::Thread* toSuspend[threadQty] = {
-    &SHTThread, &AS7341Thread, &soilThread, &routineThread
-    };
+Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &AS7341Thread, 
+    &soilThread, &routineThread};
 
 // OTA 
-OTA::OTAhandler ota(OLED, station, msglogerr, toSuspend, threadQty); 
-
-void setupDigitalPins() {
-    struct pinConfig {
-        DPIN pin;
-        gpio_mode_t IOconfig;
-        gpio_pull_mode_t pullConfig;
-    };
-
-    // Floating on outputs has no function within lambda.
-    pinConfig pins[DigitalPinQty] = {
-        {DPIN::WAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
-        {DPIN::STA, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
-        {DPIN::defWAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
-        {DPIN::RE1, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE2, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE4, GPIO_MODE_OUTPUT, GPIO_FLOATING}
-    };
-
-    auto pinSet = [](pinConfig pin){
-        uint8_t pinIndex = static_cast<uint8_t>(pin.pin);
-        gpio_num_t pinNum = pinMapD[pinIndex];
-
-        ESP_ERROR_CHECK(gpio_set_direction(pinNum, pin.IOconfig));
-
-        if (pin.IOconfig != GPIO_MODE_OUTPUT) { // Ignores OUTPUT pull
-            ESP_ERROR_CHECK(gpio_set_pull_mode(pinNum, pin.pullConfig));
-        }
-    };
-
-    for (int i = 0; i < DigitalPinQty; i++) {
-        pinSet(pins[i]);
-    }
-}
-
-void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
-    adc_oneshot_unit_init_cfg_t unit_cfg{};
-    unit_cfg.unit_id = ADC_UNIT_1;
-    unit_cfg.ulp_mode = ADC_ULP_MODE_DISABLE;
-
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &unit));
-
-    APIN pins[AnalogPinQty] = {
-        APIN::SOIL1, APIN::SOIL2, APIN::SOIL3, APIN::SOIL4, APIN::PHOTO
-        };
-
-    // Configure the ADC channel
-    adc_oneshot_chan_cfg_t chan_cfg{};
-    chan_cfg.bitwidth = ADC_BITWIDTH_DEFAULT,
-    chan_cfg.atten = ADC_ATTEN_DB_12;  // Highest voltage reading.
-
-    auto pinSet = [unit, &chan_cfg](APIN pin){
-        adc_channel_t pinNum = pinMapA[static_cast<uint8_t>(pin)];
- 
-        ESP_ERROR_CHECK(adc_oneshot_config_channel(
-            adc_unit, pinNum, &chan_cfg
-        ));
-    };
-
-    for (int i = 0; i < AnalogPinQty; i++) {
-        pinSet(pins[i]);
-    }
-}
+OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
 void app_main() {
-    setupDigitalPins();
-    setupAnalogPins(adc_unit);
+    CONF_PINS::setupDigitalPins(); // Config.hpp
+    CONF_PINS::setupAnalogPins(CONF_PINS::adc_unit); // Config.hpp
 
     // Init I2C at frequency 100 khz.
     Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::STD);
 
     // Init OLED, AS7341 light sensor, and sht temp/hum sensor.
-    OLED.init(0x3C);
-    light.init(0x39);
-    sht.init(0x44); 
+    OLED.init(OLED_ADDR);
+    light.init(AS7341_ADDR);
+    sht.init(SHT_ADDR); 
 
     // Init credential singleton with global parameters above
     // which will also init the NVS.
+    static NVS::CredParams cp = {CRED_NAMESPACE}; // used for creds init
     NVS::Creds::get(&cp);
 
     // Mount spiffs with path /spiffs.
@@ -220,13 +167,15 @@ void app_main() {
     // Checks partition upon boot to ensure that it is valid by matching
     // the signature with the firmware running. If invalid, the program
     // will not continue.
-    if (bypassValidation == false) {
+    if (!BYPASS_VAL) {
         Boot::VAL err = Boot::checkPartition(
             Boot::PART::CURRENT, 
             FIRMWARE_SIZE, 
             FIRMWARE_SIG_SIZE
             );
 
+        // If not valid, tries rolling back to the previously working
+        // firmware and restarting.
         if (err != Boot::VAL::VALID) {
             OLED.invalidFirmware(); 
             

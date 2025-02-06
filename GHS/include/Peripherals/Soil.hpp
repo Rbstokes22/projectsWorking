@@ -15,6 +15,8 @@ namespace Peripheral {
 #define SOIL_CONSECUTIVE_CTS 5 // consecutive counts before sending alert.
 #define SOIL_ALT_MSG_SIZE 64 // Alert message size
 #define SOIL_ALT_MSG_ATT 3 // Attempts to send an alert
+#define SOIL_MIN_READ 1 // 0, but cant set lower. 12 bit value.
+#define SOIL_MAX_READ 4094 // 4095, but cant set higher.
 
 struct SOIL_TRIP_CONFIG {
     int tripVal;
@@ -28,7 +30,6 @@ struct SOIL_TRIP_CONFIG {
 };
 
 struct SoilParams {
-    Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t handle;
     adc_channel_t* channels;
 };

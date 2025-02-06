@@ -13,8 +13,11 @@ namespace Comms {
 // in station, station setup, or wap mode. Returns NetMode STA, WAP,
 // and WAP_SETUP.
 NetMode NetManager::checkNetSwitch() {
-    bool WAP = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::WAP)]);
-    bool STA = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::STA)]);
+    bool WAP = gpio_get_level(
+        CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::WAP)]);
+
+    bool STA = gpio_get_level(
+        CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::STA)]);
 
     // activation means dropped down to ground.
     if (WAP && !STA) {return NetMode::STA;}
@@ -80,7 +83,8 @@ void NetManager::startServer(NetMain &mode) {
         // DEF(ault) button, if pressed, will start with the default password.
         // This is to ensure access if for some reason the NVS password is 
         // forgotten.
-        bool nDEF = gpio_get_level(pinMapD[static_cast<uint8_t>(DPIN::defWAP)]);
+        bool nDEF = gpio_get_level(
+            CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::defWAP)]);
 
         if (nDEF) { // Indicates non-default mode.
 
@@ -161,7 +165,7 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
     startServer(mode);
     attempt++;
 
-    if (attempt > 5) {
+    if (attempt > NET_ATTEMPTS_RECON) {
         mode.destroy();
         attempt = 0;
     }

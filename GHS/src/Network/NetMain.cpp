@@ -31,17 +31,16 @@ esp_netif_t* NetMain::sta_netif{nullptr};
 wifi_init_config_t NetMain::init_config = WIFI_INIT_CONFIG_DEFAULT();
 httpd_config_t NetMain::http_config = HTTPD_DEFAULT_CONFIG();
 
-NetMain::NetMain(Messaging::MsgLogHandler &msglogerr, const char* mdnsName) : 
+NetMain::NetMain(const char* mdnsName) : wifi_config{{}} {
 
-    msglogerr{msglogerr}, wifi_config{{}} {
-        size_t mdnsLen = sizeof(this->mdnsName);
+    size_t mdnsLen = sizeof(this->mdnsName);
 
-        strncpy(this->mdnsName, mdnsName, mdnsLen - 1);
-        this->mdnsName[mdnsLen - 1] = '\0';
+    strncpy(this->mdnsName, mdnsName, mdnsLen - 1);
+    this->mdnsName[mdnsLen - 1] = '\0';
 
-        // used for https client due to large size.
-        NetMain::http_config.stack_size = 8192; 
-    }
+    // used for https client due to large size.
+    NetMain::http_config.stack_size = 8192; 
+}
 
 NetMain::~NetMain() {}
 
@@ -212,24 +211,23 @@ void NetMain::sendErr(const char* msg, errDisp type) {
     switch (type) {
         case errDisp::OLED:
 
-        this->msglogerr.handle(
+        Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::ERROR, msg, 
         Messaging::Method::OLED);
         break;
 
         case errDisp::SRL:
         
-        this->msglogerr.handle(
+        Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::ERROR, msg, 
         Messaging::Method::SRL);
         break;
 
         case errDisp::ALL:
 
-        this->msglogerr.handle(
+        Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::ERROR, msg, 
-        Messaging::Method::OLED, 
-        Messaging::Method::SRL);
+        Messaging::Method::SRL_OLED);
     } 
 }
 

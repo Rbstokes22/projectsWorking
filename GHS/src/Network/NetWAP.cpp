@@ -3,6 +3,7 @@
 #include "esp_wifi.h"
 #include <cstdint>
 #include "Network/Routes.hpp"
+#include "UI/MsgLogHandler.hpp"
 #include "string.h"
 #include "lwip/inet.h"
 #include "esp_http_server.h"
@@ -111,21 +112,17 @@ wifi_ret_t NetWAP::dhcpsHandler() {
 
 // PUBLIC
 
-NetWAP::NetWAP(
-    Messaging::MsgLogHandler &msglogerr,
-    const char* APssid, const char* APdefPass,
-    const char* mdnsName) : 
+NetWAP::NetWAP(const char* APssid, const char* APdefPass, 
+    const char* mdnsName) : NetMain(mdnsName) {
 
-    NetMain(msglogerr, mdnsName) {
+    strncpy(this->APssid, APssid, sizeof(this->APssid) - 1);
+    this->APssid[sizeof(this->APssid) - 1] = '\0';
 
-        strncpy(this->APssid, APssid, sizeof(this->APssid) - 1);
-        this->APssid[sizeof(this->APssid) - 1] = '\0';
+    strncpy(this->APpass, APdefPass, sizeof(this->APpass) - 1);
+    this->APpass[sizeof(this->APpass) -1] = '\0';
 
-        strncpy(this->APpass, APdefPass, sizeof(this->APpass) - 1);
-        this->APpass[sizeof(this->APpass) -1] = '\0';
-
-        strcpy(this->APdefaultPass, APdefPass);
-    }
+    strcpy(this->APdefaultPass, APdefPass);
+}
 
 // Second step in the init process.
 // Once the wifi has been initialized, run the dhcps handler

@@ -12,34 +12,26 @@ namespace Threads {
 
 netThreadParams::netThreadParams(
     uint32_t delay, 
-    Comms::NetManager &netManager,
-    Messaging::MsgLogHandler &msglogerr) :
-
-    delay(delay), mutex(msglogerr), netManager(netManager), 
-    msglogerr(msglogerr) {}
+    Comms::NetManager &netManager) :
+    
+    delay(delay), mutex(), netManager(netManager) {}
 
 SHTThreadParams::SHTThreadParams(
     uint32_t delay, 
-    SHT_DRVR::SHT &SHT,
-    Messaging::MsgLogHandler &msglogerr) :
 
-    delay(delay), SHT(SHT), msglogerr(msglogerr) {}
+    SHT_DRVR::SHT &SHT) : delay(delay), SHT(SHT) {}
 
 AS7341ThreadParams::AS7341ThreadParams(
     uint32_t delay,
     AS7341_DRVR::AS7341basic &light,
-    Messaging::MsgLogHandler &msglogerr,
     adc_oneshot_unit_handle_t &adc_unit) :
 
-    delay(delay), light(light),
-    msglogerr(msglogerr), adc_unit(adc_unit) {}
+    delay(delay), light(light), adc_unit(adc_unit) {}
 
 soilThreadParams::soilThreadParams(
-    uint32_t delay,
-    Messaging::MsgLogHandler &msglogerr,
-    adc_oneshot_unit_handle_t &adc_unit) :
+    uint32_t delay, adc_oneshot_unit_handle_t &adc_unit) :
 
-    delay(delay), msglogerr(msglogerr), adc_unit(adc_unit) {}
+    delay(delay), adc_unit(adc_unit) {}
 
 routineThreadParams::routineThreadParams(
     uint32_t delay, 

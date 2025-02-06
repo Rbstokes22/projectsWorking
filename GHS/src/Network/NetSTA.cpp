@@ -1,6 +1,7 @@
 #include "Network/NetSTA.hpp"
 #include "Network/NetMain.hpp"
 #include "esp_wifi.h"
+#include "UI/MsgLogHandler.hpp"
 #include <cstdint>
 #include "Network/Routes.hpp"
 #include "string.h"
@@ -47,15 +48,11 @@ void NetSTA::IPEvent(
 
 // PUBLIC
 
-NetSTA::NetSTA(
-    Messaging::MsgLogHandler &msglogerr, 
-    const char* mdnsName) : 
+NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName) {
 
-    NetMain(msglogerr, mdnsName) {
-
-        memset(this->ssid, 0, sizeof(this->ssid));
-        memset(this->pass, 0, sizeof(this->pass));
-    }
+    memset(this->ssid, 0, sizeof(this->ssid));
+    memset(this->pass, 0, sizeof(this->pass));
+}
 
 // Second step in the init process.
 // Once the wifi has been initialized, this will register the 
@@ -165,9 +162,10 @@ wifi_ret_t NetSTA::start_server() {
         esp_err_t reg4 = httpd_register_uri_handler(NetMain::server, &OTACheck);
         esp_err_t reg5 = httpd_register_uri_handler(NetMain::server, &OTAUpdateLAN);
         esp_err_t reg6 = httpd_register_uri_handler(NetMain::server, &ws);
+        esp_err_t reg7 = httpd_register_uri_handler(NetMain::server, &log);
 
         if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK && reg4 == ESP_OK
-            && reg5 == ESP_OK && reg6 == ESP_OK) {
+            && reg5 == ESP_OK && reg6 == ESP_OK && reg7 == ESP_OK) {
                 
             NetMain::flags.uriReg = true;
         } else {

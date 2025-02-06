@@ -5,7 +5,6 @@
 #include "esp_http_server.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
-#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
@@ -52,7 +51,6 @@ class NetMain {
 
     protected:
     static httpd_handle_t server;
-    Messaging::MsgLogHandler &msglogerr;
     static NetMode NetType;
     static Flags flags; // to check for initialization
     static esp_netif_t* ap_netif;
@@ -63,7 +61,7 @@ class NetMain {
     char mdnsName[static_cast<int>(IDXSIZE::MDNS)];
 
     public:
-    NetMain(Messaging::MsgLogHandler &msglogerr, const char* mdnsName);
+    NetMain(const char* mdnsName);
     virtual ~NetMain();
     wifi_ret_t init_wifi();
     wifi_ret_t mDNS();

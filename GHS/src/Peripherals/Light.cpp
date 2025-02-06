@@ -12,7 +12,7 @@ Light::Light(LightParams &params) :
 
     readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     photoVal(0), flags{false, false, false, false},
-    mtx(params.msglogerr), params(params) {}
+    mtx(), params(params) {}
 
 Light* Light::get(LightParams* parameter) {
     static bool isInit{false};

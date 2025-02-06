@@ -10,6 +10,8 @@
 #include "Peripherals/Soil.hpp"
 #include "Peripherals/Report.hpp"
 #include "Common/Timing.hpp"
+#include "Drivers/SHT_Library.hpp" // Used for SHT max and min.
+#include "UI/MsgLogHandler.hpp" // Used for new log entry in getall
 
 namespace Comms {
 
@@ -41,7 +43,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         
         written = snprintf(buffer, size,  
-        "{\"firmv\":\"%s\",\"id\":\"%s\","
+        "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
         "\"sysTime\":%zu,\"hhmmss\":\"%d:%d:%d\",\"timeCalib\":%d,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
@@ -60,6 +62,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
+        Messaging::MsgLogHandler::get()->getNewLogEntry(),
         static_cast<size_t>(time->raw),
         time->hour, time->minute, time->second,
         dtg->isCalibrated(),
@@ -119,6 +122,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Clock::DateTime::get()->calibrate(data.suppData);
             written = snprintf(buffer, size, reply, 1, 
                 "Time calibrated to", data.suppData, data.idNum);
+        }
+        
+        break;
+
+        // If a new log entry is available, in the GET_ALL socket command,
+        // there will be a flag showing 1. Once the client acknowledges and
+        // receives the log, they will send a socket command here which will
+        // reset the flag back to false.
+        case CMDS::NEW_LOG_RCVD: {
+            Messaging::MsgLogHandler::get()->resetNewLogFlag();
         }
         
         break;
@@ -564,7 +577,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // to. If 2000 is passed, an alert will send when the soil reading is
         // below 2000. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -587,7 +600,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // to. If 2000 is passed, an alert will send when the soil reading is
         // above 2000. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -619,7 +632,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -636,7 +649,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -665,7 +678,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) {
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -682,7 +695,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -711,7 +724,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -728,7 +741,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
+        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {

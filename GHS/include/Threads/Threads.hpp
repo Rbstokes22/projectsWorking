@@ -3,18 +3,16 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include "UI/MsgLogHandler.hpp"
 
 namespace Threads {
 
 class Thread {
     private:
     TaskHandle_t taskHandle;
-    Messaging::MsgLogHandler &msglogerr;
     const char* name;
 
     public:
-    Thread(Messaging::MsgLogHandler &msglogerr, const char* name);
+    Thread(const char* name);
     void initThread(
         void (*taskFunc)(void*), // task function
         uint16_t stackSize, // stack size in words.

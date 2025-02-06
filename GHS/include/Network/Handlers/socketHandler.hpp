@@ -9,18 +9,11 @@
 
 namespace Comms {
 
-#define BUF_SIZE 1500 // Large to accomodate the get all call
-#define MAX_RESP_ARGS 10 // Max response arguments
-
-#define SHT_MIN -39 // Datasheet is -40, but you cant set lower than that.
-#define SHT_MAX 124 // Datasheet is 125, but you cant set higher than that.
-#define SHT_MIN_HUM 1 // 0, but cant set below 0
-#define SHT_MAX_HUM 99 // 100, but cant set above 100.
-#define SOIL_MIN 1 // 0, but cant set lower. 12 bit value.
-#define SOIL_MAX 4094 // 4095, but cant set higher.
+#define SKT_BUF_SIZE 1500 // Large to accomodate the get all call
+#define SKT_MAX_RESP_ARGS 10 // Max response arguments
 
 enum class CMDS : uint8_t {
-    GET_ALL = 1, CALIBRATE_TIME,
+    GET_ALL = 1, CALIBRATE_TIME, NEW_LOG_RCVD,
     RELAY_1, RELAY_2, RELAY_3, RELAY_4,
     RELAY_1_TIMER_ON, RELAY_1_TIMER_OFF, 
     RELAY_2_TIMER_ON, RELAY_2_TIMER_OFF,
@@ -51,14 +44,14 @@ struct cmdData {
 struct async_resp_arg {
     httpd_handle_t hd;
     int fd;
-    uint8_t Buf[BUF_SIZE];
+    uint8_t Buf[SKT_BUF_SIZE];
     cmdData data;
 };
 
 class argPool {
     private:
-    async_resp_arg pool[MAX_RESP_ARGS];
-    bool inUse[MAX_RESP_ARGS];
+    async_resp_arg pool[SKT_MAX_RESP_ARGS];
+    bool inUse[SKT_MAX_RESP_ARGS];
 
     public:
     argPool();

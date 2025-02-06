@@ -66,6 +66,13 @@ httpd_uri_t OTACheck = {
     .user_ctx  = NULL
 };
 
+httpd_uri_t log = {
+    .uri       = "/getLog",
+    .method    = HTTP_GET,
+    .handler   = STALogHandler,
+    .user_ctx  = NULL
+};
+
 // Station and WAP routes
 httpd_uri_t ws = {
     .uri          = "/ws",

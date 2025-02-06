@@ -3,7 +3,6 @@
 
 #include "esp_ota_ops.h"
 #include "esp_https_ota.h"
-#include "UI/MsgLogHandler.hpp"
 #include "UI/Display.hpp"
 #include "Network/NetMain.hpp"
 #include "esp_http_client.h"
@@ -41,7 +40,6 @@ class OTAhandler {
     static CloseFlags flags;
     Comms::NetMain &station;
     static UI::Display* OLED;
-    Messaging::MsgLogHandler &msglogerr;
     Threads::Thread** toSuspend;
     size_t threadQty;
     esp_ota_handle_t OTAhandle;
@@ -62,7 +60,6 @@ class OTAhandler {
     OTAhandler(
         UI::Display &OLED, 
         Comms::NetMain &station,
-        Messaging::MsgLogHandler &msglogerr,
         Threads::Thread** toSuspend,
         size_t threadQty
         );

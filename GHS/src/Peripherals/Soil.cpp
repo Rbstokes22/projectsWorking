@@ -15,7 +15,7 @@ Soil::Soil(SoilParams &params) :
         {0, false, false, 0}, {0, false, false, 0}, {0, false, false, 0}, 
         {0, false, false, 0}
     },
-    mtx(params.msglogerr), conf{
+    mtx(), conf{
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 1, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 2, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 3, 0},

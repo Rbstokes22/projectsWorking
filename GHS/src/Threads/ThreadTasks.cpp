@@ -10,6 +10,8 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
 #include "Peripherals/Report.hpp"
+#include "UI/MsgLogHandler.hpp"
+#include "cmath"
 
 namespace ThreadTask {
 
@@ -23,7 +25,6 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     while (true) {
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
-        params->msglogerr.OLEDMessageCheck(); // clears errors from display
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
@@ -34,7 +35,7 @@ void SHTTask(void* parameter) { // SHT
     Threads::SHTThreadParams* params = 
         static_cast<Threads::SHTThreadParams*>(parameter);
 
-    Peripheral::TempHumParams thParams = {params->msglogerr, params->SHT};
+    Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {
@@ -60,15 +61,14 @@ void soilTask(void* parameter) { // Soil sensors
     
     // Channels of the ADC to read.
     static adc_channel_t channels[SOIL_SENSORS] = {
-        pinMapA[static_cast<uint8_t>(APIN::SOIL1)],
-        pinMapA[static_cast<uint8_t>(APIN::SOIL2)],
-        pinMapA[static_cast<uint8_t>(APIN::SOIL3)],
-        pinMapA[static_cast<uint8_t>(APIN::SOIL4)]
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL1)],
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL2)],
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)],
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL4)]
     };
 
     // Single soil parameter structure that include 4 channels.
     Peripheral::SoilParams soilParams = {
-        params->msglogerr,
         params->adc_unit,
         channels
     };
@@ -95,6 +95,10 @@ void routineTask(void* parameter) {
 
         // Manage the timer of the daily report.
         Peripheral::Report::get()->manageTimer();
+
+        // Calls the message check on an interval to ensure that display
+        // messages are cleared after n seconds.
+        Messaging::MsgLogHandler::get()->OLEDMessageCheck();
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }

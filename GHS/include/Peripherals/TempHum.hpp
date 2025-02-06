@@ -6,7 +6,6 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
-#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
 
@@ -58,7 +57,6 @@ struct TH_Averages {
 
 // temperature and humidity parameters.
 struct TempHumParams {
-    Messaging::MsgLogHandler &msglogerr;
     SHT_DRVR::SHT &sht;
 };
 

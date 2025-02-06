@@ -15,6 +15,11 @@
 // will not be handled at the same time. Net data will only 
 // be displayed if there is no override or ota update happening.
 
+// Left in append and remove message methods. These were built to show 
+// data on the OLED screen before the implementation of the log. These will
+// remain in place to be used if desired in the future for critical updates
+// that might not be accessable via wifi to the client in the form of a log.
+
 namespace UI {
 
 // Constructor 

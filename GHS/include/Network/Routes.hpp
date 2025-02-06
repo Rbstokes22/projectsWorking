@@ -14,6 +14,7 @@ extern httpd_uri_t OTAUpdate;
 extern httpd_uri_t OTAUpdateLAN;
 extern httpd_uri_t OTARollback;
 extern httpd_uri_t OTACheck;
+extern httpd_uri_t log;
 extern httpd_uri_t ws;
 
 }

@@ -16,46 +16,38 @@ struct netThreadParams {
     uint32_t delay;
     Threads::Mutex mutex;
     Comms::NetManager &netManager;
-    Messaging::MsgLogHandler &msglogerr;
 
     netThreadParams(
         uint32_t delay, 
-        Comms::NetManager &netManager,
-        Messaging::MsgLogHandler &msglogerr);
+        Comms::NetManager &netManager);
 };
 
 struct SHTThreadParams {
     uint32_t delay;
     SHT_DRVR::SHT &SHT;
-    Messaging::MsgLogHandler &msglogerr;
 
     SHTThreadParams(
         uint32_t delay, 
-        SHT_DRVR::SHT &SHT,
-        Messaging::MsgLogHandler &msglogerr);
+        SHT_DRVR::SHT &SHT);
 };
 
 struct AS7341ThreadParams {
     uint32_t delay;
     AS7341_DRVR::AS7341basic &light;
-    Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t &adc_unit;
 
     AS7341ThreadParams(
         uint32_t delay,
         AS7341_DRVR::AS7341basic &light,
-        Messaging::MsgLogHandler &msglogerr,
         adc_oneshot_unit_handle_t &adc_unit);
 };
 
 struct soilThreadParams {
     uint32_t delay;
-    Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t &adc_unit;
 
     soilThreadParams(
         uint32_t delay,
-        Messaging::MsgLogHandler &msglogerr,
         adc_oneshot_unit_handle_t &adc_unit);
 };
 
@@ -72,6 +64,5 @@ struct routineThreadParams {
 };
 
 }
-
 
 #endif // THREADPARAMETERS_HPP

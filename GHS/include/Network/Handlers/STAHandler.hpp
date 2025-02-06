@@ -9,6 +9,7 @@ namespace Comms {
 
 // Src file STAHandler.cpp
 esp_err_t STAIndexHandler(httpd_req_t* req);
+esp_err_t STALogHandler(httpd_req_t* req);
 
 class OTAHAND {
     private:

@@ -9,6 +9,8 @@
 
 namespace Comms {
 
+#define NET_ATTEMPTS_RECON 3 // reconnection attempts before net restart
+
 class NetManager {
     private:
     NetSTA &station;

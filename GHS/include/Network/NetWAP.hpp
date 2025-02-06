@@ -29,10 +29,7 @@ class NetWAP : public NetMain{
     wifi_ret_t dhcpsHandler();
 
     public:
-    NetWAP(
-        Messaging::MsgLogHandler &msglogerr, 
-        const char* APssid, const char* APdefPass,
-        const char* mdnsName);
+    NetWAP(const char* APssid, const char* APdefPass, const char* mdnsName);
     wifi_ret_t start_wifi() override;
     wifi_ret_t start_server() override;
     wifi_ret_t destroy() override;

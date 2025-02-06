@@ -316,12 +316,11 @@ OTA_RET OTAhandler::writeFirmware(
 OTAhandler::OTAhandler(
     UI::Display &OLED, 
     Comms::NetMain &station,
-    Messaging::MsgLogHandler &msglogerr,
     Threads::Thread** toSuspend,
     size_t threadQty) : 
 
-    station(station), msglogerr(msglogerr), toSuspend(toSuspend), 
-    threadQty(threadQty), OTAhandle(0), config{}
+    station(station), toSuspend(toSuspend), threadQty(threadQty), 
+    OTAhandle(0), config {}
     
     {
         OTAhandler::OLED = &OLED; 
@@ -407,11 +406,10 @@ bool OTAhandler::rollback() {
 
 // Primary error handler.
 void OTAhandler::sendErr(const char* err) {
-    this->msglogerr.handle(
+    Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::ERROR,
         err,
         Messaging::Method::SRL
-        // Messaging::Method::OLED
     );
 }
 

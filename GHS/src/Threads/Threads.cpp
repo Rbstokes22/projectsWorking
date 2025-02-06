@@ -6,9 +6,9 @@
 
 namespace Threads {
 
-Thread::Thread(Messaging::MsgLogHandler &msglogerr, const char* name) :
+Thread::Thread(const char* name) :
 
-    taskHandle{NULL}, msglogerr(msglogerr), name(name) {}
+    taskHandle{NULL}, name(name) {}
 
 void Thread::initThread(
     void (*taskFunc)(void*), 
@@ -32,7 +32,7 @@ void Thread::suspendTask() {
 
     if (this->taskHandle != NULL) {
         vTaskSuspend(this->taskHandle);
-        msglogerr.handle(
+        Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::INFO, 
         msg, 
         Messaging::Method::SRL
@@ -46,7 +46,7 @@ void Thread::resumeTask() {
     
     if (this->taskHandle != NULL) {
         vTaskResume(this->taskHandle);
-        msglogerr.handle(
+        Messaging::MsgLogHandler::get()->handle(
         Messaging::Levels::INFO, 
         msg, 
         Messaging::Method::SRL

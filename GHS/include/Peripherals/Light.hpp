@@ -6,12 +6,10 @@
 #include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
-#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
 
 struct LightParams {
-    Messaging::MsgLogHandler &msglogerr;
     adc_oneshot_unit_handle_t handle;
     adc_channel_t channel;
     AS7341_DRVR::AS7341basic &as7341;

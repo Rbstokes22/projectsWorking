@@ -44,11 +44,11 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
     nvs_ret_t stat = this->nvs.write(key, (uint8_t*)buffer, bytes);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
-        params.msglogerr.handle(
-                Messaging::Levels::ERROR,
-                "NVS Creds were not written",
-                Messaging::Method::SRL
-            );
+        Messaging::MsgLogHandler::get()->handle(
+            Messaging::Levels::ERROR,
+            "NVS Creds were not written",
+            Messaging::Method::SRL
+        );
     }
 
     return stat;
@@ -66,7 +66,7 @@ const char* Creds::read(const char* key) {
             );
 
         if (stat != nvs_ret_t::NVS_READ_OK) {
-            params.msglogerr.handle(
+            Messaging::MsgLogHandler::get()->handle(
                 Messaging::Levels::ERROR,
                 "NVS Creds were not read",
                 Messaging::Method::SRL

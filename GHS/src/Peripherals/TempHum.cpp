@@ -13,8 +13,7 @@ namespace Peripheral {
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
-    flags{false, false}, 
-    mtx(params.msglogerr), 
+    flags{false, false}, mtx(), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 

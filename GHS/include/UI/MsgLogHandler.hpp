@@ -3,8 +3,14 @@
 
 #include <cstdint>
 #include "UI/IDisplay.hpp"
+#include <atomic>
 
 namespace Messaging {
+
+#define LOG_SIZE 8192 // bytes of log information.
+#define LOG_MAX_ENTRY 128 // max entry size per log.
+#define MLH_DELIM ';' // delimiter used in log entries
+#define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.
 
 enum class Levels : uint8_t {
 
@@ -28,37 +34,49 @@ enum class Levels : uint8_t {
     CRITICAL 
 };
 
+
 enum class Method : uint8_t {
-    SRL, // output to serial if running.
-    OLED, // output to OLED if running.
-    LOG, // Log to NVS
-    NONE // No method, default argument for methods 2 and 3
+    SRL, // Serial
+    SRL_OLED, // Serial and OLED
+    SRL_LOG, // Serial and log
+    OLED, // OLED
+    OLED_LOG, // OLED and log
+    LOG, // LOG
+    SRL_OLED_LOG // Serial, OLED, and log.
 };
 
 extern const char LevelsMap[5][10]; // used for verbosity with enum Levels
 
+// Parameters to control the Messaging, Logging, and Error capability.
+struct MsgLogHandlerParams {
+    UI::IDisplay &OLED; // Address of OLED object.
+    uint8_t msgClearInterval; // Seconds to clear messages from OLED display
+    bool serialOn; // Enables serial printing.
+};
+
 class MsgLogHandler {
     private:
-    UI::IDisplay &OLED;
-    bool serialOn;
+    MsgLogHandlerParams &params;
     uint32_t msgClearTime;
-    uint8_t msgClearSeconds;
-    bool isMsgReset;
-    uint32_t millis();
-    
-    public:
-    MsgLogHandler(
-        UI::IDisplay &OLED, uint8_t msgClearInterval = 5, bool serialOn = false);
+    bool clrMsgOLED;
+    char log[LOG_SIZE];
+    std::atomic<bool> newLogEntry; // New message available.
+    MsgLogHandler(MsgLogHandlerParams &params); 
+    MsgLogHandler(const MsgLogHandler&) = delete; // prevent copying
+    MsgLogHandler &operator=(const MsgLogHandler&) = delete; // prevent assgnmt
     void writeSerial(Levels level, const char* message);
     void writeOLED(Levels level, const char* message);
-    void writeLog(Levels level, const char* message);
-    void prepMessage(Method method, Levels level, const char* message);
+    void writeLog(Levels level, const char* message); 
+    size_t stripLogMsg(size_t newMsgLen);
+    
+    public:
+    static MsgLogHandler* get(MsgLogHandlerParams* params = nullptr);
     void OLEDMessageCheck();
-    void handle(
-        Levels level, const char* message,
-        Method method1, 
-        Method method2 = Method::NONE, 
-        Method method3 = Method::NONE);
+    void handle(Levels level, const char* message, Method method);
+    bool getNewLogEntry();
+    void resetNewLogFlag();
+    const char* getLog();
+
 };
 
 }

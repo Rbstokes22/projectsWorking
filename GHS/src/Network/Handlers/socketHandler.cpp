@@ -14,11 +14,11 @@ argPool SOCKHAND::pool;
 
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack.
-argPool::argPool() : pool() {memset(this->inUse, false, MAX_RESP_ARGS);}
+argPool::argPool() : pool() {memset(this->inUse, false, SKT_MAX_RESP_ARGS);}
 
 // Iterates the arg pool and returns a pointer to an open allocation.
 async_resp_arg* argPool::getArg() {
-    for (int i = 0; i < MAX_RESP_ARGS; i++) {
+    for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {
         if (!this->inUse[i]) {
             this->inUse[i] = true;
             memset(&this->pool[i], 0, sizeof(this->pool[i]));
@@ -30,7 +30,7 @@ async_resp_arg* argPool::getArg() {
 
 // Iterates arg pool and releases it to be used again.
 void argPool::releaseArg(async_resp_arg* arg) {
-    for (int i = 0; i < MAX_RESP_ARGS; i++) {
+    for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {
         if (&this->pool[i] == arg) {
             this->inUse[i] = false;
             break;
