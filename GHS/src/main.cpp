@@ -1,14 +1,5 @@
 // CURRENT NOTES: 
 
-// 2 tests to run
-
-// Log function is complete, and testing went well. Built into getall skt 
-// function, a new entry flag, and added in a uri /getLog which should return
-// the log. This has not been tested, but need to have the client paged updated
-// to accomodate the log entry to ensure smooth delivery. Once received, the
-// skt command of NEW_LOG_RECEIVED should be sent back to clear the flag. Do
-// not make the log a separate page, but an expandable feature using AJAX.
-
 // Test soil, and ensure that relays do not need mutexs.
 
 // Once soil is complete, move over to light and mirror features of temp hum. Averages 
@@ -38,7 +29,8 @@
 // Log. Tested log to ensure that when new space was required, the beginning entry was deleted. 
 // Ran test for several attempts where a value, via text, was always added in and increased 
 // exponentially. When needed, The first several entries were stripped, showing it works as 
-// advertised. Awaiting web comm testing.
+// advertised. Tested via web, getting and splitting log into array and displaying all log
+// entries.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.

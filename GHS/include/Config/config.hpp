@@ -57,7 +57,7 @@
 #define SHT_FRQ 1000
 #define AS7341_FRQ 2000
 #define SOIL_FRQ 1000
-#define ROUTINE_FRQ 1000
+#define ROUTINE_FRQ 5000
 
 // GPIO configuration.
 namespace CONF_PINS {

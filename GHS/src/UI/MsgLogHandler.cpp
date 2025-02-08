@@ -64,10 +64,10 @@ void MsgLogHandler::writeLog(Levels level, const char* message) {
     // Write the data to the entry to be concat to the log array. Used sprintf
     // in order to avoid null termination by snprintf, this must be terminated
     // by the delimiter. EXPLICITYLY DID NOT CHECK TO SEE IF WRITTEN EXCEEDS
-    // ENTRY SIZE, IT OVER, IT WILL BE TRUNCATED.
-    int written = snprintf(entry, LOG_MAX_ENTRY, "(%lu)%s: %s%c", 
-        Clock::DateTime::get()->seconds(), 
-        LevelsMap[static_cast<uint8_t>(level)], message, MLH_DELIM);
+    // ENTRY SIZE, IT OVER, IT WILL BE TRUNCATED. Format is INFO (seconds): msg
+    int written = snprintf(entry, LOG_MAX_ENTRY, "%s (%lu): %s%c", 
+        LevelsMap[static_cast<uint8_t>(level)],
+        Clock::DateTime::get()->seconds(), message, MLH_DELIM);
 
     // If written is greater than max entry size, ensures it has a closing
     // delimiter before the null terminator.

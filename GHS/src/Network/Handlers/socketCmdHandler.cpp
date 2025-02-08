@@ -132,8 +132,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // reset the flag back to false.
         case CMDS::NEW_LOG_RCVD: {
             Messaging::MsgLogHandler::get()->resetNewLogFlag();
+
+            written = snprintf(buffer, size, reply, 1,
+                "Log Rcvd", 0, data.idNum);
         }
-        
+
         break;
 
         // Relays 1 - 4 controls. Changes relay status to supp data which will
@@ -168,7 +171,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         } else {
             SOCKHAND::Relays[1].removeForce();
         }
-
+        
         written = snprintf(buffer, size, reply, 1, "Re2 set", data.suppData, 
             data.idNum);
 

@@ -203,6 +203,8 @@ const char STApage[] = R"rawliteral(
     <div id="otaUpd"></div>
     <div id="temp"></div>
     <div id="hum"></div>
+    <div id="log"></div>
+    <button onclick="openLog()">Open Log</button>
 
     <script>
         let socket;
@@ -215,11 +217,14 @@ const char STApage[] = R"rawliteral(
         const URLdata = re.exec(window.location.href);
         const URLprotocol = URLdata[1]; // http or https
         const URLbody = URLdata[2]; // main url
+        const OTAURL = `${URLprotocol}://${URLbody}/OTACheck`;
+        const logURL = `${URLprotocol}://${URLbody}/getLog`;
         let requestIDs = {};
-        let idNum = 0;
+        let idNum = 0; // Uses to keep track of all socket commands to srvr
+        let allData = {}; // This contains all sensor data from ESP32
+        let log = []; // Log entries from ESP32
         const CMDS = [null, // Used to index to a +1
-            "GET_ALL", "SET_MIN_TEMP", "SET_MAX_TEMP", "SET_MIN_HUM",
-            "SET_MAX_HUM"
+            "GET_ALL", "CALIBRATE_TIME", "NEW_LOG_RCVD"
         ];
 
         // Elements
@@ -272,7 +277,8 @@ const char STApage[] = R"rawliteral(
             socket.send(`${convert("GET_ALL")}/${0x00}/${ID}`);
         }
 
-        // Clears requests that will not be satisfied by the server.
+        // Clears requests that will not be satisfied by the server to 
+        // prevent the from accumulating to non responses.
         const clearOldRequests = () => {
             const curID = idNum;
 
@@ -283,18 +289,49 @@ const char STApage[] = R"rawliteral(
             });
         }
 
-        // RECEIVED MESSAGE HANDLERS
+        // Gets the log, separates it into a non-delimited array, to be used
+        // for diplay.
+        let getLog = () => {
+            fetch(logURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(text => {
+       
+                if (text.length <= 0) {
+                    throw new Error("No Log Data");
+                }
 
-        const setAll = (data) => {
-            const title = document.getElementById("title");
-            const temp = document.getElementById("temp");
-            const hum = document.getElementById("hum");
+                log = text.split(";");
 
-            title.innerHTML = `Greenhouse Monitor V${data.firmv}`;
-            temp.innerText = data.temp;
-            hum.innerText = data.hum;
+                const ID = getID();
+                socket.send(`${convert("NEW_LOG_RCVD")}/${0x00}/${ID}`);
+            })
+            .catch(err => console.log(err)); // Handle later
         }
 
+        const openLog = () => {
+            let html = "";
+            log.forEach(entry => html += `${entry}<br>`);
+            document.getElementById("log").innerHTML = html;
+        }
+
+        // RECEIVED MESSAGE HANDLERS
+
+        const setAll = (data) => { // Sets the addData object to response
+            allData = data; // Allows modification between poll interval waits
+            const title = document.getElementById("title");
+         
+            if (data.newLog === 1) getLog(); // Gets log if avail
+
+            title.innerHTML = `Greenhouse Monitor V${data.firmv}`;
+       
+        }
+
+        // Takes the JSON response, and executes the function
         const handleResponse = (response) => {
             const id = response.id;
             let func = requestIDs[id];
@@ -329,7 +366,6 @@ const char STApage[] = R"rawliteral(
         // HTTP 
         const checkOTA = () => {
             return new Promise((resolve, reject) => {
-            const OTAURL = `${URLprotocol}://${URLbody}/OTACheck`;
             fetch(OTAURL)
             .then(res => res.json())
             .then(res => {
