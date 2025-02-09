@@ -15,20 +15,20 @@ namespace Peripheral {
 #define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess (< 256)
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
 
-// Alert configuration. The on and off counts are to ensure that consecutive
-// counts are taken into consideration before sending or resetting alert.
-// All the variables serve as a packet of data assigned to each sensor to 
-// allow proper handling and sending to the server.
+// Alert configuration. All variables serve as a packet of data assigned to
+// each sensor to allow proper handling and sending to the server.
 struct alertConfig {
     int tripVal; // Sends alert
     ALTCOND condition; // Alert condition.
-    ALTCOND prevCondition; // ALert previous condition.
+    ALTCOND prevCondition; // Alert previous condition.
     uint32_t onCt; // Consecutive on counts to send alert.
     uint32_t offCt; // Consecutive off counts to reset alert.
     bool toggle; // Blocker to ensure that only 1 message is sent per violation.
     uint8_t attempts; // Attempt count to send alert
 };
 
+// Relay configuration. All variables server as a packet of data assigned to
+// each sensor to allow proper handling of relays.
 struct relayConfig {
     int tripVal; // Turns relay on.
     RECOND condition; // Relay condition.
@@ -42,8 +42,8 @@ struct relayConfig {
 
 // Combined alert and relay configurations.
 struct TH_TRIP_CONFIG { 
-    alertConfig alt;
-    relayConfig relay;
+    alertConfig alt; // alert
+    relayConfig relay; // relay
 };
 
 // Temperature and humidity averages. 
@@ -52,10 +52,10 @@ struct TH_Averages {
     float temp; // temp accum / pollCt
     float hum; // hum accum / pollCt
     float prevTemp; // Previous values copied when cleared.
-    float prevHum;
+    float prevHum; // Previous values copied when cleared.
 };
 
-// temperature and humidity parameters.
+// temperature and humidity parameters required for init.
 struct TempHumParams {
     SHT_DRVR::SHT &sht;
 };
@@ -71,7 +71,7 @@ class TempHum {
     SHT_DRVR::SHT_VALS data;
     TH_Averages averages;
     isUpTH flags;
-    Threads::Mutex mtx;
+    static Threads::Mutex mtx;
     TH_TRIP_CONFIG humConf;
     TH_TRIP_CONFIG tempConf;
     TempHumParams &params;

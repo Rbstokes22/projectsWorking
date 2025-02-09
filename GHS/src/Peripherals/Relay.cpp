@@ -1,5 +1,6 @@
 #include "Peripherals/Relay.hpp"
 #include "driver/gpio.h"
+#include "Threads/Mutex.hpp"
 #include "string.h"
 #include "Common/Timing.hpp"
 
@@ -55,7 +56,8 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
     IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
     IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
     IDSTATE::AVAILABLE}, clientQty(0),
-    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false} {}
+    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false},
+    mtx() {}
 
 // Requires controller ID. Checks if ID is currently registered as a client
 // of the relay, if not, returns false. If successful, changes the client
@@ -63,6 +65,7 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
 bool Relay::on(uint8_t ID) {
     // Will not run if relay is forced off.
     if (this->relayState == RESTATE::FORCED_OFF) return false;
+    Threads::MutexLock(this->mtx);
 
     // Ensures the ID is registerd, and then changes state to on. If 
     // unsuccessful, returns false.
@@ -89,6 +92,7 @@ bool Relay::on(uint8_t ID) {
 // acceptable range, but the humidity does not, the temperature will not be
 // able to de-energize the relay.
 bool Relay::off(uint8_t ID) {
+    Threads::MutexLock(this->mtx);
 
     if (!this->changeIDState(ID, IDSTATE::OFF)) {
         printf("Relay: %u, ID: %u unable to change ID state\n", 
@@ -110,6 +114,8 @@ bool Relay::off(uint8_t ID) {
 // the current clients powering the device, those must be deleted
 // using off(). Works well for emergencies.
 void Relay::forceOff() {
+    Threads::MutexLock(this->mtx);
+
     this->relayState = RESTATE::FORCED_OFF;
     printf("Relay %u forced off\n", this->ReNum);
     gpio_set_level(this->pin, 0);
@@ -117,6 +123,8 @@ void Relay::forceOff() {
 
 // Requires no parameters. Removes the Force Off block to allow normal op.
 void Relay::removeForce() {
+    Threads::MutexLock(this->mtx);
+
     printf("Relay %u force off is removed\n", this->ReNum);
     this->relayState = RESTATE::FORCE_REMOVED;
 }
@@ -126,6 +134,8 @@ void Relay::removeForce() {
 // in all relay requests going forward. Returns 99 if no allocations
 // are available.
 uint8_t Relay::getID() {
+    Threads::MutexLock(this->mtx);
+
     for (int i = 0; i < RELAY_IDS; i++) {
         if (clients[i] == IDSTATE::AVAILABLE) {
             this->changeIDState(i, IDSTATE::RESERVED);
@@ -142,6 +152,8 @@ uint8_t Relay::getID() {
 // you do not have to call off() specifically before removing ID.
 // Returns true if successful, and false if ID is out of range.
 bool Relay::removeID(uint8_t ID) {
+    Threads::MutexLock(this->mtx);
+
     if (ID >= RELAY_IDS) return false; // prevent error.
     this->off(ID);
     this->changeIDState(ID, IDSTATE::AVAILABLE);
@@ -152,6 +164,7 @@ bool Relay::removeID(uint8_t ID) {
 // Gets the current state of the relay. Returns 0, 1, 2, 3 for 
 // off, on, forced off, and force removed, respetively.
 RESTATE Relay::getState() {
+    Threads::MutexLock(this->mtx);
     return this->relayState;
 }
 
@@ -161,6 +174,8 @@ RESTATE Relay::getState() {
 // energized on time schedule. Returns true if successful, or false if
 // parameters are exceeded.
 bool Relay::timerSet(bool on, uint32_t time) {
+    Threads::MutexLock(this->mtx);
+
     if (time == RELAY_TIMER_OFF || time >= 86400) { // Disables timer
         timer.onSet = timer.offSet = false;
         return true;
@@ -190,34 +205,47 @@ bool Relay::timerSet(bool on, uint32_t time) {
 // Requires no params. This manages any set relay timers and will both
 // turn them on and off during their set times.
 void Relay::manageTimer() {
+    Threads::MutexLock(this->mtx);
+
     static uint8_t ID = this->getID();
 
-    if (timer.isReady) {
+    if (this->timer.isReady) {
         Clock::DateTime* time = Clock::DateTime::get();
 
         // Logis applies to see if the timer runs through midnight.
-        bool runsThruMid = (timer.offTime < timer.onTime);
+        bool runsThruMid = (this->timer.offTime < this->timer.onTime);
         uint32_t curTime = time->getTime()->raw; // current time
 
+        // Checks the current time with the set on and off times. If conditions
+        // are met, timer will turn on or off. The mutex is unlocked before
+        // calling on and off to avoid both of those functions from reaquiring
+        // an existing lock, but the other variables need to be protected.
         if (runsThruMid) {
-            if (curTime >= timer.onTime || curTime <= timer.offTime) {
+            if (curTime >= this->timer.onTime || 
+                curTime <= this->timer.offTime) {
+                this->mtx.unlock(); 
                 this->on(ID);
             } else {
+                this->mtx.unlock();
                 this->off(ID);
             }
 
         } else {
             if (curTime >= timer.onTime && curTime <= timer.offTime) {
+                this->mtx.unlock();
                 this->on(ID);
             } else {
+                this->mtx.unlock();
                 this->off(ID);
             }
         }
     }
 }
 
-// Returns timer.
+// Returns timer for modication or review.
 Timer* Relay::getTimer() {
+    Threads::MutexLock(this->mtx);
+
     return &this->timer;
 }
 

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include "UI/IDisplay.hpp"
-#include <atomic>
+#include "Threads/Mutex.hpp"
 
 namespace Messaging {
 
@@ -60,7 +60,8 @@ class MsgLogHandler {
     uint32_t msgClearTime;
     bool clrMsgOLED;
     char log[LOG_SIZE];
-    std::atomic<bool> newLogEntry; // New message available.
+    bool newLogEntry; // New log message available to client.
+    static Threads::Mutex mtx; // Removed <atomic> with mtx implementation.
     MsgLogHandler(MsgLogHandlerParams &params); 
     MsgLogHandler(const MsgLogHandler&) = delete; // prevent copying
     MsgLogHandler &operator=(const MsgLogHandler&) = delete; // prevent assgnmt
@@ -76,7 +77,6 @@ class MsgLogHandler {
     bool getNewLogEntry();
     void resetNewLogFlag();
     const char* getLog();
-
 };
 
 }

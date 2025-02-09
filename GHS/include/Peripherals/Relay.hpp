@@ -2,6 +2,7 @@
 #define RELAY_HPP
 
 #include "driver/gpio.h"
+#include "Threads/Mutex.hpp"
 #include <cstdint>
 
 namespace Peripheral {
@@ -33,6 +34,7 @@ class Relay {
     IDSTATE clients[RELAY_IDS];
     uint8_t clientQty; // Clients currently energizing relay.
     Timer timer;
+    Threads::Mutex mtx;
     bool isAttached(uint8_t ID);
     bool changeIDState(uint8_t ID, IDSTATE newState);
 

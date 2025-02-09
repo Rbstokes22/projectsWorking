@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "esp_http_client.h"
+#include "Threads/Mutex.hpp"
 
 namespace Peripheral {
 
@@ -15,6 +16,7 @@ enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
 
 class Alert {
     private:
+    static Threads::Mutex mtx;
     Alert();
     Alert(const Alert&) = delete; // prevent copying
     Alert &operator=(const Alert&) = delete; // prevent assignment

@@ -18,20 +18,25 @@ namespace Peripheral {
 #define SOIL_MIN_READ 1 // 0, but cant set lower. 12 bit value.
 #define SOIL_MAX_READ 4094 // 4095, but cant set higher.
 
+// Alert configuration, relay configurations are omitted for soil sensors due
+// to potential to overwater if there are capacitance issues, this is a 
+// liability thing. All variables serve as a packet of data assigned to
+// each sensor to allow proper handling and sending to the server.
 struct SOIL_TRIP_CONFIG {
-    int tripVal;
-    ALTCOND condition;
-    ALTCOND prevCondition;
-    uint32_t onCt;
-    uint32_t offCt;
-    bool toggle;
+    int tripVal; // value which trips the soil alert.
+    ALTCOND condition; // Alert condition.
+    ALTCOND prevCondition; // Alert previous condition.
+    uint32_t onCt; // Consecutive on counts to send alert.
+    uint32_t offCt; // Consecutive off counts to reset alert.
+    bool toggle; // Blocker to ensure that only 1 message is sent per violation.
     const uint8_t ID; // ID number of soil sensor
     uint8_t attempts; // Attempts to send alert before timeout
 };
 
+// All soil parameters required for init.
 struct SoilParams {
-    adc_oneshot_unit_handle_t handle;
-    adc_channel_t* channels;
+    adc_oneshot_unit_handle_t handle; // ADC handle
+    adc_channel_t* channels; // ADC channels.
 };
 
 // Packet for capturing the read value, and if the data is good to use or there
@@ -46,7 +51,7 @@ struct SoilReadings {
 class Soil {
     private:
     SoilReadings data[SOIL_SENSORS];
-    Threads::Mutex mtx;
+    static Threads::Mutex mtx;
     SOIL_TRIP_CONFIG conf[SOIL_SENSORS];
     SoilParams &params;
     Soil(SoilParams &params); 

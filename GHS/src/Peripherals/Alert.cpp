@@ -1,17 +1,26 @@
 #include "Peripherals/Alert.hpp"
 #include <cstdint>
 #include "esp_http_client.h"
+#include "Threads/Mutex.hpp"
 #include "esp_crt_bundle.h"
 #include "esp_transport.h"
 #include "Config/config.hpp"
 #include "string.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
+
+Threads::Mutex Alert::mtx; // Define static mutex instance.
 
 Alert::Alert() {} // No def
 
 // Returns pointer to Alert instance.
 Alert* Alert::get() {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(Alert::mtx);
+
     static Alert instance;
     return &instance;
 }

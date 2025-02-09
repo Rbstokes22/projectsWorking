@@ -18,6 +18,7 @@ class Mutex {
     private:
     SemaphoreHandle_t xMutex;
     std::atomic<bool> isLocked; // This is explicity checked for thread safety
+    bool init;
 
     public:
     Mutex();

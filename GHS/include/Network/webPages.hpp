@@ -219,6 +219,7 @@ const char STApage[] = R"rawliteral(
         const URLbody = URLdata[2]; // main url
         const OTAURL = `${URLprotocol}://${URLbody}/OTACheck`;
         const logURL = `${URLprotocol}://${URLbody}/getLog`;
+        const webSktURL = `ws://${URLbody}/ws`;
         let requestIDs = {};
         let idNum = 0; // Uses to keep track of all socket commands to srvr
         let allData = {}; // This contains all sensor data from ESP32
@@ -241,7 +242,7 @@ const char STApage[] = R"rawliteral(
         // SOCKETS
         const initWebSocket = () => {
             console.log("Initializing websocket connection");
-            socket = new WebSocket(`ws://${URLbody}/ws`);
+            socket = new WebSocket(webSktURL);
             socket.onopen = socketOpen;
             socket.onclose = socketClose;
             socket.onmessage = socketMsg;
@@ -300,7 +301,8 @@ const char STApage[] = R"rawliteral(
                 return response.text();
             })
             .then(text => {
-       
+                console.log(text);
+
                 if (text.length <= 0) {
                     throw new Error("No Log Data");
                 }
@@ -319,13 +321,24 @@ const char STApage[] = R"rawliteral(
             document.getElementById("log").innerHTML = html;
         }
 
-        // RECEIVED MESSAGE HANDLERS
+        let calibrateTime = (seconds) => { // calibrates time if different
+            const time = new Date();
+            let secPastMid = (time.getHours() * 3600) + (time.getMinutes() * 60) 
+                + time.getSeconds();
 
+            if (seconds != secPastMid) { // Calibrates clock if unequal
+                const ID = getID();
+                socket.send(`${convert("CALIBRATE_TIME")}/${secPastMid}/${ID}`);
+            }
+        }
+
+        // RECEIVED MESSAGE HANDLERS
         const setAll = (data) => { // Sets the addData object to response
             allData = data; // Allows modification between poll interval waits
             const title = document.getElementById("title");
          
             if (data.newLog === 1) getLog(); // Gets log if avail
+            calibrateTime(data.sysTime); // Ensures sys clock is calib to client
 
             title.innerHTML = `Greenhouse Monitor V${data.firmv}`;
        
@@ -450,6 +463,7 @@ const char STApage[] = R"rawliteral(
 
         let onLoad = () => {
             initWebSocket();
+            getLog(); // Gets the log when loading the page.
         }
 
     </script>

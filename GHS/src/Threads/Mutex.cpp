@@ -12,7 +12,7 @@ namespace Threads {
 // separate thread.
 Mutex::Mutex() : 
 
-    xMutex{xSemaphoreCreateMutex()}, isLocked(false) {
+    xMutex{xSemaphoreCreateMutex()}, isLocked(false), init(true) {
 
     if (this->xMutex == NULL) { // Handles uncreated Mutex.
         Messaging::MsgLogHandler::get()->handle(
@@ -20,6 +20,7 @@ Mutex::Mutex() :
             "Thread Mutex not created",
             Messaging::Method::SRL_OLED
         );
+
     } else {
         Messaging::MsgLogHandler::get()->handle(
             Messaging::Levels::INFO, 
@@ -31,6 +32,7 @@ Mutex::Mutex() :
 // Requires no parameters. Checks if there is a lock on the mutex, if yes,
 // returns false preventing attempt to lock, and returns true upon success.
 bool Mutex::lock() {
+    if (!init) return false; // Prevents calls if not init.
 
     // Attempts to lock the mutex and delays for LOCK_DELAY amount of millis
     // allowing non-permanent-blocking code. Once acquired, changes the 
@@ -47,6 +49,7 @@ bool Mutex::lock() {
 // Requires no parameters. Checks if there is no lock on the muted, if true,
 // returns false before attempting to unlock, and returns true upon success.
 bool Mutex::unlock() {
+    if (!init) return false; // Prevents calls if not init.
 
     // Will check to see if unlocked, if unlocked, returns true, if locked,
     // proceeds to unlock and returns true once done.

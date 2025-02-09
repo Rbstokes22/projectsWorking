@@ -9,11 +9,13 @@
 
 namespace Peripheral {
 
+Threads::Mutex TempHum::mtx; // define static mutex instance
+
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
-    flags{false, false}, mtx(), 
+    flags{false, false}, 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
             {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
 
@@ -28,7 +30,6 @@ TempHum::TempHum(TempHumParams &params) :
 // consecutive readings, the relay will either energize, or de-endergize 
 // depending on settings.
 void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
-    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION. 
     
     // Checks if the relay is set to be energized or de-energized. If true,
     // checks to ensure the relay is attached, there are no immediate flags
@@ -63,7 +64,6 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
 // consecutive value trips. Works like the relay; however, the alerts will be
 // reset once the values are back within range.
 void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
-    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     // Mirrors the same setup as the relay activity.
     if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -132,7 +132,6 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
 // the attached relay. Hysteresis is applied to avoid oscillations around the
 // trip value.
 void TempHum::relayBounds(float value, relayConfig &conf) {
-    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     float tripVal = static_cast<float>(conf.tripVal);
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS; 
@@ -187,7 +186,6 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
 // server, or reset the toggle once the value is within prescribed bounds.
 // Hysteresis is applied to avoid oscillations around the trip value.
 void TempHum::alertBounds(float value, alertConfig &conf) {
-    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN CHECK BOUNDS FUNCTION.
 
     float tripVal = static_cast<float>(conf.tripVal); 
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS;
@@ -240,8 +238,10 @@ void TempHum::alertBounds(float value, alertConfig &conf) {
 // Requires no parameters, and when called, computes the new average temp
 // and humidity.
 void TempHum::computeAvgs() {
-    // DOES NOT REQUIRE MUTEX, MUTEX IS LOCKED IN READ FUNCTION.
 
+    // Prevents div by 0, despite data irregularity.
+    if (this->averages.pollCt == 0) this->averages.pollCt = 1;
+    
     // The deltas are the change between the current and averages. Then the
     // new addition is added to the current running averages in a small amount.
     // The actual formula is:
@@ -256,6 +256,11 @@ void TempHum::computeAvgs() {
 // Singulton class object, requires temphum parameters for first init. Once
 // init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(TempHum::mtx);
+
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
@@ -275,8 +280,6 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 bool TempHum::read() {
     static size_t errCt{0};
     SHT_DRVR::SHT_RET read;
-
-    Threads::MutexLock(this->mtx);
 
     // boolean return. SHT driver reads data and populates the SHT_VALS
     // struct carrier.
@@ -308,7 +311,6 @@ bool TempHum::read() {
 
 // Returns humidity value float.
 float TempHum::getHum() {
-    Threads::MutexLock(this->mtx);
     return this->data.hum;
 }
 
@@ -316,20 +318,17 @@ float TempHum::getHum() {
 // F is built in but not used, for potential future employment. Returns
 // the temperature in requested value.
 float TempHum::getTemp(char CorF) { // Cel or Faren
-    Threads::MutexLock(this->mtx);
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;
 }
 
 // Returns the humidity configuation for modification or viewing.
 TH_TRIP_CONFIG* TempHum::getHumConf() {
-    Threads::MutexLock(this->mtx);
     return &this->humConf;
 }
 
 // Returns the temperature configuration for modification or viewing.
 TH_TRIP_CONFIG* TempHum::getTempConf() {
-    Threads::MutexLock(this->mtx);
     return &this->tempConf;
 }
 
@@ -339,9 +338,6 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // true if successful, and false if the data is marked as being corrupt by 
 // the SHT driver.
 bool TempHum::checkBounds() { 
-
-    // This mutex exists for each function call structure below.
-    Threads::MutexLock(this->mtx);
 
     if (!this->data.dataSafe) return false; // Filters bad data.
 
@@ -356,19 +352,16 @@ bool TempHum::checkBounds() {
 
 // returns the current bool flags, specifically immediate and display in this.
 isUpTH TempHum::getStatus() {
-    Threads::MutexLock(this->mtx);
     return this->flags;
 }
 
 // Returns current, and previous averages structure for modification or viewing.
 TH_Averages* TempHum::getAverages() { 
-    Threads::MutexLock(this->mtx);
     return &this->averages;
 }
 
 // Clears the current data after copying it over to the previous values.
 void TempHum::clearAverages() {
-    Threads::MutexLock(this->mtx);
     this->averages.prevHum = this->averages.hum;
     this->averages.prevTemp = this->averages.temp;
     this->averages.hum = 0.0f;
@@ -377,7 +370,6 @@ void TempHum::clearAverages() {
 }
 
 // void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST
-//     Threads::MutexLock(this->mtx);
 //     if (isTemp) {
 //         this->data.tempC = val;
 //     } else {

@@ -1,40 +1,13 @@
 #include "Common/Timing.hpp"
 #include <cstdint>
+#include "Threads/Mutex.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
 
 namespace Clock {
 
-// CLASS TIMER
-
-Timer::Timer(uint32_t interval) : 
-
-previousMillis{millis()}, interval{interval}{};
-
-// 10 ms increment values. Less granularity and overhead than the arduino
-// millis() function. Can change the resolution if needed by modifying
-// the portTICK_PERIOD_MS.
-uint32_t Timer::millis() {
-  return xTaskGetTickCount() * portTICK_PERIOD_MS;
-}
-
-bool Timer::isReady() {
-    uint32_t currentMillis = millis();
-    if ((currentMillis - this->previousMillis) >= this->interval) {
-      this->previousMillis = currentMillis;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-// Requires newInterval and updates the object.
-void Timer::changeInterval(uint32_t newInterval) {
-  this->interval = newInterval;
-}
-
-// CLASS DATETIME
+Threads::Mutex DateTime::mtx; // Define static mutex
 
 // Requires no parameters. Adjusts the current time to the correct 
 // hours, minutes, seconds, and raw time.
@@ -57,6 +30,7 @@ void DateTime::adjustTime() {
 
 // Requires the seconds past midnight. Converts to hour, minute, and second.
 void DateTime::setHHMMSS(uint32_t seconds) {
+
     this->time.hour = seconds / 3600;
     this->time.minute = (seconds - (this->time.hour * 3600)) / 60;
     this->time.second = 
@@ -69,6 +43,11 @@ DateTime::DateTime() :
 
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(DateTime::mtx);
+
     static DateTime instance;
     return &instance;
 }
@@ -79,8 +58,8 @@ void DateTime::calibrate(int secsPastMid) {
     this->time.raw = static_cast<uint32_t>(secsPastMid);
     this->setHHMMSS(secsPastMid);
     this->timeCalibrated = secsPastMid; // Time this was calibrated
-    this->calibratedAt = this->seconds(); // calibrated at this sys runtime
     this->calibrated = true;
+    this->calibratedAt = this->seconds(); // calibrated at this sys runtime
 }
 
 // Returns TIME struct with hour, minute, second.
@@ -90,7 +69,9 @@ TIME* DateTime::getTime() {
 }
 
 // Returns if the clock has been calibrated.
-bool DateTime::isCalibrated() {return this->calibrated;}
+bool DateTime::isCalibrated() {
+    return this->calibrated;
+}
 
 // Returns int64_t system runtime in micros. Can run for 
 // 2924 centuries before rollover at this level of precision.

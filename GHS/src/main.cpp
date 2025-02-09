@@ -1,5 +1,8 @@
 // CURRENT NOTES: 
 
+// Make mutex for all shared resources, ensure static for get fucntions from
+// singletons.
+
 // Test soil, and ensure that relays do not need mutexs.
 
 // Once soil is complete, move over to light and mirror features of temp hum. Averages 
@@ -32,6 +35,8 @@
 // advertised. Tested via web, getting and splitting log into array and displaying all log
 // entries.
 
+// Time calibrations work as expected.
+
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
 // Change in config.cpp, devmode = false for production.
@@ -39,6 +44,10 @@
 // settings apply to NGROK testing only. Do the same for OTAupdates.cpp. On Mutex.cpp, delete
 // the print statements from lock and unlock once all testing is done with peripherals and
 // everything, this is to ensure they work.
+
+// PERSISTING NOTES:
+// Singleton classes have a static mutex which is located in the get() methods
+// and protect all subsequent calls.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

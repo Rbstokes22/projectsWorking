@@ -9,32 +9,42 @@
 
 namespace Peripheral {
 
+Threads::Mutex Soil::mtx; // define instance of mtx
+
 Soil::Soil(SoilParams &params) : 
 
     data{
         {0, false, false, 0}, {0, false, false, 0}, {0, false, false, 0}, 
         {0, false, false, 0}
     },
-    mtx(), conf{
+    conf{
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 1, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 2, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 3, 0},
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 4, 0}
     }, params(params) {}
 
-// Requires SOIL_TRIP_CONFIG and whethere to employ the alert or not.
+// Requires SOIL_TRIP_CONFIG data, readings data, whether to sound alert or 
+// reset alert, and the count number of consecutive trips. 
 void Soil::handleAlert(SOIL_TRIP_CONFIG &conf, SoilReadings &data, 
     bool alertOn, uint32_t ct) {
-    // DOES NOT REQUIRE MUTEX LOCK, LOCK IS APPLIED ON CHECK BOUNDS FUNCTION
 
+    // Acts as a gate to ensure that all of this criteria is met before
+    // altering alerts.
     if (!data.immediate || ct < SOIL_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) return;
 
+    // Check to see if the alert is being called to send. If yes, ensures that
+    // the toggle is set to true. If yes to both, it will send the message and
+    // change the altToggle to false preventing it from sending another message
+    // without being reset.
     if (alertOn) {
         if (!conf.toggle) return; // avoids repeated alerts.
 
         NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
 
+        // Returned val is nullptr if API key and/or phone do not meet the
+        // criteria.
         if (sms == nullptr) {
             printf("Soil Alerts: Not able to send, missing API key and/or "
             "phone\n");
@@ -79,10 +89,14 @@ void Soil::handleAlert(SOIL_TRIP_CONFIG &conf, SoilReadings &data,
 }
 
 // Requires SoilParms* parameter.
-// Default setting = nullptr. Must be init
-// with a non nullptr to create the instance, and will return a 
-// pointer to the instance upon proper completion.
+// Default setting = nullptr. Must be init with a non nullptr to create the 
+// instance, and will return a pointer to the instance upon proper completion.
 Soil* Soil::get(SoilParams* parameter) {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(Soil::mtx);
+
     static bool isInit{false};
     
     if (parameter == nullptr && !isInit) {
@@ -100,15 +114,13 @@ Soil* Soil::get(SoilParams* parameter) {
 // pointer to its conf for modification. Will return a nullptr if the 
 // correct index value is not reached, and the configuration if it is correct.
 SOIL_TRIP_CONFIG* Soil::getConfig(uint8_t indexNum) {
-    if (indexNum >= (SOIL_SENSORS)) return nullptr;
-    Threads::MutexLock(this->mtx);
+    if (indexNum >= SOIL_SENSORS) return nullptr;
     return &conf[indexNum];
 }
 
 // Reads all soil sensors and stores the data in the data variable.
 void Soil::readAll() {
     esp_err_t err;
-    Threads::MutexLock(this->mtx);
 
     for (int i = 0; i < SOIL_SENSORS; i++) {
         err = adc_oneshot_read(
@@ -135,7 +147,6 @@ void Soil::readAll() {
 // soil reading data if correct sensor index value is used, and nullptr if not.
 SoilReadings* Soil::getReadings(uint8_t indexNum) {
     if (indexNum >= (SOIL_SENSORS)) return nullptr;
-    Threads::MutexLock(this->mtx);
     return &this->data[indexNum];
 }
 
@@ -143,7 +154,6 @@ SoilReadings* Soil::getReadings(uint8_t indexNum) {
 // and compares it against the actual value to trip the alert if configured
 // to do so.
 void Soil::checkBounds() {
-    Threads::MutexLock(this->mtx);
 
     // Iterates through each of the soil sensors to check its current value
     // against the value set to trip the alarm.

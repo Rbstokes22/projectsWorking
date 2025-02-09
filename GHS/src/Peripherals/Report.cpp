@@ -5,6 +5,8 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
 
+// No mutex required, Accessed from a single thread
+
 namespace Peripheral {
 
 Report::Report() : timer{TIMER_OFF, false} {}

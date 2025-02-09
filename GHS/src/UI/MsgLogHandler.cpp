@@ -1,11 +1,14 @@
 #include "UI/MsgLogHandler.hpp"
 #include <cstdint>
 #include "UI/IDisplay.hpp"
+#include "Threads/Mutex.hpp"
 #include "string.h"
 #include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"
 
 namespace Messaging {
+
+Threads::Mutex MsgLogHandler::mtx; // Create static instance
 
 // Maps to levels. 
 const char LevelsMap[5][10]{"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
@@ -132,6 +135,11 @@ size_t MsgLogHandler::stripLogMsg(size_t newMsgLen) {
 // Default setting = nullptr. Must be init with a non nullptr to create the 
 // instance, and will return a pointer to the instance upon proper completion.
 MsgLogHandler* MsgLogHandler::get(MsgLogHandlerParams* params) {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(MsgLogHandler::mtx);
+
     static bool isInit{false};
     
     if (params == nullptr && !isInit) {
@@ -150,6 +158,7 @@ MsgLogHandler* MsgLogHandler::get(MsgLogHandlerParams* params) {
 // that the message sent to the OLED is set to clear. Once called, changes the
 // override status back to false to allow normal OLED functionality.
 void MsgLogHandler::OLEDMessageCheck() {
+
     uint32_t curSeconds = Clock::DateTime::get()->seconds();
 
     // Checks the current seconds against the clear time specified in the
@@ -208,14 +217,14 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method) {
 // alert client that a new log entry is available to avoid constant polling
 // of data.
 bool MsgLogHandler::getNewLogEntry() {
-    return this->newLogEntry.load();
+    return this->newLogEntry; 
 }
 
 // Sets the value of new log entry to the param. Used in conjuntion with 
 // client command to reset the new log entry back to false after receiving
 // msg.
 void MsgLogHandler::resetNewLogFlag() {
-    this->newLogEntry.store(false);
+    this->newLogEntry = false;
 }
 
 // Requires no parameters. Returns log.
