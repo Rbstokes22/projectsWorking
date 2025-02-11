@@ -62,8 +62,8 @@ struct TempHumParams {
 
 // Serves to see if the temp and hum sensor is up or down.
 struct isUpTH { 
-    bool display; // Used for display after consecutive errors
-    bool immediate; // used immediately to prevent relay errors
+    bool noDispErr; // Used for display after consecutive errors
+    bool noErr; // used immediately to prevent relay errors
 };
 
 class TempHum {

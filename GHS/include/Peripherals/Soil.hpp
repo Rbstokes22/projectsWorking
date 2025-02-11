@@ -43,8 +43,8 @@ struct SoilParams {
 // is an immeidate or diplay level error.
 struct SoilReadings {
     int val; // Read value
-    bool display; // Used for display after consecutive errors
-    bool immediate; // Used immediately to prevent relay errors, shows datasafe
+    bool noDispErr; // Used for display after consecutive errors
+    bool noErr; // Used immediately to prevent errors, shows datasafe.
     size_t errCt; // error count.
 };
 
@@ -67,6 +67,7 @@ class Soil {
     void readAll();
     SoilReadings* getReadings(uint8_t indexNum);
     void checkBounds();
+    // void test(int val, int sensorIdx); // Comment out for production
 };
 
 }

@@ -38,7 +38,7 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
     // energize once params are met.
     switch (relayOn) {
         case true:
-        if (conf.relay == nullptr || !this->flags.immediate ||
+        if (conf.relay == nullptr || !this->flags.noErr ||
         ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == RECOND::NONE) {
             return;
         }
@@ -51,7 +51,7 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
         // will signal that it is no longer being held in an energized position
         // by the SHT.
         case false:
-        if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS) {
+        if (!this->flags.noErr || ct < TEMP_HUM_CONSECUTIVE_CTS) {
             return;
         }
         
@@ -66,7 +66,7 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
 void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
 
     // Mirrors the same setup as the relay activity.
-    if (!this->flags.immediate || ct < TEMP_HUM_CONSECUTIVE_CTS || 
+    if (!this->flags.noErr || ct < TEMP_HUM_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) { 
         return;
     }
@@ -294,19 +294,19 @@ bool TempHum::read() {
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
         this->computeAvgs();
-        this->flags.display = true;
-        this->flags.immediate = true;
+        this->flags.noDispErr = true;
+        this->flags.noErr = true;
         errCt = 0;
     } else {
-        this->flags.immediate = false; // Indicates error
+        this->flags.noErr = false; // Indicates error
         errCt++;
     }
 
-    // Sets the display to true if error ct is less than max.
-    this->flags.display = (errCt < TEMP_HUM_ERR_CT_MAX);
+    // Sets the display to true if error ct is less than max allowed.
+    this->flags.noDispErr = (errCt < TEMP_HUM_ERR_CT_MAX);
 
     // Returns true of data is ok.
-    return this->flags.immediate;
+    return this->flags.noErr;
 }
 
 // Returns humidity value float.
@@ -339,7 +339,7 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // the SHT driver.
 bool TempHum::checkBounds() { 
 
-    if (!this->data.dataSafe) return false; // Filters bad data.
+    if (!this->flags.noErr) return false; // Filters bad data.
 
     // Checks each individual bound after confirming data is safe.
     this->relayBounds(this->data.tempC, this->tempConf.relay);
@@ -366,7 +366,7 @@ void TempHum::clearAverages() {
     this->averages.prevTemp = this->averages.temp;
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
-    this->averages.pollCt = 0;
+    this->averages.pollCt = 0; 
 }
 
 // void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST
@@ -375,6 +375,7 @@ void TempHum::clearAverages() {
 //     } else {
 //         this->data.hum = val;
 //     }
+//     this->flags.noErr = true;
 //     this->checkBounds(); 
 // }
 

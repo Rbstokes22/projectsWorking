@@ -1,11 +1,6 @@
 // CURRENT NOTES: 
 
-// Make mutex for all shared resources, ensure static for get fucntions from
-// singletons.
-
-// Test soil, and ensure that relays do not need mutexs.
-
-// Once soil is complete, move over to light and mirror features of temp hum. Averages 
+// Move over to light and mirror features of temp hum. Averages 
 // will be important here. Read the reporting data to show how the averages will be 
 // obtained as well as max intensity using clear. Look at creating a similiar RW packet
 // into the AS7341 driver, and also that there is a timeout method that mirros the SHT
@@ -28,6 +23,9 @@
 // test in report to ensure it works. Without it being set, at 2359 the values were refreshed
 // and the previous values were populated. Clearing temphum average works. Report is sent properly
 // and turned off using 99999, works.
+
+// Soil. Tested alert values for soil1 and soil2. A single message is sent when criteria is met,
+// and reset when the hysteresis criteria is met. All functions as expected.
 
 // Log. Tested log to ensure that when new space was required, the beginning entry was deleted. 
 // Ran test for several attempts where a value, via text, was always added in and increased 

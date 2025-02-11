@@ -18,20 +18,20 @@ Soil::Soil(SoilParams &params) :
         {0, false, false, 0}
     },
     conf{
-        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 1, 0}, 
-        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 2, 0}, 
-        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 3, 0},
-        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, false, 4, 0}
+        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 1, 0}, 
+        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 2, 0}, 
+        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 3, 0},
+        {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 4, 0}
     }, params(params) {}
 
 // Requires SOIL_TRIP_CONFIG data, readings data, whether to sound alert or 
 // reset alert, and the count number of consecutive trips. 
 void Soil::handleAlert(SOIL_TRIP_CONFIG &conf, SoilReadings &data, 
     bool alertOn, uint32_t ct) {
-
+    
     // Acts as a gate to ensure that all of this criteria is met before
     // altering alerts.
-    if (!data.immediate || ct < SOIL_CONSECUTIVE_CTS || 
+    if (!data.noErr || ct < SOIL_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) return;
 
     // Check to see if the alert is being called to send. If yes, ensures that
@@ -129,17 +129,17 @@ void Soil::readAll() {
 
         // Sets the proper values based on read success.
         if (err == ESP_OK) {
-            this->data[i].display = true;
-            this->data[i].immediate = true;
+            this->data[i].noDispErr = true;
+            this->data[i].noErr = true;
             this->data[i].errCt = 0;
 
         } else {
-            this->data[i].immediate = false;
+            this->data[i].noErr = false;
             this->data[i].errCt++;
         }
 
         // Sets the display flag to true if error count is below max.
-        this->data[i].display = (this->data[i].errCt < SOIL_ERR_MAX);
+        this->data[i].noDispErr = (this->data[i].errCt < SOIL_ERR_MAX);
     }
 }   
 
@@ -154,10 +154,16 @@ SoilReadings* Soil::getReadings(uint8_t indexNum) {
 // and compares it against the actual value to trip the alert if configured
 // to do so.
 void Soil::checkBounds() {
-
+    
     // Iterates through each of the soil sensors to check its current value
     // against the value set to trip the alarm.
     for (int i = 0; i < SOIL_SENSORS; i++) {
+        
+        // Skips checks if the data is bad. This is done in iteration, unlike
+        // temphum.cpp. This is due to having several sensors data in this 
+        // singleton class, which is why this is not a bool function either.
+        if (!this->data[i].noErr) continue; 
+        
         int lowerBound = this->conf[i].tripVal - SOIL_HYSTERESIS;
         int upperBound = this->conf[i].tripVal + SOIL_HYSTERESIS;
 
@@ -177,6 +183,7 @@ void Soil::checkBounds() {
         switch (this->conf[i].condition) {
 
             case ALTCOND::LESS_THAN:
+            
             if (this->data[i].val < this->conf[i].tripVal) {
                 this->conf[i].onCt++;
                 this->conf[i].offCt = 0;
@@ -193,6 +200,7 @@ void Soil::checkBounds() {
             break;
 
             case ALTCOND::GTR_THAN:
+
             if (this->data[i].val > this->conf[i].tripVal) {
                 this->conf[i].onCt++;
                 this->conf[i].offCt = 0;
@@ -213,5 +221,12 @@ void Soil::checkBounds() {
         }
     }
 }
+
+// Used for testing. Comment out when done.
+// void Soil::test(int val, int sensorIdx) {
+//     this->data[sensorIdx].val = val;
+//     this->data[sensorIdx].noErr = true;
+//     this->checkBounds();
+// }
 
 }

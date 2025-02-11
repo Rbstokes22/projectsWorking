@@ -86,23 +86,23 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getHumConf()->relay.tripVal,
         static_cast<uint8_t>(th->getHumConf()->alt.condition),
         th->getHumConf()->alt.tripVal,
-        th->getStatus().display,
+        th->getStatus().noDispErr,
         th->getAverages()->temp,
         th->getAverages()->hum,
         th->getAverages()->prevTemp,
         th->getAverages()->prevHum,
         soil->getReadings(0)->val, 
         static_cast<uint8_t>(soil->getConfig(0)->condition),
-        soil->getConfig(0)->tripVal, soil->getReadings(0)->display,
+        soil->getConfig(0)->tripVal, soil->getReadings(0)->noDispErr,
         soil->getReadings(1)->val, 
         static_cast<uint8_t>(soil->getConfig(1)->condition),
-        soil->getConfig(1)->tripVal, soil->getReadings(1)->display,
+        soil->getConfig(1)->tripVal, soil->getReadings(1)->noDispErr,
         soil->getReadings(2)->val, 
         static_cast<uint8_t>(soil->getConfig(2)->condition),
-        soil->getConfig(2)->tripVal, soil->getReadings(2)->display,
+        soil->getConfig(2)->tripVal, soil->getReadings(2)->noDispErr,
         soil->getReadings(3)->val, 
         static_cast<uint8_t>(soil->getConfig(3)->condition),
-        soil->getConfig(3)->tripVal, soil->getReadings(3)->display,
+        soil->getConfig(3)->tripVal, soil->getReadings(3)->noDispErr,
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
         );
@@ -794,16 +794,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Test case here
         written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
             0, data.idNum);
-        // Peripheral::TempHum* th = Peripheral::TempHum::get();
-        // th->test(true, data.suppData);
+
+        // Peripheral::Soil::get()->test(data.suppData, 0);
         }
         break;
 
         case CMDS::TEST2: { // COMMENT OUT AFTER TESTINGS
         written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
             0, data.idNum);
-        // Peripheral::TempHum* th = Peripheral::TempHum::get();
-        // th->test(false, data.suppData);
+
+        // Peripheral::Soil::get()->test(data.suppData, 1);
         }
         break;
         

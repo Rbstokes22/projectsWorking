@@ -30,7 +30,6 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     }
 }
 
-// CREATE A SEPARATE CLASS HERE EXCLUSIVE TO THE SHT SETTINGS.
 void SHTTask(void* parameter) { // SHT
     Threads::SHTThreadParams* params = 
         static_cast<Threads::SHTThreadParams*>(parameter);
@@ -77,8 +76,12 @@ void soilTask(void* parameter) { // Soil sensors
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
 
     while (true) {
-        soil->readAll();
-        soil->checkBounds();
+        // Will read all, and then check bounds. Flags are incorporated
+        // into the soil readings data, which will prevent action from
+        // being taken on a bad read. Unlike temphum, which runs check
+        // bounds only if read is good, this does not due to iteration.
+        // soil->readAll();
+        // soil->checkBounds();
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
