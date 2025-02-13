@@ -584,7 +584,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(0);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
@@ -607,7 +607,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(0);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
@@ -622,7 +622,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Removes the greater/lower than condition and resets the trip value
         // alert to 0, and disables alerts. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_COND_NONE: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
+        Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(0);
 
         conf->condition = Peripheral::ALTCOND::NONE;
@@ -639,7 +639,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(1);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
@@ -656,7 +656,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(1);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
@@ -669,7 +669,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_COND_NONE: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
+        Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(1);
 
         conf->condition = Peripheral::ALTCOND::NONE;
@@ -685,7 +685,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(2);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
@@ -702,7 +702,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(2);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
@@ -715,7 +715,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_COND_NONE: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
+        Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(2);
 
         conf->condition = Peripheral::ALTCOND::NONE;
@@ -731,7 +731,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(3);
         
             conf->condition = Peripheral::ALTCOND::LESS_THAN;
@@ -748,7 +748,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {
-            Peripheral::SOIL_TRIP_CONFIG* conf =
+            Peripheral::AlertConfigSo* conf =
                 Peripheral::Soil::get()->getConfig(3);
         
             conf->condition = Peripheral::ALTCOND::GTR_THAN;
@@ -761,7 +761,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_COND_NONE: {
-        Peripheral::SOIL_TRIP_CONFIG* conf =
+        Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(3);
 
         conf->condition = Peripheral::ALTCOND::NONE;

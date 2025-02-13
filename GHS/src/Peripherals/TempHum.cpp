@@ -29,7 +29,7 @@ TempHum::TempHum(TempHumParams &params) :
 // required, and a temp limit of 50, if the temp value exceeds 50 for 5 
 // consecutive readings, the relay will either energize, or de-endergize 
 // depending on settings.
-void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
+void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
     
     // Checks if the relay is set to be energized or de-energized. If true,
     // checks to ensure the relay is attached, there are no immediate flags
@@ -63,7 +63,7 @@ void TempHum::handleRelay(relayConfig &conf, bool relayOn, uint32_t ct) {
 // Requires alert configuration, alert on to be sent, and the count of 
 // consecutive value trips. Works like the relay; however, the alerts will be
 // reset once the values are back within range.
-void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) { 
+void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) { 
 
     // Mirrors the same setup as the relay activity.
     if (!this->flags.noErr || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -131,7 +131,7 @@ void TempHum::handleAlert(alertConfig &conf, bool alertOn, uint32_t ct) {
 // exceeds the bound, it is handled appropriately to energize or de-energize
 // the attached relay. Hysteresis is applied to avoid oscillations around the
 // trip value.
-void TempHum::relayBounds(float value, relayConfig &conf) {
+void TempHum::relayBounds(float value, relayConfigTH &conf, bool isTemp) {
 
     float tripVal = static_cast<float>(conf.tripVal);
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS; 
@@ -163,16 +163,16 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
         break;
 
         case RECOND::GTR_THAN:
-            if (value > tripVal) {
-                conf.onCt++;
-                conf.offCt = 0;
-                this->handleRelay(conf, true, conf.onCt);
+        if (value > tripVal) {
+            conf.onCt++;
+            conf.offCt = 0;
+            this->handleRelay(conf, true, conf.onCt);
 
-            } else if (value <= lowerBound) {
-                conf.onCt = 0;
-                conf.offCt++;
-                this->handleRelay(conf, false, conf.offCt);
-            }
+        } else if (value <= lowerBound) {
+            conf.onCt = 0;
+            conf.offCt++;
+            this->handleRelay(conf, false, conf.offCt);
+        }
         break;
 
         default: // Empty but required using enum class
@@ -185,7 +185,7 @@ void TempHum::relayBounds(float value, relayConfig &conf) {
 // exceeds the bound, it is handled appropriately to send an alert to the
 // server, or reset the toggle once the value is within prescribed bounds.
 // Hysteresis is applied to avoid oscillations around the trip value.
-void TempHum::alertBounds(float value, alertConfig &conf) {
+void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
 
     float tripVal = static_cast<float>(conf.tripVal); 
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS;
@@ -342,10 +342,10 @@ bool TempHum::checkBounds() {
     if (!this->flags.noErr) return false; // Filters bad data.
 
     // Checks each individual bound after confirming data is safe.
-    this->relayBounds(this->data.tempC, this->tempConf.relay);
-    this->relayBounds(this->data.hum, this->humConf.relay);
-    this->alertBounds(this->data.tempC, this->tempConf.alt);
-    this->alertBounds(this->data.hum, this->humConf.alt);
+    this->relayBounds(this->data.tempC, this->tempConf.relay, true);
+    this->relayBounds(this->data.hum, this->humConf.relay, false);
+    this->alertBounds(this->data.tempC, this->tempConf.alt, true);
+    this->alertBounds(this->data.hum, this->humConf.alt, false);
 
     return true;
 }

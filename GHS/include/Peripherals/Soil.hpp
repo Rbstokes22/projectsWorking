@@ -22,12 +22,12 @@ namespace Peripheral {
 // to potential to overwater if there are capacitance issues, this is a 
 // liability thing. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server.
-struct SOIL_TRIP_CONFIG {
+struct AlertConfigSo {
     int tripVal; // value which trips the soil alert.
     ALTCOND condition; // Alert condition.
     ALTCOND prevCondition; // Alert previous condition.
-    uint32_t onCt; // Consecutive on counts to send alert.
-    uint32_t offCt; // Consecutive off counts to reset alert.
+    size_t onCt; // Consecutive on counts to send alert.
+    size_t offCt; // Consecutive off counts to reset alert.
     bool toggle; // Blocker to ensure that only 1 message is sent per violation.
     const uint8_t ID; // ID number of soil sensor
     uint8_t attempts; // Attempts to send alert before timeout
@@ -52,18 +52,18 @@ class Soil {
     private:
     SoilReadings data[SOIL_SENSORS];
     static Threads::Mutex mtx;
-    SOIL_TRIP_CONFIG conf[SOIL_SENSORS];
+    AlertConfigSo conf[SOIL_SENSORS];
     SoilParams &params;
     Soil(SoilParams &params); 
     Soil(const Soil&) = delete; // prevent copying
     Soil &operator=(const Soil&) = delete; // prevent assignment
-    void handleAlert(SOIL_TRIP_CONFIG &conf, SoilReadings &data, bool alertOn, 
-        uint32_t ct);
+    void handleAlert(AlertConfigSo &conf, SoilReadings &data, bool alertOn, 
+        size_t ct);
     
     public:
     // set to nullptr to reduce arguments when calling after init.
     static Soil* get(SoilParams* parameter = nullptr);
-    SOIL_TRIP_CONFIG* getConfig(uint8_t indexNum);
+    AlertConfigSo* getConfig(uint8_t indexNum);
     void readAll();
     SoilReadings* getReadings(uint8_t indexNum);
     void checkBounds();

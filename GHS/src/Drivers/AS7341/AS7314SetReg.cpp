@@ -15,7 +15,7 @@ namespace AS7341_DRVR {
 // closest range boundary (Ex: 290 will be set to 258). Returns
 // true or false if written correctly.
 bool AS7341basic::setLEDCurrent(LED state, uint16_t mAdriving) {
-    if (mAdriving < 4) mAdriving = 4;
+    if (mAdriving < 4) mAdriving = 4; // Datasheet requirements.
     if (mAdriving > 258) mAdriving = 258;
 
     // Range of mA is 4 to 258. bit 7 turns the LED on or off.

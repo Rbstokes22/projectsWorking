@@ -34,11 +34,11 @@ bool AS7341basic::setBank(REG reg) {
     // Register map says shift 3, details say shift 4. Does not work with
     // 4, only works with 3.
     if (addr >= cutoff && lastAddr < cutoff) {
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
         lastAddr = addr;
     } else if(addr < cutoff && lastAddr >= cutoff) {
         buffer[1] |= (1 << 3); // Sets byte to 0x08 for register below 0x80.
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
         lastAddr = addr;
     } 
 
@@ -57,7 +57,7 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
 
     if (this->setBank(reg)) {
         uint8_t buffer[2] = {addr, val};
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, -1);
+        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
 
         if (err != ESP_OK) {
             printf("Err writing register: %s\n", esp_err_to_name(err));
@@ -87,7 +87,7 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
         err = i2c_master_transmit_receive(
             this->i2cHandle,
             writeBuf, sizeof(writeBuf),
-            readBuf, sizeof(readBuf), -1
+            readBuf, sizeof(readBuf), AS7341_TIMEOUT
         );
 
         if (err != ESP_OK) {

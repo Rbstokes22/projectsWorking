@@ -7,6 +7,8 @@
 
 namespace AS7341_DRVR {
 
+#define AS7341_TIMEOUT 500 // 500 millis default timeout
+
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
     ENABLE = 0x80, CONFIG = 0x70, REG_BANK = 0xA9,

@@ -9,6 +9,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
+#include "Peripherals/Light.hpp"
 #include "Peripherals/Report.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "cmath"
@@ -33,7 +34,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
 void SHTTask(void* parameter) { // SHT
     Threads::SHTThreadParams* params = 
         static_cast<Threads::SHTThreadParams*>(parameter);
-
+    
     Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
@@ -48,7 +49,22 @@ void AS7341Task(void* parameter) { // AS7341, photo Resistor
     Threads::AS7341ThreadParams* params = 
         static_cast<Threads::AS7341ThreadParams*>(parameter);
 
+
+    static adc_channel_t channel = 
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::PHOTO)];
+
+    Peripheral::LightParams ltParams = {
+        params->adc_unit, channel, params->light
+        };
+
+    Peripheral::Light* lt = Peripheral::Light::get(&ltParams);
+
     while (true) {
+
+        lt->readSpectrum(); // Reads spectrum values
+
+        // Checks bounds for photo resistor.
+        if (lt->readPhoto()) lt->checkBounds();
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }

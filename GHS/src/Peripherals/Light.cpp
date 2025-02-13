@@ -5,16 +5,113 @@
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/Timing.hpp"
 
 namespace Peripheral {
+
+Threads::Mutex Light::mtx; // Def of static var
 
 Light::Light(LightParams &params) : 
 
     readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    photoVal(0), flags{false, false, false, false},
-    mtx(), params(params) {}
+    averages{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0},
+    conf{LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0},
+    lightDuration(0), photoVal(0), flags{false, false, false, false},
+    params(params) {}
+
+void Light::computeAverages() {
+
+    // Prevents div by 0, despite data irregularity.
+    if (this->averages.pollCt == 0) this->averages.pollCt = 1;
+
+    uint16_t readings[] = { // Deltas of current values and average values.
+        this->readings.Clear, this->readings.F1_415nm_Violet,
+        this->readings.F2_445nm_Indigo, this->readings.F3_480nm_Blue,
+        this->readings.F4_515nm_Cyan, this->readings.F5_555nm_Green,
+        this->readings.F6_590nm_Yellow, this->readings.F7_630nm_Orange,
+        this->readings.F8_680nm_Red, this->readings.NIR
+    };
+
+    uint16_t averages[] = {
+        this->averages.color.Clear, this->averages.color.F1_415nm_Violet,
+        this->averages.color.F2_445nm_Indigo, 
+        this->averages.color.F3_480nm_Blue,
+        this->averages.color.F4_515nm_Cyan,
+        this->averages.color.F5_555nm_Green,
+        this->averages.color.F6_590nm_Yellow,
+        this->averages.color.F7_630nm_Orange,
+        this->averages.color.F8_680nm_Red, this->averages.color.NIR
+    };
+
+    this->averages.pollCt++; // Increment poll count by 1.
+
+    for (int i = 0; i < sizeof(readings) - sizeof(readings[0]); i++) {
+        uint16_t delta = readings[i] - averages[i];
+        averages[i] += (delta / this->averages.pollCt);
+    }
+}
+
+// Requires the quantity of consecutive counts, and if that count is associated
+// with being light or dark. Once the threshold is met, the duration of light
+// is captured.
+void Light::computeLightTime(size_t ct, bool isLight) { 
+
+    // Main gate, prevents any count that is not at the threshold from
+    // continuing.
+    if (ct < LIGHT_CONSECUTIVE_CTS) return;
+
+    static bool toggle = true;
+    static uint32_t lightStart = 0;
+
+    switch (isLight) {
+        case true:
+        if (toggle) { // If true, captures start time and sets toggle to false.
+            toggle = false;
+            this->lightDuration = 0; // Reset at light start
+            lightStart = Clock::DateTime::get()->seconds();
+
+        // Once toggle is set to false, the light duration can be captured.
+        } else if (!toggle) {
+            this->lightDuration = 
+                Clock::DateTime::get()->seconds() - lightStart;
+        }
+
+        break;
+
+        case false:
+        toggle = true;
+        break;
+    }
+}
+
+void Light::handleRelay(bool relayOn, size_t ct) {
+
+    switch (relayOn) {
+        case true:
+        if (this->conf.relay == nullptr || !this->flags.photoNoErr || 
+        ct < LIGHT_CONSECUTIVE_CTS || this->conf.condition == RECOND::NONE) {
+            return;
+        }
+
+        this->conf.relay->on(this->conf.controlID);
+        break;
+
+        case false:
+        if (!this->flags.photoNoErr || ct < LIGHT_CONSECUTIVE_CTS) {
+            return;
+        }
+
+        this->conf.relay->off(this->conf.controlID);
+        break;
+    }
+}
 
 Light* Light::get(LightParams* parameter) {
+
+    // Single use of mutex lock which will ensure to protect any subsequent
+    // calls made after requesting this instance.
+    Threads::MutexLock(Light::mtx);
+
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
@@ -33,31 +130,24 @@ bool Light::readSpectrum() {
     const size_t errCtMax{5};
     bool read{false};
 
-    this->mtx.lock();
-    try {
-        read = this->params.as7341.readAll(this->readings);
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // re-throw error.
-    }
-    
-    this->mtx.unlock();
+    read = this->params.as7341.readAll(this->readings);
 
     if (read) {
-        this->flags.specDisplay = true;
-        this->flags.specImmediate = true;
+        this->flags.specNoDispErr = true;
+        this->flags.specNoErr = true;
+        this->computeAverages();
         errCt = 0;
     } else {
-        this->flags.specImmediate = false;
+        this->flags.specNoErr = false;
         errCt++;
     }
 
     if (errCt >= errCtMax) {
-        this->flags.specDisplay = false;
+        this->flags.specNoDispErr = false;
         errCt = 0;
     }
 
-    return this->flags.specImmediate;
+    return this->flags.specNoErr;
 }
 
 bool Light::readPhoto() {
@@ -65,72 +155,108 @@ bool Light::readPhoto() {
     static size_t errCt{0};
     const size_t errCtMax{5};
 
-    this->mtx.lock();
-    try {
-        err = adc_oneshot_read(
-            this->params.handle,
-            this->params.channel,
-            &this->photoVal
-        );
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // re-throw error.
-    }
-    
-    this->mtx.unlock();
+    err = adc_oneshot_read(this->params.handle, this->params.channel,
+        &this->photoVal);
 
     if (err == ESP_OK) {
         errCt = 0;
-        this->flags.photoDisplay = true;
-        this->flags.photoImmediate = true;
+        this->flags.photoNoDispErr = true;
+        this->flags.photoNoErr = true;
 
     } else {
-        this->flags.photoImmediate = false;
+        this->flags.photoNoErr = false;
         errCt++;
     }
 
     if (errCt >= errCtMax) {
-        this->flags.photoDisplay = false;
+        this->flags.photoNoDispErr = false;
         errCt = 0;
     }
 
-    return this->flags.photoImmediate;
+    return this->flags.photoNoErr;
 }
 
-void Light::getSpectrum(AS7341_DRVR::COLOR &readings) {
-    this->mtx.lock();
-    try {
-        readings = this->readings; // copy current readings.
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // re-throw exception
-    }
-    
-    this->mtx.unlock();
+AS7341_DRVR::COLOR* Light::getSpectrum() {
+    return &this->readings;
 }
 
-void Light::getPhoto(int &photoVal) {
-    this->mtx.lock();
-    try {
-        photoVal = this->photoVal; // copy current readings.
-    } catch(...) {
-        this->mtx.unlock();
-        throw; // rethrow exception
-    }
-
-    this->mtx.unlock();
-}
-
-void Light::handleRelay() {
-
-}
-
-void Light::handleAlert() {
-
+int Light::getPhoto() {
+    return this->photoVal; 
 }
 
 isUpLight Light::getStatus() {
     return this->flags;
+}
+
+bool Light::checkBounds() { // Acts as a gate to ensure data integ.
+    if (!this->flags.photoNoErr) return false;
+
+    int lowerBound = this->conf.tripVal - LIGHT_HYSTERESIS;
+    int upperBound = this->conf.tripVal + LIGHT_HYSTERESIS;
+
+    // Checks to see if the relay conditions have changed. If true,
+    // resets the counts and changes the previous condition to current
+    // condition.
+    if (this->conf.condition != this->conf.prevCondition) {
+        this->conf.onCt = 0; this->conf.offCt = 0;
+        this->conf.prevCondition = this->conf.condition;
+    }
+
+    // On counts incremement when the photo resistor value is higher than the
+    // trip value. Off counts increment when the value is lower. This is 
+    // separate from the configuration conditions.
+    size_t isLightOnCt = 0;
+    size_t isLightOffCt = 0;
+
+    if (this->photoVal >= this->conf.tripVal) {
+        isLightOnCt++;
+        isLightOffCt = 0; // Reset if true
+        this->computeLightTime(isLightOnCt, true);
+    } else {
+        isLightOnCt = 0; // Reset if false
+        isLightOffCt++; 
+        this->computeLightTime(isLightOffCt, false);
+    }
+
+    // Once the criteria has been met, the counts are incremented for each
+    // consecutive count only. These counts are passed to the relay handler
+    // and once conditions are met, will energize or de-energize the relays.
+    switch (this->conf.condition) {
+        case RECOND::LESS_THAN:
+        if (this->photoVal < this->conf.tripVal) {
+            this->conf.onCt++; 
+            this->conf.offCt = 0;
+            this->handleRelay(true, this->conf.onCt);
+
+        } else if (this->photoVal >= upperBound) {
+            this->conf.onCt = 0;
+            this->conf.offCt++;
+            this->handleRelay(false, this->conf.offCt);
+        }        
+        break;
+
+        case RECOND::GTR_THAN:
+        if (this->photoVal > this->conf.tripVal) {
+            this->conf.onCt++;
+            this->conf.offCt = 0;
+            this->handleRelay(true, conf.onCt);
+
+        } else if (this->photoVal <= lowerBound) {
+            this->conf.onCt = 0;
+            this->conf.offCt++;
+            this->handleRelay(false, this->conf.offCt);
+        }
+        break;
+
+        default: // Empty but required using enum class
+        break;
+    }
+
+    return true;
+}
+
+RelayConfigLight* Light::getConf() {
+    return &this->conf;
 }
 
 

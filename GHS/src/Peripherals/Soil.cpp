@@ -26,8 +26,8 @@ Soil::Soil(SoilParams &params) :
 
 // Requires SOIL_TRIP_CONFIG data, readings data, whether to sound alert or 
 // reset alert, and the count number of consecutive trips. 
-void Soil::handleAlert(SOIL_TRIP_CONFIG &conf, SoilReadings &data, 
-    bool alertOn, uint32_t ct) {
+void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data, 
+    bool alertOn, size_t ct) {
     
     // Acts as a gate to ensure that all of this criteria is met before
     // altering alerts.
@@ -113,7 +113,7 @@ Soil* Soil::get(SoilParams* parameter) {
 // Requires the index number of the soil sensor, and returns a 
 // pointer to its conf for modification. Will return a nullptr if the 
 // correct index value is not reached, and the configuration if it is correct.
-SOIL_TRIP_CONFIG* Soil::getConfig(uint8_t indexNum) {
+AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
     if (indexNum >= SOIL_SENSORS) return nullptr;
     return &conf[indexNum];
 }

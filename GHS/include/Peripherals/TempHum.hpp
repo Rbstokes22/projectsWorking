@@ -17,33 +17,33 @@ namespace Peripheral {
 
 // Alert configuration. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server.
-struct alertConfig {
+struct alertConfigTH {
     int tripVal; // Sends alert
     ALTCOND condition; // Alert condition.
     ALTCOND prevCondition; // Alert previous condition.
-    uint32_t onCt; // Consecutive on counts to send alert.
-    uint32_t offCt; // Consecutive off counts to reset alert.
+    size_t onCt; // Consecutive on counts to send alert.
+    size_t offCt; // Consecutive off counts to reset alert.
     bool toggle; // Blocker to ensure that only 1 message is sent per violation.
     uint8_t attempts; // Attempt count to send alert
 };
 
 // Relay configuration. All variables server as a packet of data assigned to
 // each sensor to allow proper handling of relays.
-struct relayConfig {
+struct relayConfigTH {
     int tripVal; // Turns relay on.
     RECOND condition; // Relay condition.
     RECOND prevCondition; // Relays previous condition.
     Relay* relay; // Relay attached to device.
     uint8_t num; // relay index + 1, for display purposes.
     uint8_t controlID; // ID given by relay to allow this device to control it.
-    uint32_t onCt; // Consecutive on counts to turn relay on.
-    uint32_t offCt; // Consecutive off counts to turn relay off.
+    size_t onCt; // Consecutive on counts to turn relay on.
+    size_t offCt; // Consecutive off counts to turn relay off.
 };
 
 // Combined alert and relay configurations.
 struct TH_TRIP_CONFIG { 
-    alertConfig alt; // alert
-    relayConfig relay; // relay
+    alertConfigTH alt; // alert
+    relayConfigTH relay; // relay
 };
 
 // Temperature and humidity averages. 
@@ -78,12 +78,12 @@ class TempHum {
     TempHum(TempHumParams &params); 
     TempHum(const TempHum&) = delete; // prevent copying
     TempHum &operator=(const TempHum&) = delete; // prevent assignment
-    void handleRelay(relayConfig &conf, bool relayOn, uint32_t ct);
-    void handleAlert(alertConfig &config, bool alertOn, uint32_t ct);
-    void relayBounds(float value, relayConfig &conf);
-    void alertBounds(float value, alertConfig &conf);
+    void handleRelay(relayConfigTH &conf, bool relayOn, size_t ct);
+    void handleAlert(alertConfigTH &config, bool alertOn, size_t ct);
+    void relayBounds(float value, relayConfigTH &conf, bool isTemp);
+    void alertBounds(float value, alertConfigTH &conf, bool isTemp);
     void computeAvgs();
-    
+
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
     bool read();

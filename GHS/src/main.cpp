@@ -1,12 +1,8 @@
 // CURRENT NOTES: 
 
-// Move over to light and mirror features of temp hum. Averages 
-// will be important here. Read the reporting data to show how the averages will be 
-// obtained as well as max intensity using clear. Look at creating a similiar RW packet
-// into the AS7341 driver, and also that there is a timeout method that mirros the SHT
-// driver. Explor how relays and/or alerts work with the light meter, such as will a 
-// relay be energized at a certain darkness level, and be shut off after reaching a total
-// amount of light from the as7341? 
+// Build commands into socket command handler, and test out light. Should be ready
+// to test. Spectral is RO, photo resistor will be the relay controller. No alert considering
+// that alerts would be sent daily.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -46,6 +42,10 @@
 // PERSISTING NOTES:
 // Singleton classes have a static mutex which is located in the get() methods
 // and protect all subsequent calls.
+
+// Polling in the averages for the SHT and AS7341 is a size_t variable. This
+// leaves 136 years of polling, No polling should be quicker than 1 poll per
+// second.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
