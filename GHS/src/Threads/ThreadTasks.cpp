@@ -96,8 +96,8 @@ void soilTask(void* parameter) { // Soil sensors
         // into the soil readings data, which will prevent action from
         // being taken on a bad read. Unlike temphum, which runs check
         // bounds only if read is good, this does not due to iteration.
-        // soil->readAll();
-        // soil->checkBounds();
+        soil->readAll();
+        soil->checkBounds();
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }

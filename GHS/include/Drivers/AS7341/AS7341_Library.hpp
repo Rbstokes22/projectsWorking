@@ -8,6 +8,8 @@
 namespace AS7341_DRVR {
 
 #define AS7341_TIMEOUT 500 // 500 millis default timeout
+#define AS7341_MIN 0 // 0 counts
+#define AS7341_MAX 65535 // full 16 bit int
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {

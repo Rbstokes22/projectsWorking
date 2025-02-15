@@ -1,8 +1,8 @@
 // CURRENT NOTES: 
 
-// Build commands into socket command handler, and test out light. Should be ready
-// to test. Spectral is RO, photo resistor will be the relay controller. No alert considering
-// that alerts would be sent daily.
+// Test out light socket commands, clearing averages, and maybe build a save and 
+// restart feature. I think at minimum, there should be a structure to save settings
+// at an interval.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

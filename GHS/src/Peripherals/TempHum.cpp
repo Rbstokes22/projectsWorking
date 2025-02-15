@@ -239,9 +239,6 @@ void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
 // and humidity.
 void TempHum::computeAvgs() {
 
-    // Prevents div by 0, despite data irregularity.
-    if (this->averages.pollCt == 0) this->averages.pollCt = 1;
-    
     // The deltas are the change between the current and averages. Then the
     // new addition is added to the current running averages in a small amount.
     // The actual formula is:

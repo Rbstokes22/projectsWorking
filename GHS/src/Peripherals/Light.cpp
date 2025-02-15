@@ -14,15 +14,24 @@ Threads::Mutex Light::mtx; // Def of static var
 Light::Light(LightParams &params) : 
 
     readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    averages{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0},
+    averages{
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0},
+
     conf{LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0},
     lightDuration(0), photoVal(0), flags{false, false, false, false},
     params(params) {}
 
-void Light::computeAverages() {
+void Light::computeAverages(bool isSpec) {
 
-    // Prevents div by 0, despite data irregularity.
-    if (this->averages.pollCt == 0) this->averages.pollCt = 1;
+    // Check if photoresistor
+    if (!isSpec) {
+        this->averages.pollCtPho++;
+
+        float delta = this->photoVal - this->averages.photoResistor;
+        this->averages.photoResistor += (delta / this->averages.pollCtPho); 
+        return;
+    }
 
     uint16_t readings[] = { // Deltas of current values and average values.
         this->readings.Clear, this->readings.F1_415nm_Violet,
@@ -32,22 +41,20 @@ void Light::computeAverages() {
         this->readings.F8_680nm_Red, this->readings.NIR
     };
 
-    uint16_t averages[] = {
-        this->averages.color.Clear, this->averages.color.F1_415nm_Violet,
-        this->averages.color.F2_445nm_Indigo, 
-        this->averages.color.F3_480nm_Blue,
-        this->averages.color.F4_515nm_Cyan,
-        this->averages.color.F5_555nm_Green,
-        this->averages.color.F6_590nm_Yellow,
-        this->averages.color.F7_630nm_Orange,
-        this->averages.color.F8_680nm_Red, this->averages.color.NIR
+    float* averages[] = { // needs pass by reference for mod.
+        &this->averages.color.clear, &this->averages.color.violet,
+        &this->averages.color.indigo, &this->averages.color.blue,
+        &this->averages.color.cyan, &this->averages.color.green,
+        &this->averages.color.yellow, &this->averages.color.orange,
+        &this->averages.color.red, &this->averages.color.nir
     };
 
-    this->averages.pollCt++; // Increment poll count by 1.
+    this->averages.pollCtClr++; // Increment poll count by 1.
 
-    for (int i = 0; i < sizeof(readings) - sizeof(readings[0]); i++) {
-        uint16_t delta = readings[i] - averages[i];
-        averages[i] += (delta / this->averages.pollCt);
+    for (int i = 0; i < (sizeof(readings) / sizeof(readings[0])); i++) {
+        float delta = readings[i] - *averages[i];
+
+        *averages[i] += (delta / this->averages.pollCtClr);
     }
 }
 
@@ -135,7 +142,7 @@ bool Light::readSpectrum() {
     if (read) {
         this->flags.specNoDispErr = true;
         this->flags.specNoErr = true;
-        this->computeAverages();
+        this->computeAverages(true);
         errCt = 0;
     } else {
         this->flags.specNoErr = false;
@@ -160,6 +167,7 @@ bool Light::readPhoto() {
 
     if (err == ESP_OK) {
         errCt = 0;
+        this->computeAverages(false);
         this->flags.photoNoDispErr = true;
         this->flags.photoNoErr = true;
 
@@ -255,9 +263,19 @@ bool Light::checkBounds() { // Acts as a gate to ensure data integ.
     return true;
 }
 
-RelayConfigLight* Light::getConf() {
-    return &this->conf;
+RelayConfigLight* Light::getConf() {return &this->conf;}
+
+Light_Averages* Light::getAverages() {return &this->averages;}
+
+void Light::clearAverages() {
+    this->averages.prevColor = this->averages.color;
+    this->averages.prevPhotoResistor = this->averages.photoResistor;
+
+    this->averages = { // Reset
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0};
 }
 
+uint32_t Light::getDuration() {return this->lightDuration;}
 
 }

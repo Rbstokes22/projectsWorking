@@ -21,6 +21,8 @@ namespace Peripheral {
 #define LIGHT_THRESHOLD_DEF 500 // Between 0 and 4095
 #define LIGHT_CONSECUTIVE_CTS 5 // Action isnt taken until count is met.
 #define LIGHT_HYSTERESIS 10 // Padding for photoresistor.
+#define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
+#define PHOTO_MAX 4094 // 12 bit max - 1, set for error purposes.
 
 struct LightParams {
     adc_oneshot_unit_handle_t handle;
@@ -49,10 +51,20 @@ struct isUpLight { // 4 bytes, return as value.
     bool specNoErr;
 };
 
+// Taken from the same structure as the AS7341 driver, in float and simplified
+// form.
+struct Color_Averages {
+    float clear, violet, indigo, blue, cyan, green,
+    yellow, orange, red, nir;
+};
+
 struct Light_Averages {
-    AS7341_DRVR::COLOR color; 
-    int photoResistor;
-    size_t pollCt;
+    Color_Averages color;
+    Color_Averages prevColor;
+    float photoResistor;
+    float prevPhotoResistor;
+    size_t pollCtClr;
+    size_t pollCtPho;
 };
 
 class Light {
@@ -68,7 +80,7 @@ class Light {
     Light(LightParams &params); 
     Light(const Light&) = delete; // prevent copying
     Light &operator=(const Light&) = delete; // prevent assignment
-    void computeAverages();
+    void computeAverages(bool isSpec);
     void computeLightTime(size_t ct, bool isLight);
     void handleRelay(bool relayOn, size_t ct);
 
@@ -81,6 +93,9 @@ class Light {
     isUpLight getStatus();
     bool checkBounds();
     RelayConfigLight* getConf();
+    Light_Averages* getAverages();
+    void clearAverages();
+    uint32_t getDuration();
 };
 
 }

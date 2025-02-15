@@ -4,6 +4,7 @@
 #include "Common/Timing.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
+#include "Peripherals/Light.hpp"
 
 // No mutex required, Accessed from a single thread
 
@@ -22,7 +23,9 @@ Report* Report::get() {
 // current soil readings. Returns true if populated, and false if not.
 bool Report::compileAll(char* jsonRep, size_t bytes) { 
     
-    uint16_t PH = 55; // !!! Placeholder delete after remainder is built.
+    TH_Averages* th = TempHum::get()->getAverages();
+    Soil* soil = Soil::get();
+    Light_Averages* light = Light::get()->getAverages();
 
     // For colors, all visible and NIR are going to be proportionality, so
     // its percentage of the total. Clear is going to be average intensity
@@ -30,18 +33,20 @@ bool Report::compileAll(char* jsonRep, size_t bytes) {
     // the actual averages. Soil will be current values since not alot 
     // of fluctuation is expected.
     int written = snprintf(jsonRep, bytes, 
-    "{\"temp\":%.2f,\"hum\":%.2f,"
-    "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,"
-    "\"green\":%u,\"yellow\":%u,\"orange\":%u,\"red\":%u,"
-    "\"nir\":%u,\"clear\":%u,"
+    "{\"temp\":%0.2f,\"hum\":%0.2f,"
+    "\"violet\":%0.2f,\"indigo\":%0.2f,\"blue\":%0.2f,\"cyan\":%0.2f,"
+    "\"green\":%0.2f,\"yellow\":%0.2f,\"orange\":%0.2f,\"red\":%0.2f,"
+    "\"nir\":%0.2f,\"clear\":%0.2f,\"photo\":%0.2f,\"lightDur\":%lu,"
     "\"soil1\":%d,\"soil2\":%d,\"soil3\":%d,\"soil4\":%d}",
-    TempHum::get()->getAverages()->temp,
-    TempHum::get()->getAverages()->hum,
-    PH, PH, PH, PH, PH, PH, PH, PH, PH, PH,
-    Soil::get()->getReadings(0)->val,
-    Soil::get()->getReadings(1)->val,
-    Soil::get()->getReadings(2)->val,
-    Soil::get()->getReadings(3)->val
+    th->temp, th->hum,
+    light->color.violet, light->color.indigo,
+    light->color.blue, light->color.cyan,
+    light->color.green, light->color.yellow,
+    light->color.orange, light->color.red,
+    light->color.nir, light->color.clear,
+    light->photoResistor, Light::get()->getDuration(),
+    soil->getReadings(0)->val, soil->getReadings(1)->val,
+    soil->getReadings(2)->val, soil->getReadings(3)->val
     );
 
     return (written >= 0 && written <= bytes); // false if bad write
@@ -51,7 +56,7 @@ bool Report::compileAll(char* jsonRep, size_t bytes) {
 // once per day if timer is unset.
 void Report::clearAll() {
     TempHum::get()->clearAverages();
-    // ADD OTHERS HERE!!!
+    Light::get()->clearAverages();
 }
 
 // Requires the seconds past midnight to send message. If 99999 is passed,

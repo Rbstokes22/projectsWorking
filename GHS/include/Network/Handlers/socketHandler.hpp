@@ -6,6 +6,7 @@
 #include "Threads/Mutex.hpp"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
+#include "Peripherals/Light.hpp"
 
 namespace Comms {
 
@@ -29,7 +30,9 @@ enum class CMDS : uint8_t {
     SET_SOIL2_LWR_THAN, SET_SOIL2_GTR_THAN, SET_SOIL2_COND_NONE,
     SET_SOIL3_LWR_THAN, SET_SOIL3_GTR_THAN, SET_SOIL3_COND_NONE,
     SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE,
-    SEND_REPORT_SET_TIME, 
+    ATTACH_LIGHT_RELAY, SET_LIGHT_RE_LWR_THAN, SET_LIGHT_RE_GTR_THAN,
+    SET_LIGHT_RE_COND_NONE, CLEAR_LIGHT_AVG,
+    SEND_REPORT_SET_TIME, SAVE_AND_RESTART,
     TEST1, TEST2
 };
 
@@ -74,6 +77,10 @@ class SOCKHAND {
     static void attachRelayTH(
         uint8_t relayNum, 
         Peripheral::TH_TRIP_CONFIG* conf
+        );
+    static void attachRelayLT(
+        uint8_t relayNum,
+        Peripheral::RelayConfigLight* conf
         );
     static bool inRange(int lower, int upper, int value, int exception = -999);
     

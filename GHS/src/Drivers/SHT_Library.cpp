@@ -49,14 +49,14 @@ SHT_RET SHT::write() {
 // due to unsuccessful checksum comparison, or READ_OK upon successful
 // read and checksum validation.
 SHT_RET SHT::read(size_t readSize) {
-  
+
     esp_err_t transErr = i2c_master_transmit(
         this->i2cHandle,
         this->packet.writeBuffer, sizeof(this->packet.writeBuffer),
         this->packet.timeout
     );
 
-    vTaskDelay(pdMS_TO_TICKS(20)); // Introduce delay to allow data gathering
+    vTaskDelay(pdMS_TO_TICKS(50)); // Introduce delay to allow data gathering
 
     esp_err_t receiveErr = i2c_master_receive(
         this->i2cHandle,
@@ -70,6 +70,7 @@ SHT_RET SHT::read(size_t readSize) {
     if (transErr == ESP_ERR_TIMEOUT || receiveErr == ESP_ERR_TIMEOUT) {
         printf("SHT Read Timed Out\n");
         return SHT_RET::READ_TIMEOUT;
+
     } else if (transErr != ESP_OK || receiveErr != ESP_OK) {
         printf("SHT Read Error! Transmit: %s; Receive: %s\n",
         esp_err_to_name(transErr), esp_err_to_name(receiveErr));

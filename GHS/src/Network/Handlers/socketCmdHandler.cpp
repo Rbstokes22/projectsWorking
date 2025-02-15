@@ -31,7 +31,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Gets all sensor and some system data and sends JSON back to client.
         case CMDS::GET_ALL: {
         
-
         // Commonly used pointers
         Clock::DateTime* dtg = Clock::DateTime::get();
         Clock::TIME* time = dtg->getTime();
@@ -41,6 +40,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Timer* re3Timer = SOCKHAND::Relays[2].getTimer();
         Peripheral::Timer* re4Timer = SOCKHAND::Relays[3].getTimer();
         Peripheral::Soil* soil = Peripheral::Soil::get();
+        Peripheral::Light* light = Peripheral::Light::get();
         
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
@@ -59,6 +59,19 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AltVal\":%d,\"soil2Up\":%d,"
         "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AltVal\":%d,\"soil3Up\":%d,"
         "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AltVal\":%d,\"soil4Up\":%d,"
+        "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,\"green\":%u,"
+        "\"yellow\":%u,\"orange\":%u,\"red\":%u,\"nir\":%u,\"clear\":%u,"
+        "\"photo\":%d,"
+        "\"violetAvg\":%0.2f,\"indigoAvg\":%0.2f,\"blueAvg\":%0.2f,"
+        "\"cyanAvg\":%0.2f,\"greenAvg\":%0.2f,\"yellowAvg\":%0.2f,"
+        "\"orangeAvg\":%0.2f,\"redAvg\":%0.2f,\"nirAvg\":%0.2f,"
+        "\"clearAvg\":%0.2f,\"photoAvg\":%0.2f,"
+        "\"violetAvgPrev\":%0.2f,\"indigoAvgPrev\":%0.2f,\"blueAvgPrev\":%0.2f,"
+        "\"cyanAvgPrev\":%0.2f,\"greenAvgPrev\":%0.2f,\"yellowAvgPrev\":%0.2f,"
+        "\"orangeAvgPrev\":%0.2f,\"redAvgPrev\":%0.2f,\"nirAvgPrev\":%0.2f,"
+        "\"clearAvgPrev\":%0.2f,\"photoAvgPrev\":%0.2f,"
+        "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%d,"
+        "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,"
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
@@ -103,6 +116,45 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         soil->getReadings(3)->val, 
         static_cast<uint8_t>(soil->getConfig(3)->condition),
         soil->getConfig(3)->tripVal, soil->getReadings(3)->noDispErr,
+        light->getSpectrum()->F1_415nm_Violet,
+        light->getSpectrum()->F2_445nm_Indigo,
+        light->getSpectrum()->F3_480nm_Blue,
+        light->getSpectrum()->F4_515nm_Cyan,
+        light->getSpectrum()->F5_555nm_Green,
+        light->getSpectrum()->F6_590nm_Yellow,
+        light->getSpectrum()->F7_630nm_Orange,
+        light->getSpectrum()->F8_680nm_Red,
+        light->getSpectrum()->NIR,
+        light->getSpectrum()->Clear,
+        light->getPhoto(),
+        light->getAverages()->color.violet,
+        light->getAverages()->color.indigo,
+        light->getAverages()->color.blue,
+        light->getAverages()->color.cyan,
+        light->getAverages()->color.green,
+        light->getAverages()->color.yellow,
+        light->getAverages()->color.orange,
+        light->getAverages()->color.red,
+        light->getAverages()->color.nir,
+        light->getAverages()->color.clear,
+        light->getAverages()->photoResistor,
+        light->getAverages()->prevColor.violet,
+        light->getAverages()->prevColor.indigo,
+        light->getAverages()->prevColor.blue,
+        light->getAverages()->prevColor.cyan,
+        light->getAverages()->prevColor.green,
+        light->getAverages()->prevColor.yellow,
+        light->getAverages()->prevColor.orange,
+        light->getAverages()->prevColor.red,
+        light->getAverages()->prevColor.nir,
+        light->getAverages()->prevColor.clear,
+        light->getAverages()->prevPhotoResistor,
+        light->getConf()->num,
+        static_cast<uint8_t>(light->getConf()->condition),
+        light->getConf()->tripVal,
+        light->getDuration(),
+        light->getStatus().photoNoDispErr,
+        light->getStatus().specNoDispErr,
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
         );
@@ -772,9 +824,84 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
-        // Sets the second past midnight that the daily report is set to send.
-        // IF value 99999 is passed, it will shut the timer down until reset
-        // with a proper integer.
+        case CMDS::ATTACH_LIGHT_RELAY:
+        if (!SOCKHAND::inRange(0, 4, data.suppData)) {
+            written = snprintf(buffer, size, reply, 0, "Lgt Re att fail", 0, 
+                data.idNum);
+        } else { // attach relay if within range.
+            SOCKHAND::attachRelayLT( // If 4 will detach.
+                data.suppData, Peripheral::Light::get()->getConf()
+            );
+
+            written = snprintf(buffer, size, reply, 1, "Lgt Re att", 
+                data.suppData, data.idNum);
+        }
+
+        break;
+
+        case CMDS::SET_LIGHT_RE_LWR_THAN: 
+        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
+            written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
+                data.idNum);
+        } else {
+            Peripheral::RelayConfigLight* conf =
+                Peripheral::Light::get()->getConf();
+
+            conf->condition = Peripheral::RECOND::LESS_THAN;
+            conf->tripVal = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "Lgt Re <", 
+                data.suppData, data.idNum);
+        }
+
+        break;
+
+        case CMDS::SET_LIGHT_RE_GTR_THAN:
+        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
+            written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
+                data.idNum);
+        } else {
+            Peripheral::RelayConfigLight* conf =
+                Peripheral::Light::get()->getConf();
+
+            conf->condition = Peripheral::RECOND::GTR_THAN;
+            conf->tripVal = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "Lgt Re >", 
+                data.suppData, data.idNum);
+        }
+
+        break;
+
+        case CMDS::SET_LIGHT_RE_COND_NONE: {
+        Peripheral::RelayConfigLight* conf =
+            Peripheral::Light::get()->getConf();
+
+        // If relay is active, switching to condtion NONE will 
+        // shut off the relay if energized.
+        if (conf->relay != nullptr) {
+            conf->relay->off(conf->controlID); 
+        } 
+
+        conf->condition = Peripheral::RECOND::NONE;
+        conf->tripVal = 0;
+
+        written = snprintf(buffer, size, reply, 1, "Lgt Re cond NONE", 0,
+            data.idNum);
+        }
+
+        break;
+
+        case CMDS::CLEAR_LIGHT_AVG:
+        Peripheral::Light::get()->clearAverages();
+        written = snprintf(buffer, size, reply, 1, "Lgt Avg Clear", 0, 
+                data.idNum);
+
+        break;
+
+        // // Sets the second past midnight that the daily report is set to send.
+        // // IF value 99999 is passed, it will shut the timer down until reset
+        // // with a proper integer.
         case CMDS::SEND_REPORT_SET_TIME:
         if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, TIMER_OFF)) {
             written = snprintf(buffer, size, reply, 0, "Report timer bust", 0, 
@@ -788,7 +915,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // !!! Build light stuff here.
+        case CMDS::SAVE_AND_RESTART:
+        // Save all settings to NVS and restart esp.
+        break;
 
         case CMDS::TEST1: { // COMMENT OUT AFTER TESTING
         // Test case here
@@ -846,6 +975,36 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         conf->relay.relay->removeID(conf->relay.controlID); 
         conf->relay.relay = nullptr;
         conf->relay.num = 0;
+
+        printf("Relay detached\n");
+    } else {
+        printf("Must be a relay number 0 - 4\n");
+    }
+}
+
+void SOCKHAND::attachRelayLT(uint8_t relayNum, 
+    Peripheral::RelayConfigLight* conf) {
+
+    if (relayNum < 4) { // Checks for valid relay number.
+        // If active relay is currently assigned, ensures that it is 
+        // removed from control and shut off prior to a reissue.
+        if (conf->relay != nullptr) {
+            conf->relay->removeID(conf->controlID);
+        }
+
+        conf->relay = &SOCKHAND::Relays[relayNum];
+        conf->controlID = SOCKHAND::Relays[relayNum].getID();
+        conf->num = relayNum + 1; // Display purposes only
+
+        printf("Relay %u, IDX %u, attached with ID %u\n", 
+        relayNum + 1, relayNum, conf->controlID);
+
+    } else if (relayNum == 4) { // 4 indicates no relay attached
+        // Shuts relay off and removes its ID from array of controlling 
+        // clients making it available.
+        conf->relay->removeID(conf->controlID); 
+        conf->relay = nullptr;
+        conf->num = 0;
 
         printf("Relay detached\n");
     } else {
