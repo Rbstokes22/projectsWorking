@@ -18,7 +18,7 @@ Light::Light(LightParams &params) :
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0},
 
-    conf{LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0},
+    conf{0, RECOND::NONE, RECOND::NONE, nullptr, LIGHT_NO_RELAY, 0, 0, 0},
     lightDuration(0), photoVal(0), flags{false, false, false, false},
     params(params) {}
 

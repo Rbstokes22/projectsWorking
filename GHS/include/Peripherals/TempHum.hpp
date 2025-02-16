@@ -12,8 +12,9 @@ namespace Peripheral {
 #define TEMP_HUM_HYSTERESIS 2.0f // Padding for reset value
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
-#define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess (< 256)
+#define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
+#define TEMP_HUM_NO_RELAY 99 // Used to show no relay attached.
 
 // Alert configuration. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server.
@@ -34,7 +35,7 @@ struct relayConfigTH {
     RECOND condition; // Relay condition.
     RECOND prevCondition; // Relays previous condition.
     Relay* relay; // Relay attached to device.
-    uint8_t num; // relay index + 1, for display purposes.
+    uint8_t num; // relay index, relay 1 will show 0.
     uint8_t controlID; // ID given by relay to allow this device to control it.
     size_t onCt; // Consecutive on counts to turn relay on.
     size_t offCt; // Consecutive off counts to turn relay off.

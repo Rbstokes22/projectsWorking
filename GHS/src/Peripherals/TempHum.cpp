@@ -17,10 +17,10 @@ TempHum::TempHum(TempHumParams &params) :
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
     flags{false, false}, 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
-            {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
+        {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
     tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
-            {0, RECOND::NONE, RECOND::NONE, nullptr, 0, 0, 0, 0}},
+        {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
     params(params) {}
 

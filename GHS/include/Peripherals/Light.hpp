@@ -7,14 +7,6 @@
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 
-// This has two light sensors that will be used to control.
-// Photoresistor will be used for outside darkness, and the Clear will be 
-// used for total light. The idea is to turn on artificial lighting once the 
-// clear channel threshold is met, and turn off when runtime is met. The 
-// photoresistor will also be used for darkness, but decoupled from the spec.
-// This allows it to run additional features for darkness, that might not be 
-// captured by the as7341 due to artificial lighting means.
-
 namespace Peripheral {
 
 // Threshold that marks day start and end using spectral clear channel.
@@ -23,6 +15,7 @@ namespace Peripheral {
 #define LIGHT_HYSTERESIS 10 // Padding for photoresistor.
 #define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
 #define PHOTO_MAX 4094 // 12 bit max - 1, set for error purposes.
+#define LIGHT_NO_RELAY 99 // Used to show no relay attached.
 
 struct LightParams {
     adc_oneshot_unit_handle_t handle;
@@ -38,7 +31,7 @@ struct RelayConfigLight {
     RECOND condition; // Relay condition
     RECOND prevCondition; // Previous relay condition.
     Relay* relay; // Relay attached to sensor.
-    uint8_t num; // relay index + 1, for display purposes.
+    uint8_t num; // relay index, relay 1 is 0.
     uint8_t controlID; // ID given by relay to allow this device to control it.
     size_t onCt; // Consecutive on counts to turn relay on.
     size_t offCt; // Consecutive off counts to turn relay off.

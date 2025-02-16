@@ -10,7 +10,7 @@
 
 namespace Comms {
 
-#define SKT_BUF_SIZE 1500 // Large to accomodate the get all call
+#define SKT_BUF_SIZE 2000 // Large to accomodate the get all call
 #define SKT_MAX_RESP_ARGS 10 // Max response arguments
 
 enum class CMDS : uint8_t {
