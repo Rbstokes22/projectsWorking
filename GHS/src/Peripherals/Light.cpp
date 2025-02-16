@@ -6,6 +6,7 @@
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Common/Timing.hpp"
+#include "string.h" 
 
 namespace Peripheral {
 
@@ -271,9 +272,10 @@ void Light::clearAverages() {
     this->averages.prevColor = this->averages.color;
     this->averages.prevPhotoResistor = this->averages.photoResistor;
 
-    this->averages = { // Reset
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0};
+    // Resets, the color and photoResistor only.
+    memset(&this->averages, 0, sizeof(this->averages.color));
+    this->averages.photoResistor = 0.0f;
+    this->averages.pollCtClr = this->averages.pollCtPho = 0;
 }
 
 uint32_t Light::getDuration() {return this->lightDuration;}

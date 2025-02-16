@@ -964,7 +964,7 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
 
         conf->relay.relay = &SOCKHAND::Relays[relayNum];
         conf->relay.controlID = SOCKHAND::Relays[relayNum].getID();
-        conf->relay.num = relayNum + 1; // Display purposes only
+        conf->relay.num = relayNum; // Display purposes only
 
         printf("Relay %u, IDX %u, attached with ID %u\n", 
         relayNum + 1, relayNum, conf->relay.controlID);
@@ -974,7 +974,7 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         // clients making it available.
         conf->relay.relay->removeID(conf->relay.controlID); 
         conf->relay.relay = nullptr;
-        conf->relay.num = 0;
+        conf->relay.num = TEMP_HUM_NO_RELAY;
 
         printf("Relay detached\n");
     } else {
@@ -994,7 +994,7 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
 
         conf->relay = &SOCKHAND::Relays[relayNum];
         conf->controlID = SOCKHAND::Relays[relayNum].getID();
-        conf->num = relayNum + 1; // Display purposes only
+        conf->num = relayNum; // Display purposes only
 
         printf("Relay %u, IDX %u, attached with ID %u\n", 
         relayNum + 1, relayNum, conf->controlID);
@@ -1004,7 +1004,7 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         // clients making it available.
         conf->relay->removeID(conf->controlID); 
         conf->relay = nullptr;
-        conf->num = 0;
+        conf->num = LIGHT_NO_RELAY;
 
         printf("Relay detached\n");
     } else {

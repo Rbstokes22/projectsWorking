@@ -1,8 +1,12 @@
 // CURRENT NOTES: 
 
-// Test out light socket commands, clearing averages, and maybe build a save and 
-// restart feature. I think at minimum, there should be a structure to save settings
-// at an interval.
+// Comment out light, socketcmdhandler updates. Then...
+
+// Build savesettings files and incorporate the functionality to the socket cmd
+// handler in the save and reset commnd. Use a struct of settings with NVS, Have
+// the settings load each time the device starts, since it will always be the last 
+// known settings. Run this command only on init, so it can be in the appmain().
+
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
