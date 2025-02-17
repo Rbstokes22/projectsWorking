@@ -24,7 +24,7 @@ TempHum::TempHum(TempHumParams &params) :
 
     params(params) {}
 
-// Requires relay configuration, relay on boolean, true to turn on, false to
+// Requires relay configuration, relayOn boolean, true to turn on, false to
 // turn off, and counts of exceeding boundaries. If 5 consecutive counts are 
 // required, and a temp limit of 50, if the temp value exceeds 50 for 5 
 // consecutive readings, the relay will either energize, or de-endergize 
@@ -250,7 +250,7 @@ void TempHum::computeAvgs() {
     this->averages.hum += (deltaH / this->averages.pollCt);
 }
 
-// Singulton class object, requires temphum parameters for first init. Once
+// Singleton class object, requires temphum parameters for first init. Once
 // init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
 
@@ -285,7 +285,7 @@ bool TempHum::read() {
         );
 
     // upon success, updates averages and changes both flags to true.
-    // If unsuccessful, will change the immediate flag to false indicating an
+    // If unsuccessful, will change the noErr flag to false indicating an
     // immediate error, which means the data is garbage. Upon a pre-set 
     // consecutive error read, display flag is set to false allowing the 
     // clients display to show the temp/hum reading to be down.
@@ -293,10 +293,10 @@ bool TempHum::read() {
         this->computeAvgs();
         this->flags.noDispErr = true;
         this->flags.noErr = true;
-        errCt = 0;
+        errCt = 0; // resets count.
     } else {
         this->flags.noErr = false; // Indicates error
-        errCt++;
+        errCt++; // inc count by one.
     }
 
     // Sets the display to true if error ct is less than max allowed.

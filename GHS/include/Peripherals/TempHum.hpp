@@ -11,7 +11,7 @@ namespace Peripheral {
 
 #define TEMP_HUM_HYSTERESIS 2.0f // Padding for reset value
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
-#define TEMP_HUM_ERR_CT_MAX 5 // Error counts to show error on display
+#define TEMP_HUM_ERR_CT_MAX 3 // Error counts to show error on display
 #define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
 #define TEMP_HUM_NO_RELAY 99 // Used to show no relay attached.

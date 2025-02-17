@@ -11,7 +11,7 @@ namespace Peripheral {
 
 #define SOIL_SENSORS 4 // total soil sensors
 #define SOIL_HYSTERESIS 20 // padding for reset value
-#define SOIL_ERR_MAX 5 // Max Error counts before display shows error.
+#define SOIL_ERR_MAX 3 // Max Error counts before display shows error.
 #define SOIL_CONSECUTIVE_CTS 5 // consecutive counts before sending alert.
 #define SOIL_ALT_MSG_SIZE 64 // Alert message size
 #define SOIL_ALT_MSG_ATT 3 // Attempts to send an alert

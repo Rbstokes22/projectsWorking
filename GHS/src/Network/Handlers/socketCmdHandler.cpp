@@ -70,8 +70,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"cyanAvgPrev\":%0.2f,\"greenAvgPrev\":%0.2f,\"yellowAvgPrev\":%0.2f,"
         "\"orangeAvgPrev\":%0.2f,\"redAvgPrev\":%0.2f,\"nirAvgPrev\":%0.2f,"
         "\"clearAvgPrev\":%0.2f,\"photoAvgPrev\":%0.2f,"
-        "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%d,"
-        "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,"
+        "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
+        "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,\"darkVal\":%u,"
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
@@ -155,6 +155,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         light->getDuration(),
         light->getStatus().photoNoDispErr,
         light->getStatus().specNoDispErr,
+        light->getConf()->darkVal,
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
         );
@@ -615,8 +616,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Clears the temperature and humidity average values. This will 
-        // typically be done once 
+        // Clears the temperature and humidity average values. 
         case CMDS::CLEAR_TEMPHUM_AVG: {
             Peripheral::TempHum::get()->clearAverages();
             written = snprintf(buffer, size, reply, 1, "TH Avg Clear", 0, 
@@ -824,6 +824,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // Attaches a single relay (numbers 0 - 3) corresponding to numbers
+        // (relay 1 - 4) to the photoresistor ONLY. AS7341 is read only.
         case CMDS::ATTACH_LIGHT_RELAY:
         if (!SOCKHAND::inRange(0, 4, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Lgt Re att fail", 0, 
@@ -839,6 +841,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Sets the light relay to turn on if lower than the supp data passed.
+        // Supp data will be between 1 & 4094 (12-bit). If 500 is passed
+        // then the relay will turn on when the photoresistor reading is below
+        // 500.
         case CMDS::SET_LIGHT_RE_LWR_THAN: 
         if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
@@ -856,6 +862,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Sets the light relay to turn on if greater than the supp data passed.
+        // Supp data will be between 1 & 4094 (12-bit). If 500 is passed
+        // then the relay will turn on when the photoresistor reading is above
+        // 500.
         case CMDS::SET_LIGHT_RE_GTR_THAN:
         if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
@@ -873,6 +883,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Removes the lower or greater than condition. This will also ensure
+        // that the attached relay will turn off if one is currently attached.
+        // The trip value will then be set to 0.
         case CMDS::SET_LIGHT_RE_COND_NONE: {
         Peripheral::RelayConfigLight* conf =
             Peripheral::Light::get()->getConf();
@@ -892,6 +905,22 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Sets the dark value of the photoresitor. This allows daylight
+        // duration to be counted.
+        case CMDS::SET_DARK_VALUE: 
+        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) {
+            written = snprintf(buffer, size, reply, 0, "Lgt Dark RangeErr", 0, 
+                data.idNum);
+        } else {
+            Peripheral::Light::get()->getConf()->darkVal = data.suppData;
+
+            written = snprintf(buffer, size, reply, 1, "Dark Val", 
+                data.suppData, data.idNum);
+        }
+
+        break;
+
+        // Clears the light average values. 
         case CMDS::CLEAR_LIGHT_AVG:
         Peripheral::Light::get()->clearAverages();
         written = snprintf(buffer, size, reply, 1, "Lgt Avg Clear", 0, 
@@ -915,6 +944,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // When called, the device will save all configuration settings to the
+        // NVS and restart the system.
         case CMDS::SAVE_AND_RESTART:
         // Save all settings to NVS and restart esp.
         break;

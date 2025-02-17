@@ -10,24 +10,26 @@
 namespace Peripheral {
 
 // Threshold that marks day start and end using spectral clear channel.
-#define LIGHT_THRESHOLD_DEF 500 // Between 0 and 4095
+#define LIGHT_THRESHOLD_DEF 500 // Between 0 and 4095. Sets initial Dark bound.
 #define LIGHT_CONSECUTIVE_CTS 5 // Action isnt taken until count is met.
 #define LIGHT_HYSTERESIS 10 // Padding for photoresistor.
+#define LIGHT_ERR_CT_MAX 3 // Error counts to show error on display
 #define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
 #define PHOTO_MAX 4094 // 12 bit max - 1, set for error purposes.
 #define LIGHT_NO_RELAY 99 // Used to show no relay attached.
 
 struct LightParams {
-    adc_oneshot_unit_handle_t handle;
-    adc_channel_t channel;
-    AS7341_DRVR::AS7341basic &as7341;
+    adc_oneshot_unit_handle_t handle; // analog-digital conv handle
+    adc_channel_t channel; // Channel for photoresistor
+    AS7341_DRVR::AS7341basic &as7341; // AS7341 driver reference.
 };
 
-// ALERTS not used for light.
+// ALERTS not used for light, relay ONLY.
 
 // Used for photo resistor
 struct RelayConfigLight {
-    uint16_t tripVal; // Photoresistor trip value, value is dark/light boundary.
+    uint16_t tripVal; // Photoresistor trip value.
+    uint16_t darkVal; // Used to compute light duration. Default set.
     RECOND condition; // Relay condition
     RECOND prevCondition; // Previous relay condition.
     Relay* relay; // Relay attached to sensor.
@@ -38,10 +40,10 @@ struct RelayConfigLight {
 };
 
 struct isUpLight { // 4 bytes, return as value.
-    bool photoNoDispErr;
-    bool photoNoErr;
-    bool specNoDispErr;
-    bool specNoErr;
+    bool photoNoDispErr; // photoresistor no error displayed to client.
+    bool photoNoErr; // photoresistor, no error, read ok.
+    bool specNoDispErr; // spectral no error displace to client.
+    bool specNoErr; // spectral, no error, read ok.
 };
 
 // Taken from the same structure as the AS7341 driver, in float and simplified
@@ -52,18 +54,18 @@ struct Color_Averages {
 };
 
 struct Light_Averages {
-    Color_Averages color;
-    Color_Averages prevColor;
-    float photoResistor;
-    float prevPhotoResistor;
-    size_t pollCtClr;
-    size_t pollCtPho;
+    Color_Averages color; // Current color count averages.
+    Color_Averages prevColor; // Previous color count averages.
+    float photoResistor; // Current photoresistor average.
+    float prevPhotoResistor; // Previous photoresistor average.
+    size_t pollCtClr; // Poll counts for color/AS7341.
+    size_t pollCtPho; // Poll counts for photoresistor.
 };
 
 class Light {
     private:
     AS7341_DRVR::COLOR readings;
-    Light_Averages averages; // Add a clear averages just like the temphum
+    Light_Averages averages; 
     RelayConfigLight conf;
     uint32_t lightDuration;
     int photoVal;
