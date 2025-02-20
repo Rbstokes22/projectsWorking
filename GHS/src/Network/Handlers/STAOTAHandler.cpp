@@ -1,4 +1,5 @@
 #include "Network/Handlers/STAHandler.hpp"
+#include "Network/NetMain.hpp"
 #include "esp_http_server.h"
 #include "OTA/OTAupdates.hpp"
 #include "cJSON.h"
@@ -162,12 +163,13 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
 }
 
 // Following the JSON processing, the version and buffer are passed along with
-// the request. Compares the version passed, to the current firmware version that 
+// the request. Compares the version passed, to the cur firmware version that 
 // is kept in the config.hpp header. If they are equal, returns to the client, a
 // version match. If they are not equal, sends entire response buffer from the 
 // web server to the client for parsing, indicating an updatable version. If the
 // data is corrups, sends a response of invalid JSON. Returns ESP_OK.
-esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, const char* buffer) {
+esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, 
+    const char* buffer) {
 
     // Checks if the version is different than the current version. If 
     // so it sends back the url data for the firmware and signatures.
@@ -319,9 +321,18 @@ esp_err_t OTAHAND::rollback(httpd_req_t* req) {
 // If version is different than current version, responds with the 
 // json string from the https web server. Returns ESP_OK or ESP_FAIL.
 esp_err_t OTAHAND::checkNew(httpd_req_t* req) {
-    char buffer[350]{0};
 
     httpd_resp_set_type(req, "application/json");
+
+    // Ensures that this is in station mode, to prevent checks while in WAP mode
+    if (NetMain::getNetType() != NetMode::STA) {
+        if (httpd_resp_sendstr(req, "{\"version\":\"wap\"}") != ESP_OK) {
+            OTAHAND::OTA->sendErr("Error sending response");
+            return ESP_OK; // Must return ESP_OK
+        } 
+    }
+
+    char buffer[350]{0};
 
     // returns parsed JSON string.
     cJSON* json = receiveJSON(req, buffer, sizeof(buffer));

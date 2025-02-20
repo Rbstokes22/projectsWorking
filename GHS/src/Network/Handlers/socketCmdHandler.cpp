@@ -1,5 +1,6 @@
 #include "Network/Handlers/socketHandler.hpp"
 #include "esp_http_server.h"
+#include "Network/NetMain.hpp"
 #include "Network/NetSTA.hpp"
 #include "Threads/Mutex.hpp"
 #include "Config/config.hpp"
@@ -12,6 +13,10 @@
 #include "Common/Timing.hpp"
 #include "Drivers/SHT_Library.hpp" // Used for SHT max and min.
 #include "UI/MsgLogHandler.hpp" // Used for new log entry in getall
+#include "Peripherals/saveSettings.hpp" // Used to save peripheral settings
+
+// NOTE. Some of these functionalities are for station mode only. These commands
+// have a built in check to ensure requirements are met.
 
 namespace Comms {
 
@@ -24,7 +29,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     // GET_ALL request.
     const char* reply = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
     "\"id\":\"%s\"}";
-    
+
     // All commands work from here. CMD list is on header doc.
     switch(data.cmd) {
 
@@ -454,7 +459,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // is passed, then alert will send when the temperature is lower 
         // than 20. 
         case CMDS::SET_TEMP_ALT_LWR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
                 data.idNum);
         } else {
@@ -474,7 +483,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // is passed, then alert will send when the temperature is greater 
         // than 20. 
         case CMDS::SET_TEMP_ALT_GTR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
                 data.idNum);
         } else {
@@ -492,6 +505,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Removes the lower or greater than condition. This will also ensure 
         // that the trip value will be set to 0.
         case CMDS::SET_TEMP_ALT_COND_NONE: {
+        
+        // STATION CHECK NOT NEEDED.
+        
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getTempConf();
 
@@ -573,7 +589,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_HUM_ALT_LWR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Hum Alt RangeErr", 0, 
                 data.idNum);
         } else {
@@ -589,7 +609,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_HUM_ALT_GTR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Hum Alt RangeErr", 0, 
                 data.idNum);
         } else {
@@ -605,6 +629,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_HUM_ALT_COND_NONE: {
+
+        // STATION CHECK NOT NEEDED.
+
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getHumConf();
 
@@ -632,7 +659,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // to. If 2000 is passed, an alert will send when the soil reading is
         // below 2000. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -655,7 +686,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // to. If 2000 is passed, an alert will send when the soil reading is
         // above 2000. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -674,6 +709,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Removes the greater/lower than condition and resets the trip value
         // alert to 0, and disables alerts. APPLIES TO SOIL 1 - 4.
         case CMDS::SET_SOIL1_COND_NONE: {
+
+        // STATION CHECK NOT NEEDED.
+
         Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(0);
 
@@ -687,7 +725,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -704,7 +746,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -721,6 +767,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL2_COND_NONE: {
+
+        // STATION CHECK NOT NEEDED.
+
         Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(1);
 
@@ -733,7 +782,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) {
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -750,7 +803,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -767,6 +824,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL3_COND_NONE: {
+
+        // STATION CHECK NOT NEEDED.
+
         Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(2);
 
@@ -779,7 +839,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_LWR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -796,7 +860,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_GTR_THAN: 
-        if (!SOCKHAND::inRange(SOIL_MIN_READ, SOIL_MAX_READ, data.suppData)) { 
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
                 data.idNum);
         } else {
@@ -813,6 +881,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         case CMDS::SET_SOIL4_COND_NONE: {
+
+        // STATION CHECK NOT NEEDED.
+
         Peripheral::AlertConfigSo* conf =
             Peripheral::Soil::get()->getConfig(3);
 
@@ -932,7 +1003,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // // IF value 99999 is passed, it will shut the timer down until reset
         // // with a proper integer.
         case CMDS::SEND_REPORT_SET_TIME:
-        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, TIMER_OFF)) {
+
+        // Prevents WAP mode from running station only features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+
+        else if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, 
+            TIMER_OFF)) {
+
             written = snprintf(buffer, size, reply, 0, "Report timer bust", 0, 
                 data.idNum);
         } else {
@@ -947,7 +1024,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // When called, the device will save all configuration settings to the
         // NVS and restart the system.
         case CMDS::SAVE_AND_RESTART:
-        // Save all settings to NVS and restart esp.
+        NVS::settingSaver::get()->save();
+        esp_restart();
         break;
 
         case CMDS::TEST1: { // COMMENT OUT AFTER TESTING
@@ -977,6 +1055,31 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         printf("Output was truncated. Buffer size: %zu, Output size: %d\n",
         size, written);
     } 
+}
+
+// Requires the lower and upper bounds, the value, and the exception value.
+// The exception value is if a value is out of range, but equals the exception,
+// it continues. An example is if you have the seconds of the day for a timer,
+// it can look like inRange(0, 86399, 4252, 99999), which will determine if 
+// 4252 is between 0 and 86399, or if it equals 99999. The default exception
+// is set to -999. Returns true if good, or false if not.
+bool SOCKHAND::inRange(int lower, int upper, int value, int exception) {
+        return ((value >= lower && value <= upper) || (value == exception));
+}
+
+// Requires the written int ref, buffer, buffer size, reply char array, and
+// id number. Checks to ensure that the mode is in station mode, because only
+// certain features are available in that mode. If yes, returns true, if not
+// writes reply, and returns false.
+bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size, 
+    const char* reply, const char* idNum) {
+
+    if (NetMain::getNetType() != NetMode::STA) {
+        written = snprintf(buffer, size, reply, 0, "STA MODE ONLY", 0, idNum);
+        return false;
+    }
+
+    return true; // Data is station.
 }
 
 // Requires relay number and pointer to TempHum configuration. Ensures relay
@@ -1028,7 +1131,7 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         conf->num = relayNum; // Display purposes only
 
         printf("Relay %u, IDX %u, attached with ID %u\n", 
-        relayNum + 1, relayNum, conf->controlID);
+        relayNum + 1, relayNum, conf->controlID); 
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
@@ -1041,16 +1144,6 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
     } else {
         printf("Must be a relay number 0 - 4\n");
     }
-}
-
-// Requires the lower and upper bounds, the value, and the exception value.
-// The exception value is if a value is out of range, but equals the exception,
-// it continues. An example is if you have the seconds of the day for a timer,
-// it can look like inRange(0, 86399, 4252, 99999), which will determine if 
-// 4252 is between 0 and 86399, or if it equals 99999. The default exception
-// is set to -999. Returns true if good, or false if not.
-bool SOCKHAND::inRange(int lower, int upper, int value, int exception) {
-        return ((value >= lower && value <= upper) || (value == exception));
 }
 
 }

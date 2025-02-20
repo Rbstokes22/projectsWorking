@@ -4,6 +4,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "UI/Display.hpp"
 #include "Network/NetMain.hpp"
+#include "Network/NetSTA.hpp"
 #include "esp_http_client.h"
 #include "Threads/Threads.hpp"
 #include <cstddef>
@@ -28,7 +29,7 @@ URL::URL() {
 // Ensures that the net is actively connected to station mode.
 // Returns true or false
 bool OTAhandler::isConnected() {
-    Comms::NetMode netMode = station.getNetType();
+    Comms::NetMode netMode = Comms::NetMain::getNetType();
     bool netConnected = station.isActive();
 
     return (netMode == Comms::NetMode::STA && netConnected);

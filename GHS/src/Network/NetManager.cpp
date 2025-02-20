@@ -42,7 +42,7 @@ void NetManager::setNetType(NetMode NetType) {
 // set the new net type, and call to start the server. If the connection
 // is already present, executes the running wifi method instead. 
 void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
-    NetMode net_type = mode.getNetType();
+    NetMode net_type = NetMain::getNetType();
 
     if (NetType != net_type) { // Checks if the mode has been switched
 
@@ -73,7 +73,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
 // default button is held upon the startup, it will start with the default 
 // password.
 void NetManager::startServer(NetMain &mode) { 
-    NetMode curSrvr = mode.getNetType();
+    NetMode curSrvr = NetMain::getNetType();
     NVS::Creds* creds = NVS::Creds::get();
     
     // All logic depending on returns from the read functions, will be handled
@@ -133,7 +133,7 @@ void NetManager::startServer(NetMain &mode) {
 // All actions are handled here for active connections. This will
 // display the current status of the selected connection.
 void NetManager::runningWifi(NetMain &mode) {
-    NetMode curSrvr = mode.getNetType();
+    NetMode curSrvr = NetMain::getNetType();
     static uint8_t reconAttempt{0};
 
     if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {

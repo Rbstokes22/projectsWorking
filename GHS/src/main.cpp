@@ -1,11 +1,11 @@
 // CURRENT NOTES: 
 
-// Continue building savesettings. Pass relays 
+// Test autosave and manual save and restart feature.
+// Test, when able, that WAP mode prevents socket commands. (FUTURE)
 
-
-// Before building client page, ensure all logging capability
-// before moving on. Fix all prints, and just do better with that handling. Essentially
-// review code.
+// Comments save settings pages, finalize logging/printing and all comments and
+// workflow on each header/src combo. Once complete, begin building actual
+// client page. Use server to test socket commands, design sort of like espsrvr.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -79,6 +79,7 @@
 #include "Drivers/SHT_Library.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp" 
 #include "Peripherals/Relay.hpp"
+#include "Peripherals/saveSettings.hpp"
 
 extern "C" {
     void app_main();
@@ -198,6 +199,11 @@ void app_main() {
     // usage. Also sends relays to allow client to configured them.
     isInit = Comms::SOCKHAND::init(relays);
     printf("Socket Handler init: %d\n", isInit);
+
+    // Sends pointer of relay array to initRelays method, and then loads all
+    // the last saved data.
+    NVS::settingSaver::get()->initRelays(relays);
+    NVS::settingSaver::get()->load(); 
 
     // Start threads
     netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);

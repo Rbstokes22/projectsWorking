@@ -59,6 +59,9 @@
 #define SOIL_FRQ 1000
 #define ROUTINE_FRQ 5000
 
+// Autosave frequency in seconds
+#define AUTO_SAVE_FRQ 60
+
 // GPIO configuration.
 namespace CONF_PINS {
     #define AnalogPinQty 5

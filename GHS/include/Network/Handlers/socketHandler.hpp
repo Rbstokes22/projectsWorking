@@ -74,6 +74,13 @@ class SOCKHAND {
         );
     static void ws_async_send(void* arg);
     static void compileData(cmdData &data, char* buffer, size_t size);
+    static bool inRange(int lower, int upper, int value, int exception = -999);
+    static bool checkSTA(int &written, char* buffer, size_t size, 
+        const char* reply, const char* idNum);
+    
+    public:
+    static bool init(Peripheral::Relay* relays);
+    static esp_err_t wsHandler(httpd_req_t* req);
     static void attachRelayTH(
         uint8_t relayNum, 
         Peripheral::TH_TRIP_CONFIG* conf
@@ -82,11 +89,6 @@ class SOCKHAND {
         uint8_t relayNum,
         Peripheral::RelayConfigLight* conf
         );
-    static bool inRange(int lower, int upper, int value, int exception = -999);
-    
-    public:
-    static bool init(Peripheral::Relay* relays);
-    static esp_err_t wsHandler(httpd_req_t* req);
     
 };
 

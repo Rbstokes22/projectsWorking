@@ -12,7 +12,8 @@
 #include "Peripherals/Light.hpp"
 #include "Peripherals/Report.hpp"
 #include "UI/MsgLogHandler.hpp"
-#include "cmath"
+#include "math.h"
+#include "Peripherals/saveSettings.hpp"
 
 namespace ThreadTask {
 
@@ -106,6 +107,11 @@ void routineTask(void* parameter) {
     Threads::routineThreadParams* params = 
         static_cast<Threads::routineThreadParams*>(parameter);
 
+    // Converts delay in milliseconds to required counts to match the 
+    // autosave frequency requirement.
+    const float autoSaveCts = roundf((params->delay * AUTO_SAVE_FRQ) / 1000.0f);
+    static size_t count = 0;
+
     while (true) {
         // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
@@ -117,7 +123,13 @@ void routineTask(void* parameter) {
 
         // Calls the message check on an interval to ensure that display
         // messages are cleared after n seconds.
-        Messaging::MsgLogHandler::get()->OLEDMessageCheck();
+        Messaging::MsgLogHandler::get()->OLEDMessageCheck(); 
+
+        // Calls the autosave feature
+        if ((count++) >= autoSaveCts) { // Increments count when checking.
+            NVS::settingSaver::get()->save();
+            count = 0; // Reset count.
+        }
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }

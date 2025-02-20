@@ -389,7 +389,8 @@ void NetWAP::getDetails(WAPdetails &details) {
 // the WAP mode is in default settings.
 void NetWAP::setWAPtype(char* WAPtype) {
     bool isDefault = (strcmp(this->APpass, this->APdefaultPass) == 0);
-    const char* mode{this->getNetType() == NetMode::WAP ? "WAP" : "WAP SETUP"};
+    const char* mode{NetMain::getNetType() == NetMode::WAP ? "WAP" : 
+        "WAP SETUP"};
     const char* suffix{isDefault ? " (DEF)" : ""};
     sprintf(WAPtype, "%s%s", mode, suffix);
 }

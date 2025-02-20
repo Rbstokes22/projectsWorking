@@ -74,7 +74,7 @@ class NetMain {
     virtual const char* getPass(bool def = false) const = 0;
     virtual const char* getSSID() const = 0;
     virtual bool isActive() = 0;
-    NetMode getNetType();
+    static NetMode getNetType();
     void setNetType(NetMode NetType);
     float getHeapSize(HEAP_SIZE type);
     httpd_handle_t getServer();

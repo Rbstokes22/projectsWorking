@@ -177,10 +177,11 @@ bool Relay::timerSet(bool on, uint32_t time) {
     Threads::MutexLock(this->mtx);
 
     if (time == RELAY_TIMER_OFF || time >= 86400) { // Disables timer
-        timer.onSet = timer.offSet = false;
+        this->timer.onSet = this->timer.offSet = false;
+        this->timer.onTime = this->timer.offTime = RELAY_TIMER_OFF;
         return true;
     } else if (time >= 86400) { // Seconds per day
-        return false; // Prevents overflow
+        return false; // Prevents overflow, must be between 0 and 64399.
     }
     
     if (on) {
@@ -245,7 +246,6 @@ void Relay::manageTimer() {
 // Returns timer for modication or review.
 Timer* Relay::getTimer() {
     Threads::MutexLock(this->mtx);
-
     return &this->timer;
 }
 
