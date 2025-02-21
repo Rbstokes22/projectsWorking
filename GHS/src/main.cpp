@@ -1,11 +1,10 @@
 // CURRENT NOTES: 
 
-// Test autosave and manual save and restart feature.
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 
-// Comments save settings pages, finalize logging/printing and all comments and
-// workflow on each header/src combo. Once complete, begin building actual
-// client page. Use server to test socket commands, design sort of like espsrvr.
+// Enabling error handling, and checking/revising comments & code on all pages as we go.
+// Currently on the AS7341_Library. In the read channel, read notes there, something
+// seems wrong about that code.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -32,6 +31,10 @@
 // advertised. Tested via web, getting and splitting log into array and displaying all log
 // entries.
 
+// Autosave. Tested autosave with initial settings. Worked as advertised. Next tried auto
+// save on changing the temperature and humdity relays. Worked as advertised, both saved
+// and loaded as expected. 
+
 // Time calibrations work as expected.
 
 // PRE-production notes:
@@ -44,7 +47,8 @@
 
 // PERSISTING NOTES:
 // Singleton classes have a static mutex which is located in the get() methods
-// and protect all subsequent calls.
+// and protect all subsequent calls. If params are required, ensure that a 
+// proper init occurs, elsewise, program will crash since a nullptr is returned.
 
 // Polling in the averages for the SHT and AS7341 is a size_t variable. This
 // leaves 136 years of polling, No polling should be quicker than 1 poll per
@@ -200,16 +204,18 @@ void app_main() {
     isInit = Comms::SOCKHAND::init(relays);
     printf("Socket Handler init: %d\n", isInit);
 
-    // Sends pointer of relay array to initRelays method, and then loads all
-    // the last saved data.
-    NVS::settingSaver::get()->initRelays(relays);
-    NVS::settingSaver::get()->load(); 
-
-    // Start threads
+    // Start threads, and init periph. Must occur before loading settings
+    // due to initialized periph params before calling the get(), to prevent
+    // nullptr return.
     netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
     SHTThread.initThread(ThreadTask::SHTTask, 4096, &SHTParams, 1); 
     AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
     soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
     routineThread.initThread(ThreadTask::routineTask, 4096, &routineParams, 3);
+
+    // Sends pointer of relay array to initRelays method, and then loads all
+    // the last saved data.
+    NVS::settingSaver::get()->initRelays(relays);
+    NVS::settingSaver::get()->load(); 
 }
 

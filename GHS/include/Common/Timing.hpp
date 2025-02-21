@@ -9,20 +9,20 @@
 namespace Clock {
 
 struct TIME {
-    uint8_t hour;
+    uint8_t hour; 
     uint8_t minute;
     uint8_t second;
-    uint32_t raw;
+    uint32_t raw; // raw seconds exclusive format.
 };
 
 class DateTime { // Singleton class
     private:
-    const uint32_t secPerDay = 86400;
-    TIME time;
-    uint32_t timeCalibrated;
-    uint32_t calibratedAt;
-    bool calibrated;
-    static Threads::Mutex mtx;
+    const uint32_t secPerDay = 86400; // Total seconds per day.
+    TIME time; // Time structure in hhmmss and raw seconds.
+    uint32_t timeCalibrated; // Actual time in seconds past midnight.
+    uint32_t calibratedAt; // system run time in seconds when cal occured.
+    bool calibrated; // Has this been calibrated.
+    static Threads::Mutex mtx; // mutex.
     void adjustTime();
     void setHHMMSS(uint32_t seconds);
     DateTime(); 

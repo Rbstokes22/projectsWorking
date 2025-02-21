@@ -17,6 +17,8 @@
 
 namespace ThreadTask {
 
+// Requires the netThreadParams pointer. Responsible for running
+// thread dedicated to the network management.
 void netTask(void* parameter) { // Runs on 1 second intervals.
     Threads::netThreadParams* params = 
         static_cast<Threads::netThreadParams*>(parameter);
@@ -32,28 +34,34 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     }
 }
 
-void SHTTask(void* parameter) { // SHT
+// Requires the shtThreadParams pointer. Responsible for running
+// thread dedicated to the temperature and humidity sensor management.
+void SHTTask(void* parameter) { 
     Threads::SHTThreadParams* params = 
         static_cast<Threads::SHTThreadParams*>(parameter);
     
+    // Init here using parameters passed within the thread.
     Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
     while (true) {
         // Only check bounds upon successful read.
-        if (th->read()) th->checkBounds(); // Read. Comment out when testing.
+        if (th->read()) th->checkBounds(); 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
 
-void AS7341Task(void* parameter) { // AS7341, photo Resistor
+// Requires the AS7341ThreadParams pointer. Responsible for running
+// thread dedicated to the spectral light sensor management.
+void AS7341Task(void* parameter) { // AS7341 & photo Resistor
     Threads::AS7341ThreadParams* params = 
         static_cast<Threads::AS7341ThreadParams*>(parameter);
 
-
+    // set channel to the photoresistor pin
     static adc_channel_t channel = 
         CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::PHOTO)];
 
+    // Init here using parameters passed within the thread.
     Peripheral::LightParams ltParams = {
         params->adc_unit, channel, params->light
         };
@@ -64,13 +72,15 @@ void AS7341Task(void* parameter) { // AS7341, photo Resistor
 
         lt->readSpectrum(); // Reads spectrum values
 
-        // Checks bounds for photo resistor.
+        // Checks bounds for photo resistor upon successful read.
         if (lt->readPhoto()) lt->checkBounds();
 
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
 
+// Requires the soilThreadParams pointer. Responsible for running
+// thread dedicated to the capacitive soil sensor management.
 void soilTask(void* parameter) { // Soil sensors
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
@@ -89,7 +99,7 @@ void soilTask(void* parameter) { // Soil sensors
         channels
     };
 
-    // Init here to get a singleton class
+    // Init here to get a singleton class.
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
 
     while (true) {
@@ -103,14 +113,20 @@ void soilTask(void* parameter) { // Soil sensors
     }
 }
 
+// Requires the routineThreadParams pointer. Responsible for running
+// thread dedicated to all routine commands, such as managing timers.
 void routineTask(void* parameter) {
     Threads::routineThreadParams* params = 
         static_cast<Threads::routineThreadParams*>(parameter);
 
     // Converts delay in milliseconds to required counts to match the 
-    // autosave frequency requirement.
-    const float autoSaveCts = roundf((params->delay * AUTO_SAVE_FRQ) / 1000.0f);
+    // autosave frequency requirement. 5000ms and frequency of 60 seconds will
+    // yield 12.
+    const float autoSaveCts = roundf((1000.0f * AUTO_SAVE_FRQ) / params->delay);
     static size_t count = 0;
+
+    // Use additional counts if desired to manage things if they do not occur
+    // on the second.
 
     while (true) {
         // Iterate each relay and manage its specific timer
@@ -118,15 +134,16 @@ void routineTask(void* parameter) {
             params->relays[i].manageTimer(); // Acquires first control ID
         }
 
-        // Manage the timer of the daily report.
+        // Manage the timer of the daily report. If a timer is not enable,
+        // will clear averages at 23:59:50 each day.
         Peripheral::Report::get()->manageTimer();
 
         // Calls the message check on an interval to ensure that display
-        // messages are cleared after n seconds.
+        // messages are cleared after n seconds. 
         Messaging::MsgLogHandler::get()->OLEDMessageCheck(); 
 
-        // Calls the autosave feature
-        if ((count++) >= autoSaveCts) { // Increments count when checking.
+        // Calls the autosave feature based on it's frequency setting.
+        if ((++count) >= autoSaveCts) { // Increments count when checking.
             NVS::settingSaver::get()->save();
             count = 0; // Reset count.
         }

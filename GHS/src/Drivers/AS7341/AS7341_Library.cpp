@@ -161,7 +161,7 @@ bool AS7341basic::init(uint8_t address) {
 
     // Compares at the end, expected validations vs actual validations.
     // If equal, sets isInit to true;
-    uint8_t expVal{10};
+    const uint8_t expVal{10};
     uint8_t actualVal{0};
 
     actualVal += this->power(PWR::OFF); // Clear register before config
@@ -197,6 +197,10 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
     REG CH_UPR = CH_REG_MAP[static_cast<uint8_t>(chnl)][1];
 
     bool lwrSafe{false}, uprSafe{false};
+
+    // LOOK HERE AT READY, AND EVERYTHING WITH DELAY. THIS DEVICE WORKS, BUT THIS
+    // SEEMS TO BE PROBLEMATIC BELOW, I AM NOT SURE WHY THERE IS A DELAY. ALSO
+    // ENSURE THAT NUMBERHAS A DEFINITION ON THE HEADER SO IT ISNT A MAGIC NUM.
 
     // If not enabled, default true. If enabled, sets delay until ready.
     bool ready = delayEn ? this->delay(1000) : true;

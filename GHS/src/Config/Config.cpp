@@ -1,8 +1,10 @@
 #include "Config/config.hpp"
 #include <cstdint>
+#include "string.h"
 #include "driver/gpio.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
+#include "UI/MsgLogHandler.hpp"
 
 // PINS
 namespace CONF_PINS {
@@ -17,16 +19,20 @@ gpio_num_t pinMapD[DigitalPinQty]{
     GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33
 }; 
 
-adc_oneshot_unit_handle_t adc_unit; // Definition
+adc_oneshot_unit_handle_t adc_unit; // Analog Digital Converter handle
 
+// Requires no params. Configures all digital pins set through the header.
 void setupDigitalPins() {
     struct pinConfig {
-        DPIN pin;
-        gpio_mode_t IOconfig;
+        DPIN pin; // Digital Pin
+        gpio_mode_t IOconfig; 
         gpio_pull_mode_t pullConfig;
     };
 
-    // Floating on outputs has no function within lambda.
+    char log[20]{0}; // Used for quick logging.
+
+    // "GPIO_FLOATING" in OUTPUT configuration, has no function within lambda,
+    // and is a necessary placeholder.
     pinConfig pins[DigitalPinQty] = {
         {DPIN::WAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
         {DPIN::STA, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
@@ -37,29 +43,62 @@ void setupDigitalPins() {
         {DPIN::RE4, GPIO_MODE_OUTPUT, GPIO_FLOATING}
     };
 
-    auto pinSet = [](pinConfig pin){
+    // Configures and sets the pins.
+    auto pinSet = [&log](pinConfig pin, int i){
         uint8_t pinIndex = static_cast<uint8_t>(pin.pin);
         gpio_num_t pinNum = pinMapD[pinIndex];
+        esp_err_t err;
 
-        ESP_ERROR_CHECK(gpio_set_direction(pinNum, pin.IOconfig));
+        // Sets direction to to all pins.
+        err = gpio_set_direction(pinNum, pin.IOconfig);
 
-        if (pin.IOconfig != GPIO_MODE_OUTPUT) { // Ignores OUTPUT pull
-            ESP_ERROR_CHECK(gpio_set_pull_mode(pinNum, pin.pullConfig));
+        if (err != ESP_OK) { // Handle error indicating dig pin problem.
+            snprintf(log, sizeof(log),"DPin %d err", i);
+            Messaging::MsgLogHandler::get()->handle(
+                Messaging::Levels::CRITICAL,
+                log, Messaging::Method::SRL_LOG
+            );
+        }
+
+        // Filters OUTPUT pins since this sets the pull mode pullup only.
+        if (pin.IOconfig != GPIO_MODE_OUTPUT) { 
+
+            // Sets pull mode.
+            err = gpio_set_pull_mode(pinNum, pin.pullConfig);
+
+            if (err != ESP_OK) { // Handle error indicating dig pin problem.
+            snprintf(log, sizeof(log),"DPin %d err", i);
+            Messaging::MsgLogHandler::get()->handle(
+                Messaging::Levels::CRITICAL,
+                log, Messaging::Method::SRL_LOG
+            );
+            }
         }
     };
 
     for (int i = 0; i < DigitalPinQty; i++) {
-        pinSet(pins[i]);
+        pinSet(pins[i], i);
     }
 }
 
+// Requires adc unit handle. Configures all analog pins set through the header.
 void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
     adc_oneshot_unit_init_cfg_t unit_cfg{};
     unit_cfg.unit_id = ADC_UNIT_1;
     unit_cfg.ulp_mode = ADC_ULP_MODE_DISABLE;
+    char log[20]{0}; // Used for quick logging.
 
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &unit));
+    // register the unit
+    esp_err_t err = adc_oneshot_new_unit(&unit_cfg, &unit);
 
+    if (err != ESP_OK) {
+            Messaging::MsgLogHandler::get()->handle(
+                Messaging::Levels::CRITICAL, "ADC handle err", 
+                Messaging::Method::SRL_LOG
+            );
+    }
+
+    // All analog pins indexes that coresond to ADC channels.
     APIN pins[AnalogPinQty] = {
         APIN::SOIL1, APIN::SOIL2, APIN::SOIL3, APIN::SOIL4, APIN::PHOTO
         };
@@ -69,16 +108,24 @@ void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
     chan_cfg.bitwidth = ADC_BITWIDTH_DEFAULT,
     chan_cfg.atten = ADC_ATTEN_DB_12;  // Highest voltage reading.
 
-    auto pinSet = [unit, &chan_cfg](APIN pin){
+    // sets pins based on configuration passed.
+    auto pinSet = [unit, &chan_cfg, &err, &log](APIN pin, int i){
         adc_channel_t pinNum = pinMapA[static_cast<uint8_t>(pin)];
- 
-        ESP_ERROR_CHECK(adc_oneshot_config_channel(
-            adc_unit, pinNum, &chan_cfg
-        ));
+
+        // Configure the pin channel.
+        err = adc_oneshot_config_channel(adc_unit, pinNum, &chan_cfg);
+
+        if (err != ESP_OK) {
+            snprintf(log, sizeof(log),"APin %d err", i);
+            Messaging::MsgLogHandler::get()->handle(
+                Messaging::Levels::CRITICAL,
+                log, Messaging::Method::SRL_LOG
+            );
+        }
     };
 
     for (int i = 0; i < AnalogPinQty; i++) {
-        pinSet(pins[i]);
+        pinSet(pins[i], i);
     }
 }
 

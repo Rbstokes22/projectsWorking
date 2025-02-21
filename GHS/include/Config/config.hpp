@@ -45,7 +45,7 @@
 #define DEVmode true // When set to false, production mode.
 
 // MSGLOGERR
-#define SERIAL_ON true // if set to true, will write to serial.
+#define SERIAL_ON true // if set to true, will enable serial.
 #define MSG_CLEAR_SECS 5 // clears OLED error messages after n seconds.
 
 // Used in functions to init object. 
@@ -70,8 +70,9 @@ namespace CONF_PINS {
     extern adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
     void setupDigitalPins();
     void setupAnalogPins(adc_oneshot_unit_handle_t &unit);
-    extern adc_channel_t pinMapA[AnalogPinQty];
-    extern gpio_num_t pinMapD[DigitalPinQty];
+    extern adc_channel_t pinMapA[AnalogPinQty]; // Analog pin map.
+    extern gpio_num_t pinMapD[DigitalPinQty]; // Digital pin map.
+
     // Used with pinMaps above.
     enum class DPIN : uint8_t {WAP, STA, defWAP, RE1, RE2, RE3, RE4};
     enum class APIN : uint8_t {SOIL1, SOIL2, SOIL3, SOIL4, PHOTO};
@@ -80,11 +81,11 @@ namespace CONF_PINS {
 // NetConfig, does not include the CONF in the namespace due to this.
 namespace Comms {
 
-enum class NetMode {WAP, WAP_SETUP, STA, NONE, WAP_RECON};
+enum class NetMode {WAP, WAP_SETUP, STA, NONE, WAP_RECON}; // Network Mode
 
-enum class Constat {CON, DISCON};
+enum class Constat {CON, DISCON}; // Connection Status
 
-enum class IDXSIZE {
+enum class IDXSIZE { // Network Index Sizes.
     SSID = 33, // 1-32 chars
     PASS = 65, // 8-64 chars
     PHONE = 11, // 10 chars exactly
@@ -96,7 +97,7 @@ enum class IDXSIZE {
 
 // Used in netCreds.cpp and WAPSetupHandler.cpp, used in NVS
 enum class KI {ssid, pass, phone, WAPpass, APIkey}; // Key Index
-extern const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)];
+extern const char* netKeys[static_cast<int>(IDXSIZE::NETCREDKEYQTY)]; // Netkeys
 
 }
 

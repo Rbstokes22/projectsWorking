@@ -95,9 +95,9 @@ struct COLOR {
 
 class AS7341basic {
     private:
-    i2c_master_dev_handle_t i2cHandle;
-    CONFIG &conf;
-    bool isInit;
+    i2c_master_dev_handle_t i2cHandle; // handle for i2c init.
+    CONFIG &conf; // Configuration
+    bool isInit; // Is initialized.
     bool setBank(REG reg);
     bool writeRegister(REG reg, uint8_t val);
     uint8_t readRegister(REG reg, bool &dataSafe);

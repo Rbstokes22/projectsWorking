@@ -172,7 +172,8 @@ void MsgLogHandler::OLEDMessageCheck() {
 }
 
 // Requires the level of error, message, and methods for sending. Prints the
-// message in the applicable method passed.
+// message in the applicable method passed. NOTE: Log max entry is 128 bytes,
+// OLED is 200 bytes, and serial is unrestricted.
 void MsgLogHandler::handle(Levels level, const char* message, Method method) {
 
     switch (method) {
