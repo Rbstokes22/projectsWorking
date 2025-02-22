@@ -5,58 +5,57 @@
 #include <cstddef>
 #include "I2C/I2C.hpp"
 
+// Datasheet
+// https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf
+
 namespace UI_DRVR {
 
-enum class Size {
+enum class Size { // Sise parameters, some specified by datasheet.
     OLEDbytes = 1024,
     pages = 8,
     columns = 128,
     bufferSize = 1088
 };
 
-enum class CMD_IDX {
+enum class CMD_IDX { // Command Index ised with charCMD[].
     CMD_MODE, 
     SET_COL_ADDR, BEGIN_COL, END_COL,
     SET_PAGE_ADDR, BEGIN_PAGE, END_PAGE,
     DATA_MODE
 };
 
-enum class DIM {
+enum class DIM { // Dimensions.
     D5x7, D6x8
 };
 
-enum class TXTCMD {
+enum class TXTCMD { // Text Command Used to start and end entries.
     START, END
 };
 
-enum class OLED_ERR {
- // TO be completed
-};
-
-struct Dimensions {
-    uint8_t width; 
-    uint8_t height;
+struct Dimensions { // Will be used in conjunction with dimIndex[].
+    uint8_t width; // Width dimension
+    uint8_t height; // Height dimension
 };
 
 extern Dimensions dimIndex[];
 
 class OLEDbasic {
     private:
-    uint8_t col, page;
-    Dimensions charDim;
-    DIM dimID;
-    size_t colMax, pageMax, cmdSeqLgth, lineLgth; 
-    i2c_master_dev_handle_t i2cHandle;    
-    static const uint8_t init_sequence[];
-    static uint8_t charCMD[];
-    bool isInit;
-
-    uint8_t* Worker;
-    uint8_t* Display;
-    uint8_t bufferA[static_cast<int>(Size::bufferSize)];
-    uint8_t bufferB[static_cast<int>(Size::bufferSize)];
-    uint16_t bufferIDX;
-    bool isBufferA;
+    uint8_t col, page; // Column and page values
+    Dimensions charDim; // Width and height dimension struct
+    DIM dimID; // Dimension ID, used with  enum class DIM.
+    const size_t colMax, pageMax, cmdSeqLgth, lineLgth; // Max values.
+    i2c_master_dev_handle_t i2cHandle; // i2c handle for dev registration.
+    static const uint8_t init_sequence[]; // Init sequence to start device
+    static uint8_t charCMD[]; // character commands modified and reused.
+    bool isInit; // Is initialized.
+    uint8_t* Worker; // Points to the worker buffer.
+    uint8_t* Display; // Points to the display buffer.
+    uint8_t templateBuf[static_cast<int>(Size::bufferSize)]; // Used as temp
+    uint8_t bufferA[static_cast<int>(Size::bufferSize)]; // Part 1 of dual buf.
+    uint8_t bufferB[static_cast<int>(Size::bufferSize)]; // Part 2 of dual buf.
+    uint16_t bufferIDX; // Current index of the next buffer entry.
+    bool isBufferA; // Shows if buffer A or buffer B.
     void grabChar(char c);
     void writeLine();
     
@@ -64,7 +63,7 @@ class OLEDbasic {
     OLEDbasic();
     bool init(uint8_t address);
     void makeTemplate();
-    void reset(bool totalClear = false);
+    void reset(bool clearScreen = false);
     void setCharDim(DIM dimension);
     void setPOS(uint8_t column, uint8_t page);
     void write(const char* msg, TXTCMD cmd = TXTCMD::END);

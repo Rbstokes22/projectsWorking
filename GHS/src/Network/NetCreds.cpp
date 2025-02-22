@@ -6,6 +6,9 @@
 
 namespace NVS {
 
+const char* Creds::tag = "Creds";
+char Creds::log[LOG_MAX_ENTRY] = {0}; // Static def of log.
+
 // namespace must be under 12 chars long.
 Creds::Creds(CredParams &params) :
 
@@ -24,10 +27,21 @@ Creds* Creds::get(CredParams* parameter) {
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
-        printf("Creds has not been init\n");
+        snprintf(Creds::log, sizeof(Creds::log), "%s: Creds has not been init",
+            Creds::tag);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            Creds::log, Messaging::Method::SRL_LOG);
+
         return nullptr; // Blocks instance from being created.
     } else if (parameter != nullptr) {
-        printf("Creds has been init with namespace %s\n", parameter->nameSpace);
+        snprintf(Creds::log, sizeof(Creds::log), 
+            "%s: Creds init with namespace %s", Creds::tag, 
+            parameter->nameSpace);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            Creds::log, Messaging::Method::SRL_LOG);
+
         isInit = true; // Opens gate after proper init
     }
 
@@ -44,11 +58,9 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
     nvs_ret_t stat = this->nvs.write(key, (uint8_t*)buffer, bytes);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
-        Messaging::MsgLogHandler::get()->handle(
-            Messaging::Levels::ERROR,
-            "NVS Creds were not written",
-            Messaging::Method::SRL
-        );
+        snprintf(Creds::log, sizeof(Creds::log), "%s: writeErr", Creds::tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            Creds::log, Messaging::Method::SRL_LOG);
     }
 
     return stat;
@@ -66,12 +78,10 @@ const char* Creds::read(const char* key) {
             );
 
         if (stat != nvs_ret_t::NVS_READ_OK) {
-            Messaging::MsgLogHandler::get()->handle(
-                Messaging::Levels::ERROR,
-                "NVS Creds were not read",
-                Messaging::Method::SRL
-            );
-        }
+            snprintf(Creds::log, sizeof(Creds::log), "%s: readErr",Creds::tag);
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+                Creds::log, Messaging::Method::SRL_LOG);
+            }
     };
 
     for (const auto &_key : Comms::netKeys) {
@@ -84,7 +94,7 @@ const char* Creds::read(const char* key) {
     return this->credData;
 }
 
-// Requires no parameters. Returns the SMS requirements pointer
+// Requires no parameters. Returns the SMS requirements pointer !!!!!!!!!!!!!!!!!!!!!!!!!!!
 // if the the phone and API key length meet the requirements.
 // If not, will return nullptr, and those values will remain
 // unpopulated.
@@ -130,8 +140,12 @@ SMSreq* Creds::getSMSReq(bool sendRaw) {
     strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1; 
 
     if (strlen(this->smsreq.phone) != strSize) {
-        // printf("Size: %zu vs strlen %d, Data: %s\n", strSize, strlen(this->smsreq.phone), this->smsreq.phone);
-        printf("SMS Request: phone does not meet requirements\n");
+        snprintf(Creds::log, sizeof(Creds::log), 
+            "%s: SMS Request: phone does not meet requirements", Creds::tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            Creds::log, Messaging::Method::SRL_LOG);
+
+        printf("\n");
         return nullptr;
     }
     

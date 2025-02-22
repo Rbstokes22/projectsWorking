@@ -10,8 +10,8 @@
 
 namespace AS7341_DRVR {
 
-// Defines lower and upper addr for channels to avoid specifically
-// calling the lower and upper register address for each call.
+// Defines lower and upper addr for channels to avoid specifically calling the 
+// lower and upper register address for each call.
 REG CH_REG_MAP[6][2] = {
     {REG::CH0_LWR, REG::CH0_UPR},
     {REG::CH1_LWR, REG::CH1_UPR},
@@ -21,9 +21,9 @@ REG CH_REG_MAP[6][2] = {
     {REG::CH5_LWR, REG::CH5_UPR}
 };
 
-// Used to configure AS7341 upon init. ASTEP and ATIME are both
-// full value uint8_t integers. ASTEP is between 0 & 65534.
-// Requires ASTEP, ATIME, and WTIME values.
+// Used to configure AS7341 upon init. ASTEP and ATIME are both full value 
+// uint8_t integers. ASTEP is between 0 & 65534. Requires ASTEP, ATIME, 
+// and WTIME values.
 CONFIG::CONFIG(uint16_t ASTEP, uint8_t ATIME, uint8_t WTIME) : 
 
     ASTEP(ASTEP), ATIME(ATIME), WTIME(WTIME) {
@@ -31,14 +31,12 @@ CONFIG::CONFIG(uint16_t ASTEP, uint8_t ATIME, uint8_t WTIME) :
         if (this->ASTEP > 65534) this->ASTEP = 65534;
     }
 
-// Requires timeout in millis. Executes a loop that 
-// will be satisfied when the spectral register signals that
-// the data is ready for processing. If 0 is passed, will 
-// wait indefinitely for register. If a value is passed, 
-// loop executes with a 1 millisecond delay until ready or 
-// timeout is reached. Returns true if ready, and false if 
-// timeout reached.
-bool AS7341basic::delay(uint32_t timeout_ms) {
+// Requires timeout in millis. Executes a loop that will be satisfied when the 
+// spectral register signals that the data is ready for processing. If 0 is 
+// passed, will wait indefinitely for register. If a value is passed, loop 
+// executes with a 1 millisecond delay until ready or timeout is reached. 
+// Returns true if ready, and false if timeout reached.
+bool AS7341basic::delayIsReady(uint32_t timeout_ms) {
     if (timeout_ms == 0) { // Wait forever
         while(!this->isReady()) {
             ets_delay_us(1000); // delay 1 milli
@@ -50,7 +48,7 @@ bool AS7341basic::delay(uint32_t timeout_ms) {
         uint32_t elapsed{0};
 
         while(!this->isReady() && (elapsed < timeout_ms)) {
-            ets_delay_us(1000);
+            ets_delay_us(1000); // Delay 1 milli
             elapsed++;
             if (elapsed >= timeout_ms) return false;
         }
@@ -198,12 +196,10 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
 
     bool lwrSafe{false}, uprSafe{false};
 
-    // LOOK HERE AT READY, AND EVERYTHING WITH DELAY. THIS DEVICE WORKS, BUT THIS
-    // SEEMS TO BE PROBLEMATIC BELOW, I AM NOT SURE WHY THERE IS A DELAY. ALSO
-    // ENSURE THAT NUMBERHAS A DEFINITION ON THE HEADER SO IT ISNT A MAGIC NUM.
-
-    // If not enabled, default true. If enabled, sets delay until ready.
-    bool ready = delayEn ? this->delay(1000) : true;
+    // Designed for reading channel individually instead of all at once. If 
+    // not-en, defaults to true. The delay is managed within the readAll
+    // method which is why this is not-en and ready is set to true.
+    bool ready = delayEn ? this->delayIsReady(AS7341_WAIT) : true;
 
     if (ready) {
         uint8_t ch_lwr = this->readRegister(CH_LWR, lwrSafe);
@@ -230,7 +226,7 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
 // and false if invalid.
 bool AS7341basic::readAll(COLOR &color) {
     bool safe[6] = {false, false, false, false, false, false}; // Ch0 - Ch5
-    uint8_t safeExp = 10; // 10 channel reads.
+    const uint8_t safeExp = 10; // 10 channel reads.
     uint8_t safeAct = 0;
 
     // The datasheet does not contain anything about mapping the F-channels to the
@@ -239,7 +235,7 @@ bool AS7341basic::readAll(COLOR &color) {
 
     this->setSMUXLowChannels(true); // sets channels F1 - F4.
     this->enableSpectrum(SPECTRUM::ENABLE, false); // enables spectrum
-    this->delay(1000); // Delays here for all readings. 
+    this->delayIsReady(AS7341_WAIT); // Enable delay while waiting for ready. 
 
     // Reads F1 to F4. Will read Clear and NIR below.
     color.F1_415nm_Violet = this->readChannel(CHANNEL::CH0, safe[0]);
@@ -256,7 +252,7 @@ bool AS7341basic::readAll(COLOR &color) {
     // Mirrors above but sets channels up for F5 - F8.
     this->setSMUXLowChannels(false);
     this->enableSpectrum(SPECTRUM::ENABLE, false);
-    this->delay(1000);
+    this->delayIsReady(AS7341_WAIT); // Enable delay while waiting for ready.
 
     color.F5_555nm_Green = this->readChannel(CHANNEL::CH0, safe[0]);
     color.F6_590nm_Yellow = this->readChannel(CHANNEL::CH1, safe[1]);

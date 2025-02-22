@@ -2,9 +2,12 @@
 
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 
-// Enabling error handling, and checking/revising comments & code on all pages as we go.
-// Currently on the AS7341_Library. In the read channel, read notes there, something
-// seems wrong about that code.
+// REVISE, COMMENT, ENABLE LOGGING
+// COMPLETE: common, config, drivers, i2c (ON NETWORK/netcreds)
+
+// Almost done with netcreds. Need to go in a fix comments as well as revise and
+// ensure flow follow the last log placement. Ensure there are no other log entries
+// that are needed.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -93,15 +96,15 @@ extern "C" {
 // Prefered using globals over local variables declared statically.
 UI::Display OLED;
 
-// Network specific objects. Station, Wireless Access Point, and their manager.
-Comms::NetSTA station(MDNS_NAME); 
-Comms::NetWAP wap(AP_SSID, AP_DEF_PASS, MDNS_NAME);
-Comms::NetManager netManager(station, wap, OLED);
-
 // Message, Log, and Error parameters and initialization. Init here since 
 // other features depend on its functionality.
 Messaging::MsgLogHandlerParams MLEParams = {OLED, MSG_CLEAR_SECS, SERIAL_ON};
 Messaging::MsgLogHandler* mlh = Messaging::MsgLogHandler::get(&MLEParams);
+
+// Network specific objects. Station, Wireless Access Point, and their manager.
+Comms::NetSTA station(MDNS_NAME); 
+Comms::NetWAP wap(AP_SSID, AP_DEF_PASS, MDNS_NAME);
+Comms::NetManager netManager(station, wap, OLED);
 
 // PERIPHERALS
 SHT_DRVR::SHT sht; // Temp hum driver 
@@ -140,6 +143,11 @@ Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &AS7341Thread,
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
 void app_main() {
+    char log[30] = {0}; // Used for logging, size accomodates all msging.
+    Messaging::Levels msgType[] = { // Used for mounting and init, with log.
+        Messaging::Levels::CRITICAL, Messaging::Levels::INFO
+    };
+
     CONF_PINS::setupDigitalPins(); // Config.hpp
     CONF_PINS::setupAnalogPins(CONF_PINS::adc_unit); // Config.hpp
 
@@ -167,23 +175,26 @@ void app_main() {
     // Do not unregister for OTA update purposes since signature and checksum are
     // uploaded to spiffs.
     esp_err_t spiffs = esp_vfs_spiffs_register(&spiffsConf);
-    if (spiffs != ESP_OK) {
-        printf("SPIFFS FAILED TO MOUNT");
-    }
+    
+    snprintf(log, sizeof(log), "SPIFFS mounted = %d", (spiffs == ESP_OK));
+
+    // Adjust message level depending on success.
+    Messaging::MsgLogHandler::get()->handle(msgType[spiffs == ESP_OK],
+            log, Messaging::Method::SRL_LOG);
 
     // Checks partition upon boot to ensure that it is valid by matching
     // the signature with the firmware running. If invalid, the program
     // will not continue.
     if (!BYPASS_VAL) {
-        Boot::VAL err = Boot::checkPartition(
+        Boot::val_ret_t err = Boot::checkPartition(
             Boot::PART::CURRENT, 
             FIRMWARE_SIZE, 
             FIRMWARE_SIG_SIZE
             );
 
         // If not valid, tries rolling back to the previously working
-        // firmware and restarting.
-        if (err != Boot::VAL::VALID) {
+        // firmware and restarting. Does not require printing/logging.
+        if (err != Boot::val_ret_t::VALID) {
             OLED.invalidFirmware(); 
             
             if (ota.rollback()) esp_restart(); 
@@ -193,16 +204,24 @@ void app_main() {
 
     // Passes objects to the WAPSetup handler to allow for use.
     bool isInit = Comms::WSHAND::init(station, wap);
-    printf("WAP Setup Handler init: %d\n", isInit);
+
+    // Log WAP setup handler success
+    snprintf(log, sizeof(log), "WAP Setup Hand init = %d", isInit);
+    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
+    log, Messaging::Method::SRL_LOG);
 
     // Passes OTA object to the STAOTA handler to allow for use.
     isInit = Comms::OTAHAND::init(ota);
-    printf("OTA Handler init: %d\n", isInit);
+    snprintf(log, sizeof(log), "OTA Hand init = %d", isInit);
+    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
+    log, Messaging::Method::SRL_LOG);
 
     // Sends the peripheral threads to the socket handler to allow mutex
     // usage. Also sends relays to allow client to configured them.
     isInit = Comms::SOCKHAND::init(relays);
-    printf("Socket Handler init: %d\n", isInit);
+    snprintf(log, sizeof(log), "Socket Hand init = %d", isInit);
+    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
+    log, Messaging::Method::SRL_LOG);
 
     // Start threads, and init periph. Must occur before loading settings
     // due to initialized periph params before calling the get(), to prevent

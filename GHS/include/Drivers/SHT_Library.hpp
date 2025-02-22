@@ -4,7 +4,11 @@
 #include "I2C/I2C.hpp"
 #include "stdint.h"
 
-// Datasheet URL: https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf
+// Datasheet
+// https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf
+
+// No logging handler due to use of this library in the future without 
+// dependencies. All troubleshooting should be done on serial.
 
 namespace SHT_DRVR {
 
@@ -13,17 +17,23 @@ namespace SHT_DRVR {
 #define SHT_MAX 124 // Datasheet is 125, but you cant set higher than that.
 #define SHT_MIN_HUM 1 // 0, but cant set below 0
 #define SHT_MAX_HUM 99 // 100, but cant set above 100.
+#define SHT_READ_DELAY 50 // 50 millis, used between request and read.
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.
 struct SHT_VALS {
-    float tempF;
-    float tempC;
-    float hum;
-    bool dataSafe;
+    float tempF; // Temperature Fahrenheit
+    float tempC; // Temperature Celcius
+    float hum; // Humidity.
+    bool dataSafe; // Data safe for use.
 };
 
 // SHT read and write packet. 
+// Per datasheet pg 11, Table 11, The readbuffer is formatted as such:
+// IDX0: Temp MSB, IDX1: Temp LSB, IDX2: Temp CRC
+// IDX3: Hum MSB, IDX4: Hum LSB, IDX5: Hum CRC
+// The writebuffer is fomatted as such:
+// IDX0: Command MSB, IDX1: Command LSB.
 struct RWPacket {
     bool dataSafe; // Updated upon successful read/write and checksum.
     uint8_t writeBuffer[2]; // Contains the MSB and LSB of the command.
@@ -61,9 +71,9 @@ enum class CMD : uint16_t {
 
 class SHT {
     private:
-    i2c_master_dev_handle_t i2cHandle;
-    bool isInit;
-    RWPacket packet;
+    i2c_master_dev_handle_t i2cHandle; // I2C handle to register device.
+    bool isInit; // Is class init
+    RWPacket packet; // Read and write packet handling all RW data.
     SHT_RET write();
     SHT_RET read(size_t readSize);
     uint16_t getStatus(bool &dataSafe);

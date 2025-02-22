@@ -5,11 +5,15 @@
 #include "I2C/I2C.hpp"
 #include "Config/config.hpp"
 
+// Datasheet
+// https://cdn.sparkfun.com/assets/0/8/e/2/3/AS7341_DS000504_3-00.pdf
+
 namespace AS7341_DRVR {
 
 #define AS7341_TIMEOUT 500 // 500 millis default timeout
 #define AS7341_MIN 0 // 0 counts
 #define AS7341_MAX 65535 // full 16 bit int
+#define AS7341_WAIT 1000 // milliseconds timeout.
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
@@ -111,7 +115,7 @@ class AS7341basic {
     bool enableSMUX(SMUX state, bool verbose = true);
     bool enableWait(WAIT state, bool verbose = true);
     bool enableSpectrum(SPECTRUM state, bool verbose = true);
-    bool delay(uint32_t timeout_ms);
+    bool delayIsReady(uint32_t timeout_ms);
     bool isReady();
     void setSMUXLowChannels(bool f1_f4);
     void setup_F1F4_Clear_NIR();

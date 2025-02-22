@@ -17,7 +17,7 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
     if (resetTimeout) this->timeout = timeout_ms;
 }
 
-SHT::SHT() : isInit(false) {this->packet.reset();}
+SHT::SHT() : isInit(false) {this->packet.reset();} // Inits RW packet.
 
 // Requires no parameters. Writes the command in the RW Packet write
 // buffer to the SHT. Returns WRITE_TIMEOUT if timed out, WRITE_FAIL
@@ -56,7 +56,9 @@ SHT_RET SHT::read(size_t readSize) {
         this->packet.timeout
     );
 
-    vTaskDelay(pdMS_TO_TICKS(50)); // Introduce delay to allow data gathering
+    // This value was set to 20, and caused I2C issues, when changed to 
+    // 50, zero issues have occured.
+    vTaskDelay(pdMS_TO_TICKS(SHT_READ_DELAY)); 
 
     esp_err_t receiveErr = i2c_master_receive(
         this->i2cHandle,
@@ -93,18 +95,19 @@ SHT_RET SHT::read(size_t readSize) {
 //         1 (last command not processed)
 // Bit 0 : 0 (Checksum of last write transfer was correct),
 //         1 (Checksum of last write transfer failed)
+// Returns 0 if data is corrupt.
 uint16_t SHT::getStatus(bool &dataSafe) {
     this->packet.reset();
 
-    this->packet.writeBuffer[0] =
+    this->packet.writeBuffer[0] = // MSB move into LSB
         static_cast<uint16_t>(CMD::STATUS) >> 8;
 
-    this->packet.writeBuffer[1] = 
+    this->packet.writeBuffer[1] = // LSB
         static_cast<uint16_t>(CMD::STATUS) & 0xFF;
   
     this->read(2); // expect 2 bytes
 
-    uint16_t status = (
+    uint16_t status = ( // shift bytes into LSB/MSB position.
         (this->packet.readBuffer[0] << 8) | this->packet.readBuffer[1]
         );
 
@@ -138,17 +141,19 @@ uint8_t SHT::crc8(uint8_t* buffer, uint8_t length) {
     return crc;
 }
 
-// Requires an address to the carrier of the
-// datasheet. Returns READ_FAIL if the data is marked as corrupt, or 
-// READ_OK if successfully computed and data is not corrupt.
+// Requires an address to the carrier of the datasheet. Returns READ_FAIL if 
+// the data is marked as corrupt, or READ_OK if successfully computed and data 
+// is not corrupt.
 SHT_RET SHT::computeTemps(SHT_VALS &carrier) { 
     if (!this->packet.dataSafe) return SHT_RET::READ_FAIL; // Check data
 
+    // computes raw temp by moving LSB/MSB into the positions.
     uint16_t rawTemp = this->packet.readBuffer[0] << 8 | 
         this->packet.readBuffer[1];
 
+    // Does the same as temp for humidity.
     uint16_t rawHum = this->packet.readBuffer[3] << 8 |
-        this->packet.readBuffer[1];
+        this->packet.readBuffer[4]; // was idx 1, didnt cause error but fixed.
 
     // Values are computed per pg. 14 of the datasheet.
     carrier.tempF = -49 + (315.0f * rawTemp / 65535);
@@ -165,6 +170,7 @@ SHT_RET SHT::computeTemps(SHT_VALS &carrier) {
 void SHT::init(uint8_t address) {
     if (this->isInit) return; // Prevents from being re-init.
 
+    // Init I2C and add device to service.
     Serial::I2C* i2c = Serial::I2C::get();
     i2c_device_config_t devCon = i2c->configDev(address);
     this->i2cHandle = i2c->addDev(devCon);
@@ -180,9 +186,11 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     
     carrier.dataSafe = false; // Sets to true once complete.
 
+    // Set write buffer MSB by shifting Cmd MSB by 8 and putting it in IDX0.
     this->packet.writeBuffer[0] = 
         static_cast<uint16_t>(cmd) >> 8;
 
+    // Set write buffer LSB by &'ing it and putting it in IDX1.
     this->packet.writeBuffer[1] =
         static_cast<uint16_t>(cmd) & 0xFF;
 
@@ -199,6 +207,7 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     uint8_t crcTemp = this->crc8(this->packet.readBuffer, 2);
     uint8_t crcHum = this->crc8(&this->packet.readBuffer[3], 2);
 
+    // Compare temp/hum crc values against 
     if (this->packet.readBuffer[2] != crcTemp || 
         this->packet.readBuffer[5] != crcHum) {
             printf("Checksum Error\n");

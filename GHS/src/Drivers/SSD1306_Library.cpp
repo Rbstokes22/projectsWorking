@@ -13,7 +13,7 @@ Dimensions dimIndex[]{{5, 7}, {6, 8}};
 
 // Static Setup
 
-uint8_t const OLEDbasic::init_sequence[]{
+uint8_t const OLEDbasic::init_sequence[]{ // Set by datasheet and adafruit.
     0x00,           // Cmd mode
     0xAE,           // Display OFF (sleep mode)
     0x20, 0x00,     // Set Memory Addressing Mode to Horizontal Addressing Mode
@@ -44,7 +44,7 @@ uint8_t OLEDbasic::charCMD[]{
     0x00, // Command mode
     0x21, 0x00, 0x7F, // Set column addr 0 - 127
     0x22, 0x00, 0x01, // Set page address 0 - 7
-    0x40 
+    0x40 // Data command
 };
 
 // The char is sent here and must be ASCII chars from 32 - 126.
@@ -53,16 +53,21 @@ void OLEDbasic::grabChar(char c) {
 
     // The font arrays start at ASCII 32. The desired char subtracts
     // 32 from its value and its row is determined by the char width.
-    uint16_t starting = (c - 32) * this->charDim.width;
+    uint16_t starting = (c - 32) * this->charDim.width; // Starting index.
 
-    // Ensures no buffer overflow by determining current index plus the additional
+    // Ensures no buffer overflow by determining current index plus the addit
     // character. Copies the bytes of that character to the Working buffer.
-    if (this->bufferIDX + this->charDim.width <= static_cast<int>(Size::bufferSize)) {
+    if ((this->bufferIDX + this->charDim.width) <= 
+        static_cast<int>(Size::bufferSize)) {
+
+        // Ensures that the 
         if (this->dimID == DIM::D5x7) {
-            memcpy(&Worker[this->bufferIDX], font5x7 + starting, this->charDim.width);
+            memcpy(&Worker[this->bufferIDX], font5x7 + starting, 
+                this->charDim.width);
 
         } else if (this->dimID == DIM::D6x8) {
-            memcpy(&Worker[this->bufferIDX], font6x8 + starting, this->charDim.width);
+            memcpy(&Worker[this->bufferIDX], font6x8 + starting, 
+                this->charDim.width);
         }
 
         // Increases both the column and buffer index by the added char width.
@@ -70,7 +75,7 @@ void OLEDbasic::grabChar(char c) {
         this->bufferIDX += this->charDim.width;
 
     } else {
-        // handle overflow in future
+        printf("Buffer capacity full\n");
     }
 }
 
@@ -80,81 +85,115 @@ OLEDbasic::OLEDbasic() :
     col{0x00}, page{0x00}, charDim{5, 7}, dimID{DIM::D5x7},
     colMax{static_cast<int>(Size::columns) - 1}, // index 7
     pageMax{static_cast<int>(Size::pages) - 1}, // index 127
+
+    // Despite the exclusion of 0x40 data signal, it is captured exactly once.
     cmdSeqLgth(sizeof(OLEDbasic::charCMD) - 1), // excludes the 0x40
     lineLgth(static_cast<int>(Size::columns) + 1), // includes 0x40
+
     isInit(false),
     Worker{this->bufferA}, // sets worker pointer to buffer A
     Display{this->bufferB},
     bufferIDX{0}, isBufferA{true} {
 
+        memset(this->templateBuf, 0, sizeof(this->templateBuf));
         memset(this->bufferA, 0, sizeof(this->bufferA));
         memset(this->bufferB, 0, sizeof(this->bufferB));
     }
 
-// Initializes at 400khz. Configures the i2c settings, and adds the i2c 
+// Initializes at def i2c freq. Configures the i2c settings, and adds the i2c 
 // device to the bus, receiving the handle in return.
 bool OLEDbasic::init(uint8_t address) {
     if (this->isInit) return true; // Prevents from re-init.
 
+    // Init the i2c and add device to the register.
     Serial::I2C* i2c = Serial::I2C::get();
     i2c_device_config_t devCon = i2c->configDev(address);
     this->i2cHandle = i2c->addDev(devCon);
 
-    esp_err_t err = i2c_master_transmit(
+    esp_err_t err = i2c_master_transmit( // Transmit init sequence
         this->i2cHandle, this->init_sequence,
         sizeof(this->init_sequence), -1);
 
     this->isInit = true;
-    this->reset(true);
+    this->reset(true); // Reset, clear, and make template.
 
     return (err == ESP_OK);
 }
 
-// Creates a template to be written to. This sets the command sequence
-// and the data signal. This sequence is written on the interval of 
-// of the cmd sequence + line length or 136.
+// Requires no params. Upon init, populates class obect template, that serves
+// as a template buffer that is copied over to the worker buffer on all 
+// subsequential calls. 
 void OLEDbasic::makeTemplate() {
+    static bool isInit = false; // Allows template to be created once to copy.
+
+    // Sequence is written on the interval of the command sequence + the line
+    // length, or 136 total. The template is pre-populated to include the 
+    // command sequences within certain intervals of the template.
+
+    // Once init, continutes copying the template buffer over to the worker.
+    if (isInit) {
+        memcpy(this->Worker, this->templateBuf, sizeof(this->templateBuf));
+        return;
+    }
+
+    // ACTUAL TEMPLATE FORMAT, ONLY CMDSEQ ARE POPULATED WITHIN THE TEMPLATE.
+    // R1: <BYTE0-CMDSEQ-BYTE7><BYTE8-CHARS-BYTE135>
+    // R2: <BYTE136-CMDSEQ-BYTE143><BYTE144-CHARS-BYTE272>
+    // ...
+    // R8: <BYTE952-CMD_SEQ-BYTE959><BYTE960-CHARS-BYTE1088>
+
+    // Everything below is for the initial creation of the template. 
     uint16_t i = this->lineLgth + this->cmdSeqLgth;
-    uint8_t col{0};
-    uint8_t endCol{static_cast<int>(Size::columns) - 1}; // 127
+    static const uint8_t col{0};
+    static const uint8_t endCol{static_cast<int>(Size::columns) - 1}; // 127
     uint8_t page{0};
 
     // Copies the command sequence into the Worker buffer starting
     // at index 0. Increments the page and allows the iteration to
-    // write the rest. The columns will always remain the same.
-    memset(this->Worker, 0, static_cast<int>(Size::bufferSize));
+    // write the rest. The columns will always remain the same. Places
+    // first command sequence at index 0 - 7.
+    memset(this->templateBuf, 0, static_cast<int>(Size::bufferSize)); // clear 
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_COL)] = col;
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_COL)] = endCol;
     OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_PAGE)] = page;
-    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = page + 1;
-    memcpy(this->Worker, OLEDbasic::charCMD, sizeof(OLEDbasic::charCMD));
+    OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = page + 1; // nx pg
+
+    // copy command sequence into the working buffer.
+    memcpy(this->templateBuf, OLEDbasic::charCMD, sizeof(OLEDbasic::charCMD));
     page++;
     
+    // Iterates the remaining buffer copying the command sequences with
+    // the adjusted pages into it. Increments i by the change in the 
+    // line and command sequence, which will be 136. This places command 
+    // sequences on the beginning of each page, that handles the chars in the
+    // remaining portion of the line. Essentially this template pre-positions
+    // the commands where all changes are expected to occur.
     while (i < static_cast<int>(Size::bufferSize)) {
 
-        // Iterates the remaining buffer copying the command sequence with
-        // the adjusted pages into it. Increments i by the change in the 
-        // line and command sequence, which will be 136.
         OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_COL)] = col;
         OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_COL)] = endCol;
         OLEDbasic::charCMD[static_cast<int>(CMD_IDX::BEGIN_PAGE)] = page;
         OLEDbasic::charCMD[static_cast<int>(CMD_IDX::END_PAGE)] = page + 1;
-        memcpy(&Worker[i], OLEDbasic::charCMD, sizeof(OLEDbasic::charCMD));
-        i += (this->lineLgth + this->cmdSeqLgth);
-        page++;
+        memcpy(&templateBuf[i], OLEDbasic::charCMD, sizeof(OLEDbasic::charCMD));
+        i += (this->lineLgth + this->cmdSeqLgth); // Adjust i based on sizes
+        page++; // Increment page by 1.
     }
+
+    // Copy template over to worker.
+    memcpy(this->Worker, this->templateBuf, sizeof(this->templateBuf));
+    isInit = true; // Change to true to ensure template is created once.
 }
 
 // Resets the working buffer creating a new template, and 
 // resetting the indexing data.
-void OLEDbasic::reset(bool totalClear) {
+void OLEDbasic::reset(bool clearScreen) {
     makeTemplate(); // sets template for the working buffer.
-    this->bufferIDX = sizeof(OLEDbasic::charCMD);
+    this->bufferIDX = sizeof(OLEDbasic::charCMD); // starts at end of cmdseq.
     this->col = 0;
     this->page = 0;
 
-    // invoked upon init to clear the screen.
-    if (totalClear) this->send();
+    // invoked upon init ONLY to clear the screen.
+    if (clearScreen) this->send();
 }
 
 // Dimensions must be set before positon due to indexing.
@@ -171,11 +210,8 @@ void OLEDbasic::setCharDim(DIM dimension) {
 void OLEDbasic::setPOS(uint8_t column, uint8_t page) {
 
     // Ensures everything is within parameters.
-    if (column > this->colMax) this->col = this->colMax;
-    if (page > this->pageMax) this->page = this->pageMax;
-
-    this->col = column;
-    this->page = page;
+    this->col = column > this->colMax ? this->colMax : column;
+    this->page = page > this->pageMax ? this->pageMax : page;
 
     // When the position is adjusted, computes the column and page 
     // adjustments to allow the buffer index to position itself 
@@ -187,9 +223,12 @@ void OLEDbasic::setPOS(uint8_t column, uint8_t page) {
 }
 
 // Once the next character, or word goes beyond the capacity of the OLED,
-// as well as the last line, a line will write to the Working buffer.
+// as well as the last line, a line will write to the Working buffer. This
+// method adjusts the buffer index to the next open byte which will be offset
+// by the length of the command sequence, from the first byte in that page/row.
+// This prevent overwriting the command data within the template.
 void OLEDbasic::writeLine() {
-    this->col = 0;
+    this->col = 0; // Set column to 0
     this->page++; // next page
     
     // Does nothing if exceeding the row span of the OLED.
@@ -211,7 +250,7 @@ void OLEDbasic::writeLine() {
 // of text on the same line without incremementing the page.
 void OLEDbasic::write(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        // handle print h
+        printf("SSD1306: No message\n");
         return;
     }
 
@@ -229,13 +268,13 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
         // If the next char will extend beyond the column max, the 
         // line is written.
         if ((this->col + this->charDim.width) >= this->colMax) {
-            this->writeLine(); 
+            this->writeLine(); // Adjusts buffer index
         }
     }
 
     // Only writes if end is specified in the text command.
     if ((cmd == TXTCMD::END) && this->col > 0) {
-        this->writeLine();
+        this->writeLine(); // Adjusts buffer index
     }
 }
 
@@ -246,7 +285,7 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
 // of text on the same line without incremementing the page.
 void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        // handle print h
+        printf("SSD1306: No message\n");
         return;
     }
 
@@ -270,7 +309,7 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
         // be written with no text wrapping. It will then skip the 
         // rest of the iteration, and continue wrapping text.
         if (wordLen >= static_cast<int>(Size::columns)) {
-            char temp[210]{0}; // 204 is the max chars @ 5x7.
+            char temp[210]{0}; // 204 is the max chars @ 5x7. Padded.
             
             strncpy(temp, &msg[i], nextSpace - i);
             temp[nextSpace - i] = '\0';
@@ -285,7 +324,7 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
         // line and begin the rest of everything on a new page
         // wrapping the text.
         if ((this->col + wordLen) >= this->colMax) {
-            this->writeLine(); 
+            this->writeLine(); // Adjusts buffer index
         } 
 
         // Iterates each word populating the line buffer.
@@ -297,7 +336,7 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
 
     // Only writes if end is specified in the text command.
     if (cmd == TXTCMD::END && this->col > 0) {
-        this->writeLine();
+        this->writeLine(); // Adjusts buffer index
     }
 }
 
@@ -305,9 +344,9 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
 void OLEDbasic::send() {
     esp_err_t err;
 
-    auto errHandle = [](esp_err_t err) {
+    auto errHandle = [](esp_err_t err) { // Prints to serial.
         if (err != ESP_OK) {
-            printf("err: %s\n", esp_err_to_name(err));
+            printf("SSD1306: err -  %s\n", esp_err_to_name(err));
         }
     };
 
@@ -328,7 +367,7 @@ void OLEDbasic::send() {
         this->isBufferA = true;
     }
 
-    reset(); // resets and creates a new Worker template.
+    reset(); // resets and creates a new Worker template. No screen clear.
 
     // TESTING. ALLOWS YOU TO SEE THE ACTUAL BYTES IN THE BUFFER
     // for (int i = 0; i < static_cast<int>(Size::bufferSize); i++) {

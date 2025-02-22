@@ -12,7 +12,8 @@ namespace AS7341_DRVR {
 
 // Requites state and verbose bool. Returns true of false if valid.
 bool AS7341basic::power(PWR state, bool verbose) {
-    return this->validateWrite(REG::ENABLE, static_cast<uint8_t>(state), verbose);
+    return this->validateWrite(REG::ENABLE, static_cast<uint8_t>(state), 
+        verbose);
 }
 
 // Requires value and verbose bool. Sets integration time for spectral
@@ -46,10 +47,6 @@ bool AS7341basic::configASTEP(uint16_t value, bool verbose) {
 bool AS7341basic::configWTIME(uint8_t value, bool verbose) {
     return this->validateWrite(REG::WTIME, value, verbose);
 }
-
-// Requires value. Writes to SMUX register 0 to init the SMUX, followed
-// by set value 1 for Read SMUX config to RAM from SMUX chain, and 2 for 
-// Write SMUX config from RAM to SMUX chain. Returns true or false.
 
 // Requires SMUX_CONF::READ or SMUX_CONF::WRITE, and verbose bool. Writes
 // the configuration to register. Returns true or false upon success.
