@@ -5,6 +5,8 @@
 #include "esp_http_server.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "Common/FlagReg.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
@@ -15,50 +17,32 @@ enum class wifi_ret_t { // wifi return type
     MDNS_OK, MDNS_FAIL
 };
 
-enum class HEAP_SIZE {
+enum class HEAP_SIZE { // Heap units used in display.
     B, KB, MB
 };
 
-// Error display method.
-enum class errDisp {
-    OLED, SRL, ALL
-};
-
-// Flags to ensure a linear flow in the net init process.
-struct Flags { 
-    bool wifiInit;
-    bool netifInit;
-    bool eventLoopInit;
-    bool ap_netifCreated;
-    bool sta_netifCreated;
-    bool dhcpOn; // must set to true to explicity call stop
-    bool dhcpIPset;
-    bool wifiModeSet;
-    bool wifiConfigSet;
-    bool wifiOn;
-    bool httpdOn;
-    bool uriReg;
-    bool handlerReg;
-    bool wifiConnected;
-    bool mdnsInit;
-    bool mdnsHostSet;
-    bool mdnsInstanceSet;
-    bool mdnsServiceAdded;
+// Netflags that hold bit/idx positions for on/off flags in the Flag class.
+enum NETFLAGS : uint8_t { 
+    wifiInit, netifInit, eventLoopInit, ap_netifCreated, sta_netifCreated,
+    dhcpOn, dhcpIPset, wifiModeSet, wifiConfigSet, wifiOn, httpdOn, uriReg,
+    handlerReg, wifiConnected, mdnsInit, mdnsHostSet, mdnsInstanceSet,
+    mdnsServiceAdded
 };
 
 class NetMain {
     private:
+    const char* tag; // Used for logging
 
     protected:
-    static httpd_handle_t server;
-    static NetMode NetType;
-    static Flags flags; // to check for initialization
-    static esp_netif_t* ap_netif;
-    static esp_netif_t* sta_netif;
-    static wifi_init_config_t init_config;
-    wifi_config_t wifi_config;
-    static httpd_config http_config;
-    char mdnsName[static_cast<int>(IDXSIZE::MDNS)];
+    static httpd_handle_t server; // server handle.
+    static NetMode NetType; // Network type.
+    static Flag::FlagReg flags; // on/off flags.
+    static esp_netif_t* ap_netif; // Wireless Access point network interface.
+    static esp_netif_t* sta_netif; // Station network interface.
+    static wifi_init_config_t init_config; // Initialization configuration.
+    wifi_config_t wifi_config; // Wifi configuration.
+    static httpd_config http_config; // httpd configuration.
+    char mdnsName[static_cast<int>(IDXSIZE::MDNS)]; // multicast DNS name. 
 
     public:
     NetMain(const char* mdnsName);
@@ -78,7 +62,8 @@ class NetMain {
     void setNetType(NetMode NetType);
     float getHeapSize(HEAP_SIZE type);
     httpd_handle_t getServer();
-    void sendErr(const char* msg, errDisp type);
+    void sendErr(const char* msg, 
+            Messaging::Levels lvl = Messaging::Levels::ERROR); 
 };
 
 }

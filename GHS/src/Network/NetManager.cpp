@@ -6,12 +6,12 @@
 #include "driver/gpio.h"
 #include "Config/config.hpp"
 #include "UI/Display.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
-// Checks the reading of the GPIO pins to determine if the switch is 
-// in station, station setup, or wap mode. Returns NetMode STA, WAP,
-// and WAP_SETUP.
+// Requires no params. Checks reading of the GPIO pins to determine if the
+// switch is in station, WAP setup, or WAP mode. Returns STA, WAP, or WAP_SETUP.
 NetMode NetManager::checkNetSwitch() {
     bool WAP = gpio_get_level(
         CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::WAP)]);
@@ -26,8 +26,8 @@ NetMode NetManager::checkNetSwitch() {
     else {return NetMode::NONE;}
 }
 
-// Determines if the set position is that of a WAP or STA. Checks connection
-// based on this type.
+// Requires NetMode NetType param Determines if the set position is that of a 
+// WAP or STA. Checks connection based on this type.
 void NetManager::setNetType(NetMode NetType) {
 
     if (NetType == NetMode::WAP || NetType == NetMode::WAP_SETUP) {
@@ -37,29 +37,51 @@ void NetManager::setNetType(NetMode NetType) {
     }
 }
 
-// Gets the current net type registered. If that net type is not equal to
-// the switch position, it will destroy the current wifi connection,
-// set the new net type, and call to start the server. If the connection
-// is already present, executes the running wifi method instead. 
+// Requires the mode (STA or WAP), and the Network Type. Checks that type 
+// against the current switch position. Destroys current connection and 
+// switches to the new connection. If connection is already present, executes
+// the running wifi method instead.
 void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     NetMode net_type = NetMain::getNetType();
+    static const char* modes[] = {"WAP", "WAP_SETUP", "STA"}; // logging use.
 
     if (NetType != net_type) { // Checks if the mode has been switched
 
-        // WAP_RECON will be flagged upon a change of the 
-        // WAP pass. This will allow a new connection using new creds.
+        // WAP_RECON will be flagged upon a change of the WAP password. 
+        // This will allow a new connection using new creds.
         if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP || 
             net_type == NetMode::WAP_RECON) {
             this->wap.destroy();
+            
+            // Handles logging for connection destruction. WAP class will 
+            // log for new/active connection.
+            snprintf(this->log, sizeof(this->log), "%s: WAP connect destroyed", 
+                this->tag);
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+                this->log, Messaging::Method::SRL_LOG);
+
         } else if (net_type == NetMode::STA) {
             this->station.destroy();
+
+            // Handles logging for connection destruction. STA class will 
+            // log for new/active connection.
+            snprintf(this->log, sizeof(this->log), "%s: STA connect destroyed", 
+                this->tag);
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+                this->log, Messaging::Method::SRL_LOG);
         } 
     
         // startServer() will be called exactly one time before the 
         // program goes into runningWifi() which assumes a solid
         // init. In the event this fails, startServer() is also called 
-        // when attempting a reconnection in other methods.
+        // when attempting a reconnection in other methods to handle redundancy.
         mode.setNetType(NetType);
+
+        snprintf(this->log, sizeof(this->log), "%s: Starting server mode %s", 
+            this->tag, modes[static_cast<uint8_t>(NetType)]);
+
         this->startServer(mode);
     }
 
@@ -68,16 +90,18 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     }
 }
 
-// NVS is checked for credentials upon wifi init. Default values will be used
-// if data is invalid, which means the AP will start but the ST will not. If the
-// default button is held upon the startup, it will start with the default 
-// password.
+// Requires the mode (STA or WAP). NVS credentials are checked. Default values
+// will be used if the data is invalid, which means the WAP will start but STA
+// will not. If the default button is held upon the startup, it will start with
+// the default password.
 void NetManager::startServer(NetMain &mode) { 
     NetMode curSrvr = NetMain::getNetType();
     NVS::Creds* creds = NVS::Creds::get();
     
     // All logic depending on returns from the read functions, will be handled
-    // in the WAP and STA classes.
+    // in the WAP and STA subclasses classes.
+
+    // Checks current server mode.
     if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
 
         // DEF(ault) button, if pressed, will start with the default password.
@@ -88,13 +112,15 @@ void NetManager::startServer(NetMain &mode) {
 
         if (nDEF) { // Indicates non-default mode.
 
-            // shows if the current set pass = the default pass
+            // shows if the current set pass = the default pass. getPass(true)
+            // means return the default password.
             if (strcmp(mode.getPass(), mode.getPass(true)) == 0) {
                 char tempPass[static_cast<int>(IDXSIZE::PASS)]{0};
 
-                strcpy(tempPass, creds->read("WAPpass"));
+                strcpy(tempPass, creds->read("WAPpass")); // copy NVS to actual.
 
-                // If the NVS pass is not null, sets pass from the NVS.
+                // If the NVS pass is not empty, sets pass from the NVS. If
+                // empty, nothing changes and default pass is kept.
                 if (strcmp(tempPass, "") != 0) {
                     mode.setPass(tempPass);
                 } 
@@ -104,16 +130,21 @@ void NetManager::startServer(NetMain &mode) {
             mode.setPass(mode.getPass(true));
         }
 
-    } else if (curSrvr == NetMode::STA) {
+    } else if (curSrvr == NetMode::STA) { // Checks station.
         
         // Ensures that the credentials do not already exist. This is a failsafe
         // in the event that the NVS is corrupt. It allows the credentials to be
-        // written from the WAPSetup page into volatile storage only.
+        // written from the WAPSetup page into volatile storage only for the
+        // duration of the program.
         if (strcmp(mode.getPass(), "") == 0) {
-            mode.setPass(creds->read("pass"));
+
+            // Sets password from NVS upon first init only, since init = ""
+            mode.setPass(creds->read("pass")); 
         }
 
         if (strcmp(mode.getSSID(), "") == 0) {
+
+            // Sets ssid from NVS upon first init only, since init = ""
             mode.setSSID(creds->read("ssid"));
         }
     }
@@ -124,17 +155,18 @@ void NetManager::startServer(NetMain &mode) {
     if (mode.init_wifi() == wifi_ret_t::INIT_OK) {
         if (mode.start_wifi() == wifi_ret_t::WIFI_OK) {
             if (mode.start_server() == wifi_ret_t::SERVER_OK) {
-                mode.mDNS();
+                mode.mDNS(); // Final set for running server.
             }
         }
     }
 }
 
-// All actions are handled here for active connections. This will
-// display the current status of the selected connection.
+// Requires mode (STA or WAP). Handles active connections only. Handles events
+// where reconnection is necessary, as well as prints to OLED, current network
+// status.
 void NetManager::runningWifi(NetMain &mode) {
     NetMode curSrvr = NetMain::getNetType();
-    static uint8_t reconAttempt{0};
+    static uint8_t reconAttempt{0}; // Reconnection attempt
 
     if (curSrvr == NetMode::WAP || curSrvr == NetMode::WAP_SETUP) {
         WAPdetails details;
@@ -150,34 +182,57 @@ void NetManager::runningWifi(NetMain &mode) {
     // If not connected, will attempt reconnect. Looks for 
     // an active connection and that all flags have been
     // satisfied.
-    if (!mode.isActive()) {
-        reconnect(mode, reconAttempt);
+    if (!mode.isActive()) { // handle activity logging in the subclasses.
+        reconnect(mode, reconAttempt); // handle logging in the subclasses.
     } else {
         reconAttempt = 0;
     }
 }
 
-// If connection is inactive, will attempt to start the server, cleaning
-// up any pieces that havent been initialized. If all fails after 5 
-// attempts, the current mode will be destroyed allowing do-over.
+// Requires mode (WAP or STA) and a reference to the attempt since it is 
+// incremented here. If connection is inactive, attempts starting server, 
+// cleaning up any pieces that have not been init. If attempts exceed the
+// max, destroys current mode and restarts.
 void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
-    mode.sendErr("Reconnecting", errDisp::SRL);
+    static bool sentLog = false;
+
+    if (!sentLog) { // Sends log only once per reattempt session.
+        sentLog = true;
+        snprintf(this->log, sizeof(this->log), "%s: Net Reconnecting", 
+            this->tag);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+            this->log, Messaging::Method::SRL_LOG);
+    } 
+
+    // Sends via SRL every reconnect attempt. This allows pollution control to
+    // the log.
+    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+        this->log, Messaging::Method::SRL);
+
     startServer(mode);
     attempt++;
 
     if (attempt > NET_ATTEMPTS_RECON) {
         mode.destroy();
         attempt = 0;
+        sentLog = false; // Resets to allow relogging
     }
 }
 
+// Constructor. Takes station, wap, and OLED references.
 NetManager::NetManager(
     NetSTA &station, 
     NetWAP &wap, 
     UI::Display &OLED) :
 
-    station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {}
+    tag("NetMan"), station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {
 
+        memset(this->log, 0, sizeof(this->log));
+    }
+
+// Requires no params. This is the first part of the process and checks the 
+// position of the netswitch, and sends the mode to be handled.
 void NetManager::handleNet() { 
     NetMode mode = this->checkNetSwitch();
     setNetType(mode);

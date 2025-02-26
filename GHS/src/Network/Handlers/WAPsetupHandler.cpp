@@ -38,7 +38,7 @@ cJSON* WSHAND::receiveJSON(httpd_req_t* req) {
     }
 
     if (ret < 0) { // indicates error
-        if (isInit) WSHAND::wap->sendErr("JSON request Error", errDisp::SRL);
+        if (isInit) WSHAND::wap->sendErr("JSON request Error");
         return NULL;
     }
     
@@ -55,7 +55,7 @@ esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
 
         if (httpd_resp_sendstr(req, "{\"status\":\"Invalid JSON\"}") != ESP_OK) {
             if (isInit) {
-                WSHAND::wap->sendErr("Invalid JSON response", errDisp::SRL);
+                WSHAND::wap->sendErr("Invalid JSON response");
             }
         }
 
@@ -187,7 +187,7 @@ esp_err_t WSHAND::respondJSON(httpd_req_t* req, char* writtenKey) {
 
     // Sends JSON response to webpage.
     if (httpd_resp_sendstr(req, respStr) != ESP_OK && isInit) {
-        WSHAND::wap->sendErr("Error sending response", errDisp::SRL);
+        WSHAND::wap->sendErr("Error sending response");
     }
     
     // If true, sets the WAP type to WAP_RECON in order to force the 
@@ -220,13 +220,13 @@ bool WSHAND::init(
 // Main index handler.
 esp_err_t WSHAND::IndexHandler(httpd_req_t *req) {
     if (httpd_resp_set_type(req, "text/html") != ESP_OK && isInit) {
-        WSHAND::wap->sendErr("Error setting response type", errDisp::SRL);
+        WSHAND::wap->sendErr("Error setting response type");
     }
 
     if (httpd_resp_send(req, WAPSetupPage, strlen(WAPSetupPage)) != ESP_OK 
         && isInit) {
 
-        WSHAND::wap->sendErr("Error sending response", errDisp::SRL);
+        WSHAND::wap->sendErr("Error sending response");
     }
 
     return ESP_OK; // Must return or socket will shut down.
@@ -236,7 +236,7 @@ esp_err_t WSHAND::IndexHandler(httpd_req_t *req) {
 // to the client with a json.
 esp_err_t WSHAND::DataHandler(httpd_req_t* req) { 
     if (httpd_resp_set_type(req, "application/json") != ESP_OK && WSHAND::isInit) {
-        WSHAND::wap->sendErr("Error setting response type", errDisp::SRL);
+        WSHAND::wap->sendErr("Error setting response type");
     }
 
     char writtenKey[10] = "NULL";

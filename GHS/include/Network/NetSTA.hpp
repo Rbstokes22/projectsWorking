@@ -7,7 +7,7 @@
 
 namespace Comms {
 
-struct STAdetails {
+struct STAdetails { // Station details used for printing to OLED
 char ssid[static_cast<int>(IDXSIZE::SSID)];
 
 // +9 for http:// 
@@ -15,16 +15,16 @@ char ipaddr[static_cast<int>(IDXSIZE::IPADDR) + 9];
 
 // +9 for http:// +6 for .local
 char mdns[static_cast<int>(IDXSIZE::MDNS) + 15]; 
-char signalStrength[12];
-char status[4];
-char heap[20];
+char signalStrength[12]; // rssi returned by device.
+char status[4]; // yes or no for connected
+char heap[20]; // heap allocation remaining.
 };
 
 class NetSTA : public NetMain {
     private:
-    char ssid[static_cast<int>(IDXSIZE::SSID)];
-    char pass[static_cast<int>(IDXSIZE::PASS)];
-    static char IPADDR[static_cast<int>(IDXSIZE::IPADDR)];
+    char ssid[static_cast<int>(IDXSIZE::SSID)]; // station network ssid/user
+    char pass[static_cast<int>(IDXSIZE::PASS)]; // station network password
+    static char IPADDR[static_cast<int>(IDXSIZE::IPADDR)]; // station net IP
     wifi_ret_t configure() override;
     static void IPEvent( // used to get IP addr
         void* arg, 

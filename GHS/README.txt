@@ -103,5 +103,10 @@ the command/value range if applicable or NR (not required)/ID
 5/0-3/ID: Same as 3, applies to relay 3.
 6/0-3/ID: Same as 3, applies to relay 4.
 
+// Logging and printing
 
+The libraries & drivers that are built such as the peripheral drivers, or the 
+I2C singleton, do not include any logging capability except some printf 
+statements. This is due to reusability without dependencies. All logging should
+be handled by the requesting entity, such as the device making the I2C request.
 

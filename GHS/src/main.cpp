@@ -3,7 +3,8 @@
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 
 // REVISE, COMMENT, ENABLE LOGGING
-// COMPLETE: common, config, drivers, i2c (ON NETWORK/netcreds)
+// COMPLETE: common, config, drivers, i2c, netcreds, NetMain, NetManager,
+// ON NetSTA. 
 
 // Almost done with netcreds. Need to go in a fix comments as well as revise and
 // ensure flow follow the last log placement. Ensure there are no other log entries

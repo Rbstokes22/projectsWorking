@@ -11,10 +11,7 @@ namespace Serial {
 
 // Defaults frequency to 100 khz. Can be set higher when initializing the
 // master.
-I2C::I2C() : tag("I2C"), freq(I2C_FREQ::STD), isInit(false) {
-
-    memset(this->log, 0, sizeof(this->log));
-}
+I2C::I2C() : tag("I2C"), freq(I2C_FREQ::STD), isInit(false) {}
 
 // Returns a pointer to the I2C instance.
 I2C* I2C::get() {
@@ -42,12 +39,7 @@ bool I2C::i2c_master_init(I2C_FREQ freq) {
     esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &this->busHandle);
 
     if (err != ESP_OK) {
-        snprintf(this->log, sizeof(this->log), 
-            "%s: %s", this->tag, esp_err_to_name(err));
-
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
-            this->log, Messaging::Method::SRL_LOG);
-
+        printf("%s: %s", this->tag, esp_err_to_name(err));
         return false;
     } else {
         return true;  
@@ -72,20 +64,12 @@ i2c_device_config_t I2C::configDev(uint8_t i2cAddr) {
 i2c_master_dev_handle_t I2C::addDev(i2c_device_config_t &dev_cfg) {
     i2c_master_dev_handle_t devHandle;
 
-    // Used when adding device to indicate address added. If error, will use
-    // critical flag, if not, uses info flag.
-    Messaging::Levels lvl[] = {Messaging::Levels::CRITICAL, 
-        Messaging::Levels::INFO};
-
     // Add device to master bus and handle response whether good or bad.
     esp_err_t err = i2c_master_bus_add_device(this->busHandle, &dev_cfg, 
         &devHandle);
 
-    snprintf(this->log, sizeof(this->log), "%s: ADDR:%u, %s", this->tag,
-        dev_cfg.device_address ,esp_err_to_name(err));
-
-    Messaging::MsgLogHandler::get()->handle(lvl[err == ESP_OK],
-        this->log, Messaging::Method::SRL_LOG);
+    printf("%s: ADDR:%u, %s\n", this->tag, dev_cfg.device_address, 
+        esp_err_to_name(err));
 
     return devHandle;
 }

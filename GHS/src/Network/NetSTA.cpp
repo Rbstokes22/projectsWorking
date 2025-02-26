@@ -61,16 +61,16 @@ NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName) {
 // station. Returns WIFI_FAIL and WIFI_OK.
 wifi_ret_t NetSTA::start_wifi() {
 
-    if (!NetMain::flags.handlerReg) {
+    if (!NetMain::flags.getFlag(handlerReg)) {
         
         esp_err_t handler = esp_event_handler_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent, NULL);
 
         if (handler == ESP_OK) {
-            NetMain::flags.handlerReg = true;
+            NetMain::flags.setFlag(handlerReg);
         } else {
-            this->sendErr("Handler not registered", errDisp::ALL);
-            this->sendErr(esp_err_to_name(handler), errDisp::SRL);
+            this->sendErr("Handler not registered");
+            this->sendErr(esp_err_to_name(handler));
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -80,54 +80,54 @@ wifi_ret_t NetSTA::start_wifi() {
         return wifi_ret_t::WIFI_FAIL; // error prints in configure
     } 
 
-    if (!NetMain::flags.wifiModeSet) {
+    if (!NetMain::flags.getFlag(wifiModeSet)) {
         
         esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_STA);
 
         if (wifi_mode == ESP_OK) {
-            NetMain::flags.wifiModeSet = true;
+            NetMain::flags.setFlag(wifiModeSet);
         } else {
-            this->sendErr("Wifi mode not set", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_mode), errDisp::SRL);
+            this->sendErr("Wifi mode not set");
+            this->sendErr(esp_err_to_name(wifi_mode));
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.wifiConfigSet) {
+    if (!NetMain::flags.getFlag(wifiConfigSet)) {
         
         esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_STA, &this->wifi_config);
 
         if (wifi_cfg == ESP_OK) {
-            NetMain::flags.wifiConfigSet = true;
+            NetMain::flags.setFlag(wifiConfigSet);
         } else {
-            this->sendErr("Wifi config not set", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_cfg), errDisp::SRL);
+            this->sendErr("Wifi config not set");
+            this->sendErr(esp_err_to_name(wifi_cfg));
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.wifiOn) {
+    if (!NetMain::flags.getFlag(wifiOn)) {
         
         esp_err_t wifi_start = esp_wifi_start();
 
         if (wifi_start == ESP_OK) {
-            NetMain::flags.wifiOn = true;
+            NetMain::flags.setFlag(wifiOn);
         } else {
-            this->sendErr("Wifi not started", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_start), errDisp::SRL);
+            this->sendErr("Wifi not started");
+            this->sendErr(esp_err_to_name(wifi_start));
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.wifiConnected) {
+    if (!NetMain::flags.getFlag(wifiConnected)) {
         
         esp_err_t wifi_con = esp_wifi_connect();
 
         if (wifi_con == ESP_OK) {
-            NetMain::flags.wifiConnected = true;
+            NetMain::flags.setFlag(wifiConnected);
         } else {
-            this->sendErr("Wifi not connected", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_con), errDisp::SRL);
+            this->sendErr("Wifi not connected");
+            this->sendErr(esp_err_to_name(wifi_con));
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -141,20 +141,20 @@ wifi_ret_t NetSTA::start_wifi() {
 // (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetSTA::start_server() {
 
-    if (!NetMain::flags.httpdOn) {
+    if (!NetMain::flags.getFlag(httpdOn)) {
         
         esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::http_config);
 
         if (httpd == ESP_OK) {
-                NetMain::flags.httpdOn = true;
+                NetMain::flags.setFlag(httpdOn);
         } else {
-            this->sendErr("HTTP not started", errDisp::ALL);
-            this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
+            this->sendErr("HTTP not started");
+            this->sendErr(esp_err_to_name(httpd));
             return wifi_ret_t::SERVER_FAIL;
         }
     }
 
-    if (!NetMain::flags.uriReg) {
+    if (!NetMain::flags.getFlag(uriReg)) {
         
         esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &STAIndex);
         esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &OTAUpdate);
@@ -167,10 +167,10 @@ wifi_ret_t NetSTA::start_server() {
         if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK && reg4 == ESP_OK
             && reg5 == ESP_OK && reg6 == ESP_OK && reg7 == ESP_OK) {
                 
-            NetMain::flags.uriReg = true;
+            NetMain::flags.setFlag(uriReg);
         } else {
-            this->sendErr("STA URI's unregistered", errDisp::ALL);
-            this->sendErr(esp_err_to_name(reg1), errDisp::SRL);
+            this->sendErr("STA URI's unregistered");
+            this->sendErr(esp_err_to_name(reg1));
             return wifi_ret_t::SERVER_FAIL;
         }
     }
@@ -184,68 +184,68 @@ wifi_ret_t NetSTA::start_server() {
 // init sequence. Returns DESTROY_FAIL or DESTROY_OK.
 wifi_ret_t NetSTA::destroy() {
 
-    if (NetMain::flags.mdnsInit) {
+    if (NetMain::flags.getFlag(mdnsInit)) {
         
         mdns_free();
-        NetMain::flags.mdnsInit = false;
-        NetMain::flags.mdnsHostSet = false;
-        NetMain::flags.mdnsInstanceSet = false;
-        NetMain::flags.mdnsServiceAdded = false;
+        NetMain::flags.releaseFlag(mdnsInit);
+        NetMain::flags.releaseFlag(mdnsHostSet);
+        NetMain::flags.releaseFlag(mdnsInstanceSet);
+        NetMain::flags.releaseFlag(mdnsServiceAdded);
     }
 
-    if (NetMain::flags.httpdOn) {
+    if (NetMain::flags.getFlag(httpdOn)) {
         
         esp_err_t httpd = httpd_stop(NetMain::server);
 
         if (httpd == ESP_OK) {
-            NetMain::flags.httpdOn = false;
-            NetMain::flags.uriReg = false;
+            NetMain::flags.releaseFlag(httpdOn);
+            NetMain::flags.releaseFlag(uriReg);
         } else {
-            this->sendErr("HTTPD not stopped", errDisp::ALL);
-            this->sendErr(esp_err_to_name(httpd), errDisp::SRL);
+            this->sendErr("HTTPD not stopped");
+            this->sendErr(esp_err_to_name(httpd));
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.wifiOn) {
+    if (NetMain::flags.getFlag(wifiOn)) {
         
         esp_err_t wifi_stop = esp_wifi_stop();
 
         if (wifi_stop == ESP_OK) {
-            NetMain::flags.wifiOn = false;
-            NetMain::flags.wifiModeSet = false;
-            NetMain::flags.wifiConfigSet = false;
+            NetMain::flags.releaseFlag(wifiOn);
+            NetMain::flags.releaseFlag(wifiModeSet);
+            NetMain::flags.releaseFlag(wifiConfigSet);
         } else {
-            this->sendErr("Wifi not stopped", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_stop), errDisp::SRL);
+            this->sendErr("Wifi not stopped");
+            this->sendErr(esp_err_to_name(wifi_stop));
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.wifiConnected) {
+    if (NetMain::flags.getFlag(wifiConnected)) {
         
         esp_err_t wifi_con = esp_wifi_disconnect();
 
         if (wifi_con == ESP_OK || wifi_con == ESP_ERR_WIFI_NOT_STARTED) {
-            NetMain::flags.wifiConnected = false;
+            NetMain::flags.releaseFlag(wifiConnected);
         } else {
-            this->sendErr("Wifi not disconnected", errDisp::ALL);
-            this->sendErr(esp_err_to_name(wifi_con), errDisp::SRL);
+            this->sendErr("Wifi not disconnected");
+            this->sendErr(esp_err_to_name(wifi_con));
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.handlerReg) {
+    if (NetMain::flags.getFlag(handlerReg)) {
         
         esp_err_t event = esp_event_handler_unregister(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent);
 
         if (event == ESP_OK) {
-            NetMain::flags.handlerReg = false;
+            NetMain::flags.releaseFlag(handlerReg);
             
         } else {
-            this->sendErr("Wifi handler not unregistered", errDisp::ALL);
-            this->sendErr(esp_err_to_name(event), errDisp::SRL);
+            this->sendErr("Wifi handler not unregistered");
+            this->sendErr(esp_err_to_name(event));
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -287,14 +287,21 @@ bool NetSTA::isActive() {
     uint8_t flagSuccess = 0;
 
     bool required[flagRequirement]{
-        NetMain::flags.wifiInit, NetMain::flags.netifInit,
-        NetMain::flags.eventLoopInit, NetMain::flags.sta_netifCreated,
-        NetMain::flags.wifiModeSet, NetMain::flags.wifiConfigSet,
-        NetMain::flags.wifiOn, NetMain::flags.httpdOn,
-        NetMain::flags.uriReg, NetMain::flags.handlerReg,
-        NetMain::flags.wifiConnected, NetMain::flags.mdnsInit,
-        NetMain::flags.mdnsHostSet, NetMain::flags.mdnsInstanceSet,
-        NetMain::flags.mdnsServiceAdded
+        NetMain::flags.getFlag(wifiInit), 
+        NetMain::flags.getFlag(netifInit),
+        NetMain::flags.getFlag(eventLoopInit), 
+        NetMain::flags.getFlag(sta_netifCreated),
+        NetMain::flags.getFlag(wifiModeSet), 
+        NetMain::flags.getFlag(wifiConfigSet),
+        NetMain::flags.getFlag(wifiOn), 
+        NetMain::flags.getFlag(httpdOn),
+        NetMain::flags.getFlag(uriReg), 
+        NetMain::flags.getFlag(handlerReg),
+        NetMain::flags.getFlag(wifiConnected), 
+        NetMain::flags.getFlag(mdnsInit),
+        NetMain::flags.getFlag(mdnsHostSet), 
+        NetMain::flags.getFlag(mdnsInstanceSet),
+        NetMain::flags.getFlag(mdnsServiceAdded)
     };
 
     for (int i = 0; i < flagRequirement; i++) {
@@ -302,7 +309,7 @@ bool NetSTA::isActive() {
     }
 
     if (flagSuccess != flagRequirement) {
-        this->sendErr("Wifi flags not met", errDisp::SRL);
+        this->sendErr("Wifi flags not met");
         return false;
     } else if (esp_wifi_sta_get_ap_info(&sta_info) == ESP_OK) {
         return true;

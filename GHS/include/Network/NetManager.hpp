@@ -6,6 +6,7 @@
 #include "Network/NetWAP.hpp"
 #include "Network/NetCreds.hpp"
 #include "UI/Display.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
@@ -13,10 +14,12 @@ namespace Comms {
 
 class NetManager {
     private:
-    NetSTA &station;
-    NetWAP &wap;
-    UI::Display &OLED;
-    bool isWifiInit;
+    const char* tag; 
+    char log[LOG_MAX_ENTRY]; // internal error handling.
+    NetSTA &station; // Reference to station object.
+    NetWAP &wap; // Reference to wireless access point object.
+    UI::Display &OLED; // Reference to OLED display for network details.
+    bool isWifiInit; // Is wifi initialized. 
     NetMode checkNetSwitch();
     void setNetType(NetMode netType);
     void checkConnection(NetMain &mode, NetMode NetType);
