@@ -4,7 +4,7 @@
 
 // REVISE, COMMENT, ENABLE LOGGING
 // COMPLETE: common, config, drivers, i2c, netcreds, NetMain, NetManager,
-// ON NetSTA. 
+// NetSTA, ON NETWAP.
 
 // Almost done with netcreds. Need to go in a fix comments as well as revise and
 // ensure flow follow the last log placement. Ensure there are no other log entries

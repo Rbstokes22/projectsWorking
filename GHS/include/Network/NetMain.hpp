@@ -43,6 +43,7 @@ class NetMain {
     wifi_config_t wifi_config; // Wifi configuration.
     static httpd_config http_config; // httpd configuration.
     char mdnsName[static_cast<int>(IDXSIZE::MDNS)]; // multicast DNS name. 
+    static char errlog[LOG_MAX_ENTRY]; // chaned to err log to decouple log uri
 
     public:
     NetMain(const char* mdnsName);
@@ -55,7 +56,7 @@ class NetMain {
     virtual wifi_ret_t destroy() = 0;
     virtual void setPass(const char* pass) = 0;
     virtual void setSSID(const char* ssid) = 0;
-    virtual const char* getPass(bool def = false) const = 0;
+    virtual const char* getPass(bool defaultPass = false) const = 0;
     virtual const char* getSSID() const = 0;
     virtual bool isActive() = 0;
     static NetMode getNetType();

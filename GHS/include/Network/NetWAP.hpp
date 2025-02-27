@@ -7,24 +7,25 @@
 
 namespace Comms {
 
-struct WAPdetails {
+struct WAPdetails { // Wireless Access Point details used for OLED print.
     // +9 for http:// 
     char ipaddr[static_cast<int>(IDXSIZE::IPADDR) + 9]; 
 
     // +9 for http:// +6 for .local
     char mdns[static_cast<int>(IDXSIZE::MDNS) + 15]; 
-    char status[4];
-    char WAPtype[20];
-    char heap[20];
-    char clientConnected[4];
+    char status[4]; // yes or no if active.
+    char WAPtype[20]; // shows WAP or WAP SETUP.
+    char heap[20]; // heap allocation remaining
+    char clientConnected[4]; // total clients connected.
 };
 
 class NetWAP : public NetMain{
     private:
-    char APssid[static_cast<int>(IDXSIZE::SSID)];
-    char APpass[static_cast<int>(IDXSIZE::PASS)];
-    char APdefaultPass[static_cast<int>(IDXSIZE::PASS)];
-    esp_netif_ip_info_t ip_info;
+    const char* tag;
+    char APssid[static_cast<int>(IDXSIZE::SSID)]; // WAP ssid/user
+    char APpass[static_cast<int>(IDXSIZE::PASS)]; // WAP password
+    char APdefaultPass[static_cast<int>(IDXSIZE::PASS)]; // Default password
+    esp_netif_ip_info_t ip_info; // Network interface IP information.
     wifi_ret_t configure() override;
     wifi_ret_t dhcpsHandler();
 

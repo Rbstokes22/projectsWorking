@@ -14,19 +14,19 @@
 
 namespace Comms {
 
-// PRIVATE
-
-// Sets the wifi configuration with the WAP ssid, password,
-// channel, maximum connections, and authmode. Will use a 
-// max connection default of 1 while in WAP_SETUP mode as 
-// an extra layer of security since communications are on
-// http, to prevent malicious connections from intercepting
-// data. Returns CONFIG_OK.
+// Requires no parameters. Sets the wireless access point configuration with
+// the ssid, password, channel, maximum connections, and authentication mode.
+// Uses max connection default of 1 while in WAP Setup mode as an extra layer
+// of security since the communications are on http. This will attempt to limit
+// malicious connections from intercepting data. Returns CONFIG_OK.
 wifi_ret_t NetWAP::configure() {
-    uint8_t maxConnections{4};
+    uint8_t maxConnections{WAP_MAX_CONNECTIONS};
 
+    // Set max connection to 1 if in WAP setup mode.
     if (NetMain::NetType == NetMode::WAP_SETUP) maxConnections = 1;
 
+    // Copy and set all pertinent data to include the ssid, pass, length of
+    // each, max connections, channel, and auth mode.
     strcpy((char*)this->wifi_config.ap.ssid, this->APssid);
     this->wifi_config.ap.ssid_len = strlen(this->APssid);
     this->wifi_config.ap.channel = 6;
@@ -34,40 +34,48 @@ wifi_ret_t NetWAP::configure() {
     this->wifi_config.ap.max_connection = maxConnections;
     this->wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
     
+    // If password is under 8 chars, it will be a password-less open mode.
     if (strlen(this->APpass) < 8) {
         this->sendErr("Open Network due to pass lgth");
-        this->wifi_config.ap.authmode = WIFI_AUTH_OPEN; // No password, open network
+        this->wifi_config.ap.authmode = WIFI_AUTH_OPEN; 
     }
 
     return wifi_ret_t::CONFIG_OK;
 }
 
-// Dynamic Host Configuration Protocol (DHCP) will stop to allow 
-// IP information to be configured to the device for WAP 
-// connection. The IP information is set, which will allow the 
-// DHCP to restart. Returns DHCPS_FAIL or DHCPS_OK.
+// Requires no parameters. Dynamic Host Configuration Protocol (DHCP) will stop
+// to allow IP information to be configured to the device for the WAP
+// connection. The IP information is set, which will allow the DHCP to restart
+// returning DHCPS_FAIL or DHCPS_OK.
 wifi_ret_t NetWAP::dhcpsHandler() {
 
-    static bool isInit = false; // used for initial startup
+    static bool isInit = false; // used for initial startup ONLY
 
-    if (!isInit) { // Stop it upon first init to be sure and prevent errors
-        esp_err_t stop = esp_netif_dhcps_stop(NetMain::ap_netif); // dhcp flag will already be off
+    if (!isInit) { // Stop dhcps upon first init to minimize error.
+
+        // dhcp flag will already be off when starting initially.
+        esp_err_t stop = esp_netif_dhcps_stop(NetMain::ap_netif); 
 
         if (stop != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED &&
             stop != ESP_OK) {
+
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: DHCPS not stopped: %s", this->tag, esp_err_to_name(stop));
             
-            this->sendErr("DHCPS not stopped");
-            this->sendErr(esp_err_to_name(stop));
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DHCPS_FAIL;
             }
 
+        // Setup the ip, gateway, and netmask. This allows (255 - 2) Addresses.
         IP4_ADDR(&this->ip_info.ip, 192,168,1,1); 
         IP4_ADDR(&this->ip_info.gw, 192,168,1,1);
         IP4_ADDR(&this->ip_info.netmask, 255, 255, 255, 0);
-        isInit = true;
+        isInit = true; // Sets to true upon success and continutes.
     }
     
-    if (NetMain::flags.getFlag(dhcpOn)) { // Handle a reset
+    // Handles a reset, when called if flag is on, will stop dhcps server
+    // and release the flag.
+    if (NetMain::flags.getFlag(NETFLAGS::dhcpOn)) { 
         
         esp_err_t stop = esp_netif_dhcps_stop(NetMain::ap_netif);
         
@@ -77,27 +85,32 @@ wifi_ret_t NetWAP::dhcpsHandler() {
             NetMain::flags.releaseFlag(dhcpOn);
 
         } else {
-            this->sendErr("DHCPS not stopped");
-            this->sendErr(esp_err_to_name(stop));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: DHCPS not stopped: %s", this->tag, esp_err_to_name(stop));
+            
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DHCPS_FAIL;
         }
     }
 
-    if (!NetMain::flags.getFlag(dhcpOn)) {
+    // START HERE. LOOK AT THE FLOW OF THIS, MAKE CHANGES AND TEST. THIS LOOKS
+    // TO BE PRONE TO ERRORS CONSIDERING THE FLAGS WITHIN FLAGS, THIS COULD
+    // PREVENT SOMETHING FROM BEING SET DUE TO PRE-MATURE BLOCKING OR SOMETHING.
+    if (!NetMain::flags.getFlag(NETFLAGS::dhcpOn)) {
 
-        if (!NetMain::flags.getFlag(dhcpIPset)) {
+        if (!NetMain::flags.getFlag(NETFLAGS::dhcpIPset)) {
             esp_err_t set_ip = esp_netif_set_ip_info(NetMain::ap_netif, 
                 &this->ip_info);
 
             // This will force a stop if this error is returned, 
             // allowing a proper initialization.
             if (set_ip == ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED) {
-                NetMain::flags.setFlag(dhcpOn); // indicates still on
+                NetMain::flags.setFlag(NETFLAGS::dhcpOn); // indicates still on
             } 
             
             // no else if, seperate statement to allow else block to invoked
             if (set_ip == ESP_OK) { // Separate to setting a diff flag.
-                    NetMain::flags.setFlag(dhcpIPset);
+                    NetMain::flags.setFlag(NETFLAGS::dhcpIPset);
             } else { // If any failure return including DHCP not stopped.
                 this->sendErr("IP info not set");
                 this->sendErr(esp_err_to_name(set_ip));
@@ -110,7 +123,7 @@ wifi_ret_t NetWAP::dhcpsHandler() {
         if (start == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED || 
             start == ESP_OK) {
 
-            NetMain::flags.setFlag(dhcpOn);
+            NetMain::flags.setFlag(NETFLAGS::dhcpOn);
 
         } else {
             this->sendErr("DHCPS not started");
@@ -125,7 +138,7 @@ wifi_ret_t NetWAP::dhcpsHandler() {
 // PUBLIC
 
 NetWAP::NetWAP(const char* APssid, const char* APdefPass, 
-    const char* mdnsName) : NetMain(mdnsName) {
+    const char* mdnsName) : NetMain(mdnsName), tag("NETWAP") {
 
     strncpy(this->APssid, APssid, sizeof(this->APssid) - 1);
     this->APssid[sizeof(this->APssid) - 1] = '\0';
@@ -153,12 +166,12 @@ wifi_ret_t NetWAP::start_wifi() {
         return wifi_ret_t::WIFI_FAIL;
     }
 
-    if (!NetMain::flags.getFlag(wifiModeSet)) {
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiModeSet)) {
         
         esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_AP);
 
         if (wifi_mode == ESP_OK) {
-            NetMain::flags.setFlag(wifiModeSet);
+            NetMain::flags.setFlag(NETFLAGS::wifiModeSet);
         } else {
             this->sendErr("Wifi mode not set");
             this->sendErr(esp_err_to_name(wifi_mode));
@@ -166,12 +179,12 @@ wifi_ret_t NetWAP::start_wifi() {
         }
     }
 
-    if (!NetMain::flags.getFlag(wifiConfigSet)) {
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiConfigSet)) {
         
         esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_AP, &this->wifi_config);
 
         if (wifi_cfg == ESP_OK) {
-            NetMain::flags.setFlag(wifiConfigSet);
+            NetMain::flags.setFlag(NETFLAGS::wifiConfigSet);
         } else {
             this->sendErr("Wifi config not set");
             this->sendErr(esp_err_to_name(wifi_cfg));
@@ -179,12 +192,12 @@ wifi_ret_t NetWAP::start_wifi() {
         }
     }
 
-    if (!NetMain::flags.getFlag(wifiOn)) {
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiOn)) {
         
         esp_err_t wifi_start = esp_wifi_start();
 
         if (wifi_start == ESP_OK) {
-            NetMain::flags.setFlag(wifiOn);
+            NetMain::flags.setFlag(NETFLAGS::wifiOn);
         } else {
             this->sendErr("Wifi not started");
             this->sendErr(esp_err_to_name(wifi_start));
@@ -201,12 +214,12 @@ wifi_ret_t NetWAP::start_wifi() {
 // (URI). Returns SERVER_FAIL or SERVER_OK.
 wifi_ret_t NetWAP::start_server() {
 
-    if (!NetMain::flags.getFlag(httpdOn)) {
+    if (!NetMain::flags.getFlag(NETFLAGS::httpdOn)) {
         
         esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::http_config);
 
         if (httpd == ESP_OK) {
-                NetMain::flags.setFlag(httpdOn);
+                NetMain::flags.setFlag(NETFLAGS::httpdOn);
         } else {
             this->sendErr("HTTP not started");
             this->sendErr(esp_err_to_name(httpd));
@@ -214,7 +227,7 @@ wifi_ret_t NetWAP::start_server() {
         }
     }
 
-    if (!NetMain::flags.getFlag(uriReg)) {
+    if (!NetMain::flags.getFlag(NETFLAGS::uriReg)) {
         
         // This will register different URI's based on the type of WAP
         // that is set. This allows each version to use their own index
@@ -225,7 +238,7 @@ wifi_ret_t NetWAP::start_server() {
             esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &ws);
 
             if (reg1 == ESP_OK && reg2 == ESP_OK) {
-                NetMain::flags.setFlag(uriReg);
+                NetMain::flags.setFlag(NETFLAGS::uriReg);
                 return wifi_ret_t::SERVER_OK;
             } else {
                 this->sendErr("WAP URI's unregistered");
@@ -238,7 +251,7 @@ wifi_ret_t NetWAP::start_server() {
             esp_err_t reg3 = httpd_register_uri_handler(NetMain::server, &WAPSubmitCreds);
 
             if (reg2 == ESP_OK && reg3 == ESP_OK) {
-                NetMain::flags.setFlag(uriReg);
+                NetMain::flags.setFlag(NETFLAGS::uriReg);
             } else {
                 this->sendErr("WAPSetup URI's unregistered");
                 this->sendErr(esp_err_to_name(reg2));
@@ -256,7 +269,7 @@ wifi_ret_t NetWAP::start_server() {
 // through the init sequence. Returns DESTROY_FAIL and DESTROY_OK.
 wifi_ret_t NetWAP::destroy() { 
 
-    if (NetMain::flags.getFlag(mdnsInit)) {
+    if (NetMain::flags.getFlag(NETFLAGS::mdnsInit)) {
         
         mdns_free();
         NetMain::flags.releaseFlag(mdnsInit);
@@ -265,7 +278,7 @@ wifi_ret_t NetWAP::destroy() {
         NetMain::flags.releaseFlag(mdnsServiceAdded);
     }
 
-     if (NetMain::flags.getFlag(httpdOn)) {
+     if (NetMain::flags.getFlag(NETFLAGS::httpdOn)) {
         
         esp_err_t httpd = httpd_stop(NetMain::server);
 
@@ -279,7 +292,7 @@ wifi_ret_t NetWAP::destroy() {
         }
     }
 
-    if (NetMain::flags.getFlag(wifiOn)) {
+    if (NetMain::flags.getFlag(NETFLAGS::wifiOn)) {
         
         esp_err_t wifi_stop = esp_wifi_stop();
 
@@ -307,8 +320,8 @@ void NetWAP::setPass(const char* pass) {
     } 
 }
 
-const char* NetWAP::getPass(bool def) const {
-    if (!def) {
+const char* NetWAP::getPass(bool defaultPass) const {
+    if (!defaultPass) {
         return this->APpass;
     } else {
         return this->APdefaultPass;
@@ -328,21 +341,21 @@ bool NetWAP::isActive() {
     uint8_t flagSuccess = 0;
 
     bool required[flagRequirement]{
-        NetMain::flags.getFlag(wifiInit), 
-        NetMain::flags.getFlag(netifInit),
-        NetMain::flags.getFlag(eventLoopInit), 
-        NetMain::flags.getFlag(ap_netifCreated),
-        NetMain::flags.getFlag(dhcpOn), 
-        NetMain::flags.getFlag(dhcpIPset),
-        NetMain::flags.getFlag(wifiModeSet), 
-        NetMain::flags.getFlag(wifiConfigSet),
-        NetMain::flags.getFlag(wifiOn), 
-        NetMain::flags.getFlag(httpdOn),
-        NetMain::flags.getFlag(uriReg), 
-        NetMain::flags.getFlag(mdnsInit),
-        NetMain::flags.getFlag(mdnsHostSet), 
-        NetMain::flags.getFlag(mdnsInstanceSet),
-        NetMain::flags.getFlag(mdnsServiceAdded)
+        NetMain::flags.getFlag(NETFLAGS::wifiInit), 
+        NetMain::flags.getFlag(NETFLAGS::netifInit),
+        NetMain::flags.getFlag(NETFLAGS::eventLoopInit), 
+        NetMain::flags.getFlag(NETFLAGS::ap_netifCreated),
+        NetMain::flags.getFlag(NETFLAGS::dhcpOn), 
+        NetMain::flags.getFlag(NETFLAGS::dhcpIPset),
+        NetMain::flags.getFlag(NETFLAGS::wifiModeSet), 
+        NetMain::flags.getFlag(NETFLAGS::wifiConfigSet),
+        NetMain::flags.getFlag(NETFLAGS::wifiOn), 
+        NetMain::flags.getFlag(NETFLAGS::httpdOn),
+        NetMain::flags.getFlag(NETFLAGS::uriReg), 
+        NetMain::flags.getFlag(NETFLAGS::mdnsInit),
+        NetMain::flags.getFlag(NETFLAGS::mdnsHostSet), 
+        NetMain::flags.getFlag(NETFLAGS::mdnsInstanceSet),
+        NetMain::flags.getFlag(NETFLAGS::mdnsServiceAdded)
     };
 
     for (int i = 0; i < flagRequirement; i++) {

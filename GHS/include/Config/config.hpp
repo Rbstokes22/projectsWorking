@@ -15,6 +15,7 @@
 #define MDNS_NAME "greenhouse"
 #define AP_DEF_PASS "12345678"
 #define CRED_NAMESPACE "netcreds"
+#define WAP_MAX_CONNECTIONS 4 // Max allowable users.
 
 // Web Paths
 #define ALERT_PATH "/Alerts"

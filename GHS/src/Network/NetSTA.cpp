@@ -15,13 +15,11 @@ namespace Comms {
 
 // STATIC
 
-// handled within IP event register.
+// handled within IP event register below.
 char NetSTA::IPADDR[static_cast<int>(IDXSIZE::IPADDR)]{0};
 
-// PRIVATE
-
-// Sets the wifi configuration with the station ssid and 
-// password. Returns CONFIG_OK once complete.
+// Requires no params. Copies the main wifi configuration with the current
+// set ssid and password. Returns CONFIG_OK once complete.
 wifi_ret_t NetSTA::configure() { 
 
     strcpy((char*)this->wifi_config.sta.ssid, this->ssid);
@@ -30,104 +28,136 @@ wifi_ret_t NetSTA::configure() {
     return wifi_ret_t::CONFIG_OK;
 }
 
-// This IP event is a registered event that copies the assigned
-// IP addr into the IPADDR char array.
+// Exclusive to station network connection. This event is used to register an
+// event handler, which is required to to be able to display the ip address
+// that you are connected to, and only that. All parameter requirements are
+// inclusively passed.
 void NetSTA::IPEvent(
     void* arg, 
     esp_event_base_t eventBase, 
     int32_t eventID, 
     void* eventData) {
 
+    // Exists exclusively to display IP address on the OLED.
     if (eventBase == IP_EVENT && eventID == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = static_cast<ip_event_got_ip_t*>(eventData);
         esp_netif_ip_info_t ip_info = event->ip_info;
 
+        // Convert IP address and populate the IP address variable.
         esp_ip4addr_ntoa(&ip_info.ip, NetSTA::IPADDR, sizeof(NetSTA::IPADDR));
     }
 }
 
-// PUBLIC
-
-NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName) {
+// Constructor, requires mdns name.
+NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName), tag("NETSTA") {
 
     memset(this->ssid, 0, sizeof(this->ssid));
     memset(this->pass, 0, sizeof(this->pass));
 }
 
-// Second step in the init process.
-// Once the wifi has been initialized, this will register the 
-// IP event handler, configure the wifi connection, set the wifi
-// mode, set the configuration, start the wifi, and connect to the
-// station. Returns WIFI_FAIL and WIFI_OK.
+// Second step in the init process, Steps 1 and 4 are in the NetMain src file.
+// Requires no params. Registers IP event handler, configures the wifi con,
+// sets the wifi mode and configuration, starts the wifi, and connectis to
+// the station. Returns WIFI_FAIL or WIFI_OK.
 wifi_ret_t NetSTA::start_wifi() {
 
-    if (!NetMain::flags.getFlag(handlerReg)) {
+    // Handles the registration of the event handler.
+    if (!NetMain::flags.getFlag(NETFLAGS::handlerReg)) {
         
         esp_err_t handler = esp_event_handler_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent, NULL);
 
         if (handler == ESP_OK) {
-            NetMain::flags.setFlag(handlerReg);
+            NetMain::flags.setFlag(NETFLAGS::handlerReg);
+
         } else {
-            this->sendErr("Handler not registered");
-            this->sendErr(esp_err_to_name(handler));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Handler Not registered: %s", this->tag, 
+                esp_err_to_name(handler));
+
+            this->sendErr(NetMain::errlog);
+
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    // Always run, no flag.
+    // Always run, no flag. Copies over the ssid and pass to the ip config.
+    // Never fails, built like this for future addition if error handling
+    // needs to occur within.
     if (this->configure() == wifi_ret_t::CONFIG_FAIL) {
         return wifi_ret_t::WIFI_FAIL; // error prints in configure
     } 
 
-    if (!NetMain::flags.getFlag(wifiModeSet)) {
+    // Handles the wifiMode set, in this case, station mode will be set.
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiModeSet)) {
         
         esp_err_t wifi_mode = esp_wifi_set_mode(WIFI_MODE_STA);
 
         if (wifi_mode == ESP_OK) {
-            NetMain::flags.setFlag(wifiModeSet);
+            NetMain::flags.setFlag(NETFLAGS::wifiModeSet);
+
         } else {
-            this->sendErr("Wifi mode not set");
-            this->sendErr(esp_err_to_name(wifi_mode));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi mode not set: %s", this->tag, 
+                esp_err_to_name(wifi_mode));
+
+            this->sendErr(NetMain::errlog);
+  
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.getFlag(wifiConfigSet)) {
+    // Handles configuration of the wifi settings.
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiConfigSet)) {
         
-        esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_STA, &this->wifi_config);
+        esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_STA, 
+                &this->wifi_config);
 
         if (wifi_cfg == ESP_OK) {
-            NetMain::flags.setFlag(wifiConfigSet);
+            NetMain::flags.setFlag(NETFLAGS::wifiConfigSet);
+
         } else {
-            this->sendErr("Wifi config not set");
-            this->sendErr(esp_err_to_name(wifi_cfg));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi mode not set: %s", this->tag, 
+                esp_err_to_name(wifi_cfg));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.getFlag(wifiOn)) {
+    // Handles the start of wifi.
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiOn)) {
         
         esp_err_t wifi_start = esp_wifi_start();
 
         if (wifi_start == ESP_OK) {
-            NetMain::flags.setFlag(wifiOn);
+            NetMain::flags.setFlag(NETFLAGS::wifiOn);
+
         } else {
-            this->sendErr("Wifi not started");
-            this->sendErr(esp_err_to_name(wifi_start));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi not started: %s", this->tag, 
+                esp_err_to_name(wifi_start));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
 
-    if (!NetMain::flags.getFlag(wifiConnected)) {
+    // Handles the connection to wifi.
+    if (!NetMain::flags.getFlag(NETFLAGS::wifiConnected)) {
         
         esp_err_t wifi_con = esp_wifi_connect();
 
         if (wifi_con == ESP_OK) {
-            NetMain::flags.setFlag(wifiConnected);
+            NetMain::flags.setFlag(NETFLAGS::wifiConnected);
+
         } else {
-            this->sendErr("Wifi not connected");
-            this->sendErr(esp_err_to_name(wifi_con));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi not connected: %s", this->tag, 
+                esp_err_to_name(wifi_con));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -135,26 +165,32 @@ wifi_ret_t NetSTA::start_wifi() {
     return wifi_ret_t::WIFI_OK;
 }
 
-// Third step of init process.
-// Once the wifi connection is established, starts the httpd
-// server and registers the Universal Resource Identifiers
-// (URI). Returns SERVER_FAIL or SERVER_OK.
+// Third step of the init process. 4th step is back to the NetMain src file.
+// Once the wifi connection is established, starts the httpd server and 
+// registers the Universal Resource Identifiers (URI). Returns SERVER_FAIL
+// or SERVER_OK.
 wifi_ret_t NetSTA::start_server() {
 
-    if (!NetMain::flags.getFlag(httpdOn)) {
+    // Handles starting the http daemon or httpd server.
+    if (!NetMain::flags.getFlag(NETFLAGS::httpdOn)) {
         
         esp_err_t httpd = httpd_start(&NetMain::server, &NetMain::http_config);
 
         if (httpd == ESP_OK) {
-                NetMain::flags.setFlag(httpdOn);
+                NetMain::flags.setFlag(NETFLAGS::httpdOn);
+
         } else {
-            this->sendErr("HTTP not started");
-            this->sendErr(esp_err_to_name(httpd));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: HTTPD not started: %s", this->tag, esp_err_to_name(httpd));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
 
-    if (!NetMain::flags.getFlag(uriReg)) {
+    // Handles registration of the uri handlers. The references passed in the
+    // uri handlers are located on Routes header and source.
+    if (!NetMain::flags.getFlag(NETFLAGS::uriReg)) {
         
         esp_err_t reg1 = httpd_register_uri_handler(NetMain::server, &STAIndex);
         esp_err_t reg2 = httpd_register_uri_handler(NetMain::server, &OTAUpdate);
@@ -164,13 +200,17 @@ wifi_ret_t NetSTA::start_server() {
         esp_err_t reg6 = httpd_register_uri_handler(NetMain::server, &ws);
         esp_err_t reg7 = httpd_register_uri_handler(NetMain::server, &log);
 
+        // Check to see if all registrations are successful. Must be all or 
+        // nothing for return.
         if (reg1 == ESP_OK && reg2 == ESP_OK && reg3 == ESP_OK && reg4 == ESP_OK
             && reg5 == ESP_OK && reg6 == ESP_OK && reg7 == ESP_OK) {
                 
-            NetMain::flags.setFlag(uriReg);
+            NetMain::flags.setFlag(NETFLAGS::uriReg);
         } else {
-            this->sendErr("STA URI's unregistered");
-            this->sendErr(esp_err_to_name(reg1));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: STA URI registration fail", this->tag);
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
@@ -178,74 +218,93 @@ wifi_ret_t NetSTA::start_server() {
     return wifi_ret_t::SERVER_OK;
 }
 
-// Stops the httpd server and wifi, disconnects from the station,
-// and unregisters the IP handler. This will reset all pertinent 
-// flags back to false, to allow reinitialization through the 
-// init sequence. Returns DESTROY_FAIL or DESTROY_OK.
+// Requires no params. Destroys station connection by stopping the httpd server,
+// and wifi, disconnectes from the station, and unregisters the IP handler.
+// Resets all required flags back to false, to allow re-init through the init
+// sequence. Retruns DESTROY_FAIL or DESTROY_OK.
 wifi_ret_t NetSTA::destroy() {
 
-    if (NetMain::flags.getFlag(mdnsInit)) {
+    // Destroys the mdns server.
+    if (NetMain::flags.getFlag(NETFLAGS::mdnsInit)) {
         
-        mdns_free();
-        NetMain::flags.releaseFlag(mdnsInit);
-        NetMain::flags.releaseFlag(mdnsHostSet);
-        NetMain::flags.releaseFlag(mdnsInstanceSet);
-        NetMain::flags.releaseFlag(mdnsServiceAdded);
+        mdns_free(); // Stop and free the mdns server.
+        NetMain::flags.releaseFlag(NETFLAGS::mdnsInit);
+        NetMain::flags.releaseFlag(NETFLAGS::mdnsHostSet);
+        NetMain::flags.releaseFlag(NETFLAGS::mdnsInstanceSet);
+        NetMain::flags.releaseFlag(NETFLAGS::mdnsServiceAdded);
     }
 
-    if (NetMain::flags.getFlag(httpdOn)) {
+    // Destroys and stops the httpd connection.
+    if (NetMain::flags.getFlag(NETFLAGS::httpdOn)) {
         
         esp_err_t httpd = httpd_stop(NetMain::server);
 
         if (httpd == ESP_OK) {
-            NetMain::flags.releaseFlag(httpdOn);
-            NetMain::flags.releaseFlag(uriReg);
+            NetMain::flags.releaseFlag(NETFLAGS::httpdOn);
+            NetMain::flags.releaseFlag(NETFLAGS::uriReg);
+
         } else {
-            this->sendErr("HTTPD not stopped");
-            this->sendErr(esp_err_to_name(httpd));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: HTTPD not stopped: %s", this->tag, esp_err_to_name(httpd));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.getFlag(wifiOn)) {
+    // Destroys and stops the wifi connection.
+    if (NetMain::flags.getFlag(NETFLAGS::wifiOn)) {
         
         esp_err_t wifi_stop = esp_wifi_stop();
 
         if (wifi_stop == ESP_OK) {
-            NetMain::flags.releaseFlag(wifiOn);
-            NetMain::flags.releaseFlag(wifiModeSet);
-            NetMain::flags.releaseFlag(wifiConfigSet);
+            NetMain::flags.releaseFlag(NETFLAGS::wifiOn);
+            NetMain::flags.releaseFlag(NETFLAGS::wifiModeSet);
+            NetMain::flags.releaseFlag(NETFLAGS::wifiConfigSet);
+
         } else {
-            this->sendErr("Wifi not stopped");
-            this->sendErr(esp_err_to_name(wifi_stop));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi not stopped: %s", this->tag, 
+                esp_err_to_name(wifi_stop));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.getFlag(wifiConnected)) {
+    // Disconnects the wifi connection.
+    if (NetMain::flags.getFlag(NETFLAGS::wifiConnected)) {
         
         esp_err_t wifi_con = esp_wifi_disconnect();
 
         if (wifi_con == ESP_OK || wifi_con == ESP_ERR_WIFI_NOT_STARTED) {
-            NetMain::flags.releaseFlag(wifiConnected);
+            NetMain::flags.releaseFlag(NETFLAGS::wifiConnected);
+
         } else {
-            this->sendErr("Wifi not disconnected");
-            this->sendErr(esp_err_to_name(wifi_con));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi not disconnected: %s", this->tag, 
+                esp_err_to_name(wifi_con));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
 
-    if (NetMain::flags.getFlag(handlerReg)) {
+    // Unregisters the esp event used for IP conversion to text.
+    if (NetMain::flags.getFlag(NETFLAGS::handlerReg)) {
         
         esp_err_t event = esp_event_handler_unregister(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent);
+            IP_EVENT, IP_EVENT_STA_GOT_IP, &NetSTA::IPEvent);
 
         if (event == ESP_OK) {
-            NetMain::flags.releaseFlag(handlerReg);
+            NetMain::flags.releaseFlag(NETFLAGS::handlerReg);
             
         } else {
-            this->sendErr("Wifi handler not unregistered");
-            this->sendErr(esp_err_to_name(event));
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Wifi handler not unregistered: %s", this->tag, 
+                esp_err_to_name(event));
+
+            this->sendErr(NetMain::errlog);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -253,26 +312,45 @@ wifi_ret_t NetSTA::destroy() {
     return wifi_ret_t::DESTROY_OK;
 }
 
-// Sets the password. Max pass length 63 chars.
+// Requires the password text string. Sets the password. Max length 64 chars.
 void NetSTA::setPass(const char* pass) {
-    if (strlen(pass) != 0) {
-        strncpy(this->pass, pass, sizeof(this->pass) -1);
-        this->pass[sizeof(this->pass) - 1] = '\0';
-    } 
+
+    // Checks that pass is actually passed. Copies pass to object variable.
+    if (strlen(pass) != 0 && pass != nullptr) {
+        strncpy(this->pass, pass, sizeof(this->pass) - 1);
+        this->pass[sizeof(this->pass) - 1] = '\0'; // ensure null term
+
+    } else {
+        snprintf(NetMain::errlog, sizeof(NetMain::errlog), "%s: Pass not set", 
+            this->tag);
+
+        this->sendErr(NetMain::errlog);
+    }
 }
 
-// Sets the ssid. Max ssid length is 32 chars.
+// Requires the ssid text string. Sets the ssid. Max length is 32 chars.
 void NetSTA::setSSID(const char* ssid) {
-    if (strlen(ssid) != 0) {
+
+    // checks that ssid is actually passed. Copies ssid to object variable.
+    if (strlen(ssid) != 0 && ssid != nullptr) {
         strncpy(this->ssid, ssid, sizeof(this->ssid) -1);
-        this->ssid[sizeof(this->ssid) - 1] = '\0';
-    } 
+        this->ssid[sizeof(this->ssid) - 1] = '\0'; // null term
+
+    } else {
+        snprintf(NetMain::errlog, sizeof(NetMain::errlog), "%s: SSID not set", 
+            this->tag);
+
+        this->sendErr(NetMain::errlog);
+    }
 }
 
-const char* NetSTA::getPass(bool def) const {
+// Requires no parameters. This is pure virtual/abstract and required for 
+// the WAP subclass only. Returns password.
+const char* NetSTA::getPass(bool defaultPass) const {
     return this->pass;
 }
 
+// Requires no parameters. Returns ssid.
 const char* NetSTA::getSSID() const {
     return this->ssid;
 }
@@ -280,84 +358,109 @@ const char* NetSTA::getSSID() const {
 // Runs an iteration of all flags pertaining to the station 
 // connection. Upon all flags being set and the station 
 // being connected, returns true. Returns false for failure.
-bool NetSTA::isActive() {
-    wifi_ap_record_t sta_info;
 
-    uint8_t flagRequirement = 15;
+// Requires no parameters. Iterates all station flags. If all are set to true,
+// returns true iff station info is populated. Returns false otherwise.
+bool NetSTA::isActive() {
+    wifi_ap_record_t sta_info; // Station info to be populated.
+
+    const uint8_t flagRequirement = 15; // How many flags to check
     uint8_t flagSuccess = 0;
 
+    // Allows log entries once per connection. So when going active or 
+    // inactive, and switching between them.
+    static bool allowWriteCON = true; 
+    static bool allowWriteDIS = true;
+
+    // All the required flags to verify active connection.
     bool required[flagRequirement]{
-        NetMain::flags.getFlag(wifiInit), 
-        NetMain::flags.getFlag(netifInit),
-        NetMain::flags.getFlag(eventLoopInit), 
-        NetMain::flags.getFlag(sta_netifCreated),
-        NetMain::flags.getFlag(wifiModeSet), 
-        NetMain::flags.getFlag(wifiConfigSet),
-        NetMain::flags.getFlag(wifiOn), 
-        NetMain::flags.getFlag(httpdOn),
-        NetMain::flags.getFlag(uriReg), 
-        NetMain::flags.getFlag(handlerReg),
-        NetMain::flags.getFlag(wifiConnected), 
-        NetMain::flags.getFlag(mdnsInit),
-        NetMain::flags.getFlag(mdnsHostSet), 
-        NetMain::flags.getFlag(mdnsInstanceSet),
-        NetMain::flags.getFlag(mdnsServiceAdded)
+        NetMain::flags.getFlag(NETFLAGS::wifiInit), 
+        NetMain::flags.getFlag(NETFLAGS::netifInit),
+        NetMain::flags.getFlag(NETFLAGS::eventLoopInit), 
+        NetMain::flags.getFlag(NETFLAGS::sta_netifCreated),
+        NetMain::flags.getFlag(NETFLAGS::wifiModeSet), 
+        NetMain::flags.getFlag(NETFLAGS::wifiConfigSet),
+        NetMain::flags.getFlag(NETFLAGS::wifiOn), 
+        NetMain::flags.getFlag(NETFLAGS::httpdOn),
+        NetMain::flags.getFlag(NETFLAGS::uriReg), 
+        NetMain::flags.getFlag(NETFLAGS::handlerReg),
+        NetMain::flags.getFlag(NETFLAGS::wifiConnected), 
+        NetMain::flags.getFlag(NETFLAGS::mdnsInit),
+        NetMain::flags.getFlag(NETFLAGS::mdnsHostSet), 
+        NetMain::flags.getFlag(NETFLAGS::mdnsInstanceSet),
+        NetMain::flags.getFlag(NETFLAGS::mdnsServiceAdded)
     };
 
+    // Iterate each flag.
     for (int i = 0; i < flagRequirement; i++) {
-        if (required[i] == true) flagSuccess++;
+        flagSuccess += required[i]; // Increments if true
     }
 
-    if (flagSuccess != flagRequirement) {
-        this->sendErr("Wifi flags not met");
-        return false;
-    } else if (esp_wifi_sta_get_ap_info(&sta_info) == ESP_OK) {
-        return true;
-    } 
+    // Checks that flags have been met and that station info has been acquired.
+    // If true, writes a single entry stating connected. If false, also writes
+    // a single entry stating disconnected. Each variable is reset upon the 
+    // log entry of the opposite condition.
+    if ((flagSuccess == flagRequirement) && 
+        (esp_wifi_sta_get_ap_info(&sta_info) == ESP_OK)) { // Means connected
 
-    return false;
+        if (allowWriteCON) {
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Connected", this->tag);
+
+            this->sendErr(NetMain::errlog);
+            allowWriteCON = false; // Block another log entry until reset.
+            allowWriteDIS = true; // Allow disconnected log entry.
+        }
+
+        return true;
+        
+    } else {
+
+        if (allowWriteDIS) {
+            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                "%s: Disconnected", this->tag);
+
+            this->sendErr(NetMain::errlog);
+            allowWriteDIS = false; // Block another log entry until reset.
+            allowWriteCON = true; // Allow connected log entry.
+        }
+
+        return false;
+    } 
 }
 
-// Creates a struct containing the ssid, ipaddr, rssi,
-// connection status, and free memory. The struct is passed
-// by reference and updated.
+// Requires that station details reference. Builds the passed detail struct
+// containing the ssid, ip address, mdns name, rssi, connection status, and
+// free heap memory. 
 void NetSTA::getDetails(STAdetails &details) { 
-    wifi_ap_record_t sta_info;
+    wifi_ap_record_t sta_info; // Station info that will contain con data.
     
-    char status[2][4] = {"No", "Yes"}; // used to display connection
+    char status[2][4] = {"No", "Yes"}; // used to display connection status
 
-    // SSID
+    // SSID. Doesnt require logging here, that is handled in isActive connect.
     if (esp_wifi_sta_get_ap_info(&sta_info) != ESP_OK) {
-        strcpy(details.ssid, "Not Connected");
-    } else {
+        strcpy(details.ssid, "Not Connected"); // Not connected. Copies to ssid.
+
+    } else { // connected, copies the ssid over to the ssid
         strcpy(details.ssid, reinterpret_cast<const char*>(sta_info.ssid));
     }
 
-    // IP
-    snprintf(
-        details.ipaddr, 
-        sizeof(details.ipaddr),
-        "http://%s", 
-        NetSTA::IPADDR
-        );
+    // IP. Copies IP address over to the details struct.
+    snprintf(details.ipaddr, sizeof(details.ipaddr), "http://%s", 
+        NetSTA::IPADDR);
 
-    // MDNS
+    // MDNS. Copies mDNS over to the details struct.
     char hostname[static_cast<int>(IDXSIZE::MDNS)];
     mdns_hostname_get(hostname);
-    snprintf(
-        details.mdns, 
-        sizeof(details.mdns), 
-        "http://%s.local", 
-        hostname
-        );
+    snprintf(details.mdns, sizeof(details.mdns), "http://%s.local", hostname);
 
-    // STATUS
+    // STATUS. Displays "Yes" or "No" depending on activity. 
     strcpy(details.status, status[this->isActive()]);
     
     // RSSI signal strength 
     sprintf(details.signalStrength, "%d dBm", sta_info.rssi);
 
-    // REMAINING HEAP SIZE
+    // REMAINING HEAP SIZE. Change if using different units.
     sprintf(details.heap, "%.2f KB", this->getHeapSize(HEAP_SIZE::KB));
 }
 

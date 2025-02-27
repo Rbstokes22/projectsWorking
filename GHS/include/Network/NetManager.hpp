@@ -11,6 +11,8 @@
 namespace Comms {
 
 #define NET_ATTEMPTS_RECON 3 // reconnection attempts before net restart
+#define NET_ATTEMPTS_DESTROY 3 // tries to destroy a connection
+#define NET_DESTROY_FAIL_FORCE_RESET true // Forces reset if destruction fails.
 
 class NetManager {
     private:
@@ -26,6 +28,7 @@ class NetManager {
     void startServer(NetMain &mode);
     void runningWifi(NetMain &mode);
     void reconnect(NetMain &mode, uint8_t &attempt);
+    bool handleDestruction(NetMain &mode);
 
     public:
     NetManager(

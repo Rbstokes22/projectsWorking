@@ -7,6 +7,9 @@
 #include "Config/config.hpp"
 #include "UI/Display.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "Peripherals/saveSettings.hpp" // Used for destruction fail reset
 
 namespace Comms {
 
@@ -44,15 +47,18 @@ void NetManager::setNetType(NetMode NetType) {
 void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
     NetMode net_type = NetMain::getNetType();
     static const char* modes[] = {"WAP", "WAP_SETUP", "STA"}; // logging use.
-
+    
     if (NetType != net_type) { // Checks if the mode has been switched
 
         // WAP_RECON will be flagged upon a change of the WAP password. 
         // This will allow a new connection using new creds.
         if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP || 
             net_type == NetMode::WAP_RECON) {
-            this->wap.destroy();
-            
+
+            // If non-resseting due to fail, returns to block code. Recommend
+            // enabling NET_DESTROY_FAIL_FORCE_RESET to true.
+            if (!this->handleDestruction(this->wap)) return;
+
             // Handles logging for connection destruction. WAP class will 
             // log for new/active connection.
             snprintf(this->log, sizeof(this->log), "%s: WAP connect destroyed", 
@@ -62,8 +68,10 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
                 this->log, Messaging::Method::SRL_LOG);
 
         } else if (net_type == NetMode::STA) {
-            this->station.destroy();
 
+            // Same as WAP.
+            if (!this->handleDestruction(this->station)) return;
+   
             // Handles logging for connection destruction. STA class will 
             // log for new/active connection.
             snprintf(this->log, sizeof(this->log), "%s: STA connect destroyed", 
@@ -218,6 +226,47 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
         attempt = 0;
         sentLog = false; // Resets to allow relogging
     }
+}
+
+// Requires the mode (STA or WAP). Attempts to destroy the connection, and if
+// attempts are exceeded, will return false or reset depeding on the 
+// NET_DESTROY_FAIL_FORCE_RESET setting. Returns true upon success.
+bool NetManager::handleDestruction(NetMain &mode) {
+    uint8_t destroyAttempt = 0;
+
+    while (this->wap.destroy() != wifi_ret_t::DESTROY_OK) {
+            
+        // Check for attempt. If this occurs, chances are that the
+        // device will need to be reset, considering destroying the
+        // connection is brute.
+        if (++destroyAttempt >= NET_ATTEMPTS_DESTROY) {
+
+            // Handle error messaging immediately before action.
+            snprintf(this->log, sizeof(this->log), 
+                "%s: Connection unable to destroy", this->tag);
+
+            Messaging::MsgLogHandler::get()->handle(
+                Messaging::Levels::CRITICAL, this->log, 
+                Messaging::Method::SRL_LOG);
+
+            // if true, will save settings and force a reset.
+            if (NET_DESTROY_FAIL_FORCE_RESET) {
+                NVS::settingSaver::get()->save();
+                vTaskDelay(pdMS_TO_TICKS(10)); // Brief delay
+                esp_restart();
+            }
+
+            // If false, returns false and resets attempts. DO NOT RECOMMEND.
+            
+            destroyAttempt = 0; // reset
+            return false; // Block remaining code.
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10)); // brief delay between loops.
+    }
+
+    destroyAttempt = 0; // reset
+    return true;
 }
 
 // Constructor. Takes station, wap, and OLED references.

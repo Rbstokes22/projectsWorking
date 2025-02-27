@@ -22,6 +22,7 @@ char heap[20]; // heap allocation remaining.
 
 class NetSTA : public NetMain {
     private:
+    const char* tag;
     char ssid[static_cast<int>(IDXSIZE::SSID)]; // station network ssid/user
     char pass[static_cast<int>(IDXSIZE::PASS)]; // station network password
     static char IPADDR[static_cast<int>(IDXSIZE::IPADDR)]; // station net IP
