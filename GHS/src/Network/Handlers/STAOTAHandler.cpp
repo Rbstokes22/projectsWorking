@@ -11,10 +11,13 @@
 #include "esp_transport.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
 // Static Setup
+const char* OTAHAND::tag("(OTAHAND)");
+char OTAHAND::log[LOG_MAX_ENTRY]{0};
 OTA::OTAhandler* OTAHAND::OTA{nullptr};
 bool OTAHAND::isInit{false};
 
@@ -220,6 +223,13 @@ bool OTAHAND::whitelistCheck(const char* URL) {
     }
 
     return false;
+}
+
+// Requires message and messaging level. Level is default to ERROR. Prints
+// messaging to log and serial.
+void OTAHAND::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+        Messaging::Method::SRL_LOG);
 }
 
 bool OTAHAND::init(OTA::OTAhandler &ota) {

@@ -71,6 +71,7 @@ enum class CMD : uint16_t {
 
 class SHT {
     private:
+    const char* tag;
     i2c_master_dev_handle_t i2cHandle; // I2C handle to register device.
     bool isInit; // Is class init
     RWPacket packet; // Read and write packet handling all RW data.

@@ -3,6 +3,7 @@
 
 namespace Comms {
 
+// Has credential information to connect to station and utilize sms.
 const char WAPSetupPage[] = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -176,6 +177,7 @@ const char WAPSetupPage[] = R"rawliteral(
 </html>
 )rawliteral";
 
+// Main station page. Has the most functionality.
 const char STApage[] = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">

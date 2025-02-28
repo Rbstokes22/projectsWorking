@@ -29,11 +29,16 @@ enum NETFLAGS : uint8_t {
     mdnsServiceAdded
 };
 
+struct LogToggle { // Used to track logs sent to prevent log pollution.
+    bool con, discon;
+};
+
 class NetMain {
     private:
     const char* tag; // Used for logging
 
     protected:
+    LogToggle logToggle; // Used to ensure logs only happen once in loops.
     static httpd_handle_t server; // server handle.
     static NetMode NetType; // Network type.
     static Flag::FlagReg flags; // on/off flags.
@@ -64,7 +69,8 @@ class NetMain {
     float getHeapSize(HEAP_SIZE type);
     httpd_handle_t getServer();
     void sendErr(const char* msg, 
-            Messaging::Levels lvl = Messaging::Levels::ERROR); 
+            Messaging::Levels lvl = Messaging::Levels::ERROR);
+    LogToggle* getLogToggle();
 };
 
 }

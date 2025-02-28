@@ -43,7 +43,7 @@ bool AS7341basic::setBank(REG reg) {
     } 
 
     if (err != ESP_OK) {
-        printf("Err config register: %s\n", esp_err_to_name(err));
+        printf("%s Err config register: %s\n", this->tag, esp_err_to_name(err));
         return false;
     } 
 
@@ -60,7 +60,9 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
         err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
 
         if (err != ESP_OK) {
-            printf("Err writing register: %s\n", esp_err_to_name(err));
+            printf("%s Register write err: %s\n", this->tag, 
+                esp_err_to_name(err));
+
             return false;
         }
 
@@ -91,7 +93,9 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
         );
 
         if (err != ESP_OK) {
-            printf("Register Read err: %s\n", esp_err_to_name(err));
+            printf("%s Register Read err: %s\n", this->tag, 
+                esp_err_to_name(err));
+
             dataSafe = false;
         } else {
             dataSafe = true;
@@ -132,13 +136,15 @@ bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
 
     if (dataOut == dataValidation && dataSafe) {
         if (verbose) {
-            printf("VALID. Register: %#x, is %#x\n", addr, dataValidation);
+            printf("%s VALID. Register: %#x = %#x\n", this->tag, addr, 
+                dataValidation);
         }
         return true;
         
     } else {
         if (verbose) {
-            printf("INVALID: Register: %#x, is %#x\n", addr, dataValidation);
+            printf("%s INVALID. Register: %#x = %#x\n", this->tag, addr, 
+                dataValidation);
         }
         return false;
     }

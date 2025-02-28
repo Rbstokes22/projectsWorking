@@ -41,6 +41,7 @@ extern Dimensions dimIndex[];
 
 class OLEDbasic {
     private:
+    const char* tag;
     uint8_t col, page; // Column and page values
     Dimensions charDim; // Width and height dimension struct
     DIM dimID; // Dimension ID, used with  enum class DIM.

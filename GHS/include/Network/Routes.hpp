@@ -6,6 +6,7 @@
 
 namespace Comms {
 
+// All routes here.
 extern httpd_uri_t WAPSetupIndex;
 extern httpd_uri_t WAPSubmitCreds;
 extern httpd_uri_t WAPIndex;

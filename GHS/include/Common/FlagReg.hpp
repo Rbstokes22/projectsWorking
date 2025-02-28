@@ -8,6 +8,7 @@ namespace Flag {
 
 class FlagReg {
     private:
+    const char* tag;
     size_t reg; // Max size per system, either 32 or 64.
 
     public:

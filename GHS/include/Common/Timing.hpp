@@ -17,6 +17,7 @@ struct TIME {
 
 class DateTime { // Singleton class
     private:
+    const char* tag;
     const uint32_t secPerDay = 86400; // Total seconds per day.
     TIME time; // Time structure in hhmmss and raw seconds.
     uint32_t timeCalibrated; // Actual time in seconds past midnight.

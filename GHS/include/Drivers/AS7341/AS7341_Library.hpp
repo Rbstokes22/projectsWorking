@@ -99,6 +99,7 @@ struct COLOR {
 
 class AS7341basic {
     private:
+    const char* tag;
     i2c_master_dev_handle_t i2cHandle; // handle for i2c init.
     CONFIG &conf; // Configuration
     bool isInit; // Is initialized.

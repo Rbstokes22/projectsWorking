@@ -4,7 +4,7 @@
 
 // REVISE, COMMENT, ENABLE LOGGING
 // COMPLETE: common, config, drivers, i2c, netcreds, NetMain, NetManager,
-// NetSTA, ON NETWAP.
+// NetSTA, NETWAP, Socket handlers, STA handler. ON STAOTA handler, use new err handling.
 
 // Almost done with netcreds. Need to go in a fix comments as well as revise and
 // ensure flow follow the last log placement. Ensure there are no other log entries

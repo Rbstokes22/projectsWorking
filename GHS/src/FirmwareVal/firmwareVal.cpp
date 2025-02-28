@@ -24,7 +24,7 @@ gKIl1ssMaWQvgrJtnDoZWL+1jyatol0pnX9YrY0crbyGWSkDHH+PfOBkoiukVad5
 
 bool CSsafe = false; // checksum safe flag.
 char log[LOG_MAX_ENTRY] = {0};
-const char* tag = "FirmwareVal";
+const char* tag = "(FirmWVal)";
 
 // checks partition and compares it against the signature of the firmware.
 // Takes argument CURRENT or NEXT for the partition type, and returns 
@@ -35,7 +35,7 @@ val_ret_t checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
 
     // Print to serial.
     snprintf(log, sizeof(log), 
-        "%s, Checking partition size %zu with a sig size %zu", tag, FWsize, 
+        "%s Checking partition size %zu with a sig size %zu", tag, FWsize, 
             FWSigSize);
 
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
@@ -45,7 +45,7 @@ val_ret_t checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
     auto validate = [&ret, FWsize, FWSigSize](const esp_partition_t* part) {
         if (part != NULL) {
 
-            snprintf(log, sizeof(log), "%s: Validating partition label: %s", 
+            snprintf(log, sizeof(log), "%s Validating partition label: %s", 
                 tag, part->label);
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
@@ -56,7 +56,7 @@ val_ret_t checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
             } 
 
         } else {
-            snprintf(log, sizeof(log), "%s: Partion label: %s = NULL", 
+            snprintf(log, sizeof(log), "%s Partion label: %s = NULL", 
                 tag, part->label);
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
@@ -71,7 +71,7 @@ val_ret_t checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
         validate(esp_ota_get_next_update_partition(NULL));
         
     } else {
-        snprintf(log, sizeof(log), "%s: Only partition CURRENT or NEXT", tag);
+        snprintf(log, sizeof(log), "%s Only partition CURRENT or NEXT", tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
     }
@@ -97,7 +97,7 @@ val_ret_t validateSig(
 
     if (partition == NULL) {
         snprintf(log, sizeof(log), 
-            "%s: Failed to allocate memory for partition", tag);
+            "%s Failed to allocate memory for partition", tag);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
@@ -137,7 +137,7 @@ val_ret_t readPartition(
 
     // Starts checksum computation
     if (mbedtls_sha256_starts(&ctx, 0) != 0) {
-        snprintf(log, sizeof(log), "%s: mbedtls failed to start", tag);
+        snprintf(log, sizeof(log), "%s mbedtls failed to start", tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
 
@@ -155,7 +155,7 @@ val_ret_t readPartition(
 
         if (err != ESP_OK) { // partition read error.
 
-            snprintf(log, sizeof(log), "%s: Failed to read partition: %s", tag,
+            snprintf(log, sizeof(log), "%s Failed to read partition: %s", tag,
                 esp_err_to_name(err));
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
@@ -168,7 +168,7 @@ val_ret_t readPartition(
         // Feeds buffer into running sha256 computation.
         if (mbedtls_sha256_update(&ctx, buffer, toRead) != 0) {
 
-            snprintf(log, sizeof(log), "%s: Err updating sha256", tag);
+            snprintf(log, sizeof(log), "%s Err updating sha256", tag);
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
                 log, Messaging::Method::SRL_LOG);
 
@@ -180,7 +180,7 @@ val_ret_t readPartition(
     // Once complete finishes the hash and writes result to hash buffer.
     if (mbedtls_sha256_finish(&ctx, hash) != 0) {
 
-        snprintf(log, sizeof(log), "%s: Failed to finish sha256", tag);
+        snprintf(log, sizeof(log), "%s Failed to finish sha256", tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
 
@@ -202,14 +202,14 @@ size_t getSignature(uint8_t* signature, size_t sigSize, const char* label) {
     char filepath[FW_FILEPATH_SIZE]{0};
 
     sprintf(filepath, "/spiffs/%sfirmware.sig", label); // either app0 or app1
-    snprintf(log, sizeof(log), "%s: Reading filepath: %s", tag, filepath);
+    snprintf(log, sizeof(log), "%s Reading filepath: %s", tag, filepath);
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
         log, Messaging::Method::SRL);
 
     FILE* f = fopen(filepath, "rb"); // Opens with read bytes
 
     if (f == NULL) { // If null return
-        snprintf(log, sizeof(log), "%s: Unable to open file %s", tag, filepath);
+        snprintf(log, sizeof(log), "%s Unable to open file %s", tag, filepath);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
     }
@@ -240,7 +240,7 @@ val_ret_t verifySig(
     if (mbedtls_pk_parse_public_key(&pk, (const unsigned char*)pubKey, 
         strlen(pubKey) + 1) != 0) {
 
-        snprintf(log, sizeof(log), "%s: Failed to parse public key", tag);
+        snprintf(log, sizeof(log), "%s Failed to parse public key", tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             log, Messaging::Method::SRL_LOG);
 
@@ -254,13 +254,13 @@ val_ret_t verifySig(
     mbedtls_pk_free(&pk); // Free the public key context
 
     if (ret == 0) {
-        snprintf(log, sizeof(log), "%s: Signature Valid", tag);
+        snprintf(log, sizeof(log), "%s Signature Valid", tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             log, Messaging::Method::SRL_LOG);
 
         return val_ret_t::SIG_OK; // Signature is valid
     } else {
-        snprintf(log, sizeof(log), "%s: Signature invalid. Error Code %d", 
+        snprintf(log, sizeof(log), "%s Signature invalid. Error Code %d", 
             tag, ret);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,

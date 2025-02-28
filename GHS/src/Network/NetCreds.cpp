@@ -6,7 +6,8 @@
 
 namespace NVS {
 
-const char* Creds::tag = "Creds";
+// tag declared static because it is used in that static get function.
+const char* Creds::tag = "(Creds)";
 char Creds::log[LOG_MAX_ENTRY] = {0}; // Static def of log.
 
 // namespace must be under 12 chars long.
@@ -29,7 +30,7 @@ Creds* Creds::get(CredParams* parameter) {
     // Empty calls will pass nullptr by default, which will return a nullptr
     // if it hasnt been init. Once init, this will be bypassed.
     if (parameter == nullptr && !isInit) {
-        snprintf(Creds::log, sizeof(Creds::log), "%s: Creds has not been init",
+        snprintf(Creds::log, sizeof(Creds::log), "%s Creds has not been init",
             Creds::tag);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
@@ -42,7 +43,7 @@ Creds* Creds::get(CredParams* parameter) {
         // can only be init once.
         
         snprintf(Creds::log, sizeof(Creds::log), 
-            "%s: Creds init with namespace %s", Creds::tag, 
+            "%s Creds init with namespace %s", Creds::tag, 
             parameter->nameSpace);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
@@ -64,7 +65,7 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
     nvs_ret_t stat = this->nvs.write(key, (uint8_t*)buffer, bytes);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
-        snprintf(Creds::log, sizeof(Creds::log), "%s: writeErr", Creds::tag);
+        snprintf(Creds::log, sizeof(Creds::log), "%s writeErr", Creds::tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             Creds::log, Messaging::Method::SRL_LOG);
     }
@@ -85,7 +86,7 @@ const char* Creds::read(const char* key) {
             );
 
         if (stat != nvs_ret_t::NVS_READ_OK) {
-            snprintf(Creds::log, sizeof(Creds::log), "%s: readErr",Creds::tag);
+            snprintf(Creds::log, sizeof(Creds::log), "%s readErr",Creds::tag);
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
                 Creds::log, Messaging::Method::SRL_LOG);
             }
@@ -152,7 +153,7 @@ SMSreq* Creds::getSMSReq(bool bypassCheck) {
     // return nullptr and log entry ERROR. Will not disable system.
     if (strlen(this->smsreq.phone) != strSize) {
         snprintf(Creds::log, sizeof(Creds::log), 
-            "%s: SMS phone size does not meet requirements", Creds::tag);
+            "%s SMS phone size does not meet requirements", Creds::tag);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             Creds::log, Messaging::Method::SRL_LOG);
@@ -167,7 +168,7 @@ SMSreq* Creds::getSMSReq(bool bypassCheck) {
     // log entry ERROR. Will not diable system.
     if (strlen(this->smsreq.APIkey) != strSize) {
         snprintf(Creds::log, sizeof(Creds::log), 
-            "%s: SMS APIkey size does not meet requirements", Creds::tag);
+            "%s SMS APIkey size does not meet requirements", Creds::tag);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
             Creds::log, Messaging::Method::SRL_LOG);

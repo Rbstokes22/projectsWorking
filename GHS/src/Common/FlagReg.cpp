@@ -6,7 +6,7 @@ namespace Flag {
 // The register is size_t, meaning that you will only be able to use indicies
 // from 0 to the bit-size of that object. Generally 32 or 64 flags. Recommend
 // using enumeration to manage flag index positions
-FlagReg::FlagReg() : reg{0} {}
+FlagReg::FlagReg() : tag("FlagReg"), reg{0} {}
 
 // Requires bitIndex of the flag. Returns true if set, and false if not.
 bool FlagReg::getFlag(uint8_t bitIdx) {return ((this->reg >> bitIdx) & 0b1);}

@@ -145,7 +145,9 @@ void AS7341basic::setup_F5F8_Clear_NIR() {
     this->writeRegister(static_cast<REG>(0x13), 0x06); // NIR connected to ADC5
 }
 
-AS7341basic::AS7341basic(CONFIG &conf) : conf(conf), isInit(false) {}
+AS7341basic::AS7341basic(CONFIG &conf) : 
+
+    tag("(AS7341)"), conf(conf), isInit(false) {}
 
 // Requires the address of the device. Initializes the I2C connection
 // and writes to the device all configuration settings. Returns true 
@@ -216,7 +218,7 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
 
     } else {
         dataSafe = false;
-        printf("Timed Out\n");
+        printf("%s Timed Out\n", this->tag);
         return 0;
     }
 }

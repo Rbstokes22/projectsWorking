@@ -11,7 +11,7 @@ namespace Serial {
 
 // Defaults frequency to 100 khz. Can be set higher when initializing the
 // master.
-I2C::I2C() : tag("I2C"), freq(I2C_FREQ::STD), isInit(false) {}
+I2C::I2C() : tag("(I2C)"), freq(I2C_FREQ::STD), isInit(false) {}
 
 // Returns a pointer to the I2C instance.
 I2C* I2C::get() {
@@ -39,7 +39,7 @@ bool I2C::i2c_master_init(I2C_FREQ freq) {
     esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &this->busHandle);
 
     if (err != ESP_OK) {
-        printf("%s: %s", this->tag, esp_err_to_name(err));
+        printf("%s %s", this->tag, esp_err_to_name(err));
         return false;
     } else {
         return true;  
@@ -68,7 +68,7 @@ i2c_master_dev_handle_t I2C::addDev(i2c_device_config_t &dev_cfg) {
     esp_err_t err = i2c_master_bus_add_device(this->busHandle, &dev_cfg, 
         &devHandle);
 
-    printf("%s: ADDR:%u, %s\n", this->tag, dev_cfg.device_address, 
+    printf("%s ADDR:%u, %s\n", this->tag, dev_cfg.device_address, 
         esp_err_to_name(err));
 
     return devHandle;

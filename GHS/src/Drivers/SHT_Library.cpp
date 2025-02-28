@@ -17,7 +17,7 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
     if (resetTimeout) this->timeout = timeout_ms;
 }
 
-SHT::SHT() : isInit(false) {this->packet.reset();} // Inits RW packet.
+SHT::SHT() : tag("(SHT31)"), isInit(false) {this->packet.reset();} // Inits RW 
 
 // Requires no parameters. Writes the command in the RW Packet write
 // buffer to the SHT. Returns WRITE_TIMEOUT if timed out, WRITE_FAIL
@@ -32,10 +32,10 @@ SHT_RET SHT::write() {
     this->packet.dataSafe = (err == ESP_OK);
 
     if (err == ESP_ERR_TIMEOUT) {
-        printf("SHT Write Timed Out\n");
+        printf("%s write Timed Out\n", this->tag);
         return SHT_RET::WRITE_TIMEOUT;
     } else if (err != ESP_OK) {
-        printf("SHT Write Err: %s\n", esp_err_to_name(err));
+        printf("%s write Err: %s\n", this->tag, esp_err_to_name(err));
         return SHT_RET::WRITE_FAIL;
     }
 
@@ -70,11 +70,11 @@ SHT_RET SHT::read(size_t readSize) {
     this->packet.dataSafe = (transErr == ESP_OK && receiveErr == ESP_OK);
 
     if (transErr == ESP_ERR_TIMEOUT || receiveErr == ESP_ERR_TIMEOUT) {
-        printf("SHT Read Timed Out\n");
+        printf("%s read Timed Out\n", this->tag);
         return SHT_RET::READ_TIMEOUT;
 
     } else if (transErr != ESP_OK || receiveErr != ESP_OK) {
-        printf("SHT Read Error! Transmit: %s; Receive: %s\n",
+        printf("%s read Error! Transmit: %s; Receive: %s\n", this->tag,
         esp_err_to_name(transErr), esp_err_to_name(receiveErr));
         return SHT_RET::READ_FAIL;
     }
@@ -210,7 +210,7 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     // Compare temp/hum crc values against 
     if (this->packet.readBuffer[2] != crcTemp || 
         this->packet.readBuffer[5] != crcHum) {
-            printf("Checksum Error\n");
+            printf("%s Checksum Error\n", this->tag);
             return SHT_RET::READ_FAIL_CHECKSUM;
         }
 

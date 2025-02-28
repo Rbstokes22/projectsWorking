@@ -6,6 +6,9 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
+extern const char* confTag; // logging tag.
+extern char confLog[50]; // Reusable log.
+
 // bypass firmware validation when starting and OTA updates. Set to true 
 // during development phase.
 #define BYPASS_VAL true 

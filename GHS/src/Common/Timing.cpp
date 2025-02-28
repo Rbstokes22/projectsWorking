@@ -39,7 +39,8 @@ void DateTime::setHHMMSS(uint32_t seconds) {
 
 DateTime::DateTime() : 
     
-    time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {}
+    tag("(DateTime)"), time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), 
+    calibrated(false) {}
 
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {

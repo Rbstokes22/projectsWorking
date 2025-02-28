@@ -38,7 +38,9 @@ wifi_init_config_t NetMain::init_config = WIFI_INIT_CONFIG_DEFAULT();
 httpd_config_t NetMain::http_config = HTTPD_DEFAULT_CONFIG();
 char NetMain::errlog[LOG_MAX_ENTRY]{0};
 
-NetMain::NetMain(const char* mdnsName) : tag("NetMain"), wifi_config{{}} {
+NetMain::NetMain(const char* mdnsName) : 
+    
+    tag("(NetMain)"), logToggle{true, true}, wifi_config{{}} {
 
     size_t mdnsLen = sizeof(this->mdnsName);
 
@@ -66,7 +68,7 @@ wifi_ret_t NetMain::init_wifi() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: Wifi init Fail: %s", this->tag, 
+                "%s Wifi init Fail: %s", this->tag, 
                 esp_err_to_name(wifi_init));
 
             this->sendErr(NetMain::errlog);
@@ -83,7 +85,7 @@ wifi_ret_t NetMain::init_wifi() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: Netif init fail: %s", this->tag, 
+                "%s Netif init fail: %s", this->tag, 
                 esp_err_to_name(netif_init));
                 
             this->sendErr(NetMain::errlog);
@@ -100,7 +102,7 @@ wifi_ret_t NetMain::init_wifi() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: Eventloop fail: %s", this->tag, 
+                "%s Eventloop fail: %s", this->tag, 
                 esp_err_to_name(event_loop));
                 
             this->sendErr(NetMain::errlog);
@@ -117,7 +119,7 @@ wifi_ret_t NetMain::init_wifi() {
 
             if (NetMain::ap_netif == nullptr) {
                 snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: AP Netif not set", this->tag);
+                "%s AP Netif not set", this->tag);
 
                 this->sendErr(NetMain::errlog);
                 return wifi_ret_t::INIT_FAIL;
@@ -137,7 +139,7 @@ wifi_ret_t NetMain::init_wifi() {
 
             if (NetMain::sta_netif == nullptr) {
                 snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: STA Netif not set", this->tag);
+                "%s STA Netif not set", this->tag);
 
                 this->sendErr(NetMain::errlog);
                 return wifi_ret_t::INIT_FAIL;
@@ -165,7 +167,7 @@ wifi_ret_t NetMain::mDNS() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: mDNS init fail: %s", this->tag, esp_err_to_name(mdns));
+                "%s mDNS init fail: %s", this->tag, esp_err_to_name(mdns));
                 
             this->sendErr(NetMain::errlog);
             return wifi_ret_t::MDNS_FAIL;
@@ -181,7 +183,7 @@ wifi_ret_t NetMain::mDNS() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: mDNS hostname unset: %s", this->tag, 
+                "%s mDNS hostname unset: %s", this->tag, 
                 esp_err_to_name(mdns_set));
                 
             this->sendErr(NetMain::errlog);
@@ -203,7 +205,7 @@ wifi_ret_t NetMain::mDNS() {
 
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: mDNS instance name unset: %s", this->tag, 
+                "%s mDNS instance name unset: %s", this->tag, 
                 esp_err_to_name(mdns_nameset));
                 
             this->sendErr(NetMain::errlog);
@@ -223,7 +225,7 @@ wifi_ret_t NetMain::mDNS() {
             
         } else {
             snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
-                "%s: mDNS service not added: %s", this->tag, 
+                "%s mDNS service not added: %s", this->tag, 
                 esp_err_to_name(svcAdd));
                 
             this->sendErr(NetMain::errlog);
@@ -265,5 +267,8 @@ void NetMain::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, 
         Messaging::Method::SRL_LOG);
 }
+
+// Returns the log toggle struct ptr for reading and writing.
+LogToggle* NetMain::getLogToggle() {return &this->logToggle;}
 
 }

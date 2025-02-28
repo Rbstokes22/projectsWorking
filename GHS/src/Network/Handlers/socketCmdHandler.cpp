@@ -11,9 +11,9 @@
 #include "Peripherals/Soil.hpp"
 #include "Peripherals/Report.hpp"
 #include "Common/Timing.hpp"
-#include "Drivers/SHT_Library.hpp" // Used for SHT max and min.
-#include "UI/MsgLogHandler.hpp" // Used for new log entry in getall
-#include "Peripherals/saveSettings.hpp" // Used to save peripheral settings
+#include "Drivers/SHT_Library.hpp" 
+#include "UI/MsgLogHandler.hpp" 
+#include "Peripherals/saveSettings.hpp" 
 
 // NOTE. Some of these functionalities are for station mode only. These commands
 // have a built in check to ensure requirements are met.
@@ -23,10 +23,10 @@ namespace Comms {
 // Requires command data, buffer, and buffer size. Executes the command passed,
 // and compiles response into json and replies.
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
-    int written{0}; // Ensures the snprintf is working.
+    int written{0}; // Ensures the snprintf is working by checking write size.
 
     // reply is the typical reply to a request, with the exception of the
-    // GET_ALL request.
+    // GET_ALL request. Used throughout the function.
     const char* reply = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
     "\"id\":\"%s\"}";
 
@@ -34,11 +34,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     switch(data.cmd) {
 
         // Gets all sensor and some system data and sends JSON back to client.
+        // This is the reason the buffer is large, due to the large amount
+        // of data required to pass to the client.
         case CMDS::GET_ALL: {
         
-        // Commonly used pointers
+        // Commonly used pointers in the scope of GET_ALL. Declared them here
+        // to avoid using verbose commands.
         Clock::DateTime* dtg = Clock::DateTime::get();
-        Clock::TIME* time = dtg->getTime();
         Peripheral::TempHum* th = Peripheral::TempHum::get();
         Peripheral::Timer* re1Timer = SOCKHAND::Relays[0].getTimer();
         Peripheral::Timer* re2Timer = SOCKHAND::Relays[1].getTimer();
@@ -47,6 +49,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Soil* soil = Peripheral::Soil::get();
         Peripheral::Light* light = Peripheral::Light::get();
         
+        // Primary JSON response object. Populates every setting and value that
+        // is critical to the operation of this device, and returns it to the
+        // client. Ensure client uses same JSON and same commands.
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
         "\"sysTime\":%zu,\"hhmmss\":\"%d:%d:%d\",\"timeCalib\":%d,"
@@ -81,8 +86,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         FIRMWARE_VERSION, 
         data.idNum,
         Messaging::MsgLogHandler::get()->getNewLogEntry(),
-        static_cast<size_t>(time->raw),
-        time->hour, time->minute, time->second,
+        static_cast<size_t>(dtg->getTime()->raw), 
+        dtg->getTime()->hour, dtg->getTime()->minute, dtg->getTime()->second,
         dtg->isCalibrated(),
         static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
         re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
@@ -218,6 +223,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1
         case CMDS::RELAY_2: // inRange not required here due to else block.
         static uint8_t IDR2 = SOCKHAND::Relays[1].getID(); // Perm ID
         if (data.suppData == 0) {
@@ -235,6 +241,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1
         case CMDS::RELAY_3: // inRange not required here due to else block.
         static uint8_t IDR3 = SOCKHAND::Relays[2].getID(); // Perm ID
         if (data.suppData == 0) {
@@ -252,6 +259,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1
         case CMDS::RELAY_4: // inRange not required here due to else block.
         static uint8_t IDR4 = SOCKHAND::Relays[3].getID(); // Perm ID
         if (data.suppData == 0) {
@@ -302,6 +310,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_TIMER_ON
         case CMDS::RELAY_2_TIMER_ON:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
@@ -314,6 +323,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_IMER_OFF
         case CMDS::RELAY_2_TIMER_OFF:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
@@ -326,6 +336,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_TIMER_ON
         case CMDS::RELAY_3_TIMER_ON:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
@@ -338,6 +349,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_IMER_OFF
         case CMDS::RELAY_3_TIMER_OFF:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) {
             written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
@@ -350,6 +362,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_TIMER_ON
         case CMDS::RELAY_4_TIMER_ON:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
@@ -362,6 +375,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See RELAY_1_IMER_OFF
         case CMDS::RELAY_4_TIMER_OFF:
         if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
             written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
@@ -374,8 +388,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Attaches a single relay (numbers 0 - 3) corresponding to 
-        // (numbers 1 - 4) to the temperature sensor. 
+        // Attaches a single relay to the temperature sensor. Supp data should
+        // be 0 to 3, corresponding to relays 1 - 4, or 4, which will detach 
+        // the relay.
         case CMDS::ATTACH_TEMP_RELAY: 
         if (!SOCKHAND::inRange(0, 4, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Temp Re att fail", 0, 
@@ -537,6 +552,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See SET_TEMP_RE_LWR_THAN.
         case CMDS::SET_HUM_RE_LWR_THAN: 
         if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0, 
@@ -554,6 +570,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See SET_TEMP_RE_GTR_THAN.
         case CMDS::SET_HUM_RE_GTR_THAN: 
         if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
             written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0, 
@@ -571,6 +588,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_TEMP_RE_COND_NONE.
         case CMDS::SET_HUM_RE_COND_NONE: {
         Peripheral::TH_TRIP_CONFIG* conf = 
             Peripheral::TempHum::get()->getHumConf();
@@ -588,6 +606,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }            
         break;
 
+        // See SET_TEMP_ALT_LWR_THAN.
         case CMDS::SET_HUM_ALT_LWR_THAN:
 
         // Prevents WAP mode from running station only features.
@@ -608,6 +627,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See SET_TEMP_ALT_GTR_THAN.
         case CMDS::SET_HUM_ALT_GTR_THAN:
 
         // Prevents WAP mode from running station only features.
@@ -628,6 +648,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See SET_TEMP_ALT_COND_NONE.
         case CMDS::SET_HUM_ALT_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
@@ -724,6 +745,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // See SET_SOIL1_LWR_THAN.
         case CMDS::SET_SOIL2_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -745,6 +767,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_GTR_THAN.
         case CMDS::SET_SOIL2_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -766,6 +789,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_COND_NONE.
         case CMDS::SET_SOIL2_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
@@ -781,6 +805,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_LWR_THAN.
         case CMDS::SET_SOIL3_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -802,6 +827,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_GTR_THAN.
         case CMDS::SET_SOIL3_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -823,6 +849,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_COND_NONE.
         case CMDS::SET_SOIL3_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
@@ -838,6 +865,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_LWR_THAN.
         case CMDS::SET_SOIL4_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -859,6 +887,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_GTR_THAN.
         case CMDS::SET_SOIL4_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
@@ -880,6 +909,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
+        // See SET_SOIL1_COND_NONE.
         case CMDS::SET_SOIL4_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
@@ -895,8 +925,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
-        // Attaches a single relay (numbers 0 - 3) corresponding to numbers
-        // (relay 1 - 4) to the photoresistor ONLY. AS7341 is read only.
+        // Attaches a single relay to the photoresistor. Supp data should
+        // be 0 to 3, corresponding to relays 1 - 4, or 4, which will detach 
+        // the relay. AS7341 is read only.
         case CMDS::ATTACH_LIGHT_RELAY:
         if (!SOCKHAND::inRange(0, 4, data.suppData)) {
             written = snprintf(buffer, size, reply, 0, "Lgt Re att fail", 0, 
@@ -1028,32 +1059,22 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         esp_restart();
         break;
 
-        case CMDS::TEST1: { // COMMENT OUT AFTER TESTING
-        // Test case here
-        written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
-            0, data.idNum);
-
-        // Peripheral::Soil::get()->test(data.suppData, 0);
-        }
-        break;
-
-        case CMDS::TEST2: { // COMMENT OUT AFTER TESTINGS
-        written = snprintf(buffer, size, reply, 1, "Testing Web exchange", 
-            0, data.idNum);
-
-        // Peripheral::Soil::get()->test(data.suppData, 1);
-        }
-        break;
-        
         default:
         break;
     }
 
     if (written <= 0) {
-        printf("Error formatting string\n");
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s error formatting string", SOCKHAND::tag);
+
+        SOCKHAND::sendErr(SOCKHAND::log);
+
     } else if (written >= size) {
-        printf("Output was truncated. Buffer size: %zu, Output size: %d\n",
-        size, written);
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Output truncated. Buffer size: %zu, Output size: %d", 
+            SOCKHAND::tag, size, written);
+
+        SOCKHAND::sendErr(SOCKHAND::log);
     } 
 }
 
@@ -1075,16 +1096,18 @@ bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size,
     const char* reply, const char* idNum) {
 
     if (NetMain::getNetType() != NetMode::STA) {
-        written = snprintf(buffer, size, reply, 0, "STA MODE ONLY", 0, idNum);
-        return false;
+        written = snprintf(buffer, size, reply, 0, "ONLY STA MODE ALLOWED", 
+            0, idNum);
+
+        return false; // Is not station mode.
     }
 
-    return true; // Data is station.
+    return true; // is station mode.
 }
 
 // Requires relay number and pointer to TempHum configuration. Ensures relay
 // number is between 0 and 4, 0 - 3 (relays 1 - 4), and 4 sets the relay to
-// nullptr. 
+// nullptr and remove functionality. 
 void SOCKHAND::attachRelayTH( // Temp Hum relay attach
     uint8_t relayNum, 
     Peripheral::TH_TRIP_CONFIG* conf) {
@@ -1100,8 +1123,11 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         conf->relay.controlID = SOCKHAND::Relays[relayNum].getID();
         conf->relay.num = relayNum; // Display purposes only
 
-        printf("Relay %u, IDX %u, attached with ID %u\n", 
-        relayNum + 1, relayNum, conf->relay.controlID);
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Relay %u, IDX %u, attached with ID %u", 
+            SOCKHAND::tag, relayNum + 1, relayNum, conf->relay.controlID);
+
+        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
@@ -1110,9 +1136,17 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         conf->relay.relay = nullptr;
         conf->relay.num = TEMP_HUM_NO_RELAY;
 
-        printf("Relay detached\n");
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Relay ID %u detached", SOCKHAND::tag, conf->relay.controlID);
+
+        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+
     } else {
-        printf("Must be a relay number 0 - 4\n");
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s TH relay not attached, incorrect index <%u> passed", 
+            SOCKHAND::tag, relayNum);
+        
+        SOCKHAND::sendErr(SOCKHAND::log);
     }
 }
 
@@ -1130,8 +1164,11 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         conf->controlID = SOCKHAND::Relays[relayNum].getID();
         conf->num = relayNum; // Display purposes only
 
-        printf("Relay %u, IDX %u, attached with ID %u\n", 
-        relayNum + 1, relayNum, conf->controlID); 
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Relay %u, IDX %u, attached with ID %u", 
+            SOCKHAND::tag, relayNum + 1, relayNum, conf->controlID);
+
+        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
@@ -1140,9 +1177,17 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         conf->relay = nullptr;
         conf->num = LIGHT_NO_RELAY;
 
-        printf("Relay detached\n");
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Relay ID %u detached", SOCKHAND::tag, conf->controlID);
+
+        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+
     } else {
-        printf("Must be a relay number 0 - 4\n");
+        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+            "%s Light relay not attached, incorrect index <%u> passed", 
+            SOCKHAND::tag, relayNum);
+
+        SOCKHAND::sendErr(SOCKHAND::log);
     }
 }
 

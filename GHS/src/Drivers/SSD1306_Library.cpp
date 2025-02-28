@@ -82,6 +82,7 @@ void OLEDbasic::grabChar(char c) {
 // Defaults to 5x7 char font upon creation.
 OLEDbasic::OLEDbasic() : 
 
+    tag("(SSD1306)"),
     col{0x00}, page{0x00}, charDim{5, 7}, dimID{DIM::D5x7},
     colMax{static_cast<int>(Size::columns) - 1}, // index 7
     pageMax{static_cast<int>(Size::pages) - 1}, // index 127
@@ -250,7 +251,7 @@ void OLEDbasic::writeLine() {
 // of text on the same line without incremementing the page.
 void OLEDbasic::write(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        printf("SSD1306: No message\n");
+        printf("%s No write message\n", this->tag);
         return;
     }
 
@@ -285,7 +286,7 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
 // of text on the same line without incremementing the page.
 void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        printf("SSD1306: No message\n");
+        printf("%s No cleanWrite message\n", this->tag);
         return;
     }
 
@@ -344,9 +345,9 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
 void OLEDbasic::send() {
     esp_err_t err;
 
-    auto errHandle = [](esp_err_t err) { // Prints to serial.
+    auto errHandle = [this](esp_err_t err) { // Prints to serial.
         if (err != ESP_OK) {
-            printf("SSD1306: err -  %s\n", esp_err_to_name(err));
+            printf("%s err:  %s\n", this->tag, esp_err_to_name(err));
         }
     };
 

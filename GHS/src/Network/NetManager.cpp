@@ -54,14 +54,14 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
         // This will allow a new connection using new creds.
         if (net_type == NetMode::WAP || net_type == NetMode::WAP_SETUP || 
             net_type == NetMode::WAP_RECON) {
-
+            
             // If non-resseting due to fail, returns to block code. Recommend
             // enabling NET_DESTROY_FAIL_FORCE_RESET to true.
             if (!this->handleDestruction(this->wap)) return;
 
             // Handles logging for connection destruction. WAP class will 
             // log for new/active connection.
-            snprintf(this->log, sizeof(this->log), "%s: WAP connect destroyed", 
+            snprintf(this->log, sizeof(this->log), "%s WAP connect destroyed", 
                 this->tag);
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
@@ -74,7 +74,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
    
             // Handles logging for connection destruction. STA class will 
             // log for new/active connection.
-            snprintf(this->log, sizeof(this->log), "%s: STA connect destroyed", 
+            snprintf(this->log, sizeof(this->log), "%s STA connect destroyed", 
                 this->tag);
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
@@ -87,8 +87,11 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
         // when attempting a reconnection in other methods to handle redundancy.
         mode.setNetType(NetType);
 
-        snprintf(this->log, sizeof(this->log), "%s: Starting server mode %s", 
+        snprintf(this->log, sizeof(this->log), "%s Starting server mode %s", 
             this->tag, modes[static_cast<uint8_t>(NetType)]);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            this->log, Messaging::Method::SRL_LOG);
 
         this->startServer(mode);
     }
@@ -160,9 +163,9 @@ void NetManager::startServer(NetMain &mode) {
     // This block ensures that each previous block is properly initialized
     // before it continues to the next function. All error handling is 
     // embedded within these functions.
-    if (mode.init_wifi() == wifi_ret_t::INIT_OK) {
-        if (mode.start_wifi() == wifi_ret_t::WIFI_OK) {
-            if (mode.start_server() == wifi_ret_t::SERVER_OK) {
+    if (mode.init_wifi() == wifi_ret_t::INIT_OK) { 
+        if (mode.start_wifi() == wifi_ret_t::WIFI_OK) { 
+            if (mode.start_server() == wifi_ret_t::SERVER_OK) { 
                 mode.mDNS(); // Final set for running server.
             }
         }
@@ -206,22 +209,23 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
 
     if (!sentLog) { // Sends log only once per reattempt session.
         sentLog = true;
-        snprintf(this->log, sizeof(this->log), "%s: Net Reconnecting", 
+        snprintf(this->log, sizeof(this->log), "%s Net Reconnecting", 
             this->tag);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
             this->log, Messaging::Method::SRL_LOG);
-    } 
 
-    // Sends via SRL every reconnect attempt. This allows pollution control to
-    // the log.
-    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
-        this->log, Messaging::Method::SRL);
+    } else {
+        // Sends via SRL every reconnect attempt. This allows pollution control
+        // to the log.
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+            this->log, Messaging::Method::SRL);
+    }
 
     startServer(mode);
     attempt++;
 
-    if (attempt > NET_ATTEMPTS_RECON) {
+    if (attempt >= NET_ATTEMPTS_RECON) {
         mode.destroy();
         attempt = 0;
         sentLog = false; // Resets to allow relogging
@@ -234,7 +238,7 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
 bool NetManager::handleDestruction(NetMain &mode) {
     uint8_t destroyAttempt = 0;
 
-    while (this->wap.destroy() != wifi_ret_t::DESTROY_OK) {
+    while (mode.destroy() != wifi_ret_t::DESTROY_OK) {
             
         // Check for attempt. If this occurs, chances are that the
         // device will need to be reset, considering destroying the
@@ -243,7 +247,7 @@ bool NetManager::handleDestruction(NetMain &mode) {
 
             // Handle error messaging immediately before action.
             snprintf(this->log, sizeof(this->log), 
-                "%s: Connection unable to destroy", this->tag);
+                "%s Connection unable to destroy", this->tag);
 
             Messaging::MsgLogHandler::get()->handle(
                 Messaging::Levels::CRITICAL, this->log, 
@@ -265,7 +269,8 @@ bool NetManager::handleDestruction(NetMain &mode) {
         vTaskDelay(pdMS_TO_TICKS(10)); // brief delay between loops.
     }
 
-    destroyAttempt = 0; // reset
+    destroyAttempt = 0; // reset delays and toggles.
+    mode.getLogToggle()->con = mode.getLogToggle()->discon = true;
     return true;
 }
 
@@ -275,7 +280,7 @@ NetManager::NetManager(
     NetWAP &wap, 
     UI::Display &OLED) :
 
-    tag("NetMan"), station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {
+    tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {
 
         memset(this->log, 0, sizeof(this->log));
     }
