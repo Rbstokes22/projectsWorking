@@ -6,8 +6,8 @@
 #include "esp_adc/adc_continuous.h"
 #include "UI/MsgLogHandler.hpp"
 
-const char* confTag = "(CONFIG)";
 char confLog[50]{0}; // Reusable log. 50 should be plenty big.
+const char* whiteListDomains[3] = {WEBURL, LOCAL_IP, MDNS_ACTUAL};
 
 // PINS
 namespace CONF_PINS {
@@ -54,7 +54,7 @@ void setupDigitalPins() {
         err = gpio_set_direction(pinNum, pin.IOconfig);
 
         if (err != ESP_OK) { // Handle error indicating dig pin problem.
-            snprintf(confLog, sizeof(confLog),"%s DPin %d err", confTag, i);
+            snprintf(confLog, sizeof(confLog),"%s DPin %d err", CONFTAG, i);
             Messaging::MsgLogHandler::get()->handle(
                 Messaging::Levels::CRITICAL,
                 confLog, Messaging::Method::SRL_LOG
@@ -68,7 +68,7 @@ void setupDigitalPins() {
             err = gpio_set_pull_mode(pinNum, pin.pullConfig);
 
             if (err != ESP_OK) { // Handle error indicating dig pin problem.
-            snprintf(confLog, sizeof(confLog),"%s DPin %d err", confTag, i);
+            snprintf(confLog, sizeof(confLog),"%s DPin %d err", CONFTAG, i);
             Messaging::MsgLogHandler::get()->handle(
                 Messaging::Levels::CRITICAL,
                 confLog, Messaging::Method::SRL_LOG
@@ -92,7 +92,7 @@ void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
     esp_err_t err = adc_oneshot_new_unit(&unit_cfg, &unit);
 
     if (err != ESP_OK) {
-        snprintf(confLog, sizeof(confLog),"%s ADC handle err", confTag);
+        snprintf(confLog, sizeof(confLog),"%s ADC handle err", CONFTAG);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL, 
             confLog, Messaging::Method::SRL_LOG);
     }
@@ -115,7 +115,7 @@ void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
         err = adc_oneshot_config_channel(adc_unit, pinNum, &chan_cfg);
 
         if (err != ESP_OK) {
-            snprintf(confLog, sizeof(confLog),"%s APin %d err", confTag, i);
+            snprintf(confLog, sizeof(confLog),"%s APin %d err", CONFTAG, i);
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
                 confLog, Messaging::Method::SRL_LOG);
         }

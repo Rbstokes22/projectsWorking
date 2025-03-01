@@ -4,11 +4,9 @@
 
 // REVISE, COMMENT, ENABLE LOGGING
 // COMPLETE: common, config, drivers, i2c, netcreds, NetMain, NetManager,
-// NetSTA, NETWAP, Socket handlers, STA handler. ON STAOTA handler, use new err handling.
+// NetSTA, NETWAP, Socket handlers, STA handler, OTA Handler, WAP Handler, on 
+// WAP Setup handler.
 
-// Almost done with netcreds. Need to go in a fix comments as well as revise and
-// ensure flow follow the last log placement. Ensure there are no other log entries
-// that are needed.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

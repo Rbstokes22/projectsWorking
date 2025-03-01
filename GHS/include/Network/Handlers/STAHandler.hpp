@@ -8,6 +8,9 @@
 
 namespace Comms {
 
+#define OTA_URL_SIZE 100 // max size of url
+#define OTA_CHECKNEW_BUFFER_SIZE 300 // json data with some padding, est 200.
+
 // Src file STAHandler.cpp
 esp_err_t STAIndexHandler(httpd_req_t* req);
 esp_err_t STALogHandler(httpd_req_t* req);
@@ -31,6 +34,7 @@ class OTAHAND {
     static bool whitelistCheck(const char* URL); // add domains in the src file.
     static void sendErr(const char* msg, 
         Messaging::Levels lvl = Messaging::Levels::ERROR);
+    static bool sendstrErr(esp_err_t err, const char* src);
 
     static bool isInit; // Is handler init
 

@@ -6,8 +6,8 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 
-extern const char* confTag; // logging tag.
-extern char confLog[50]; // Reusable log.
+#define CONFTAG "(CONFIG)"
+extern char confLog[50]; // Reusable log for config src.
 
 // bypass firmware validation when starting and OTA updates. Set to true 
 // during development phase.
@@ -16,6 +16,7 @@ extern char confLog[50]; // Reusable log.
 // Network connection and broadcasting information
 #define AP_SSID "GreenHouse"
 #define MDNS_NAME "greenhouse"
+#define MDNS_ACTUAL "http://greenhouse.local" // Used for whitelist
 #define AP_DEF_PASS "12345678"
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
@@ -31,9 +32,13 @@ extern char confLog[50]; // Reusable log.
 #define FIRMWARE_SIZE 1200288
 #define FIRMWARE_SIG_SIZE 256
 
-// Uncommend whichever WEBURL you are using
+// Uncomment whichever WEBURL you are using
 // #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
 #define WEBURL "http://shadyside.local:8080"
+
+// White list domains used in STAOTAHandler.cpp
+#define LOCAL_IP "http://192.168" // All that is required
+extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 
 // AS7341 (default values by datasheet are 599, 29, 0)
 #define AS7341_ASTEP 599 

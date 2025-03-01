@@ -156,7 +156,7 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
         snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
             "%s Socket handshake complete", SOCKHAND::tag);
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
         return ESP_OK;
     }
 
