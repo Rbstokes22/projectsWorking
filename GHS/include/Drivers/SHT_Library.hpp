@@ -3,6 +3,7 @@
 
 #include "I2C/I2C.hpp"
 #include "stdint.h"
+#include "UI/MsgLogHandler.hpp"
 
 // Datasheet
 // https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf
@@ -18,6 +19,8 @@ namespace SHT_DRVR {
 #define SHT_MIN_HUM 1 // 0, but cant set below 0
 #define SHT_MAX_HUM 99 // 100, but cant set above 100.
 #define SHT_READ_DELAY 50 // 50 millis, used between request and read.
+#define SHT_STATUS_BYTES 2 // uint16_t / 2 bytes expected
+#define SHT_MAX_LOGS 10 // Prevents intermittent errors from polluting log.
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.
@@ -72,6 +75,7 @@ enum class CMD : uint16_t {
 class SHT {
     private:
     const char* tag;
+    char log[LOG_MAX_ENTRY];
     i2c_master_dev_handle_t i2cHandle; // I2C handle to register device.
     bool isInit; // Is class init
     RWPacket packet; // Read and write packet handling all RW data.
@@ -80,6 +84,8 @@ class SHT {
     uint16_t getStatus(bool &dataSafe);
     uint8_t crc8(uint8_t* buffer, uint8_t length);
     SHT_RET computeTemps(SHT_VALS &carrier);
+    void sendErr(const char* msg, bool isLog = false, Messaging::Levels lvl =
+        Messaging::Levels::ERROR);
 
     public:
     SHT();

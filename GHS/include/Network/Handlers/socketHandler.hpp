@@ -8,6 +8,7 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Light.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/Handlers/MasterHandler.hpp"
 
 namespace Comms {
 
@@ -69,10 +70,9 @@ class argPool {
 // NOTE: All static variables and functions due to requirements of the URI
 // handlers. Could be a singleton, but didnt want to rewrite. 
 
-class SOCKHAND {
+class SOCKHAND : public MASTERHAND {
     private:
     static const char* tag;
-    static char log[LOG_MAX_ENTRY]; // error log.
     static Peripheral::Relay* Relays; // Pointer to relays, init from main.cpp
     static bool isInit; // Shows if the handler is initialized.
     static argPool pool; // argument pool object.
@@ -85,8 +85,7 @@ class SOCKHAND {
     static bool checkSTA(int &written, char* buffer, size_t size, 
         const char* reply, const char* idNum);
     
-    static void sendErr(const char* msg, 
-        Messaging::Levels lvl = Messaging::Levels::ERROR);
+    static bool initCheck(httpd_req_t* req);
     
     public:
     static bool init(Peripheral::Relay* relays);

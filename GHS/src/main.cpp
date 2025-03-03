@@ -2,11 +2,20 @@
 
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 
-// REVISE, COMMENT, ENABLE LOGGING
-// COMPLETE: common, config, drivers, i2c, netcreds, NetMain, NetManager,
-// NetSTA, NETWAP, Socket handlers, STA handler, OTA Handler, WAP Handler, on 
-// WAP Setup handler.
-
+// Currently on SSD1306, all other drivers have msglogerr capability now with
+// the ability to log a feature only once until reset, for a max number of times
+// to prevent pollution. Continue this starting with the 1306. Also ensure the 
+// code logic is good as well, for example, in entrance functions, if there are
+// several other function calls, in a chain order, ensure not to progress on
+// and run a check of value in that single function to prevent waste and overlogging.
+// This is definitely a problem in the WAP setup handler with the JSON. You get these 
+// errors
+// ERROR: (OTAHAND) Unable to open con, ESP_OK
+// ERROR: (OTAHAND) JSON process fail
+// ERROR: (OTAHAND) Unable to process JSON
+// ERROR: (OTAHAND) Bad JSON response data
+// Once done the msglogerr handling and general code revision and comments ended
+// on the WAP setup handler.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would
@@ -201,26 +210,12 @@ void app_main() {
         }
     } 
 
-    // Passes objects to the WAPSetup handler to allow for use.
-    bool isInit = Comms::WSHAND::init(station, wap);
-
-    // Log WAP setup handler success
-    snprintf(log, sizeof(log), "WAP Setup Hand init = %d", isInit);
-    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
-    log, Messaging::Method::SRL_LOG);
-
-    // Passes OTA object to the STAOTA handler to allow for use.
-    isInit = Comms::OTAHAND::init(ota);
-    snprintf(log, sizeof(log), "OTA Hand init = %d", isInit);
-    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
-    log, Messaging::Method::SRL_LOG);
-
-    // Sends the peripheral threads to the socket handler to allow mutex
-    // usage. Also sends relays to allow client to configured them.
-    isInit = Comms::SOCKHAND::init(relays);
-    snprintf(log, sizeof(log), "Socket Hand init = %d", isInit);
-    Messaging::MsgLogHandler::get()->handle(msgType[isInit],
-    log, Messaging::Method::SRL_LOG);
+    // Passes object to http handlers. No error handling as all logging
+    // is done within the handler classes themselves. All public class methods
+    // will not run, at least the gateways, without init.
+    Comms::WSHAND::init(station, wap);
+    Comms::OTAHAND::init(ota);
+    Comms::SOCKHAND::init(relays);
 
     // Start threads, and init periph. Must occur before loading settings
     // due to initialized periph params before calling the get(), to prevent

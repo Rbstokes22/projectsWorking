@@ -5,6 +5,7 @@
 #include "OTA/OTAupdates.hpp"
 #include "cJSON.h"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/Handlers/MasterHandler.hpp"
 
 namespace Comms {
 
@@ -18,10 +19,10 @@ esp_err_t STALogHandler(httpd_req_t* req);
 // NOTE: All static variables and functions due to requirements of the URI
 // handlers. Could be a singleton, but didnt want to rewrite. 
 
-class OTAHAND {
+class OTAHAND : public MASTERHAND {
     private:
     static const char* tag;
-    static char log[LOG_MAX_ENTRY];
+    static bool isInit; // Is handler init
     static OTA::OTAhandler* OTA; // OTA pointer, passed ref in init func.
     static bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size);
     static cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size);
@@ -32,11 +33,7 @@ class OTAHAND {
         const char* buffer);
         
     static bool whitelistCheck(const char* URL); // add domains in the src file.
-    static void sendErr(const char* msg, 
-        Messaging::Levels lvl = Messaging::Levels::ERROR);
-    static bool sendstrErr(esp_err_t err, const char* src);
-
-    static bool isInit; // Is handler init
+    static bool initCheck(httpd_req_t* req);
 
     public:
     static bool init(OTA::OTAhandler &ota);

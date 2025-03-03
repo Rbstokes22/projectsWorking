@@ -9,7 +9,6 @@ namespace Comms {
 
 // Static Setup
 const char* SOCKHAND::tag("(SOCKHAND)");
-char SOCKHAND::log[LOG_MAX_ENTRY]{0};
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
 argPool SOCKHAND::pool;
@@ -67,10 +66,10 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
     const char* id = strtok(NULL, "/");
 
     if (cmd == NULL || supp == NULL || id == NULL) {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Invalid command input format", SOCKHAND::tag);
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
         return ESP_FAIL;
     }
 
@@ -112,10 +111,10 @@ void SOCKHAND::ws_async_send(void* arg) {
         &wsPkt);
 
     if (asyncSend != ESP_OK) {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Skt err sending async response", SOCKHAND::tag);
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
     }
 
     // printf("Sending: %s\n", wsPkt.payload); // Used for troubleshooting.
@@ -123,40 +122,72 @@ void SOCKHAND::ws_async_send(void* arg) {
     SOCKHAND::pool.releaseArg(respArg); // Release from arg Pool once done.
 }
 
-// Requires message pointer, and level. Level is set to ERROR by default. Sends
-// to the log and serial, the printed error.
-void SOCKHAND::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
-}
+// Requires the http request pointer. Checks if the class has been init. If 
+// not, returns false and a log entry. If true, returns true. Prevents public 
+// function from working if not init. 
+bool SOCKHAND::initCheck(httpd_req_t* req) {
+    if (req == nullptr) return false;
 
-// Requires the addresses of the SHT, AS7341, and soil sensor mutex, and the
-// relays. Returns true if none of those values == nullptr. False if false.
+    if (!SOCKHAND::isInit) { // If not init reply to client and log.
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+            "%s Not init", SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Respond to client to satisfy request.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log),
+            SOCKHAND::tag, "initChk");
+    }
+
+    return SOCKHAND::isInit;
+}
 
 // Requires the pointer to the relays from main.cpp. Returns true if init,
 // and false if not.
 bool SOCKHAND::init(Peripheral::Relay* relays) {
 
-        Relays = relays;
-        if (relays != nullptr) SOCKHAND::isInit = true;
-        return SOCKHAND::isInit;
+    SOCKHAND::isInit = (relays != nullptr); // Ensure no nullptr is passed.
+
+    if (isInit) { // init, send INFO log.
+
+        Relays = relays; // Set relays.
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), "%s init", 
+            SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
+
+    } else { // Not init, send CRITICAL log.
+        
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), "%s not init", 
+            SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::CRITICAL);
     }
+    
+    return SOCKHAND::isInit;
+}
 
 // Websocket handler receives request. Completes the handshake. Handles
 // all follow on socket transmission. Returns ESP_OK ONLY in compliance
 // with the route http_uri_t which will close socket if ESP_OK isnt
-// returned.
+// returned. ATTENTION: This is the entry into this class instance, which is
+// why the init check is here. No other functions will be accessed without
+// going through this gate.
 esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
     // NOTE 1: Returns ESP_OK to block the rest of the code being ran in 
     // compliance of httpd_uri_t requirements. 
 
+    if (!SOCKHAND::initCheck(req)) return ESP_OK; // Block if not init.
+
     // Upon the handshake from the client, completes the handshake returning
     // ESP_OK.
     if (req->method == HTTP_GET) {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Socket handshake complete", SOCKHAND::tag);
         
-        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
         return ESP_OK;
     }
 
@@ -164,10 +195,11 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
     async_resp_arg* arg = SOCKHAND::pool.getArg();
 
     if (arg == NULL) { // No availabilities
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s No available pool args", SOCKHAND::tag);
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
         return ESP_OK; // NOTE 1
     }
 
@@ -182,11 +214,11 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     if (ret != ESP_OK) {
 
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s httpd_ws_rec_frame failed to get frame length. %s", 
             SOCKHAND::tag, esp_err_to_name(ret));
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+            MASTERHAND::sendErr(MASTERHAND::log);
         return ESP_OK; // NOTE 1
     }
 
@@ -201,11 +233,11 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
         if (ret != ESP_OK) {
 
-            snprintf(SOCKHAND::log, sizeof(SOCKHAND::log),
+            snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
                 "%s httpd_ws_rec_frame failed. %s", 
                 SOCKHAND::tag, esp_err_to_name(ret));
             
-            SOCKHAND::sendErr(SOCKHAND::log);
+                MASTERHAND::sendErr(MASTERHAND::log);
             return ESP_OK; // NOTE 1.
         }
 

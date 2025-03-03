@@ -12,14 +12,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/Handlers/MasterHandler.hpp"
 
 namespace Comms {
 
 // Static Setup
 const char* OTAHAND::tag("(OTAHAND)");
-char OTAHAND::log[LOG_MAX_ENTRY]{0};
-OTA::OTAhandler* OTAHAND::OTA{nullptr};
 bool OTAHAND::isInit{false};
+OTA::OTAhandler* OTAHAND::OTA{nullptr};
 
 // Requires request pointer, ref to URL object, and the size of the URL.
 // Parses query, and populates the url object firmware and signature URL. 
@@ -35,20 +35,33 @@ bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
     err = httpd_req_get_url_query_str(req, query, sizeof(query));
 
     if (err != ESP_OK) { // If error getting query, send web response.
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, "Failed to get query"), 
-            "extrurl");
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s Query Fail", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "extrurl");
         
         return false;
     }
 
     // parse the value of the firmware url by getting query key "url"
     err = httpd_query_key_value(query, "url", urlOb.firmware, size);
+
     urlOb.firmware[size] = '\0'; // Ensure null term despite memset
 
     // Checks the key was found and there is a length. If not, returns false.
     if (err != ESP_OK || strlen(urlOb.firmware) <= 0) {
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, "Failed to get URL"), 
-            "extrurl");
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s Failed to get URL", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "extrurl");
 
         return false;
     }
@@ -59,8 +72,14 @@ bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
 
     // Checks the key was found and there is a length. If not, returns false.
     if (err != ESP_OK || strlen(urlOb.signature) <= 0) {
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, 
-            "Failed to get signature URL"), "extrurl");
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s SigURL acquire FAIL", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "extrurl");
 
         return false;
     }
@@ -88,6 +107,9 @@ bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
 // OTA updates and not the update itself, which is managed in this src file,
 // but occurs in the OTA class. 
 cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
+
+    // ATTENTION: No response string for bad data, if this function is 
+    // unsuccessful, the response string will be sent in processJSON.
 
     // Use WEBURL from config.hpp, and concat it with the endpoint URL.
     char url[OTA_URL_SIZE]{0};
@@ -117,22 +139,24 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
             err = esp_http_client_close(client); // Attempt client close.
 
             if (err != ESP_OK) { 
-                snprintf(OTAHAND::log, sizeof(OTAHAND::log),
+                
+                snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
                     "%s Unable to close client. %s", OTAHAND::tag,
                     esp_err_to_name(err));
 
-                OTAHAND::sendErr(OTAHAND::log);
+                MASTERHAND::sendErr(MASTERHAND::log);
             }
         }
         
         err = esp_http_client_cleanup(client); // Attempts to cleanup client.
 
         if (err != ESP_OK) {
-            snprintf(OTAHAND::log, sizeof(OTAHAND::log),
+
+            snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
                 "%s Unable to cleanup client. %s", OTAHAND::tag, 
                 esp_err_to_name(err));
 
-            OTAHAND::sendErr(OTAHAND::log);
+            MASTERHAND::sendErr(MASTERHAND::log);
         }
     };
 
@@ -140,16 +164,17 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
         esp_http_client_set_header(client, "ngrok-skip-browser-warning", "1");
     }
 
-    err = esp_http_client_open(client, 0);
+    err = esp_http_client_open(client, 0); // Open connection, no write.
 
     // Opens connection in order to begin reading. 
     if (err != ESP_OK) {
         cleanup(false); // Never opened, do not need to close.
 
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log),
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Unable to open con, %s", OTAHAND::tag, esp_err_to_name(err));
 
-        OTAHAND::sendErr(OTAHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
+
         return NULL; // return NULL if error.
     }
 
@@ -159,11 +184,11 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     if (contentLength <= 0) { // If no length, cleanup.
         cleanup();
 
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log),
-            "%s INvalid content length of %d. %s", OTAHAND::tag, contentLength,
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s Invalid content length of %d. %s", OTAHAND::tag, contentLength,
             esp_err_to_name(err));
 
-        OTAHAND::sendErr(OTAHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
         return NULL; // return NULL if error.
     }
 
@@ -171,7 +196,7 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     int dataRead = esp_http_client_read(client, buffer, size);
     buffer[dataRead] = '\0';
 
-    cleanup(); // Run a final cleanup.
+    cleanup(); // Run a final cleanup if good.
 
     if (dataRead < 0) return NULL;
  
@@ -187,8 +212,14 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
     
     if (json == NULL || json == nullptr) { // if null, log and resp to client
 
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, 
-            "{\"version\":\"Invalid JSON\"}"), "procjson");
+        // Handles processing bad JSON if NULL is returned in receiveJSON().
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s JSON process fail", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, 
+            "{\"version\":\"Invalid JSON\"}"), OTAHAND::tag, "procjson");
 
         return ESP_FAIL; // Block remaining code.
     }
@@ -202,15 +233,17 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
         return ESP_OK;
 
     } else { // Version does not exist or is not a string.
-        *version = NULL; // Ensure version is NULL.
 
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, 
-            "{\"version\":\"Invalid JSON\"}"), "procjson");
+        *version = NULL; // Ensure version set back to NULL.
 
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log), // system log.
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Unable to get firmware version", OTAHAND::tag);
 
-        OTAHAND::sendErr(OTAHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, 
+            "{\"version\":\"Invalid JSON\"}"), OTAHAND::tag, "procjson");
+
         return ESP_FAIL;
     }
 }
@@ -220,7 +253,7 @@ esp_err_t OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
 // is kept in the config.hpp header. If they are equal, returns to the client, a
 // version match. If they are not equal, sends entire response buffer from the 
 // web server to the client for parsing, indicating an updatable version. If the
-// data is corrups, sends a response of invalid JSON. Returns ESP_OK.
+// data is corrupt, sends a response of invalid JSON. Returns ESP_OK.
 esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, 
     const char* buffer) {
 
@@ -231,21 +264,28 @@ esp_err_t OTAHAND::respondJSON(httpd_req_t* req, cJSON** version,
         strcpy(_version, (*version)->valuestring);
 
         if (strcmp(_version, FIRMWARE_VERSION) == 0) { // Match, no update
- 
-            OTAHAND::sendstrErr(httpd_resp_sendstr(req, 
-                "{\"version\":\"match\"}"), "procjson");
+        
+            // No log required. Only response string.
+            MASTERHAND::sendstrErr(httpd_resp_sendstr(req, 
+                "{\"version\":\"match\"}"), OTAHAND::tag, "respjson");
 
         // No match, respond with request JSON from server indicating to
-        // client there is a version for downloading.
+        // client there is a version for downloading. Sends data.
         } else { 
 
-            OTAHAND::sendstrErr(httpd_resp_sendstr(req, buffer), "procjson");
+            MASTERHAND::sendstrErr(httpd_resp_sendstr(req, buffer), 
+                OTAHAND::tag, "procjson");
         }
 
     } else { // Bad data passed.
 
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, 
-            "{\"version\": \"Invalid JSON\"}"), "procjson");
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s Bad JSON response data", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, 
+            "{\"version\":\"Invalid JSON\"}"), OTAHAND::tag, "respjson");
     }
     
     return ESP_OK;
@@ -272,39 +312,53 @@ bool OTAHAND::whitelistCheck(const char* URL) {
     return false;
 }
 
-// Requires message and messaging level. Level is default to ERROR. Prints
-// messaging to log and serial.
-void OTAHAND::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
-}
+// Requires the http request pointer. Checks if the class has been init. If 
+// not, returns false and a log entry. If true, returns true. Prevents public 
+// functions from working if not init.
+bool OTAHAND::initCheck(httpd_req_t* req) {
+    if (req == nullptr) return false;
 
-// Reuires the ref/addr to the OTA handler object. Once init, ota will have
-// functionality. Returns true if init, and false if not.
-bool OTAHAND::init(OTA::OTAhandler &ota) {
-    OTAHAND::OTA = &ota;
+    if (!OTAHAND::isInit) { // If not init reply to client and log.
 
-    if (OTAHAND::OTA != nullptr) { // Ensure not nullptr.
-        OTAHAND::isInit = true;
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s Not init", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::CRITICAL);
+
+        // Always send string, since this is a blocking function.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "initCk");
     }
 
     return OTAHAND::isInit;
 }
 
-// Requires error return from the sendstr functionality and the source or 
-// function calling this. This file has several sendstr functions, so this
-// is a wrapper that logs a sending error if it occurs. Returns true if no
-// error.
-bool OTAHAND::sendstrErr(esp_err_t err, const char* src) { 
+// Reuires the ref/addr to the OTA handler object. Once init, ota will have
+// functionality. Returns true if init, and false if not.
+bool OTAHAND::init(OTA::OTAhandler &ota) {
 
-    if (err != ESP_OK) { // Only sends a log entry if string did not send.
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log), 
-            "%s http string unsent from %s", OTAHAND::tag, src);
+    // Attempt to set.
+    OTAHAND::OTA = &ota;
 
-        OTAHAND::sendErr(OTAHAND::log);
+    // Check to ensure set and not nullptr
+    OTAHAND::isInit = OTAHAND::OTA != nullptr;
+
+    if (!isInit) { // If not init, send CRITICAL log.
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s not init", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::CRITICAL);
+
+    } else { // is Init, send INFO log.
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), "%s init", 
+            OTAHAND::tag);
+
+        OTAHAND::sendErr(OTAHAND::log, Messaging::Levels::INFO);
     }
 
-    return (err == ESP_OK);
+    return OTAHAND::isInit;
 }
 
 // Exclusive to OTA updates via LAN. The request is passed, and the 
@@ -314,10 +368,26 @@ bool OTAHAND::sendstrErr(esp_err_t err, const char* src) {
 // via responses.
 esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
 
+    if (!OTAHAND::initCheck(req)) return ESP_OK; // Block code, OK required.
+
     // struct that holds both firmware and signature URLs. memsets upon init.
     OTA::URL LANurl; 
   
-    httpd_resp_set_type(req, "text/html");
+    esp_err_t set = httpd_resp_set_type(req, "text/html");
+
+    if (set != ESP_OK) {
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s http resp type not set", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Always send string, since this is a blocking function.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "updLAN");
+
+        return ESP_OK; // Block
+    }
 
     // Check to ensure OTA is not nullptr, and extracts the URL into the LANurl
     // object. If the extract returns true, the url passes white list checks,
@@ -336,8 +406,10 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
         if (OTAHAND::OTA->update(LANurl, true) == OTA::OTA_RET::OTA_OK) {
 
             // Prevents the client from waiting for a response and making a 
-            // second request.
-            if (OTAHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), "updLAN")) {
+            // second request. No log required.
+            if (MASTERHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), 
+                OTAHAND::tag, "updLAN")) {
+
                 vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
                 esp_restart(); // Restart after sending.
             };
@@ -346,7 +418,13 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
     } 
 
     // Either restarts or sends this message.
-    OTAHAND::sendstrErr(httpd_resp_sendstr(req, "OTA not updated"), "updLAN");
+    snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),"%s OTA not updated", 
+        OTAHAND::tag);
+
+    MASTERHAND::sendErr(MASTERHAND::log);
+
+    MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+        OTAHAND::tag, "updLAN");
 
     return ESP_OK; // Must return ESP_OK
 }
@@ -356,17 +434,35 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
 // OTA, and returns ESP_OK regardless of integrity.
 esp_err_t OTAHAND::update(httpd_req_t* req) {
 
+    if (!OTAHAND::initCheck(req)) return ESP_OK; // Block code, OK required.
+
     // struct that holds both firmware and signature URLs. memsets upon init.
     OTA::URL WEBurl; 
 
-    httpd_resp_set_type(req, "text/html"); // Set text
+    esp_err_t set = httpd_resp_set_type(req, "text/html"); // Set text
+
+    if (set != ESP_OK) {
+        
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s http resp type not set", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Always send string, since this is a blocking function.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "updWEB");
+
+        return ESP_OK; // Block
+    }
 
     // If the domain is in the white list, it will proceed with the OTA update.
     if (OTAHAND::OTA != nullptr && extractURL(req, WEBurl, URLSIZE)) {
 
         if (OTAHAND::OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
             
-            if (OTAHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), "updWEB")) {
+            if (MASTERHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), 
+                OTAHAND::tag, "updWEB")) {
+
                 vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to allow response
                 esp_restart(); // Restart after sending.
             };
@@ -374,7 +470,13 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
     } 
 
     // Either restarts or sends this message.
-    OTAHAND::sendstrErr(httpd_resp_sendstr(req, "OTA not updated"), "updWEB");
+    snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), "%s OTA not updated", 
+        OTAHAND::tag);
+
+    MASTERHAND::sendErr(MASTERHAND::log);
+
+    MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+        OTAHAND::tag, "updWEB");
 
     return ESP_OK; // Must return ESP_OK
 }
@@ -382,17 +484,45 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
 // This will be used to roll the OTA back to the previous version. Returns 
 // ESP_OK after accepting request.
 esp_err_t OTAHAND::rollback(httpd_req_t* req) {
-    httpd_resp_set_type(req, "text/html");
+
+    if (!OTAHAND::initCheck(req)) return ESP_OK; // Block code, OK required.
+
+    esp_err_t set = httpd_resp_set_type(req, "text/html");
+
+    if (set != ESP_OK) {
+        
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s http resp type not set", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Always send string, since this is a blocking function.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "rollback");
+
+        return ESP_OK; // Block
+    }
 
     if (OTAHAND::OTA != nullptr) {
         
         // sends an OK string, rollsback, and then restarts the device.
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), "rollbk");
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, "OK"), OTAHAND::tag, 
+            "rollbk");
+
         if (OTAHAND::OTA->rollback()) esp_restart();
 
-    } else {
+    } else { // Is nullptr
 
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, "FAIL"), "rollBk");
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s OTA not updated", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "updLAN");
+
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, "FAIL"), OTAHAND::tag, 
+            "rollBk");
     }
 
     return ESP_OK; // Must return ESP_OK
@@ -405,22 +535,51 @@ esp_err_t OTAHAND::rollback(httpd_req_t* req) {
 // Returns ESP_OK or ESP_FAIL.
 esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
 
-    httpd_resp_set_type(req, "application/json"); // set type
+    if (!OTAHAND::initCheck(req)) return ESP_OK; // Block code, OK required.
+
+    esp_err_t set = httpd_resp_set_type(req, "application/json"); // set type
+
+    if (set != ESP_OK) {
+        
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s http resp type not set", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Always send string, since this is a blocking function.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+            OTAHAND::tag, "chkNew");
+
+        return ESP_OK; // Block
+    }
 
     // Ensures that this is in station mode, to prevent checks while in WAP mode
     if (NetMain::getNetType() != NetMode::STA) {
 
-        OTAHAND::sendstrErr(httpd_resp_sendstr(req, "{\"version\":\"wap\"}"), 
-            "chkNew");
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s FW chk must be STA mode", OTAHAND::tag);
 
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log), 
-            "%s Cannot check FW vers in WAP mode", OTAHAND::tag);
+        MASTERHAND::sendErr(MASTERHAND::log);
 
-        OTAHAND::sendErr(OTAHAND::log);
+        // Always send string, since this is a blocking function.
+        // wap version lets client know in WAP mode.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, 
+            "{\"version\":\"wap\"}"), OTAHAND::tag, "chkNew");
+
         return ESP_OK; // required by uri reg.
     }
 
+    // If all is good, continue below.
+
     char buffer[OTA_CHECKNEW_BUFFER_SIZE]{0};
+
+    // ENSURE THAT WE ARE CHECKING VARIABLES BEFORE CONTINUING ON, SUCH AS JSON
+    // TO ENSURE THAT IS IS NOT SET TO NULL, ALTHOUGH PROCESS JSON COVERS THIS 
+    // IN ITS FIRST CHECK, WE SHOULD DO PRE-EMPTIVE CHECKS AND THEN HANDLE IT
+    // HERE BEFORE MAKING ANOTHER THING RELY. ONCE A STRING IS SENT, IT SHOULD 
+    // END THERE AND MAYBE RETURN SOME SORT OF VALUE. ENSURE THAT THIS IS CONSISTENT
+    // THROUGH ALL HANDLERS. THIS IS EVIDENT WHEN THE SERVER IS NOT RUNNING, IT
+    // PRINTS 4 LOG ENTRIES. SEE SERIAL MONITOR.
 
     // returns parsed JSON string.
     cJSON* json = receiveJSON(req, buffer, sizeof(buffer));
@@ -428,10 +587,12 @@ esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
  
     // Processes the json to extract the firmware version.
     if (OTAHAND::processJSON(json, req, &version) != ESP_OK) {
-        snprintf(OTAHAND::log, sizeof(OTAHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Unable to process JSON", OTAHAND::tag);
 
-        OTAHAND::sendErr(OTAHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // ATTENTION: No response string, will be handled in respondJSON.
     }
 
     // Once processed, responds to server with buffer data if firmware is new. 

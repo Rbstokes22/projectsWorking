@@ -10,10 +10,12 @@
 
 namespace Peripheral {
 
+const char* Light::tag("(LIGHT)");
+char Light::log[LOG_MAX_ENTRY]{0};
 Threads::Mutex Light::mtx; // Def of static var
 
 Light::Light(LightParams &params) : 
-
+    
     readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     averages{
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -132,8 +134,16 @@ void Light::handleRelay(bool relayOn, size_t ct) {
     }
 }
 
+// Requires message string, and level. Level is default to ERROR. Prints to
+// both serial and log.
+void Light::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+        Messaging::Method::SRL_LOG);
+}
+
 // Singleton class object, require light parameters for first init. Once init
-// will trun a point to the class instance for use.
+// will trun a point to the class instance for use. WARNING! Will not function
+// without proper init, since nullptr will not be able to command.
 Light* Light::get(LightParams* parameter) {
 
     // Single use of mutex lock which will ensure to protect any subsequent
@@ -142,13 +152,22 @@ Light* Light::get(LightParams* parameter) {
 
     static bool isInit{false};
 
+    // Gate. If nullptr is passed, and hasnt been init, returns nullptr.
     if (parameter == nullptr && !isInit) {
-        return nullptr; // Blocks instance from being created.
-    } else if (parameter != nullptr) {
-        isInit = true; // Opens gate after proper init
+        snprintf(Light::log, sizeof(Light::log), "%s Using uninit instance",
+            Light::tag);
+ 
+        Light::sendErr(Light::log, Messaging::Levels::CRITICAL);
+        return nullptr; 
+
+    } else if (parameter != nullptr && !isInit) { // Used only for logging only.
+
+        snprintf(Light::log, sizeof(Light::log), "%s Init", Light::tag);
+        Light::sendErr(Light::log, Messaging::Levels::INFO);
+        isInit = true;
     }
 
-    static Light instance(*parameter);
+    static Light instance(*parameter); // Create param.
     
     return &instance;
 }

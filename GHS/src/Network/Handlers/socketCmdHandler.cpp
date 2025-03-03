@@ -14,6 +14,7 @@
 #include "Drivers/SHT_Library.hpp" 
 #include "UI/MsgLogHandler.hpp" 
 #include "Peripherals/saveSettings.hpp" 
+#include "Network/Handlers/MasterHandler.hpp"
 
 // NOTE. Some of these functionalities are for station mode only. These commands
 // have a built in check to ensure requirements are met.
@@ -1064,17 +1065,18 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     }
 
     if (written <= 0) {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s error formatting string", SOCKHAND::tag);
 
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
 
     } else if (written >= size) {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Output truncated. Buffer size: %zu, Output size: %d", 
             SOCKHAND::tag, size, written);
 
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
     } 
 }
 
@@ -1123,11 +1125,11 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         conf->relay.controlID = SOCKHAND::Relays[relayNum].getID();
         conf->relay.num = relayNum; // Display purposes only
 
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Relay %u, IDX %u, attached with ID %u", 
             SOCKHAND::tag, relayNum + 1, relayNum, conf->relay.controlID);
 
-        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
@@ -1136,17 +1138,18 @@ void SOCKHAND::attachRelayTH( // Temp Hum relay attach
         conf->relay.relay = nullptr;
         conf->relay.num = TEMP_HUM_NO_RELAY;
 
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Relay ID %u detached", SOCKHAND::tag, conf->relay.controlID);
 
-        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
 
     } else {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s TH relay not attached, incorrect index <%u> passed", 
             SOCKHAND::tag, relayNum);
         
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
     }
 }
 
@@ -1164,11 +1167,11 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         conf->controlID = SOCKHAND::Relays[relayNum].getID();
         conf->num = relayNum; // Display purposes only
 
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Relay %u, IDX %u, attached with ID %u", 
             SOCKHAND::tag, relayNum + 1, relayNum, conf->controlID);
 
-        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
 
     } else if (relayNum == 4) { // 4 indicates no relay attached
         // Shuts relay off and removes its ID from array of controlling 
@@ -1177,17 +1180,18 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         conf->relay = nullptr;
         conf->num = LIGHT_NO_RELAY;
 
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Relay ID %u detached", SOCKHAND::tag, conf->controlID);
 
-        SOCKHAND::sendErr(SOCKHAND::log, Messaging::Levels::INFO);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
 
     } else {
-        snprintf(SOCKHAND::log, sizeof(SOCKHAND::log), 
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Light relay not attached, incorrect index <%u> passed", 
             SOCKHAND::tag, relayNum);
 
-        SOCKHAND::sendErr(SOCKHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log);
     }
 }
 

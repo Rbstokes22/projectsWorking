@@ -6,6 +6,7 @@
 #include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
 
@@ -64,6 +65,8 @@ struct Light_Averages {
 
 class Light {
     private:
+    static const char* tag; // Static req to use in get().
+    static char log[LOG_MAX_ENTRY]; // Static req to use in get().
     AS7341_DRVR::COLOR readings;
     Light_Averages averages; 
     RelayConfigLight conf;
@@ -78,6 +81,8 @@ class Light {
     void computeAverages(bool isSpec);
     void computeLightTime(size_t ct, bool isLight);
     void handleRelay(bool relayOn, size_t ct);
+    static void sendErr(const char* msg, Messaging::Levels lvl = 
+            Messaging::Levels::ERROR);
 
     public:
     static Light* get(LightParams* parameter = nullptr);

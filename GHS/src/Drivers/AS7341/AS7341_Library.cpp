@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "esp_timer.h"
 #include "rom/ets_sys.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace AS7341_DRVR {
 
@@ -145,9 +146,37 @@ void AS7341basic::setup_F5F8_Clear_NIR() {
     this->writeRegister(static_cast<REG>(0x13), 0x06); // NIR connected to ADC5
 }
 
+// Requires message, log or not log, bypasses max log requirement, and level. 
+// isLog and bypass default set to false, level default to ERROR. Bypass is
+// meant to be used in validation, which are heavily used in first init.
+void AS7341basic::sendErr(const char* msg, bool isLog, bool bypassLogMax,
+    Messaging::Levels lvl) {
+
+    static uint8_t totalLogs = 0;
+
+    // If validation, log entries do not go against the total log
+    // count. However, is log entries without the bypass flag will. All other
+    // cases will be handled by serial.
+    if (bypassLogMax && isLog) {
+        Messaging::MsgLogHandler::get()->handle(lvl, msg,
+            Messaging::Method::SRL_LOG);
+
+    } else if (isLog && (totalLogs++ < AS7341_MAX_LOGS)) {
+        Messaging::MsgLogHandler::get()->handle(lvl, msg,
+            Messaging::Method::SRL_LOG);
+
+    } else {
+        Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+            Messaging::Method::SRL);
+    }
+}
+
 AS7341basic::AS7341basic(CONFIG &conf) : 
 
-    tag("(AS7341)"), conf(conf), isInit(false) {}
+    tag("(AS7341)"), conf(conf), isInit(false) {
+
+        memset(this->log, 0, sizeof(this->log));
+    }
 
 // Requires the address of the device. Initializes the I2C connection
 // and writes to the device all configuration settings. Returns true 
@@ -196,7 +225,10 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
     REG CH_LWR = CH_REG_MAP[static_cast<uint8_t>(chnl)][0];
     REG CH_UPR = CH_REG_MAP[static_cast<uint8_t>(chnl)][1];
 
-    bool lwrSafe{false}, uprSafe{false};
+    // Channel is a 16-bit val, ensures safety of both MSB and LSB.
+    bool lwrSafe{false}, uprSafe{false}; 
+
+    bool logOnce = true;
 
     // Designed for reading channel individually instead of all at once. If 
     // not-en, defaults to true. The delay is managed within the readAll
@@ -204,11 +236,13 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
     bool ready = delayEn ? this->delayIsReady(AS7341_WAIT) : true;
 
     if (ready) {
+        
         uint8_t ch_lwr = this->readRegister(CH_LWR, lwrSafe);
         uint8_t ch_upr = this->readRegister(CH_UPR, uprSafe);
         
         if (lwrSafe && uprSafe) {
             dataSafe = true;
+            logOnce = true; // reset
             return (ch_upr << 8) | ch_lwr; // combines data into 16-bits.
 
         } else {
@@ -216,9 +250,18 @@ uint16_t AS7341basic::readChannel(CHANNEL chnl, bool &dataSafe, bool delayEn) {
             return 0;
         }
 
-    } else {
+    } else { // Not ready, timed out.
+
         dataSafe = false;
-        printf("%s Timed Out\n", this->tag);
+        snprintf(this->log, sizeof(this->log), "%s Timed out", this->tag);
+
+        if (logOnce) {
+            this->sendErr(this->log, true);
+            logOnce = false;
+        } else {
+            this->sendErr(this->log);
+        }
+
         return 0;
     }
 }

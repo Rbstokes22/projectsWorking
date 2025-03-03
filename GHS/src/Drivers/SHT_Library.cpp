@@ -4,6 +4,7 @@
 #include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace SHT_DRVR {
 
@@ -17,12 +18,13 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
     if (resetTimeout) this->timeout = timeout_ms;
 }
 
-SHT::SHT() : tag("(SHT31)"), isInit(false) {this->packet.reset();} // Inits RW 
-
 // Requires no parameters. Writes the command in the RW Packet write
 // buffer to the SHT. Returns WRITE_TIMEOUT if timed out, WRITE_FAIL
 // if write failed, or WRITE_OK if successful. 
 SHT_RET SHT::write() {
+
+    static bool logOnce = true;
+
     esp_err_t err = i2c_master_transmit(
         this->i2cHandle,
         this->packet.writeBuffer, sizeof(this->packet.writeBuffer), 
@@ -32,13 +34,37 @@ SHT_RET SHT::write() {
     this->packet.dataSafe = (err == ESP_OK);
 
     if (err == ESP_ERR_TIMEOUT) {
-        printf("%s write Timed Out\n", this->tag);
+        
+        snprintf(this->log, sizeof(this->log), "%s write timeout", this->tag);
+        this->sendErr(this->log);
+
+        if (logOnce) { // Logs only once.
+            this->sendErr(this->log, true);
+            logOnce = false;
+
+        } else { // Then to serial, until reset by WRITE_OK.
+            this->sendErr(this->log);
+        }
+
         return SHT_RET::WRITE_TIMEOUT;
+
     } else if (err != ESP_OK) {
-        printf("%s write Err: %s\n", this->tag, esp_err_to_name(err));
+
+        snprintf(this->log, sizeof(this->log), "%s write err. %s", this->tag,
+            esp_err_to_name(err));
+
+        if (logOnce) { // Logs only once.
+            this->sendErr(this->log, true);
+            logOnce = false;
+
+        } else { // Then to serial, until reset by WRITE_OK.
+            this->sendErr(this->log);
+        }
+
         return SHT_RET::WRITE_FAIL;
     }
 
+    logOnce = true; // Reset error logging.
     return SHT_RET::WRITE_OK;
 }
 
@@ -49,6 +75,10 @@ SHT_RET SHT::write() {
 // due to unsuccessful checksum comparison, or READ_OK upon successful
 // read and checksum validation.
 SHT_RET SHT::read(size_t readSize) {
+
+    // The reading format is specified by pg 11 of the datasheet.
+
+    static bool logOnce = true;
 
     esp_err_t transErr = i2c_master_transmit(
         this->i2cHandle,
@@ -70,15 +100,33 @@ SHT_RET SHT::read(size_t readSize) {
     this->packet.dataSafe = (transErr == ESP_OK && receiveErr == ESP_OK);
 
     if (transErr == ESP_ERR_TIMEOUT || receiveErr == ESP_ERR_TIMEOUT) {
-        printf("%s read Timed Out\n", this->tag);
+
+        snprintf(this->log, sizeof(this->log), "%s read timeout", this->tag);
+
+        if (logOnce) { // Log only once.
+            this->sendErr(this->log, true);
+        } else { // Then to serial until reset by good read.
+            this->sendErr(this->log);
+        }
+
         return SHT_RET::READ_TIMEOUT;
 
     } else if (transErr != ESP_OK || receiveErr != ESP_OK) {
-        printf("%s read Error! Transmit: %s; Receive: %s\n", this->tag,
-        esp_err_to_name(transErr), esp_err_to_name(receiveErr));
+
+        snprintf(this->log, sizeof(this->log), 
+            "%s read err. Transmit- %s, Receive- %s", this->tag, 
+            esp_err_to_name(transErr), esp_err_to_name(receiveErr));
+
+        if (logOnce) { // Log only once.
+            this->sendErr(this->log, true);
+        } else { // Then to serial until reset by good read.
+            this->sendErr(this->log);
+        }
+
         return SHT_RET::READ_FAIL;
     }
 
+    logOnce = true; // Reset to allow logging.
     return SHT_RET::READ_OK;
 }
 
@@ -99,24 +147,25 @@ SHT_RET SHT::read(size_t readSize) {
 uint16_t SHT::getStatus(bool &dataSafe) {
     this->packet.reset();
 
-    this->packet.writeBuffer[0] = // MSB move into LSB
+    // Populate the RW packet write buffer with the LSB and MSB to command
+    // a read.
+    this->packet.writeBuffer[0] = // MSB move into LSB and isolate.
         static_cast<uint16_t>(CMD::STATUS) >> 8;
 
     this->packet.writeBuffer[1] = // LSB
-        static_cast<uint16_t>(CMD::STATUS) & 0xFF;
+        static_cast<uint16_t>(CMD::STATUS) & 0xFF; // Isolate the LSB.
   
-    this->read(2); // expect 2 bytes
+    this->read(SHT_STATUS_BYTES); // expect 2 bytes
 
     uint16_t status = ( // shift bytes into LSB/MSB position.
-        (this->packet.readBuffer[0] << 8) | this->packet.readBuffer[1]
-        );
+        (this->packet.readBuffer[0] << 8) | this->packet.readBuffer[1]);
 
     dataSafe = this->packet.dataSafe;
 
-    if (dataSafe) {
+    if (dataSafe) { // All logging handled in read function.
         return status;
     } else {
-        return 0;
+        return 0; // Return 0 if bad data.
     }
 }
 
@@ -153,7 +202,7 @@ SHT_RET SHT::computeTemps(SHT_VALS &carrier) {
 
     // Does the same as temp for humidity.
     uint16_t rawHum = this->packet.readBuffer[3] << 8 |
-        this->packet.readBuffer[4]; // was idx 1, didnt cause error but fixed.
+        this->packet.readBuffer[4]; 
 
     // Values are computed per pg. 14 of the datasheet.
     carrier.tempF = -49 + (315.0f * rawTemp / 65535);
@@ -162,6 +211,34 @@ SHT_RET SHT::computeTemps(SHT_VALS &carrier) {
     carrier.dataSafe = true;
     return SHT_RET::READ_OK;
 }
+
+// Requires message, level, and boolean log. Level is default to err, and log
+// is default to false. If true is passed, will create log entry as well. This
+// is to prevent from constant logging in the event of a devie error.
+void SHT::sendErr(const char* msg, bool isLog, Messaging::Levels lvl) {
+    static uint8_t totalLogs = 0;
+
+    // Used for a single log to prevent log pollution. The log once works
+    // by sending an immediate log, but no more logs until reset by good data.
+    // However if data is intermittently good and bad, this will trigger several
+    // logs, and the point is just to show via log, that there is a problem to
+    // address, that could be lost if log is overtaken by something like 
+    // checksum errors.
+    if (isLog && (totalLogs++ < SHT_MAX_LOGS)) { 
+        Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+            Messaging::Method::SRL_LOG);
+
+    } else {
+        Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+            Messaging::Method::SRL);
+    }
+}
+
+SHT::SHT() : tag("(SHT31)"), isInit(false) {
+    
+    memset(this->log, 0, sizeof(this->log));
+    this->packet.reset(); // Inits RW packet
+} 
 
 // Requires uint8_t address. Configures the I2C and adds the address to the 
 // I2C bus. The default address of the SHT31 is 0x44 which has the AD pin 
@@ -183,6 +260,8 @@ void SHT::init(uint8_t address) {
 // Returns READ_FAIL, READ_FAIL_CHECKSUM, READ_TIMEOUT, or READ_OK.
 SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     this->packet.reset(true, timeout_ms);
+
+    static bool logOnce = true;
     
     carrier.dataSafe = false; // Sets to true once complete.
 
@@ -196,10 +275,10 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
 
     // Expect 6 bytes, byte 1 & 2 for temp, byte 3 for temp CS,
     // byte 4 & 5 for humidity, and byte 6 for humidity CS.
-    SHT_RET status = this->read(6); 
+    SHT_RET status = this->read(sizeof(this->packet.readBuffer)); 
 
     if (status != SHT_RET::READ_OK) {
-        return status;
+        return status; // Either READ_FAIL or READ_TIMEOUT
     }
 
     // Run checksums on the data to ensure they match the checksums sent 
@@ -210,10 +289,19 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     // Compare temp/hum crc values against 
     if (this->packet.readBuffer[2] != crcTemp || 
         this->packet.readBuffer[5] != crcHum) {
-            printf("%s Checksum Error\n", this->tag);
-            return SHT_RET::READ_FAIL_CHECKSUM;
+
+        snprintf(this->log, sizeof(this->log), "%s checksum Err", this->tag);
+
+        if (logOnce) { // Log only once
+            this->sendErr(this->log, true);
+        } else { // Then log into serial until reset.
+            this->sendErr(this->log);
         }
 
+        return SHT_RET::READ_FAIL_CHECKSUM;
+    }
+
+    logOnce = true; // Reset if good.
     return this->computeTemps(carrier);
 }
 
@@ -253,8 +341,8 @@ bool SHT::isHeaterEn(bool &dataSafe) {
     uint16_t data = this->getStatus(dataSafe); // Get the uint16_t status data.
 
     if (dataSafe) {
-        // Move 13th bit to idx 0, return that value.
-        return data >> 13 & 0x0001;
+        // Move 13th bit to idx 0, return that value either 1 or 0.
+        return ((data >> 13) & 0x0001);
     } else {
         return false;
     }

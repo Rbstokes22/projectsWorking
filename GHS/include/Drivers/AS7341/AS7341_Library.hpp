@@ -4,6 +4,7 @@
 #include "stdint.h"
 #include "I2C/I2C.hpp"
 #include "Config/config.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 // Datasheet
 // https://cdn.sparkfun.com/assets/0/8/e/2/3/AS7341_DS000504_3-00.pdf
@@ -14,6 +15,7 @@ namespace AS7341_DRVR {
 #define AS7341_MIN 0 // 0 counts
 #define AS7341_MAX 65535 // full 16 bit int
 #define AS7341_WAIT 1000 // milliseconds timeout.
+#define AS7341_MAX_LOGS 10 // Prevents intermittent errors from polluting log.
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
@@ -100,6 +102,7 @@ struct COLOR {
 class AS7341basic {
     private:
     const char* tag;
+    char log[LOG_MAX_ENTRY];
     i2c_master_dev_handle_t i2cHandle; // handle for i2c init.
     CONFIG &conf; // Configuration
     bool isInit; // Is initialized.
@@ -121,6 +124,8 @@ class AS7341basic {
     void setSMUXLowChannels(bool f1_f4);
     void setup_F1F4_Clear_NIR();
     void setup_F5F8_Clear_NIR();
+    void sendErr(const char* msg, bool isLog = false, bool bypassLogMax = false,
+        Messaging::Levels lvl = Messaging::Levels::ERROR);
 
     public:
     AS7341basic(CONFIG &conf);

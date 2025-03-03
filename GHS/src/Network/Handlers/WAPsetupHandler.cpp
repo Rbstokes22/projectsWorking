@@ -7,53 +7,74 @@
 #include "cJSON.h"
 #include "Network/webPages.hpp"
 #include "Config/config.hpp"
+#include "UI/MsgLogHandler.hpp"
+#include "Network/Handlers/MasterHandler.hpp"
 
 namespace Comms {
 
-// Static setup
+// Static setup. Passed through init function.
+const char* WSHAND::tag("(WSHAND)");
+char WSHAND::log[LOG_MAX_ENTRY]{0};
 NetSTA* WSHAND::station{nullptr};
 NetWAP* WSHAND::wap{nullptr};
 bool WSHAND::isInit{false};
 
 // Receives the JSON request, and creates a buffer that 
 // stores the data. Returns the JSON parsed buffer. 
+
+// Requires http request. Receives JSON request, and creates a buffer that 
+// stroes the data. Returns the JSON parsed buffer.
 cJSON* WSHAND::receiveJSON(httpd_req_t* req) {
-    char buffer[100]{0}; // will never exceed.
-    int ret{0}, totalLength{0};
+    char buffer[WAPHANDLER_JSON_SIZE]{0}; 
+    int recvSize{0}, totalLength{0};
 
     // Steps:
-    // 1) Sets ret to equal the bytes of the request return.
+    // 1) Sets recvSize to equal the bytes of the request return.
     // 2) While the size is > 0, append received bytes to the 
     //    buffer.
     // 3) Updates the totalLength to reflect the total bytes
     //    recived.
     // 4) Ensure the buffer is null terminated for proper
     //    parsing.
-    while ((ret = httpd_req_recv(
-        req, 
+    while ((recvSize = httpd_req_recv(req, // Request
         buffer + totalLength, // next buffer address
-        sizeof(buffer) - totalLength - 1)) > 0) {
+        sizeof(buffer) - totalLength - 1) // buffer remaining length
+        ) > 0) {
 
-        totalLength += ret;
+        totalLength += recvSize; // Add the size to the total current length.
     }
 
-    if (ret < 0) { // indicates error
-        if (isInit) WSHAND::wap->sendErr("JSON request Error");
+    if (recvSize < 0 || totalLength <= 0) { // indicates error 
+
+        snprintf(WSHAND::log, sizeof(WSHAND::log), "%s JSON recv Error", 
+            WSHAND::tag);
+
+        WSHAND::sendErr(WSHAND::log);
+
         return NULL;
     }
     
-    buffer[totalLength] = '\0';
+    buffer[totalLength] = '\0'; // Ensure null term.
 
-    return cJSON_Parse(buffer);
+    return cJSON_Parse(buffer); // Return parsed buffer.
 }
 
-// Processes the parsed JSON buffer once received. The JSON buffer,
-// request, and writtenKey is passed as arguments. The writtenKey will
-// contain the key that is written to NVS. Returns ESP_OK or ESP_FAIL.
+// Requires the cJSON pointer, the http request, and the writtenKey pointer.
+// The writtenKey will be overwritten with the key that was written to NVS.
+// Returns ESP_OK or ESP_FAIL.
 esp_err_t WSHAND::processJSON(cJSON* json, httpd_req_t* req, char* writtenKey) {
-    if (json == NULL) {
 
-        if (httpd_resp_sendstr(req, "{\"status\":\"Invalid JSON\"}") != ESP_OK) {
+    if (json == NULL || json == nullptr) { // Ensures JSON is legit.
+
+        esp_err_t send = httpd_resp_sendstr(req, 
+            "{\"status\":\"Invalid JSON\"}");
+
+        if (send != ESP_OK) {
+            
+            // START HERE WHE BACK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // Ensure if a request is passed, and it will not send a string in
+            // the future, that it sends a response right then before a return.
+
             if (isInit) {
                 WSHAND::wap->sendErr("Invalid JSON response");
             }
@@ -199,19 +220,60 @@ esp_err_t WSHAND::respondJSON(httpd_req_t* req, char* writtenKey) {
     return ESP_OK;
 }
 
+bool WSHAND::initCheck(httpd_req_t* req) {
+    if (req == nullptr) return false;
+
+    if (!WSHAND::isInit) { // If not init reply to client and log.
+
+        snprintf(WSHAND::log, sizeof(WSHAND::log), 
+            "%s Not init", WSHAND::tag);
+
+        WSHAND::sendErr(WSHAND::log);
+
+        // Respond to client to satisfy request.
+        esp_err_t send = httpd_resp_sendstr(req, WSHAND::log);
+
+        if (send != ESP_OK) { // If error responding, log err.
+
+            snprintf(WSHAND::log, sizeof(WSHAND::log), "%s http string unsent", 
+                WSHAND::tag);
+
+            WSHAND::sendErr(WSHAND::log);
+        }
+    }
+
+    return WSHAND::isInit;
+}
+
+
+
+// Requires message pointer, and level. Level is set to ERROR by default. Sends
+// to the log and serial, the printed error.
+void WSHAND::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+        Messaging::Method::SRL_LOG);
+}
+
 // Requires the station, wap, and creds objects. Initializes the
 // address of each to its pointer. Returns true or false if init.
-bool WSHAND::init(
-    NetSTA &station, 
-    NetWAP &wap) {
+bool WSHAND::init(NetSTA &station, NetWAP &wap) {
 
+    // Attempt to set objects
     WSHAND::station = &station;
     WSHAND::wap = &wap;
-    
-    if (WSHAND::station != nullptr &&
-        WSHAND::wap != nullptr) {
 
-        WSHAND::isInit = true;
+    // Confirm setting by ensuring they are not nullptr.
+    WSHAND::isInit = (WSHAND::station != nullptr) && (WSHAND::wap != nullptr);
+
+    if (!isInit) { // if uninit, send CRITICAL log.
+
+        snprintf(WSHAND::log, sizeof(WSHAND::log), "%s not init", WSHAND::tag);
+        WSHAND::sendErr(WSHAND::log, Messaging::Levels::CRITICAL);
+
+    } else { // If init, send INFO log.
+
+        snprintf(WSHAND::log, sizeof(WSHAND::log), "%s init", WSHAND::tag);
+        WSHAND::sendErr(WSHAND::log, Messaging::Levels::INFO);
     }
 
     return WSHAND::isInit;
@@ -219,7 +281,10 @@ bool WSHAND::init(
 
 // Main index handler.
 esp_err_t WSHAND::IndexHandler(httpd_req_t *req) {
-    if (httpd_resp_set_type(req, "text/html") != ESP_OK && isInit) {
+
+    if (!WSHAND::initCheck(req)) return ESP_OK; // Blocks code if not init.
+
+    if (httpd_resp_set_type(req, "text/html") != ESP_OK) {
         WSHAND::wap->sendErr("Error setting response type");
     }
 
@@ -235,7 +300,10 @@ esp_err_t WSHAND::IndexHandler(httpd_req_t *req) {
 // Main handler that will handle and process the request, responding
 // to the client with a json.
 esp_err_t WSHAND::DataHandler(httpd_req_t* req) { 
-    if (httpd_resp_set_type(req, "application/json") != ESP_OK && WSHAND::isInit) {
+
+    if (!WSHAND::initCheck(req)) return ESP_OK; // Blocks code if not init.
+
+    if (httpd_resp_set_type(req, "application/json") != ESP_OK) {
         WSHAND::wap->sendErr("Error setting response type");
     }
 

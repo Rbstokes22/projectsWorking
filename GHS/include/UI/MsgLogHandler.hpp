@@ -7,7 +7,7 @@
 
 namespace Messaging {
 
-#define LOG_SIZE 8192 // bytes of log information.
+#define LOG_SIZE 16384 // bytes of log information. 16 KB.
 #define LOG_MAX_ENTRY 128 // max entry size per log.
 #define MLH_DELIM ';' // delimiter used in log entries
 #define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.

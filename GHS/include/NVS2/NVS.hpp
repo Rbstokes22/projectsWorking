@@ -33,12 +33,9 @@ class NVSctrl {
     static bool NVSinit;
     NVS_Config conf;
     nvs_ret_t writeToNVS(const char* key, uint8_t* data, size_t bytes);
-    nvs_ret_t readFromNVS(
-        const char* key, 
-        uint8_t* carrier, 
-        size_t bytes, 
-        bool fromWrite = false // used for new key handling
-        );
+    nvs_ret_t readFromNVS(const char* key, uint8_t* carrier, size_t bytes, 
+        bool fromWrite = false); // used for new key handling
+    
     nvs_ret_t checkCRC(const char* key, uint8_t* data, size_t bytes);
 
     public:

@@ -50,25 +50,14 @@ class OTAhandler {
     bool close();
     OTA_RET processReq(URL &url);
     OTA_RET writeSignature(const char* sigURL, const char* label); 
-    OTA_RET writeFirmware(
-        const char* firmURL, 
-        const esp_partition_t* part,
-        int64_t contentLen
-        );
+    OTA_RET writeFirmware(const char* firmURL, const esp_partition_t* part,
+        int64_t contentLen);
     
     public:
-    OTAhandler(
-        UI::Display &OLED, 
-        Comms::NetMain &station,
-        Threads::Thread** toSuspend,
-        size_t threadQty
-        );
+    OTAhandler(UI::Display &OLED,  Comms::NetMain &station,
+        Threads::Thread** toSuspend, size_t threadQty);
 
-    OTA_RET update(
-        URL &url, 
-        bool isLAN = false
-        );
-
+    OTA_RET update(URL &url, bool isLAN = false);
     bool rollback();
     void sendErr(const char* err);
     
