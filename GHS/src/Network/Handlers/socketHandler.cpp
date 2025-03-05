@@ -4,6 +4,7 @@
 #include "Config/config.hpp"
 #include "Threads/Mutex.hpp"
 #include "Peripherals/Relay.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Comms {
 
@@ -16,7 +17,11 @@ argPool SOCKHAND::pool;
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack. The pool
 // is quite large considering the size of the buffer inside.
-argPool::argPool() : pool() {memset(this->inUse, false, SKT_MAX_RESP_ARGS);}
+argPool::argPool() : pool() {
+    memset(this->inUse, false, SKT_MAX_RESP_ARGS);
+    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+        "(ARGPOOL) Ob created", Messaging::Method::SRL_LOG);
+}
 
 // Requires no params. Iterates the arg pool and returns a pointer to an open
 // allocation. Returns NULL if no availabilities.
@@ -130,17 +135,32 @@ bool SOCKHAND::initCheck(httpd_req_t* req) {
 
     if (!SOCKHAND::isInit) { // If not init reply to client and log.
 
+        // This is the only time this will send an json response. Must set here
+        // since this is a socket and not the normal response type. This
+        // indicates an error only before the handshake.
+        if (httpd_resp_set_type(req, MHAND_RESP_TYPE_JSON) != ESP_OK) {
+            snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+                "%s type not set", SOCKHAND::tag);
+
+            MASTERHAND::sendErr(MASTERHAND::log);
+            MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MHAND_TYPESET_FAIL),
+                SOCKHAND::tag, "initChk");
+            return false;
+        }
+
+        // Type is set, reply with JSON if not init
+
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s Not init", SOCKHAND::tag);
 
         MASTERHAND::sendErr(MASTERHAND::log);
 
         // Respond to client to satisfy request.
-        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log),
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MHAND_NOT_INIT),
             SOCKHAND::tag, "initChk");
     }
 
-    return SOCKHAND::isInit;
+    return SOCKHAND::isInit; // true if init.
 }
 
 // Requires the pointer to the relays from main.cpp. Returns true if init,
@@ -181,17 +201,18 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
     if (!SOCKHAND::initCheck(req)) return ESP_OK; // Block if not init.
 
     // Upon the handshake from the client, completes the handshake returning
-    // ESP_OK.
+    // ESP_OK. This is EXCLUSIVE TO THE HANDSHAKE AND WILL HAPPEN ONCE.
     if (req->method == HTTP_GET) {
 
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
-            "%s Socket handshake complete", SOCKHAND::tag);
+            "%s handshake complete", SOCKHAND::tag);
         
         MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::INFO);
         return ESP_OK;
     }
 
-    // Gets first open arg from the argPool.
+    // HANDSHAKE COMPLETE. Code block above will not run in follow on requests.
+    // Gets first open arg from the argPool. 
     async_resp_arg* arg = SOCKHAND::pool.getArg();
 
     if (arg == NULL) { // No availabilities
@@ -200,8 +221,10 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
             "%s No available pool args", SOCKHAND::tag);
         
         MASTERHAND::sendErr(MASTERHAND::log);
-        return ESP_OK; // NOTE 1
+        return ESP_OK; // NOTE 1. BLOCK.
     }
+
+    // Handshake is complete, and argument is ready for use.
 
     httpd_ws_frame_t wsPkt; // Web socket packet
     memset(&wsPkt, 0, sizeof(httpd_ws_frame_t)); // zero out
@@ -218,11 +241,13 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
             "%s httpd_ws_rec_frame failed to get frame length. %s", 
             SOCKHAND::tag, esp_err_to_name(ret));
         
-            MASTERHAND::sendErr(MASTERHAND::log);
-        return ESP_OK; // NOTE 1
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        return ESP_OK; // NOTE 1. BLOCK.
     }
 
-    if (wsPkt.len) {
+    if (wsPkt.len) { // It exists.
+
         // Sets the payload to the pre-allocated buffer.
         wsPkt.payload = arg->Buf;
 
@@ -237,8 +262,8 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
                 "%s httpd_ws_rec_frame failed. %s", 
                 SOCKHAND::tag, esp_err_to_name(ret));
             
-                MASTERHAND::sendErr(MASTERHAND::log);
-            return ESP_OK; // NOTE 1.
+            MASTERHAND::sendErr(MASTERHAND::log);
+            return ESP_OK; // NOTE 1. BLOCK.
         }
 
         // printf("Received packet with msg: %s\n", wsPkt.payload); // TS
@@ -246,8 +271,8 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     // printf("Frame length is %d\n", wsPkt.len); // TS
 
-    // If the packet type matches, an async trigger is sent,
-    // this is completed by request from the client.
+    // If the packet type matches, an async trigger is sent, this is completed
+    // by request from the client. A
     if (wsPkt.type == HTTPD_WS_TYPE_TEXT) {
         // printf("From Client: %s\n", wsPkt.payload); // TS
         SOCKHAND::trigger_async_send(req->handle, req, arg);

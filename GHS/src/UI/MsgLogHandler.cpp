@@ -5,35 +5,60 @@
 #include "string.h"
 #include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"
+#include "Config/config.hpp"
 
 namespace Messaging {
 
 Threads::Mutex MsgLogHandler::mtx; // Create static instance
 
+// COLOR CODING escape chars, these can be interjected anywhere.
+// Color	Code	Example Escape Code
+// Black	30	    \033[30m
+// Red	    31	    \033[31m
+// Green	32	    \033[32m
+// Yellow	33	    \033[33m
+// Blue	    34	    \033[34m
+// Magenta	35	    \033[35m
+// Cyan	    36	    \033[36m
+// White	37	    \033[37m
+// Reset	0	    \033[0m
+
 // Maps to levels. 
-const char LevelsMap[5][10]{"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
+const char LevelsMap[5][11]{"[DEBUG]", "[INFO]", "[WARNING]", "[ERROR]",
+    "[CRITICAL]"};
+
+const char LevelsColors[5][10]{SRL_CYN, SRL_GRN, SRL_YEL, SRL_RED, SRL_MAG};
 
 // Requires parameters, which should be globally created. 
-MsgLogHandler::MsgLogHandler(MsgLogHandlerParams &params) : 
+MsgLogHandler::MsgLogHandler() : 
 
-    params(params), msgClearTime(0), clrMsgOLED{false}, newLogEntry{false} {
+    msgClearTime(0), msgClearInterval(MSG_CLEAR_SECS), OLED(nullptr),
+    serialOn(SERIAL_ON), clrMsgOLED{false}, newLogEntry{false} {
 
         memset(this->log, 0, LOG_SIZE);
+        this->handle(Messaging::Levels::INFO, "(MSGLOGERR) init",
+            Messaging::Method::SRL_LOG);
     } 
 
 // Requires level of message, and the message. If serial writing is enabled,
 // writes the message to serial output.
 void MsgLogHandler::writeSerial(Levels level, const char* message) {
-    if (this->params.serialOn) {
-        printf("%s: %s\n", 
-        LevelsMap[static_cast<uint8_t>(level)], message);
+    if (this->serialOn) {
+        uint8_t lvl = static_cast<uint8_t>(level);
+
+        printf("%s%s %s%s\n", LevelsColors[lvl], LevelsMap[lvl], message, 
+            SRL_RST);
     }
 }
 
 // Requires the level of message, and the message. Writes message to the OLED
 // by blocking typical OLED display briefly allowing the message to be read.
 void MsgLogHandler::writeOLED(Levels level, const char* message) {
-    
+    if (this->OLED == nullptr) {
+        this->handle(Levels::ERROR, "(MSGLOGERR) OLED not added", Method::SRL);
+        return;
+    }
+
     // OLED has 200 char capacity @ 5x7, and is set max for the
     // buffer size. Errors will always display in 5x7 font.
     char msg[static_cast<int>(UI::UIvals::OLEDCapacity)]{}; 
@@ -48,12 +73,12 @@ void MsgLogHandler::writeOLED(Levels level, const char* message) {
     }
 
     // Displays the message and sets timer to clear the last message.
-    this->params.OLED.displayMsg(msg); 
+    this->OLED->displayMsg(msg); 
 
     // Once called, sets the message clear time and allows the OLED message
     // check function to clear the OLED message when conditions are met.
     uint32_t curSeconds = Clock::DateTime::get()->seconds();
-    this->msgClearTime = (curSeconds + this->params.msgClearInterval);
+    this->msgClearTime = (curSeconds + this->msgClearInterval);
     this->clrMsgOLED = false; // Allows OLED display.
 }
 
@@ -131,25 +156,13 @@ size_t MsgLogHandler::stripLogMsg(size_t newMsgLen) {
     return LOG_SIZE - strlen(this->log) - 1; // -1 for the null term
 }
 
-// Requires MSgLogHandler* parameter.
-// Default setting = nullptr. Must be init with a non nullptr to create the 
-// instance, and will return a pointer to the instance upon proper completion.
-MsgLogHandler* MsgLogHandler::get(MsgLogHandlerParams* params) {
+// Requires no params. Returns static instance to class.
+MsgLogHandler* MsgLogHandler::get() {
 
     // Single use of mutex lock which will ensure to protect any subsequent
     // calls made after requesting this instance.
     Threads::MutexLock(MsgLogHandler::mtx);
-
-    static bool isInit{false};
-    
-    if (params == nullptr && !isInit) {
-        printf("MsgLogHandler not init\n");
-        return nullptr; // Blocks instance from being created.
-    } else if (params != nullptr) {
-        isInit = true; // Opens gate after proper init
-    }
-
-    static MsgLogHandler instance(*params);
+    static MsgLogHandler instance;
     
     return &instance;
 }
@@ -158,6 +171,10 @@ MsgLogHandler* MsgLogHandler::get(MsgLogHandlerParams* params) {
 // that the message sent to the OLED is set to clear. Once called, changes the
 // override status back to false to allow normal OLED functionality.
 void MsgLogHandler::OLEDMessageCheck() {
+    if (this->OLED == nullptr) {
+        this->handle(Levels::ERROR, "(MSGLOGERR) OLED not added", Method::SRL);
+        return;
+    }
 
     uint32_t curSeconds = Clock::DateTime::get()->seconds();
 
@@ -166,7 +183,7 @@ void MsgLogHandler::OLEDMessageCheck() {
     // allow normal operation. Sets clearMsgOLED to true to allow a single
     // call when conditions are met.
     if ((curSeconds >= this->msgClearTime) && !this->clrMsgOLED) {
-        this->params.OLED.setOverrideStat(false);
+        this->OLED->setOverrideStat(false);
         this->clrMsgOLED = true;
     }
 }
@@ -175,7 +192,7 @@ void MsgLogHandler::OLEDMessageCheck() {
 // message in the applicable method passed. NOTE: Log max entry is 128 bytes,
 // OLED is 200 bytes, and serial is unrestricted.
 void MsgLogHandler::handle(Levels level, const char* message, Method method) {
-
+   
     switch (method) {
         case Method::SRL: 
         this->writeSerial(level, message);
@@ -231,6 +248,24 @@ void MsgLogHandler::resetNewLogFlag() {
 // Requires no parameters. Returns log.
 const char* MsgLogHandler::getLog() {
     return this->log;
+}
+
+// Requires reference to OLED object. This function is to allow additon of 
+// OLED to features, since this class must be init immediately since all other
+// classes depend on it.
+bool MsgLogHandler::addOLED(UI::IDisplay &OLED) {
+    this->OLED = &OLED;
+
+    if (this->OLED == nullptr) {
+        this->handle(Levels::WARNING, "(MSGLOGERR) OLED not added",
+            Method::SRL_LOG);
+            
+        return false;
+    }
+
+    this->handle(Levels::INFO, "(MSGLOGERR) OLED added",Method::SRL_LOG);
+
+    return true;
 }
 
 }

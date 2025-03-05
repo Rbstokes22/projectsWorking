@@ -35,8 +35,8 @@ wifi_ret_t NetWAP::configure() {
     this->wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
     
     // If password is under 8 chars, it will be a password-less open mode.
-    if (strlen(this->APpass) < 8) {
-        this->sendErr("Open Network due to pass lgth");
+    if (strlen(this->APpass) < 9) {
+        this->sendErr("Open Network due to pass lgth < 9");
         this->wifi_config.ap.authmode = WIFI_AUTH_OPEN; 
     }
 
@@ -59,10 +59,10 @@ wifi_ret_t NetWAP::dhcpsHandler() {
         if (stop != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED &&
             stop != ESP_OK) {
 
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s: DHCPS not stopped: %s", this->tag, esp_err_to_name(stop));
             
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DHCPS_FAIL;
             }
 
@@ -86,11 +86,11 @@ wifi_ret_t NetWAP::dhcpsHandler() {
             NetMain::flags.setFlag(NETFLAGS::dhcpIPset);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s IP information not set. %s", this->tag, 
                 esp_err_to_name(set_ip));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DHCPS_FAIL;
         }
     }
@@ -108,11 +108,11 @@ wifi_ret_t NetWAP::dhcpsHandler() {
             NetMain::flags.setFlag(NETFLAGS::dhcpOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s DHCPS not started. %s", this->tag, 
                 esp_err_to_name(start));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DHCPS_FAIL;
         }
     }
@@ -130,7 +130,12 @@ NetWAP::NetWAP(const char* APssid, const char* APdefPass,
     strncpy(this->APpass, APdefPass, sizeof(this->APpass) - 1);
     this->APpass[sizeof(this->APpass) -1] = '\0';
 
-    strcpy(this->APdefaultPass, APdefPass);
+    strcpy(this->APdefaultPass, APdefPass); // Always the same, no "n" req.
+
+    snprintf(NetMain::log, sizeof(NetMain::log), "%s Ob created", this->tag);
+    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO);
+
+
 }
 
 // Second step in the init process. Steps 1 and 4 are in the NetMain src file.
@@ -159,11 +164,11 @@ wifi_ret_t NetWAP::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiModeSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s Wifi mode not set. %s", this->tag, 
                 esp_err_to_name(wifi_mode));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -178,11 +183,11 @@ wifi_ret_t NetWAP::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiConfigSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s Wifi config not set. %s", this->tag, 
                 esp_err_to_name(wifi_cfg));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -196,11 +201,11 @@ wifi_ret_t NetWAP::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s Wifi not started. %s", this->tag, 
                 esp_err_to_name(wifi_start));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -223,11 +228,11 @@ wifi_ret_t NetWAP::start_server() {
                 NetMain::flags.setFlag(NETFLAGS::httpdOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s HTTP not started. %s", this->tag, 
                 esp_err_to_name(httpd));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
@@ -251,10 +256,10 @@ wifi_ret_t NetWAP::start_server() {
                 return wifi_ret_t::SERVER_OK;
 
             } else {
-                snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+                snprintf(NetMain::log, sizeof(NetMain::log),
                     "%s WAP URI registration fail", this->tag) ;
                   
-                this->sendErr(NetMain::errlog);
+                this->sendErr(NetMain::log);
                 return wifi_ret_t::SERVER_FAIL;
             }
 
@@ -269,10 +274,10 @@ wifi_ret_t NetWAP::start_server() {
                 NetMain::flags.setFlag(NETFLAGS::uriReg);
 
             } else {
-                snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+                snprintf(NetMain::log, sizeof(NetMain::log),
                     "%s WAPSetup URI registration fail", this->tag) ;
                   
-                this->sendErr(NetMain::errlog);
+                this->sendErr(NetMain::log);
                 return wifi_ret_t::SERVER_FAIL;
             }
         } 
@@ -307,10 +312,10 @@ wifi_ret_t NetWAP::destroy() {
             NetMain::flags.releaseFlag(uriReg);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s HTTPD not stopped. %s", this->tag, esp_err_to_name(httpd));
                   
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -327,11 +332,11 @@ wifi_ret_t NetWAP::destroy() {
             NetMain::flags.releaseFlag(wifiConfigSet);
             
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog),
+            snprintf(NetMain::log, sizeof(NetMain::log),
                 "%s Wifi not stopped. %s", this->tag, 
                 esp_err_to_name(wifi_stop));
                   
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -347,10 +352,10 @@ wifi_ret_t NetWAP::destroy() {
             NetMain::flags.releaseFlag(dhcpOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s: DHCPS not stopped: %s", this->tag, esp_err_to_name(stop));
             
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -366,10 +371,10 @@ void NetWAP::setPass(const char* pass) {
         strncpy(this->APpass, pass, sizeof(this->APpass) - 1);
         this->APpass[sizeof(this->APpass) - 1] = '\0'; // ensure null term.
     } else {
-        snprintf(NetMain::errlog, sizeof(NetMain::errlog), "%s Pass not set", 
+        snprintf(NetMain::log, sizeof(NetMain::log), "%s Pass not set", 
             this->tag);
 
-        this->sendErr(NetMain::errlog);
+        this->sendErr(NetMain::log);
     }
 }
 
@@ -429,24 +434,24 @@ bool NetWAP::isActive() {
         if (esp_wifi_get_config(WIFI_IF_AP, &ap_config) == ESP_OK) {  // Conn
     
             if (this->getLogToggle()->con) {
-                snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                snprintf(NetMain::log, sizeof(NetMain::log), 
                     "%s Connected", this->tag);
 
-                this->sendErr(NetMain::errlog, Messaging::Levels::INFO);
+                this->sendErr(NetMain::log, Messaging::Levels::INFO);
                 this->getLogToggle()->con = false; // Block another attempt
                 this->getLogToggle()->discon = true; // Reset if prev false
             }
 
-            return true; // Actively connected
+            return true; // Actively connected. Block.
         }
     } 
 
-    // Run this block if not connected
+    // Run this block if not connected. 
     if (this->getLogToggle()->discon) {
-        snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+        snprintf(NetMain::log, sizeof(NetMain::log), 
             "%s Disconnected", this->tag);
 
-        this->sendErr(NetMain::errlog, Messaging::Levels::INFO);
+        this->sendErr(NetMain::log, Messaging::Levels::INFO);
         this->getLogToggle()->discon = false; // Block another attempt
         this->getLogToggle()->con = true; // Reset if previously false.
     }

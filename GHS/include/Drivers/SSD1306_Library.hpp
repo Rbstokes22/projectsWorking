@@ -4,11 +4,14 @@
 #include <cstdint>
 #include <cstddef>
 #include "I2C/I2C.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 // Datasheet
 // https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf
 
 namespace UI_DRVR {
+
+#define SSD1306_I2C_TIMEOUT 500 // Timeout
 
 enum class Size { // Sise parameters, some specified by datasheet.
     OLEDbytes = 1024,
@@ -42,6 +45,7 @@ extern Dimensions dimIndex[];
 class OLEDbasic {
     private:
     const char* tag;
+    char log[LOG_MAX_ENTRY];
     uint8_t col, page; // Column and page values
     Dimensions charDim; // Width and height dimension struct
     DIM dimID; // Dimension ID, used with  enum class DIM.
@@ -59,6 +63,8 @@ class OLEDbasic {
     bool isBufferA; // Shows if buffer A or buffer B.
     void grabChar(char c);
     void writeLine();
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR);
     
     public:
     OLEDbasic();

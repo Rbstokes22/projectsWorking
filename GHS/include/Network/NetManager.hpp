@@ -29,6 +29,8 @@ class NetManager {
     void runningWifi(NetMain &mode);
     void reconnect(NetMain &mode, uint8_t &attempt);
     bool handleDestruction(NetMain &mode);
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::INFO);
 
     public:
     NetManager(

@@ -1,6 +1,12 @@
 // CURRENT NOTES: 
 
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
+// RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
+
+// MSGLOGERR is causing reboots when called in datetime class. Everything else 
+// fine, figure this out.
+
+// Change the strncpy to snprintfs.
 
 // Currently on SSD1306, all other drivers have msglogerr capability now with
 // the ability to log a feature only once until reset, for a max number of times
@@ -104,11 +110,6 @@ extern "C" {
 // Prefered using globals over local variables declared statically.
 UI::Display OLED;
 
-// Message, Log, and Error parameters and initialization. Init here since 
-// other features depend on its functionality.
-Messaging::MsgLogHandlerParams MLEParams = {OLED, MSG_CLEAR_SECS, SERIAL_ON};
-Messaging::MsgLogHandler* mlh = Messaging::MsgLogHandler::get(&MLEParams);
-
 // Network specific objects. Station, Wireless Access Point, and their manager.
 Comms::NetSTA station(MDNS_NAME); 
 Comms::NetWAP wap(AP_SSID, AP_DEF_PASS, MDNS_NAME);
@@ -151,6 +152,9 @@ Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &AS7341Thread,
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
 void app_main() {
+    // Add OLED to msglogerr handler
+    Messaging::MsgLogHandler::get()->addOLED(OLED);
+
     char log[30] = {0}; // Used for logging, size accomodates all msging.
     Messaging::Levels msgType[] = { // Used for mounting and init, with log.
         Messaging::Levels::CRITICAL, Messaging::Levels::INFO
@@ -194,21 +198,17 @@ void app_main() {
     // the signature with the firmware running. If invalid, the program
     // will not continue.
     if (!BYPASS_VAL) {
-        Boot::val_ret_t err = Boot::checkPartition(
-            Boot::PART::CURRENT, 
-            FIRMWARE_SIZE, 
-            FIRMWARE_SIG_SIZE
-            );
+        Boot::val_ret_t bootErr = Boot::FWVal::get()->checkPartition(
+            Boot::PART::CURRENT, FIRMWARE_SIZE, FIRMWARE_SIG_SIZE);
 
-        // If not valid, tries rolling back to the previously working
-        // firmware and restarting. Does not require printing/logging.
-        if (err != Boot::val_ret_t::VALID) {
-            OLED.invalidFirmware(); 
-            
+        if (bootErr == Boot::val_ret_t::INVALID) { // FW invalid
+            OLED.invalidFirmware(); // Displays message on OLED
+
+            // If invalid, tries to rollback to the previously working
+            // firmware and restarts
             if (ota.rollback()) esp_restart(); 
-            return;
-        }
-    } 
+        } 
+    }
 
     // Passes object to http handlers. No error handling as all logging
     // is done within the handler classes themselves. All public class methods

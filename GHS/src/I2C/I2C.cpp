@@ -3,15 +3,24 @@
 #include "Config/config.hpp"
 #include "driver/i2c_master.h"
 #include "string.h"
-
-// Once error handling is implemeneted after OLED, use throughout here as well as info messges,
-// such as startup frequency, device connected, etc...
+#include "UI/MsgLogHandler.hpp" 
 
 namespace Serial {
 
 // Defaults frequency to 100 khz. Can be set higher when initializing the
 // master.
-I2C::I2C() : tag("(I2C)"), freq(I2C_FREQ::STD), isInit(false) {}
+I2C::I2C() : tag("(I2C)"), freq(I2C_FREQ::STD), isInit(false) {
+
+    memset(this->log, 0, sizeof(this->log));
+    snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
+    this->sendErr(this->log, Messaging::Levels::INFO);
+}
+
+// Requires message and messaging level. Level is set to ERROR by default.
+void I2C::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
+}
 
 // Returns a pointer to the I2C instance.
 I2C* I2C::get() {
@@ -23,6 +32,7 @@ I2C* I2C::get() {
 // Initializes the I2C with SCL on GPIO 22 and SDA on GPIO 21.
 // Returns true of false depending on if it was init.
 bool I2C::i2c_master_init(I2C_FREQ freq) {
+
     if (this->isInit) return true;
 
     this->freq = freq; // Resets the frequency to passed init
@@ -38,10 +48,17 @@ bool I2C::i2c_master_init(I2C_FREQ freq) {
 
     esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &this->busHandle);
 
-    if (err != ESP_OK) {
-        printf("%s %s", this->tag, esp_err_to_name(err));
+    if (err != ESP_OK) { // Not init.
+        snprintf(this->log, sizeof(this->log), "%s %s", this->tag, 
+            esp_err_to_name(err));
+
+        this->sendErr(this->log);
         return false;
-    } else {
+
+    } else { // Init
+        snprintf(this->log, sizeof(this->log), "%s init", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
+        this->isInit = true; // Change to true to prevent re-init.
         return true;  
     }
 }
@@ -49,6 +66,7 @@ bool I2C::i2c_master_init(I2C_FREQ freq) {
 // Requires the i2c address of the device. Configures device
 // and returns i2c_device_config_t struct.
 i2c_device_config_t I2C::configDev(uint8_t i2cAddr) {
+
     i2c_device_config_t dev_cfg = { // device configuration
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = i2cAddr,
@@ -56,7 +74,7 @@ i2c_device_config_t I2C::configDev(uint8_t i2cAddr) {
         .scl_wait_us = 0,
     };
 
-    return dev_cfg;
+    return dev_cfg; // Returns actual configuration struct.
 }
 
 // Requires the i2c_device_config_t configuration. Adds the device to the
@@ -68,8 +86,18 @@ i2c_master_dev_handle_t I2C::addDev(i2c_device_config_t &dev_cfg) {
     esp_err_t err = i2c_master_bus_add_device(this->busHandle, &dev_cfg, 
         &devHandle);
 
-    printf("%s ADDR:%u, %s\n", this->tag, dev_cfg.device_address, 
-        esp_err_to_name(err));
+    if (err != ESP_OK) { // Not added, prep msg.
+        snprintf(this->log, sizeof(this->log), "%s ADDR %u not added. %s", 
+            this->tag, dev_cfg.device_address, esp_err_to_name(err));
+
+        this->sendErr(this->log);
+
+    } else { // Added, prep msg.
+        snprintf(this->log, sizeof(this->log), "%s ADDR %u added", 
+            this->tag, dev_cfg.device_address);
+
+        this->sendErr(this->log, Messaging::Levels::INFO);
+    }
 
     return devHandle;
 }

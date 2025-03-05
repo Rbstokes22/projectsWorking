@@ -10,7 +10,8 @@ namespace NVS {
 const char* Creds::tag = "(Creds)";
 char Creds::log[LOG_MAX_ENTRY] = {0}; // Static def of log.
 
-// namespace must be under 12 chars long.
+// namespace must be under 12 chars long. Manages credentials and works as 
+// an interface between the program and the NVS.
 Creds::Creds(CredParams &params) :
 
     nvs(params.nameSpace), params(params) {
@@ -19,7 +20,16 @@ Creds::Creds(CredParams &params) :
         memset(this->smsreq.phone, 0, sizeof(this->smsreq.phone));
         memset(this->smsreq.APIkey, 0, sizeof(this->smsreq.APIkey));
         // this->nvs.eraseAll(); // UNCOMMENT AS NEEDED FOR TESTING.
+
+        snprintf(Creds::log, sizeof(Creds::log), "%s Ob created", Creds::tag);
+        Creds::sendErr(Creds::log, Messaging::Levels::INFO);
     }
+
+// Requires messaging and messaging level. Level default to ERROR.
+void Creds::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
+}
 
 // Requires CredParams pointer, which is default set to nullptr, and must be 
 // passed to initialize the object. Once complete, a call with no parameters 
@@ -30,12 +40,12 @@ Creds* Creds::get(CredParams* parameter) {
     // Empty calls will pass nullptr by default, which will return a nullptr
     // if it hasnt been init. Once init, this will be bypassed.
     if (parameter == nullptr && !isInit) {
+
         snprintf(Creds::log, sizeof(Creds::log), "%s Creds has not been init",
             Creds::tag);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
-            Creds::log, Messaging::Method::SRL_LOG);
-
+        // nullptr will cause a crash if used.
+        Creds::sendErr(Creds::log, Messaging::Levels::CRITICAL);
         return nullptr; // Blocks instance from being created.
 
     } else if (parameter != nullptr && !isInit) {
@@ -46,9 +56,7 @@ Creds* Creds::get(CredParams* parameter) {
             "%s Creds init with namespace %s", Creds::tag, 
             parameter->nameSpace);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-            Creds::log, Messaging::Method::SRL_LOG);
-
+        Creds::sendErr(Creds::log, Messaging::Levels::INFO);
         isInit = true; // Opens gate after proper init
     }
 
@@ -66,8 +74,7 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
         snprintf(Creds::log, sizeof(Creds::log), "%s writeErr", Creds::tag);
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
-            Creds::log, Messaging::Method::SRL_LOG);
+        Creds::sendErr(Creds::log);
     }
 
     return stat;
@@ -86,9 +93,8 @@ const char* Creds::read(const char* key) {
             );
 
         if (stat != nvs_ret_t::NVS_READ_OK) {
-            snprintf(Creds::log, sizeof(Creds::log), "%s readErr",Creds::tag);
-            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
-                Creds::log, Messaging::Method::SRL_LOG);
+            snprintf(Creds::log, sizeof(Creds::log), "%s readErr", Creds::tag);
+            Creds::sendErr(Creds::log);
             }
     };
 
@@ -146,17 +152,17 @@ SMSreq* Creds::getSMSReq(bool bypassCheck) {
 
     // In this section we compare the the expected string length, of course
     // omitting the null terminator. If they do not meet the requirements,
-    // a nullptr will be returned.
+    // a nullptr will be returned preventing the use of the data.
     strSize = static_cast<size_t>(Comms::IDXSIZE::PHONE) - 1; // 10.
 
     // Check the actual strlen and compare it against the requirement, If err,
     // return nullptr and log entry ERROR. Will not disable system.
     if (strlen(this->smsreq.phone) != strSize) {
+
         snprintf(Creds::log, sizeof(Creds::log), 
             "%s SMS phone size does not meet requirements", Creds::tag);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
-            Creds::log, Messaging::Method::SRL_LOG);
+        Creds::sendErr(Creds::log);
 
         return nullptr;
     }
@@ -170,8 +176,7 @@ SMSreq* Creds::getSMSReq(bool bypassCheck) {
         snprintf(Creds::log, sizeof(Creds::log), 
             "%s SMS APIkey size does not meet requirements", Creds::tag);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
-            Creds::log, Messaging::Method::SRL_LOG);
+        Creds::sendErr(Creds::log);
 
         return nullptr;
     }

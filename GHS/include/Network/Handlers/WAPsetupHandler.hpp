@@ -13,28 +13,28 @@
 namespace Comms {
 
 #define WAPHANDLER_JSON_SIZE 128 // buffer bytes.
+#define WAPHANDLER_WRITTEN_KEY "NULL" // Used to ensure key has been written
+#define WAPHANDLER_WRITTEN_KEY_SIZE 16 // Used to 
 
 class WSHAND : public MASTERHAND { // WAP SETUP HANDLER
     private:
     static const char* tag;
-    static char log[LOG_MAX_ENTRY]; // Used to log errors and messages
     static NetSTA* station; // STA ptr. Used to copy creds to class instance.
     static NetWAP* wap; // WAP ptr. Used to copy creds to class instance.
     static bool isInit; // Is instance initialized.
     static cJSON* receiveJSON(httpd_req_t* req);
-    static esp_err_t processJSON(cJSON* json, httpd_req_t* req, 
+    static bool processJSON(cJSON* json, httpd_req_t* req, 
         char* writtenKey);
 
-    static esp_err_t respondJSON(httpd_req_t* req, char* writtenKey);
+    static bool respondJSON(httpd_req_t* req, char* writtenKey);
     static bool initCheck(httpd_req_t* req);
-    static bool sendstrErr(esp_err_t err, const char* src);
-    static void sendErr(const char* msg, 
-        Messaging::Levels lvl = Messaging::Levels::ERROR);
-    
+    static bool handleNVS(bool write, const char* key, cJSON* item,
+        httpd_req_t* req, char* writtenKey);
+
     public:
     static bool init(NetSTA &station, NetWAP &wap);
-    static esp_err_t IndexHandler(httpd_req_t* req);
-    static esp_err_t DataHandler(httpd_req_t* req);
+    static esp_err_t IndexHandler(httpd_req_t* req); // Entrance
+    static esp_err_t DataHandler(httpd_req_t* req); // Entrance
 };
 
 }

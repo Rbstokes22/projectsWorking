@@ -10,6 +10,8 @@
 
 namespace Comms {
 
+#define STACK_SIZE 8192 // Used for http config.
+
 enum class wifi_ret_t { // wifi return type
     INIT_OK, INIT_FAIL, WIFI_OK, WIFI_FAIL,
     SERVER_OK, SERVER_FAIL, DESTROY_OK, DESTROY_FAIL,
@@ -48,7 +50,7 @@ class NetMain {
     wifi_config_t wifi_config; // Wifi configuration.
     static httpd_config http_config; // httpd configuration.
     char mdnsName[static_cast<int>(IDXSIZE::MDNS)]; // multicast DNS name. 
-    static char errlog[LOG_MAX_ENTRY]; // chaned to err log to decouple log uri
+    static char log[LOG_MAX_ENTRY]; // chaned to err log to decouple log uri
 
     public:
     NetMain(const char* mdnsName);

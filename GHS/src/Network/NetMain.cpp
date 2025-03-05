@@ -31,12 +31,12 @@ namespace Comms {
 // Static Setup
 httpd_handle_t NetMain::server{NULL};
 NetMode NetMain::NetType{NetMode::NONE};
-Flag::FlagReg NetMain::flags; 
+Flag::FlagReg NetMain::flags("(NetFlag)"); 
 esp_netif_t* NetMain::ap_netif{nullptr};
 esp_netif_t* NetMain::sta_netif{nullptr};
 wifi_init_config_t NetMain::init_config = WIFI_INIT_CONFIG_DEFAULT();
 httpd_config_t NetMain::http_config = HTTPD_DEFAULT_CONFIG();
-char NetMain::errlog[LOG_MAX_ENTRY]{0};
+char NetMain::log[LOG_MAX_ENTRY]{0};
 
 NetMain::NetMain(const char* mdnsName) : 
     
@@ -48,7 +48,10 @@ NetMain::NetMain(const char* mdnsName) :
     this->mdnsName[mdnsLen - 1] = '\0';
 
     // used for https client due to large size.
-    NetMain::http_config.stack_size = 8192; 
+    NetMain::http_config.stack_size = STACK_SIZE; 
+
+    // Abstract class, no object will be created. Subclasses will log
+    // their creation.
 }
 
 NetMain::~NetMain() {} // virtual destroyer required
@@ -67,11 +70,11 @@ wifi_ret_t NetMain::init_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiInit);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi init Fail: %s", this->tag, 
                 esp_err_to_name(wifi_init));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::INIT_FAIL;
         }
     }
@@ -84,11 +87,11 @@ wifi_ret_t NetMain::init_wifi() {
             NetMain::flags.setFlag(NETFLAGS::netifInit);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Netif init fail: %s", this->tag, 
                 esp_err_to_name(netif_init));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::INIT_FAIL;
         }
     }
@@ -101,11 +104,11 @@ wifi_ret_t NetMain::init_wifi() {
             NetMain::flags.setFlag(NETFLAGS::eventLoopInit);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Eventloop fail: %s", this->tag, 
                 esp_err_to_name(event_loop));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::INIT_FAIL; 
         }
     }
@@ -118,10 +121,10 @@ wifi_ret_t NetMain::init_wifi() {
             NetMain::ap_netif = esp_netif_create_default_wifi_ap();
 
             if (NetMain::ap_netif == nullptr) {
-                snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s AP Netif not set", this->tag);
 
-                this->sendErr(NetMain::errlog);
+                this->sendErr(NetMain::log);
                 return wifi_ret_t::INIT_FAIL;
 
             } else {
@@ -138,10 +141,10 @@ wifi_ret_t NetMain::init_wifi() {
             NetMain::sta_netif = esp_netif_create_default_wifi_sta();
 
             if (NetMain::sta_netif == nullptr) {
-                snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+                snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s STA Netif not set", this->tag);
 
-                this->sendErr(NetMain::errlog);
+                this->sendErr(NetMain::log);
                 return wifi_ret_t::INIT_FAIL;
 
             } else {
@@ -166,10 +169,10 @@ wifi_ret_t NetMain::mDNS() {
             NetMain::flags.setFlag(NETFLAGS::mdnsInit);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s mDNS init fail: %s", this->tag, esp_err_to_name(mdns));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::MDNS_FAIL;
         }
     }
@@ -182,11 +185,11 @@ wifi_ret_t NetMain::mDNS() {
             NetMain::flags.setFlag(NETFLAGS::mdnsHostSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s mDNS hostname unset: %s", this->tag, 
                 esp_err_to_name(mdns_set));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::MDNS_FAIL;
         }
     }
@@ -204,11 +207,11 @@ wifi_ret_t NetMain::mDNS() {
             NetMain::flags.setFlag(NETFLAGS::mdnsInstanceSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s mDNS instance name unset: %s", this->tag, 
                 esp_err_to_name(mdns_nameset));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::MDNS_FAIL;
         }
     } 
@@ -224,11 +227,11 @@ wifi_ret_t NetMain::mDNS() {
             NetMain::flags.setFlag(NETFLAGS::mdnsServiceAdded);
             
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s mDNS service not added: %s", this->tag, 
                 esp_err_to_name(svcAdd));
                 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::MDNS_FAIL;
         }
     }

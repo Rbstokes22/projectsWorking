@@ -53,6 +53,8 @@ NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName), tag("(NETSTA)") {
 
     memset(this->ssid, 0, sizeof(this->ssid));
     memset(this->pass, 0, sizeof(this->pass));
+    snprintf(NetMain::log, sizeof(NetMain::log), "%s Ob created", this->tag);
+    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO);
 }
 
 // Second step in the init process, Steps 1 and 4 are in the NetMain src file.
@@ -71,11 +73,11 @@ wifi_ret_t NetSTA::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::handlerReg);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Handler Not registered: %s", this->tag, 
                 esp_err_to_name(handler));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
 
             return wifi_ret_t::WIFI_FAIL;
         }
@@ -97,11 +99,11 @@ wifi_ret_t NetSTA::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiModeSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi mode not set: %s", this->tag, 
                 esp_err_to_name(wifi_mode));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
   
             return wifi_ret_t::WIFI_FAIL;
         }
@@ -117,11 +119,11 @@ wifi_ret_t NetSTA::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiConfigSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi mode not set: %s", this->tag, 
                 esp_err_to_name(wifi_cfg));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -135,11 +137,11 @@ wifi_ret_t NetSTA::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi not started: %s", this->tag, 
                 esp_err_to_name(wifi_start));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -153,11 +155,11 @@ wifi_ret_t NetSTA::start_wifi() {
             NetMain::flags.setFlag(NETFLAGS::wifiConnected);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi not connected: %s", this->tag, 
                 esp_err_to_name(wifi_con));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::WIFI_FAIL;
         }
     }
@@ -180,10 +182,10 @@ wifi_ret_t NetSTA::start_server() {
                 NetMain::flags.setFlag(NETFLAGS::httpdOn);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s HTTPD not started: %s", this->tag, esp_err_to_name(httpd));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
@@ -204,7 +206,7 @@ wifi_ret_t NetSTA::start_server() {
             &OTAUpdateLAN);
 
         esp_err_t reg6 = httpd_register_uri_handler(NetMain::server, &ws);
-        esp_err_t reg7 = httpd_register_uri_handler(NetMain::server, &log);
+        esp_err_t reg7 = httpd_register_uri_handler(NetMain::server, &logger);
 
         // Check to see if all registrations are successful. Must be all or 
         // nothing for return.
@@ -213,10 +215,10 @@ wifi_ret_t NetSTA::start_server() {
                 
             NetMain::flags.setFlag(NETFLAGS::uriReg);
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s URI registration fail", this->tag);
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::SERVER_FAIL;
         }
     }
@@ -250,10 +252,10 @@ wifi_ret_t NetSTA::destroy() {
             NetMain::flags.releaseFlag(NETFLAGS::uriReg);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s HTTPD not stopped: %s", this->tag, esp_err_to_name(httpd));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -269,11 +271,11 @@ wifi_ret_t NetSTA::destroy() {
             NetMain::flags.releaseFlag(NETFLAGS::wifiConfigSet);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi not stopped: %s", this->tag, 
                 esp_err_to_name(wifi_stop));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -287,11 +289,11 @@ wifi_ret_t NetSTA::destroy() {
             NetMain::flags.releaseFlag(NETFLAGS::wifiConnected);
 
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi not disconnected: %s", this->tag, 
                 esp_err_to_name(wifi_con));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -306,11 +308,11 @@ wifi_ret_t NetSTA::destroy() {
             NetMain::flags.releaseFlag(NETFLAGS::handlerReg);
             
         } else {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Wifi handler not unregistered: %s", this->tag, 
                 esp_err_to_name(event));
 
-            this->sendErr(NetMain::errlog);
+            this->sendErr(NetMain::log);
             return wifi_ret_t::DESTROY_FAIL;
         }
     }
@@ -327,10 +329,10 @@ void NetSTA::setPass(const char* pass) {
         this->pass[sizeof(this->pass) - 1] = '\0'; // ensure null term
 
     } else {
-        snprintf(NetMain::errlog, sizeof(NetMain::errlog), "%s Pass not set", 
+        snprintf(NetMain::log, sizeof(NetMain::log), "%s Pass not set", 
             this->tag);
 
-        this->sendErr(NetMain::errlog);
+        this->sendErr(NetMain::log);
     }
 }
 
@@ -343,10 +345,10 @@ void NetSTA::setSSID(const char* ssid) {
         this->ssid[sizeof(this->ssid) - 1] = '\0'; // null term
 
     } else {
-        snprintf(NetMain::errlog, sizeof(NetMain::errlog), "%s SSID not set", 
+        snprintf(NetMain::log, sizeof(NetMain::log), "%s SSID not set", 
             this->tag);
 
-        this->sendErr(NetMain::errlog);
+        this->sendErr(NetMain::log);
     }
 }
 
@@ -401,10 +403,10 @@ bool NetSTA::isActive() {
         (esp_wifi_sta_get_ap_info(&sta_info) == ESP_OK)) { // Means connected
 
         if (this->getLogToggle()->con) {
-            snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+            snprintf(NetMain::log, sizeof(NetMain::log), 
                 "%s Connected", this->tag);
 
-            this->sendErr(NetMain::errlog, Messaging::Levels::INFO);
+            this->sendErr(NetMain::log, Messaging::Levels::INFO);
             this->getLogToggle()->con = false; // Block another attempt
             this->getLogToggle()->discon = true; // Reset if previously false.
         }
@@ -415,10 +417,10 @@ bool NetSTA::isActive() {
     
     // Run this block if not connected
     if (this->getLogToggle()->discon) {
-        snprintf(NetMain::errlog, sizeof(NetMain::errlog), 
+        snprintf(NetMain::log, sizeof(NetMain::log), 
             "%s Disconnected", this->tag);
 
-        this->sendErr(NetMain::errlog, Messaging::Levels::INFO);
+        this->sendErr(NetMain::log, Messaging::Levels::INFO);
         this->getLogToggle()->discon = false; // Block another attempt
         this->getLogToggle()->con = true; // Reset if previously false.
     }

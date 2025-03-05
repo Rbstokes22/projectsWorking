@@ -66,7 +66,7 @@ httpd_uri_t OTACheck = {
     .user_ctx  = NULL
 };
 
-httpd_uri_t log = {
+httpd_uri_t logger = {
     .uri       = "/getLog",
     .method    = HTTP_GET,
     .handler   = STALogHandler,

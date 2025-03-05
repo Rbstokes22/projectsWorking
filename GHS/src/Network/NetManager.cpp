@@ -35,6 +35,7 @@ void NetManager::setNetType(NetMode NetType) {
 
     if (NetType == NetMode::WAP || NetType == NetMode::WAP_SETUP) {
         this->checkConnection(this->wap, NetType);
+
     } else if (NetType == NetMode::STA) {
         this->checkConnection(this->station, NetType);
     }
@@ -64,8 +65,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
             snprintf(this->log, sizeof(this->log), "%s WAP connect destroyed", 
                 this->tag);
 
-            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-                this->log, Messaging::Method::SRL_LOG);
+            this->sendErr(this->log);
 
         } else if (net_type == NetMode::STA) {
 
@@ -77,8 +77,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
             snprintf(this->log, sizeof(this->log), "%s STA connect destroyed", 
                 this->tag);
 
-            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-                this->log, Messaging::Method::SRL_LOG);
+            this->sendErr(this->log);
         } 
     
         // startServer() will be called exactly one time before the 
@@ -90,8 +89,7 @@ void NetManager::checkConnection(NetMain &mode, NetMode NetType) {
         snprintf(this->log, sizeof(this->log), "%s Starting server mode %s", 
             this->tag, modes[static_cast<uint8_t>(NetType)]);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-            this->log, Messaging::Method::SRL_LOG);
+        this->sendErr(this->log);
 
         this->startServer(mode);
     }
@@ -212,8 +210,7 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
         snprintf(this->log, sizeof(this->log), "%s Net Reconnecting", 
             this->tag);
 
-        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
-            this->log, Messaging::Method::SRL_LOG);
+        this->sendErr(this->log, Messaging::Levels::WARNING);
 
     } else {
         // Sends via SRL every reconnect attempt. This allows pollution control
@@ -249,14 +246,12 @@ bool NetManager::handleDestruction(NetMain &mode) {
             snprintf(this->log, sizeof(this->log), 
                 "%s Connection unable to destroy", this->tag);
 
-            Messaging::MsgLogHandler::get()->handle(
-                Messaging::Levels::CRITICAL, this->log, 
-                Messaging::Method::SRL_LOG);
+            this->sendErr(this->log, Messaging::Levels::CRITICAL);
 
             // if true, will save settings and force a reset.
             if (NET_DESTROY_FAIL_FORCE_RESET) {
                 NVS::settingSaver::get()->save();
-                vTaskDelay(pdMS_TO_TICKS(10)); // Brief delay
+                vTaskDelay(pdMS_TO_TICKS(10)); // Brief delay before restart.
                 esp_restart();
             }
 
@@ -274,6 +269,12 @@ bool NetManager::handleDestruction(NetMain &mode) {
     return true;
 }
 
+// Requires message and messaging level. Level default to INFO.
+void NetManager::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
+}
+
 // Constructor. Takes station, wap, and OLED references.
 NetManager::NetManager(
     NetSTA &station, 
@@ -283,6 +284,8 @@ NetManager::NetManager(
     tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {
 
         memset(this->log, 0, sizeof(this->log));
+        snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
+        this->sendErr(this->log);
     }
 
 // Requires no params. This is the first part of the process and checks the 

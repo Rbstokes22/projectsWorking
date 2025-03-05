@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Clock {
 
@@ -39,8 +40,10 @@ void DateTime::setHHMMSS(uint32_t seconds) {
 
 DateTime::DateTime() : 
     
-    tag("(DateTime)"), time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), 
-    calibrated(false) {}
+    time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {
+
+        printf("Date time created\n"); // MSGLOGERR WONT WORK HERE!!!!!!!!!!!!!!!!!!!!!!!
+    }
 
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {

@@ -21,14 +21,16 @@ struct SMSreq {
 class Creds { // Singleton
     private:
     static const char* tag; // Tag used in logging.
+    static char log[LOG_MAX_ENTRY];
     NVSctrl nvs; // nvs object
     char credData[static_cast<int>(Comms::IDXSIZE::PASS)]; // largest array size
     SMSreq smsreq; // SMS request structure.
     CredParams &params; // Required parameters.
-    static char log[LOG_MAX_ENTRY];
     Creds(CredParams &params);
     Creds(const Creds&) = delete; // prevent copying
     Creds &operator=(const Creds&) = delete; // prevent assignment
+    static void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR);
 
     public:
     static Creds* get(CredParams* parameter = nullptr);

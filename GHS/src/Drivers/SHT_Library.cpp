@@ -238,6 +238,8 @@ SHT::SHT() : tag("(SHT31)"), isInit(false) {
     
     memset(this->log, 0, sizeof(this->log));
     this->packet.reset(); // Inits RW packet
+    snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
+    this->sendErr(this->log, true, Messaging::Levels::INFO);
 } 
 
 // Requires uint8_t address. Configures the I2C and adds the address to the 

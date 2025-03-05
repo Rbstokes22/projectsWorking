@@ -172,11 +172,8 @@ OTA_RET OTAhandler::processReq(URL &url) {
     this->close();
 
     // Validate partition. If good, sets the next boot partition.
-    Boot::val_ret_t err = Boot::checkPartition(
-        Boot::PART::NEXT, 
-        FW_SIZE, 
-        SIG_SIZE
-        );
+    Boot::val_ret_t err = Boot::FWVal::get()->checkPartition(Boot::PART::NEXT, 
+        FW_SIZE, SIG_SIZE);
 
     if (err != Boot::val_ret_t::VALID) {
         this->sendErr("OTA firmware invalid, will not set next partition");

@@ -5,6 +5,8 @@
 #include "Config/config.hpp"
 #include "Drivers/fonts.hpp"
 #include "I2C/I2C.hpp"
+#include "UI/MsgLogHandler.hpp"
+#include "string.h"
 
 namespace UI_DRVR {
 
@@ -75,8 +77,39 @@ void OLEDbasic::grabChar(char c) {
         this->bufferIDX += this->charDim.width;
 
     } else {
-        printf("Buffer capacity full\n");
+
+        snprintf(this->log, sizeof(this->log), "%s buffer capacity full", 
+            this->tag);
+
+        this->sendErr(this->log);
     }
+}
+
+// Once the next character, or word goes beyond the capacity of the OLED,
+// as well as the last line, a line will write to the Working buffer. This
+// method adjusts the buffer index to the next open byte which will be offset
+// by the length of the command sequence, from the first byte in that page/row.
+// This prevent overwriting the command data within the template.
+void OLEDbasic::writeLine() {
+    this->col = 0; // Set column to 0
+    this->page++; // next page
+    
+    // Does nothing if exceeding the row span of the OLED.
+    if (this->page > (this->pageMax)) return;
+
+    // The buffer index is adjusted to the correct position based on 
+    // its page and the length of bytes dedicated to the page (136).
+    // Since a command sequence was written into the buffer at that 
+    // index value, the buffer is incremented by the size of that.
+    size_t bufferAdjustment = page * (this->cmdSeqLgth + this->lineLgth);
+
+    this->bufferIDX = bufferAdjustment + sizeof(OLEDbasic::charCMD);
+}
+
+// Requires messaging and messaing level. Level defaults to ERROR.
+void OLEDbasic::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
 }
 
 // Defaults to 5x7 char font upon creation.
@@ -96,9 +129,13 @@ OLEDbasic::OLEDbasic() :
     Display{this->bufferB},
     bufferIDX{0}, isBufferA{true} {
 
+        memset(this->log, 0, sizeof(this->log));
         memset(this->templateBuf, 0, sizeof(this->templateBuf));
         memset(this->bufferA, 0, sizeof(this->bufferA));
         memset(this->bufferB, 0, sizeof(this->bufferB));
+        
+        snprintf(this->log, sizeof(this->log), "%s Ob Created", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
     }
 
 // Initializes at def i2c freq. Configures the i2c settings, and adds the i2c 
@@ -113,7 +150,7 @@ bool OLEDbasic::init(uint8_t address) {
 
     esp_err_t err = i2c_master_transmit( // Transmit init sequence
         this->i2cHandle, this->init_sequence,
-        sizeof(this->init_sequence), -1);
+        sizeof(this->init_sequence), SSD1306_I2C_TIMEOUT);
 
     this->isInit = true;
     this->reset(true); // Reset, clear, and make template.
@@ -223,27 +260,6 @@ void OLEDbasic::setPOS(uint8_t column, uint8_t page) {
     this->bufferIDX = colAdjustment + pageAdjustment;
 }
 
-// Once the next character, or word goes beyond the capacity of the OLED,
-// as well as the last line, a line will write to the Working buffer. This
-// method adjusts the buffer index to the next open byte which will be offset
-// by the length of the command sequence, from the first byte in that page/row.
-// This prevent overwriting the command data within the template.
-void OLEDbasic::writeLine() {
-    this->col = 0; // Set column to 0
-    this->page++; // next page
-    
-    // Does nothing if exceeding the row span of the OLED.
-    if (this->page > (this->pageMax)) return;
-
-    // The buffer index is adjusted to the correct position based on 
-    // its page and the length of bytes dedicated to the page (136).
-    // Since a command sequence was written into the buffer at that 
-    // index value, the buffer is incremented by the size of that.
-    size_t bufferAdjustment = page * (this->cmdSeqLgth + this->lineLgth);
-
-    this->bufferIDX = bufferAdjustment + sizeof(OLEDbasic::charCMD);
-}
-
 // No text wrapping functionality. 
 // TXTCMD::END is the default selection. This will write the text
 // to the display and increment the page inserting a break.
@@ -251,7 +267,9 @@ void OLEDbasic::writeLine() {
 // of text on the same line without incremementing the page.
 void OLEDbasic::write(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        printf("%s No write message\n", this->tag);
+
+        snprintf(this->log, sizeof(this->log), "%s No write msg", this->tag);
+        this->sendErr(this->log);
         return;
     }
 
@@ -286,7 +304,11 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
 // of text on the same line without incremementing the page.
 void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
     if (msg == nullptr || *msg == '\0') {
-        printf("%s No cleanWrite message\n", this->tag);
+
+        snprintf(this->log, sizeof(this->log), "%s No cleanwrite msg", 
+            this->tag);
+
+        this->sendErr(this->log);
         return;
     }
 
@@ -347,7 +369,11 @@ void OLEDbasic::send() {
 
     auto errHandle = [this](esp_err_t err) { // Prints to serial.
         if (err != ESP_OK) {
-            printf("%s err:  %s\n", this->tag, esp_err_to_name(err));
+
+            snprintf(this->log, sizeof(this->log), "%s send err. %s", 
+                this->tag, esp_err_to_name(err));
+
+            this->sendErr(this->log);
         }
     };
 
@@ -385,17 +411,18 @@ void OLEDbasic::send() {
         if (toggle) {
             err = i2c_master_transmit(
                 this->i2cHandle, &Display[i],
-                this->cmdSeqLgth, -1
+                this->cmdSeqLgth, SSD1306_I2C_TIMEOUT
             );
 
             errHandle(err);
 
             toggle = false;
             i += this->cmdSeqLgth;
+            
         } else {
             err = i2c_master_transmit(
                 this->i2cHandle, &Display[i],
-                this->lineLgth, -1
+                this->lineLgth, SSD1306_I2C_TIMEOUT
             );
 
             errHandle(err);

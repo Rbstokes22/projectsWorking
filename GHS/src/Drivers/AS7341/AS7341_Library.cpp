@@ -176,6 +176,8 @@ AS7341basic::AS7341basic(CONFIG &conf) :
     tag("(AS7341)"), conf(conf), isInit(false) {
 
         memset(this->log, 0, sizeof(this->log));
+        snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
+        this->sendErr(this->log, true, true, Messaging::Levels::INFO);
     }
 
 // Requires the address of the device. Initializes the I2C connection

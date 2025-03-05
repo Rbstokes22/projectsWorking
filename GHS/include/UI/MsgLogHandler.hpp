@@ -11,6 +11,12 @@ namespace Messaging {
 #define LOG_MAX_ENTRY 128 // max entry size per log.
 #define MLH_DELIM ';' // delimiter used in log entries
 #define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.
+#define SRL_RED "\033[31m" // Red text
+#define SRL_GRN "\033[32m" // Green text
+#define SRL_YEL "\033[33m" // Yellow text
+#define SRL_CYN "\033[36m" // Cyan text
+#define SRL_MAG "\033[35m" // Magenta text
+#define SRL_RST "\033[0m" // Reset text
 
 enum class Levels : uint8_t {
 
@@ -45,24 +51,20 @@ enum class Method : uint8_t {
     SRL_OLED_LOG // Serial, OLED, and log.
 };
 
-extern const char LevelsMap[5][10]; // used for verbosity with enum Levels
-
-// Parameters to control the Messaging, Logging, and Error capability.
-struct MsgLogHandlerParams {
-    UI::IDisplay &OLED; // Address of OLED object.
-    uint8_t msgClearInterval; // Seconds to clear messages from OLED display
-    bool serialOn; // Enables serial printing.
-};
+extern const char LevelsMap[5][11]; // used for verbosity with enum Levels
+extern const char LevelsColors[5][10]; // Used for serial colors
 
 class MsgLogHandler {
     private:
-    MsgLogHandlerParams &params;
     uint32_t msgClearTime;
+    uint8_t msgClearInterval; // Seconds to clear messages from OLED display.
+    UI::IDisplay* OLED; // Needs to be added, default to nullptr.
+    bool serialOn; // Enables serial printing.
     bool clrMsgOLED;
     char log[LOG_SIZE];
     bool newLogEntry; // New log message available to client.
     static Threads::Mutex mtx; // Removed <atomic> with mtx implementation.
-    MsgLogHandler(MsgLogHandlerParams &params); 
+    MsgLogHandler(); 
     MsgLogHandler(const MsgLogHandler&) = delete; // prevent copying
     MsgLogHandler &operator=(const MsgLogHandler&) = delete; // prevent assgnmt
     void writeSerial(Levels level, const char* message);
@@ -71,12 +73,13 @@ class MsgLogHandler {
     size_t stripLogMsg(size_t newMsgLen);
     
     public:
-    static MsgLogHandler* get(MsgLogHandlerParams* params = nullptr);
+    static MsgLogHandler* get();
     void OLEDMessageCheck();
     void handle(Levels level, const char* message, Method method);
     bool getNewLogEntry();
     void resetNewLogFlag();
     const char* getLog();
+    bool addOLED(UI::IDisplay &OLED);
 };
 
 }
