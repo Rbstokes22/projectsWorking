@@ -125,7 +125,7 @@ void NetManager::startServer(NetMain &mode) {
             // means return the default password.
             if (strcmp(mode.getPass(), mode.getPass(true)) == 0) {
                 char tempPass[static_cast<int>(IDXSIZE::PASS)]{0};
-
+                
                 strcpy(tempPass, creds->read("WAPpass")); // copy NVS to actual.
 
                 // If the NVS pass is not empty, sets pass from the NVS. If

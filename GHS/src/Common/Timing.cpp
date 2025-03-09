@@ -4,7 +4,16 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
-#include "UI/MsgLogHandler.hpp"
+
+// NO logging due to circular dependancy issue. Not an issue throughout the
+// program but only here. This is because when this object is created, it 
+// logs its creation. It cant log if the msglogerr isnt init, so it cant be
+// created first. The way these singletons are designed, if no params are req,
+// then the first get() will init that static instance and it is returned. So
+// the msglogerr will log its creation, which will then init this DateTime
+// singleton. Then this singleton attempts to log using the msglogerr, but 
+// the msglogerr is only partially init, since the creation of the DT singleton
+// is in the init steps.
 
 namespace Clock {
 
@@ -40,10 +49,7 @@ void DateTime::setHHMMSS(uint32_t seconds) {
 
 DateTime::DateTime() : 
     
-    time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {
-
-        printf("Date time created\n"); // MSGLOGERR WONT WORK HERE!!!!!!!!!!!!!!!!!!!!!!!
-    }
+    time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {}
 
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {
@@ -51,7 +57,7 @@ DateTime* DateTime::get() {
     // Single use of mutex lock which will ensure to protect any subsequent
     // calls made after requesting this instance.
     Threads::MutexLock(DateTime::mtx);
-
+    
     static DateTime instance;
     return &instance;
 }

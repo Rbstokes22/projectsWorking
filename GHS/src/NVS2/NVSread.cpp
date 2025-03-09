@@ -2,8 +2,11 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "string.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
+
+// NO LOGGING FOR SUCCESSFUL READS TO AVOID LOGGING POLLUTION.
 
 // Requires key, uint8_t pointer to data carrier, size in bytes, and bool to
 // indicate if it is being called from an internal writing function, which is
@@ -12,22 +15,19 @@ namespace NVS {
 // is good to use, NVS_NEW_ENTRY iff a new value is being written to the NVS
 // indicating that it has no data to compare against, and NVS_READ_FAIL for 
 // an unsuccessful read.
-nvs_ret_t NVSctrl::readFromNVS(
-    const char* key, 
-    uint8_t* carrier, 
-    size_t bytes,
+nvs_ret_t NVSctrl::readFromNVS(const char* key, uint8_t* carrier, size_t bytes,
     bool fromWrite) {
     
-    NVS_SAFE_OPEN(this->conf); // RAII open NVS. Closes once out of scope.
+    NVS_SAFE_OPEN(this, this->conf); // RAII open NVS. Closes once out of scope.
     
     esp_err_t read = nvs_get_blob(this->conf.handle, key, carrier, &bytes);
-    const char* TAG = "NVS Read";
 
     switch (read) {
         case ESP_OK: 
 
         // Checks the stored checksum against a checksum of the carrier.
-        // If matched, returns NVS_READ_OK.
+        // If matched, returns NVS_READ_OK. Checksum errors handled within
+        // its function.
         if (this->checkCRC(key, carrier, bytes) == nvs_ret_t::CHECKSUM_OK) {
             return nvs_ret_t::NVS_READ_OK;
         }
@@ -44,15 +44,25 @@ nvs_ret_t NVSctrl::readFromNVS(
         // is flagged as a new entry. Typically there is checksum 
         // verification which is bypassed in this case.
         if (fromWrite) {
-            printf("%s: New Entry\n", TAG);
+            snprintf(this->log, sizeof(this->log),
+                "%s new entry from key %s", this->tag, key);
+
+            this->sendErr(this->log, Messaging::Levels::INFO);
             return nvs_ret_t::NVS_NEW_ENTRY;
         }
 
-        printf("%s: Requested key does not exist\n", TAG);
+        // If not new entry, key must not exist. This will return a read fail.
+        snprintf(this->log, sizeof(this->log),
+            "%s requested key: %s does not exist", this->tag, key);
+
+        this->sendErr(this->log);
         break;
 
-        default: // Print statements that require no action.
-        NVSctrl::defaultPrint(TAG, read);
+        default: // Other read error.
+        snprintf(this->log, sizeof(this->log),
+            "%s requested key: %s read error", this->tag, key);
+
+        this->sendErr(this->log);
         break;
     }
 
@@ -72,13 +82,15 @@ nvs_ret_t NVSctrl::readFromNVS(
 // NVS_KEYLENGTH_ERROR if key is too short or long, or NVS_READ_BAD_PARAMS if 
 // nullptrs are passed, or bytes = 0.
 nvs_ret_t NVSctrl::read(const char* key, void* carrier, size_t bytes) {
-    const char* TAG = "NVS Read";
 
     memset(carrier, 0, bytes); // Zeros out upon receipt.
 
     // Filters out garbage data and returns if bad.
     if (key == nullptr || carrier == nullptr || bytes == 0) {
-        printf("%s: nullptr passed or bytes = 0\n", TAG);
+        snprintf(this->log, sizeof(this->log),
+            "%s nullptr passed or bytes = 0", this->tag);
+
+        this->sendErr(this->log);
         return nvs_ret_t::NVS_READ_BAD_PARAMS;
     }
 
@@ -86,7 +98,11 @@ nvs_ret_t NVSctrl::read(const char* key, void* carrier, size_t bytes) {
     // Max is 12 chars, plus the null term.
     size_t keyLen = strlen(key); 
     if (keyLen >= (MAX_NAMESPACE - 3) || keyLen == 0) {
-        printf("%s: Key length out of scope at %zu chars long\n", TAG, keyLen);
+
+        snprintf(this->log, sizeof(this->log),
+            "%s keylen out of scope at %zu chars long", this->tag, keyLen);
+
+        this->sendErr(this->log);
         return nvs_ret_t::NVS_KEYLENGTH_ERROR;
     } 
 

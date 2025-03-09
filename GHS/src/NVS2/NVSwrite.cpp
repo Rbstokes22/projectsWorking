@@ -2,8 +2,11 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "string.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
+
+// NO LOGGING FOR SUCCESSFUL WRITES TO AVOID LOGGING POLLUTION.
 
 // Requires key, uint8_t pointer to data to be written, and the size in bytes.
 // Reads first from the NVS to ensure an overwrite doesnt occur in the memory
@@ -11,22 +14,17 @@ namespace NVS {
 // not equal the data that is read, it will be re-written to include the 
 // checksum value. Returns NVS_WRITE_OK if data is successfully written,
 // or NVS_WRITE_FAIL if not.
-nvs_ret_t NVSctrl::writeToNVS(
-    const char* key, 
-    uint8_t* data, 
-    size_t bytes) {
-
-    const char* TAG = "NVS Write";
+nvs_ret_t NVSctrl::writeToNVS(const char* key, uint8_t* data, size_t bytes) {
 
     // first read and then write if different
     uint8_t tempData[MAX_NVS_ENTRY](0);
     char keyCS[MAX_NAMESPACE](0);
 
-    NVS_SAFE_OPEN(this->conf);// RAII open NVS. Closes once out of scope.
+    NVS_SAFE_OPEN(this, this->conf);// RAII open NVS. Closes once out of scope.
 
     nvs_ret_t readFirst = this->readFromNVS(key, tempData, bytes, true);
 
-    switch (readFirst) {
+    switch (readFirst) { // Read before writing, wear protection.
         case nvs_ret_t::NVS_READ_OK: 
 
         // Compares the data passed to the data stored in that location on
@@ -41,10 +39,10 @@ nvs_ret_t NVSctrl::writeToNVS(
         // Requires a fresh write below. (Spaceholder)
         break;
 
-        case nvs_ret_t::NVS_READ_FAIL: // reject
+        case nvs_ret_t::NVS_READ_FAIL: // reject. Error handling in read func.
         return nvs_ret_t::NVS_WRITE_FAIL;
         
-        default:
+        default: // Error handling in read func.
         break;
     }
 
@@ -54,7 +52,8 @@ nvs_ret_t NVSctrl::writeToNVS(
     uint32_t crc = 0;
 
     switch (write) { 
-        case ESP_OK: {
+        case ESP_OK: { // If written, write the checksum as well.
+
             int written = snprintf(keyCS, MAX_NAMESPACE, "CS%s", key);
 
             // Warns about truncated values if the total size written exceeds the 
@@ -63,9 +62,13 @@ nvs_ret_t NVSctrl::writeToNVS(
             // are to be written, + 1 for the null term to equal 18, then the key
             // exceed the requirment by 5 chars. 17 - 15 + 3 = 5.
             if (written > MAX_NAMESPACE) {
-                printf("%s: WARNING, checksum key has been "
-                    "truncated due to exceeding char limits by %d\n", 
-                    TAG, written - MAX_NAMESPACE + 3); 
+
+                snprintf(this->log, sizeof(this->log), 
+                    "%s checksum key [%s] has been truncated due to exceeding"
+                    " char limits by %d", 
+                    this->tag, keyCS, (written - MAX_NAMESPACE + 3));
+
+                this->sendErr(this->log);
             }
         }
         
@@ -73,25 +76,36 @@ nvs_ret_t NVSctrl::writeToNVS(
         break;
 
         default:
-        this->defaultPrint(TAG, write);
+        snprintf(this->log, sizeof(this->log), 
+            "%s write error", this->tag);
+
+        this->sendErr(this->log);
+        return nvs_ret_t::NVS_WRITE_FAIL; // Return if write error.
     }
 
-    if (dataSafe) {
+    if (dataSafe) { // Implies the crc32 is solid.
         // Doesn't require a read before write. This will only be called
         // if the value in memory has changed, which implies the checksum
         // has also changed.
         write = nvs_set_u32(this->conf.handle, keyCS, crc);
+
     } else {
-        return nvs_ret_t::NVS_WRITE_FAIL; 
+        return nvs_ret_t::NVS_WRITE_FAIL; // Block, crc data is no good
     }
 
-    switch (write) {
+    // If data is safe, checksum  will be written and re-handled here.
+    switch (write) { 
+
         case ESP_OK:
         return nvs_ret_t::NVS_WRITE_OK;
         break;
 
         default:
-        this->defaultPrint(TAG, write);
+        snprintf(this->log, sizeof(this->log), 
+            "%s key [%s] checksum not written", this->tag, keyCS);
+
+        this->sendErr(this->log);
+        break;
     }
 
     return nvs_ret_t::NVS_WRITE_FAIL;
@@ -110,19 +124,24 @@ nvs_ret_t NVSctrl::writeToNVS(
 // and NVS_KEYLENGTH_ERROR if key is too short or too long.
 nvs_ret_t NVSctrl::write(const char* key, void* data, size_t bytes) {
 
-    const char* TAG = "NVS Write";
-
     // Filters out garbage data and returns if bad.
     if (key == nullptr || data == nullptr || bytes == 0) {
-        printf("%s: nullptr passed or bytes = 0\n", TAG);
+        snprintf(this->log, sizeof(this->log), 
+            "%s nullptr passed or bytes = 0", this->tag);
+        
+        this->sendErr(this->log);
         return nvs_ret_t::NVS_WRITE_BAD_PARAMS;
     }
 
     // Filters key data first to ensure length is within bounds.
-    // Max is 12 chars, plus the null term.
+    // Max is 12 chars, plus the null term. If exceeds, return and log.
     size_t keyLen = strlen(key); 
     if (keyLen >= (MAX_NAMESPACE - 3) || keyLen == 0) {
-        printf("%s: Key length out of scope at %zu chars long\n", TAG, keyLen);
+        snprintf(this->log, sizeof(this->log), 
+            "%s key [%s] length exceeds max at %zu chars long",
+            this->tag, key, keyLen);
+        
+        this->sendErr(this->log);
         return nvs_ret_t::NVS_KEYLENGTH_ERROR;
     } 
 

@@ -35,8 +35,8 @@ wifi_ret_t NetWAP::configure() {
     this->wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
     
     // If password is under 8 chars, it will be a password-less open mode.
-    if (strlen(this->APpass) < 9) {
-        this->sendErr("Open Network due to pass lgth < 9");
+    if (strlen(this->APpass) < 8) {
+        this->sendErr("Open Network due to pass lgth < 8");
         this->wifi_config.ap.authmode = WIFI_AUTH_OPEN; 
     }
 

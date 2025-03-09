@@ -9,9 +9,11 @@ namespace NVS {
 // the NVS. Upon the two values being equal, returns CHECKSUM_OK. If unequal
 // or data is corrupt, returns CHECKSUM_FAIL.
 nvs_ret_t NVSctrl::checkCRC(const char* key, uint8_t* data, size_t bytes) {
-     bool dataSafe = false;
+
+    // used because this will return 0xFFFFFFFF if there is an error, which
+    // will also set this variable to false. Only good data if true.
+    bool dataSafe = false; 
     uint32_t crcStored = 0;
-    const char* TAG = "NVS Checksum";
 
     char keyCS[MAX_NAMESPACE]; // Checksum key with "CS" prepended.
     int written = snprintf(keyCS, MAX_NAMESPACE, "CS%s", key);
@@ -22,27 +24,38 @@ nvs_ret_t NVSctrl::checkCRC(const char* key, uint8_t* data, size_t bytes) {
     // are to be written, + 1 for the null term to equal 18, then the key
     // exceed the requirment by 5 chars. 17 - 15 + 3 = 5.
     if (written > MAX_NAMESPACE) {
-        printf("%s: WARNING, checksum key has been "
-            "truncated due to exceeding char limits by %d\n", 
-            TAG, written - MAX_NAMESPACE + 3); 
+        snprintf(this->log, sizeof(this->log), 
+            "%s checksum key [%s] has been truncated due to exceeding char"
+            " limits by %d", this->tag, keyCS, (written - MAX_NAMESPACE + 3));
+
+        this->sendErr(this->log);
     }
 
     uint32_t CSactual = this->crc32(data, bytes, dataSafe);
     esp_err_t CSread = nvs_get_u32(this->conf.handle, keyCS, &crcStored);
 
     switch (CSread) {
-        case ESP_OK:
-        if (CSactual == crcStored) { // Compares the two values
-            if (dataSafe) return nvs_ret_t::CHECKSUM_OK;
-            printf("%s: Data Potentially Corrupt\n", TAG);
-        } else {
-            printf("%s: Unequal Values\n", TAG);
-        }
 
+        case ESP_OK:
+
+        if (CSactual != crcStored || !dataSafe) { // Compares the two values
+            
+            snprintf(this->log, sizeof(this->log), 
+                "%s Checksum error key [%s], data potentially corrupt." 
+                " Act = %lu, Stored = %lu. dataSafe = %d", 
+                this->tag, keyCS, CSactual, crcStored, dataSafe);
+
+            this->sendErr(this->log);
+        } 
+
+        return nvs_ret_t::CHECKSUM_OK; // Implies that checksum matches stored.
         break;
 
-        default: // Print statements that require no action.
-        NVSctrl::defaultPrint(TAG, CSread);
+        default: 
+        snprintf(this->log, sizeof(this->log), "%s checksum key [%s] not read", 
+            this->tag, keyCS);
+
+        this->sendErr(this->log);
     }
 
     return nvs_ret_t::CHECKSUM_FAIL;

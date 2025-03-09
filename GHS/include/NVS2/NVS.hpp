@@ -4,6 +4,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "cstdint"
+#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
 
@@ -23,25 +24,28 @@ enum class nvs_ret_t {
 };
 
 struct NVS_Config {
-    nvs_handle_t handle;
-    const char* nameSpace;
+    nvs_handle_t handle; // NVS handle
+    const char* nameSpace; // NVS namespace
     NVS_Config(const char* nameSpace);
 };
 
 class NVSctrl {
     private:
-    static bool NVSinit;
+    const char* tag;
+    char log[LOG_MAX_ENTRY];
+    bool isInit;
     NVS_Config conf;
     nvs_ret_t writeToNVS(const char* key, uint8_t* data, size_t bytes);
     nvs_ret_t readFromNVS(const char* key, uint8_t* carrier, size_t bytes, 
         bool fromWrite = false); // used for new key handling
     
     nvs_ret_t checkCRC(const char* key, uint8_t* data, size_t bytes);
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR);
 
     public:
     NVSctrl(const char* nameSpace); 
-    static void defaultPrint(const char* TAG, esp_err_t err);
-    static nvs_ret_t init();
+    nvs_ret_t init();
     nvs_ret_t eraseAll();
     nvs_ret_t write(const char* key, void* data, size_t bytes);
     nvs_ret_t read(const char* key, void* carrier, size_t bytes);
@@ -52,10 +56,11 @@ class NVSctrl {
 class NVS_SAFE_OPEN {
     private:
     NVS_Config &conf;
-    const char* TAG;
+    const char* tag;
+    static char log[LOG_MAX_ENTRY]; // Avoid re creation everytime.
 
     public:
-    NVS_SAFE_OPEN(NVS_Config &conf);
+    NVS_SAFE_OPEN(NVSctrl* ctrl, NVS_Config &conf);
     ~NVS_SAFE_OPEN();
 
 };

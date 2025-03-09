@@ -18,14 +18,14 @@ Mutex::Mutex() :
         Messaging::MsgLogHandler::get()->handle(
             Messaging::Levels::CRITICAL,
             "Thread Mutex not created",
-            Messaging::Method::SRL_OLED
+            Messaging::Method::SRL_LOG
         );
 
     } else {
         Messaging::MsgLogHandler::get()->handle(
             Messaging::Levels::INFO, 
             "Thread Mutex created", 
-            Messaging::Method::SRL);
+            Messaging::Method::SRL_LOG);
     }
 }
 

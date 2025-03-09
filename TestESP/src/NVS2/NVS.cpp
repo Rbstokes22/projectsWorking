@@ -82,7 +82,7 @@ void NVSctrl::defaultPrint(const char* TAG, esp_err_t err) {
 // Initializes the NVS. Returns NVS_INIT_OK if successful,
 // NVS_MAX_INIT_ATTEMPTS if unable to init due to nvs erase
 // errors, or NVS_INIT_FAIL if failed for another reason.
-nvs_ret_t NVSctrl::init() {
+nvs_ret_t this->init() {
     // If already init, return init ok.
     if (NVSctrl::NVSinit) return nvs_ret_t::NVS_INIT_OK; 
 
@@ -106,7 +106,7 @@ nvs_ret_t NVSctrl::init() {
         err = nvs_flash_erase(); // Erase NVS partition.
 
         if (err == ESP_OK) {
-            NVSctrl::init(); // Re-attempt after valid erase.
+            this->init(); // Re-attempt after valid erase.
         } else {
             printf("%s: No label for NVS in partitions\n", TAG);
         }
@@ -128,7 +128,7 @@ nvs_ret_t NVSctrl::init() {
 // Erases the NVS partition. If successful, returns NVS_PARTITION_ERASED, 
 // if not, returns NVS_PARTITION_NOT_ERASED. Does not require initialization
 // before running.
-nvs_ret_t NVSctrl::eraseAll() {
+nvs_ret_t this->eraseAll() {
     esp_err_t erase = nvs_flash_erase();
     const char* TAG = "NVS Erase";
 

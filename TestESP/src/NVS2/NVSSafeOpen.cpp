@@ -12,7 +12,7 @@ NVS_SAFE_OPEN::NVS_SAFE_OPEN(NVS_Config &conf) : conf(conf), TAG("NVS Open") {
  
     // Initializes if not already initialized. If the nvs is 
     // unable to initialize, does not attept to open.
-    if (NVSctrl::init() != nvs_ret_t::NVS_INIT_OK) {
+    if (this->init() != nvs_ret_t::NVS_INIT_OK) {
         printf("%s: Unable to initialize\n", this->TAG); 
         return;
     }

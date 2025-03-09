@@ -3,25 +3,7 @@
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 // RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
 
-// MSGLOGERR is causing reboots when called in datetime class. Everything else 
-// fine, figure this out.
 
-// Change the strncpy to snprintfs.
-
-// Currently on SSD1306, all other drivers have msglogerr capability now with
-// the ability to log a feature only once until reset, for a max number of times
-// to prevent pollution. Continue this starting with the 1306. Also ensure the 
-// code logic is good as well, for example, in entrance functions, if there are
-// several other function calls, in a chain order, ensure not to progress on
-// and run a check of value in that single function to prevent waste and overlogging.
-// This is definitely a problem in the WAP setup handler with the JSON. You get these 
-// errors
-// ERROR: (OTAHAND) Unable to open con, ESP_OK
-// ERROR: (OTAHAND) JSON process fail
-// ERROR: (OTAHAND) Unable to process JSON
-// ERROR: (OTAHAND) Bad JSON response data
-// Once done the msglogerr handling and general code revision and comments ended
-// on the WAP setup handler.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

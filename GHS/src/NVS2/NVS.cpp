@@ -2,142 +2,112 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "string.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace NVS {
-
-bool NVSctrl::NVSinit = false; // inits to false.
 
 NVS_Config::NVS_Config(const char* nameSpace) : 
 
     handle(NVS_NULL), nameSpace(nameSpace) {}
 
-// Requires the namespace. Max namespace is 15 chars, leaving room
-// for the null terminator, you can have up to 14 chars.
-NVSctrl::NVSctrl(const char* nameSpace) : conf(nameSpace) {}
-
-// Requires TAG from calling function, and the error. Designed to handle
-// print statements thoughout the program, that require no follow-on
-// action and only a print.
-void NVSctrl::defaultPrint(const char* TAG, esp_err_t err) {
-    // this is a public method since it will be used outside
-    // of the class with NVS_SAFE_OPEN.
-    switch (err) {
-        case ESP_OK:
-        printf("%s: OK\n", TAG);
-        break;
-
-        case ESP_FAIL:
-        printf("%s: Fail, potentially corrupt\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_NOT_INITIALIZED:
-        printf("%s: Storage driver not init\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_PART_NOT_FOUND:
-        printf("%s: Partition not found\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_NOT_FOUND:
-        printf("%s: ID namespace non-existant\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_INVALID_NAME:
-        printf("%s: Namespace invalid\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_INVALID_HANDLE:
-        printf("%s: Handle has been closed or is null\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_INVALID_LENGTH:
-        printf("%s: Length is not sufficient to store data\n", TAG);
-        break;
-
-        case ESP_ERR_NO_MEM:
-        printf("%s: Memory allocation error\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_NOT_ENOUGH_SPACE:
-        printf("%s: No space for new entry\n", TAG);
-        break;
-
-        case ESP_ERR_NOT_ALLOWED:
-        printf("%s: Action not allowed\n", TAG);
-        break;
-
-        case ESP_ERR_INVALID_ARG:
-        printf("%s: Handle is equal to null\n", TAG);
-        break;
-
-        case ESP_ERR_NVS_NO_FREE_PAGES: 
-        printf("%s: NVS contains no empty pages\n", TAG);
-        break;
-
-        default:
-        printf("%s: Unknown case\n", TAG);
-    }
+// Requires messaging and messaging level. Level is default to ERROR.
+void NVSctrl::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
 }
 
-// Initializes the NVS. Returns NVS_INIT_OK if successful,
-// NVS_MAX_INIT_ATTEMPTS if unable to init due to nvs erase
-// errors, or NVS_INIT_FAIL if failed for another reason.
+// Requires the namespace. Max namespace is 15 chars, leaving room
+// for the null terminator, you can have up to 14 actual chars.
+NVSctrl::NVSctrl(const char* nameSpace) : tag("(NVSctrl)"), conf(nameSpace) {
+
+    snprintf(this->log, sizeof(this->log), "%s Ob Created", this->tag);
+    this->sendErr(this->log, Messaging::Levels::INFO);
+}
+
+// Requires no params. Inititializes the NVS if it hasnt been initialized.
+// Returns NVS_INIT_OK if initialized, NVS_MAX_INIT_ATTEMPTS if unable to
+// initialize after set amount of attempts, or NVS_INIT_FAIL if unable to init.
 nvs_ret_t NVSctrl::init() {
     // If already init, return init ok.
-    if (NVSctrl::NVSinit) return nvs_ret_t::NVS_INIT_OK; 
-
-    const char* TAG = "NVS Init";
+    if (this->isInit) return nvs_ret_t::NVS_INIT_OK; 
 
     // In order to prevent any looping, once max attempts are reached,
     // a gate is closed.
     static uint8_t initAttempts = 0;
 
-    if (initAttempts > NVS_MAX_INIT_ATT) {
-        printf("%s: Reached max init attempts at %d\n", TAG, NVS_MAX_INIT_ATT);
-        return nvs_ret_t::MAX_INIT_ATTEMPTS;
-    }
+    // If max attempts are equal, logs with WARNING, init max attempts 
+    // reached. Then incrememnets to set up future block to avoid overlogging.
+    if (initAttempts == NVS_MAX_INIT_ATT) {
 
-    esp_err_t err = nvs_flash_init(); // first init attempt
-    initAttempts++; // Incremenet the counter
+        snprintf(this->log, sizeof(this->log), "%s Reached max init att at %d", 
+            this->tag, initAttempts);
+
+        this->sendErr(this->log, Messaging::Levels::WARNING);
+        initAttempts++; // Allows the return block to exec in the elseif block.
+
+        return nvs_ret_t::MAX_INIT_ATTEMPTS;
+
+    } else if (initAttempts > NVS_MAX_INIT_ATT) return nvs_ret_t::NVS_INIT_FAIL;
+
+    esp_err_t err = nvs_flash_init(); // init attempt after gate.
+    initAttempts++; // Increment the counter
 
     switch (err) {
-        case ESP_ERR_NVS_NO_FREE_PAGES: 
-        printf("%s: Erasing partition, no free pages\n", TAG);
-        err = nvs_flash_erase(); // Erase NVS partition.
 
-        if (err == ESP_OK) {
-            NVSctrl::init(); // Re-attempt after valid erase.
-        } else {
-            printf("%s: No label for NVS in partitions\n", TAG);
-        }
-    
+        case ESP_ERR_NVS_NO_FREE_PAGES: 
+
+        snprintf(this->log, sizeof(this->log), 
+            "%s erasing partition, no free pages", this->tag);
+
+        this->sendErr(this->log, Messaging::Levels::INFO);
+
+        // Erase the NVS partition to try to re-init after.
+        if (this->eraseAll() == nvs_ret_t::NVS_PARTITION_ERASED) {
+
+            // Despite log in eraseAll(), log re-initializing as well.
+            snprintf(this->log, sizeof(this->log), "%s re-initializing", 
+                this->tag);
+
+            this->sendErr(this->log, Messaging::Levels::INFO);
+            this->init(); // Re-attempt after valid erase.
+        } 
+
         break;
 
-        case ESP_OK:
-        NVSctrl::NVSinit = true; // change to true.
-        printf("%s: Initialized\n", TAG);
+        case ESP_OK: // Initialized.
+        this->isInit = true; // Change init to true.
+        snprintf(this->log, sizeof(this->log), "%s Init", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
+
         return nvs_ret_t::NVS_INIT_OK;
 
-        default:
-        NVSctrl::defaultPrint(TAG, err);
+        default: // If anything else
+        snprintf(this->log, sizeof(this->log), "%s not init", this->tag);
+        this->sendErr(this->log);
+        break;
     }
 
-    return nvs_ret_t::NVS_INIT_FAIL;
+    return nvs_ret_t::NVS_INIT_FAIL; // Always fail, unless init = true.
 }
 
-// Erases the NVS partition. If successful, returns NVS_PARTITION_ERASED, 
-// if not, returns NVS_PARTITION_NOT_ERASED. Does not require initialization
-// before running.
+// Requires no params. Erases the NVS partition. If successful, returns
+// NVS_PARTITION_ERASE, if not, returns NVS_PARTITION_NOT_ERASED. Does not 
+// require initialization before running.
 nvs_ret_t NVSctrl::eraseAll() {
     esp_err_t erase = nvs_flash_erase();
-    const char* TAG = "NVS Erase";
 
     if (erase == ESP_OK) {
-        printf("%s: Erased partition\n", TAG);
+        snprintf(this->log, sizeof(this->log), "%s partition erased", 
+            this->tag);
+        
+        this->sendErr(this->log, Messaging::Levels::INFO);
         return nvs_ret_t::NVS_PARTITION_ERASED;
     }
 
-    printf("%s: Failed to erase partition\n", TAG);
+    snprintf(this->log, sizeof(this->log), "%s partition not erased", 
+        this->tag);
+    
+    this->sendErr(this->log);
     return nvs_ret_t::NVS_PARTITION_NOT_ERASED;
 }
 

@@ -11,18 +11,6 @@ namespace Messaging {
 
 Threads::Mutex MsgLogHandler::mtx; // Create static instance
 
-// COLOR CODING escape chars, these can be interjected anywhere.
-// Color	Code	Example Escape Code
-// Black	30	    \033[30m
-// Red	    31	    \033[31m
-// Green	32	    \033[32m
-// Yellow	33	    \033[33m
-// Blue	    34	    \033[34m
-// Magenta	35	    \033[35m
-// Cyan	    36	    \033[36m
-// White	37	    \033[37m
-// Reset	0	    \033[0m
-
 // Maps to levels. 
 const char LevelsMap[5][11]{"[DEBUG]", "[INFO]", "[WARNING]", "[ERROR]",
     "[CRITICAL]"};
@@ -36,6 +24,7 @@ MsgLogHandler::MsgLogHandler() :
     serialOn(SERIAL_ON), clrMsgOLED{false}, newLogEntry{false} {
 
         memset(this->log, 0, LOG_SIZE);
+
         this->handle(Messaging::Levels::INFO, "(MSGLOGERR) init",
             Messaging::Method::SRL_LOG);
     } 

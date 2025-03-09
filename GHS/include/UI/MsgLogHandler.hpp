@@ -11,6 +11,19 @@ namespace Messaging {
 #define LOG_MAX_ENTRY 128 // max entry size per log.
 #define MLH_DELIM ';' // delimiter used in log entries
 #define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.
+
+// COLOR CODING escape chars, these can be interjected anywhere.
+// Color	Code	Example Escape Code
+// Black	30	    \033[30m
+// Red	    31	    \033[31m
+// Green	32	    \033[32m
+// Yellow	33	    \033[33m
+// Blue	    34	    \033[34m
+// Magenta	35	    \033[35m
+// Cyan	    36	    \033[36m
+// White	37	    \033[37m
+// Reset	0	    \033[0m
+
 #define SRL_RED "\033[31m" // Red text
 #define SRL_GRN "\033[32m" // Green text
 #define SRL_YEL "\033[33m" // Yellow text
