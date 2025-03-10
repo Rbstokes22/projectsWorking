@@ -29,7 +29,7 @@ FWVal::FWVal() : tag("(FWVal)") {
 
     memset(this->log, 0, sizeof(this->log));
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
-    this->sendErr(this->log, Messaging::Levels::INFO);
+    this->sendErr(this->log, Messaging::Levels::INFO, true);
 }
 
 // Requires the partition, firmware size, and the signature size. Reads the 
@@ -246,13 +246,11 @@ val_ret_t FWVal::verifySig(const uint8_t* firmwareHash, const uint8_t* signature
     }
 }
 
-// Requires messagine and messaging level. Level is default to WARNING since 
-// the program will continue running, but any issues with the firmware 
-// validation will prevent it from being used in the future, and the last 
-// stable version will be used.
-void FWVal::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to WARNING, ignoreRepeat default to false.
+void FWVal::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 FWVal* FWVal::get() {

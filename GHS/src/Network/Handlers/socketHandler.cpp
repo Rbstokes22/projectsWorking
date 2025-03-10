@@ -20,7 +20,7 @@ argPool SOCKHAND::pool;
 argPool::argPool() : pool() {
     memset(this->inUse, false, SKT_MAX_RESP_ARGS);
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-        "(ARGPOOL) Ob created", Messaging::Method::SRL_LOG);
+        "(ARGPOOL) Ob created", Messaging::Method::SRL_LOG, true);
 }
 
 // Requires no params. Iterates the arg pool and returns a pointer to an open

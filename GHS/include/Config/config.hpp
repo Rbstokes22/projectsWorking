@@ -56,6 +56,8 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 // MSGLOGERR
 #define SERIAL_ON true // if set to true, will enable serial.
 #define MSG_CLEAR_SECS 5 // clears OLED error messages after n seconds.
+#define CONSECUTIVE_ENTRIES 2 // Prevents a repeat log entry.
+#define CONSECUTIVE_ENTRY_TIMEOUT 300 // Seconds that will allow repeat entries.
 
 // Used in functions to init object. 
 #define TOTAL_RELAYS 4 
@@ -66,9 +68,9 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 #define SHT_FRQ 1000
 #define AS7341_FRQ 2000
 #define SOIL_FRQ 1000
-#define ROUTINE_FRQ 5000
+#define ROUTINE_FRQ 3000
 
-// Autosave frequency in seconds
+// Autosave frequency in seconds, once per n seconds.
 #define AUTO_SAVE_FRQ 60
 
 // GPIO configuration.

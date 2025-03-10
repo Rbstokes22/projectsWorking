@@ -23,8 +23,6 @@ bool AS7341basic::setBank(REG reg) {
     uint8_t addr = static_cast<uint8_t>(reg);
     esp_err_t err = ESP_OK;
 
-    static bool logOnce = true;
-
     // Used for init only. Sets the last address to a range that is different
     // that the current register address. This will trigger a send.
     if (lastAddr == 0x00) { // First time only
@@ -52,18 +50,11 @@ bool AS7341basic::setBank(REG reg) {
 
         snprintf(this->log, sizeof(this->log), "%s Register bank err. %s", 
             this->tag, esp_err_to_name(err));
-
-        if (logOnce) {
-            this->sendErr(this->log, true);
-            logOnce = false;
-        } else {
-            this->sendErr(this->log);
-        }
-
+        
+        this->sendErr(this->log);
         return false;
     } 
 
-    logOnce = true; // Reset.
     return true;
 }
 
@@ -71,8 +62,6 @@ bool AS7341basic::setBank(REG reg) {
 bool AS7341basic::writeRegister(REG reg, uint8_t val) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
-
-    static bool logOnce = true;
 
     if (this->setBank(reg)) { // Ensure bank is set. Then write to register.
 
@@ -84,13 +73,7 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
             snprintf(this->log, sizeof(this->log), "%s Register write err. %s", 
                 this->tag, esp_err_to_name(err));
 
-            if (logOnce) {
-                this->sendErr(this->log, true);
-                logOnce = false;
-            } else {
-                this->sendErr(this->log);
-            }
-
+            this->sendErr(this->log);
             return false;
         }
 
@@ -98,7 +81,6 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
         return false;
     }
 
-    logOnce = true; // reset.
     return true;
 }
 
@@ -111,8 +93,6 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
 uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
     esp_err_t err;
     uint8_t addr = static_cast<uint8_t>(reg);
-
-    static bool logOnce = true;
 
     if (this->setBank(reg)) { // Set bank and read from register.
 
@@ -131,18 +111,11 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
             snprintf(this->log, sizeof(this->log), "%s Register Read err. %s", 
                 this->tag, esp_err_to_name(err));
 
-            if (logOnce) { // Log 
-                this->sendErr(this->log, true);
-                logOnce = false;
-            } else { // Then to SRL.
-                this->sendErr(this->log);
-            }
-
+            this->sendErr(this->log);
             dataSafe = false;
 
         } else {
 
-            logOnce = true; // Reset.
             dataSafe = true;
         }
 
@@ -189,7 +162,7 @@ bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
                 "%s VALID. Register: %#x = %#x", this->tag, addr, 
                 dataValidation);
 
-            this->sendErr(this->log, true, true, Messaging::Levels::INFO);
+            this->sendErr(this->log, Messaging::Levels::INFO);
         }
 
         return true;
@@ -202,7 +175,7 @@ bool AS7341basic::validateWrite(REG reg, uint8_t dataOut, bool verbose) {
                 "%s INVALID. Register: %#x = %#x", this->tag, addr, 
                 dataValidation);
 
-            this->sendErr(this->log, true, true);
+            this->sendErr(this->log);
         }
 
         return false;

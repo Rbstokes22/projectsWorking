@@ -22,13 +22,14 @@ Creds::Creds(CredParams &params) :
         // this->nvs.eraseAll(); // UNCOMMENT AS NEEDED FOR TESTING.
 
         snprintf(Creds::log, sizeof(Creds::log), "%s Ob created", Creds::tag);
-        Creds::sendErr(Creds::log, Messaging::Levels::INFO);
+        Creds::sendErr(Creds::log, Messaging::Levels::INFO, true);
     }
 
-// Requires messaging and messaging level. Level default to ERROR.
-void Creds::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to ERROR, ignoreRepeat default to false.
+void Creds::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Requires CredParams pointer, which is default set to nullptr, and must be 

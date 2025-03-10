@@ -41,7 +41,7 @@ class NVSctrl {
     
     nvs_ret_t checkCRC(const char* key, uint8_t* data, size_t bytes);
     void sendErr(const char* msg, Messaging::Levels lvl = 
-        Messaging::Levels::ERROR);
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
 
     public:
     NVSctrl(const char* nameSpace); 

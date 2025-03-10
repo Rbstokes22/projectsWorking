@@ -86,7 +86,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
-        Messaging::MsgLogHandler::get()->getNewLogEntry(),
+        Messaging::MsgLogHandler::get()->newLogAvail(),
         static_cast<size_t>(dtg->getTime()->raw), 
         dtg->getTime()->hour, dtg->getTime()->minute, dtg->getTime()->second,
         dtg->isCalibrated(),

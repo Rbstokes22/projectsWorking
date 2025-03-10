@@ -54,7 +54,7 @@ NetSTA::NetSTA(const char* mdnsName) : NetMain(mdnsName), tag("(NETSTA)") {
     memset(this->ssid, 0, sizeof(this->ssid));
     memset(this->pass, 0, sizeof(this->pass));
     snprintf(NetMain::log, sizeof(NetMain::log), "%s Ob created", this->tag);
-    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO);
+    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO, true);
 }
 
 // Second step in the init process, Steps 1 and 4 are in the NetMain src file.

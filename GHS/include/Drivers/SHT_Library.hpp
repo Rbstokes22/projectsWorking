@@ -20,7 +20,6 @@ namespace SHT_DRVR {
 #define SHT_MAX_HUM 99 // 100, but cant set above 100.
 #define SHT_READ_DELAY 50 // 50 millis, used between request and read.
 #define SHT_STATUS_BYTES 2 // uint16_t / 2 bytes expected
-#define SHT_MAX_LOGS 10 // Prevents intermittent errors from polluting log.
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.
@@ -84,15 +83,14 @@ class SHT {
     uint16_t getStatus(bool &dataSafe);
     uint8_t crc8(uint8_t* buffer, uint8_t length);
     SHT_RET computeTemps(SHT_VALS &carrier);
-    void sendErr(const char* msg, bool isLog = false, Messaging::Levels lvl =
-        Messaging::Levels::ERROR);
+    void sendErr(const char* msg, Messaging::Levels lvl =
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
 
     public:
     SHT();
     void init(uint8_t address); 
-    SHT_RET readAll(
-        START_CMD cmd, SHT_VALS &carrier, int timeout_ms = SHT_READ_TIMEOUT
-        );
+    SHT_RET readAll(START_CMD cmd, SHT_VALS &carrier, 
+        int timeout_ms = SHT_READ_TIMEOUT);
         
     SHT_RET enableHeater(bool enable);
     bool isHeaterEn(bool &dataSafe);

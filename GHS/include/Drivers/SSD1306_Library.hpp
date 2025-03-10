@@ -64,7 +64,7 @@ class OLEDbasic {
     void grabChar(char c);
     void writeLine();
     void sendErr(const char* msg, Messaging::Levels lvl = 
-        Messaging::Levels::ERROR);
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
     
     public:
     OLEDbasic();

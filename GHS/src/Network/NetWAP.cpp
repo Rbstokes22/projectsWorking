@@ -133,7 +133,7 @@ NetWAP::NetWAP(const char* APssid, const char* APdefPass,
     strcpy(this->APdefaultPass, APdefPass); // Always the same, no "n" req.
 
     snprintf(NetMain::log, sizeof(NetMain::log), "%s Ob created", this->tag);
-    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO);
+    NetMain::sendErr(NetMain::log, Messaging::Levels::INFO, true);
 
 
 }

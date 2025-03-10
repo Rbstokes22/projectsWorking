@@ -12,6 +12,7 @@ namespace SHT_DRVR {
 // is default false, and timeout_ms is default 500. If left unspecified, 
 // default values will persist.
 void RWPacket::reset(bool resetTimeout, int timeout_ms) {
+
     this->dataSafe = false;
     memset(this->writeBuffer, 0, sizeof(this->writeBuffer));
     memset(this->readBuffer, 0, sizeof(this->readBuffer));
@@ -22,8 +23,6 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
 // buffer to the SHT. Returns WRITE_TIMEOUT if timed out, WRITE_FAIL
 // if write failed, or WRITE_OK if successful. 
 SHT_RET SHT::write() {
-
-    static bool logOnce = true;
 
     esp_err_t err = i2c_master_transmit(
         this->i2cHandle,
@@ -37,15 +36,6 @@ SHT_RET SHT::write() {
         
         snprintf(this->log, sizeof(this->log), "%s write timeout", this->tag);
         this->sendErr(this->log);
-
-        if (logOnce) { // Logs only once.
-            this->sendErr(this->log, true);
-            logOnce = false;
-
-        } else { // Then to serial, until reset by WRITE_OK.
-            this->sendErr(this->log);
-        }
-
         return SHT_RET::WRITE_TIMEOUT;
 
     } else if (err != ESP_OK) {
@@ -53,18 +43,10 @@ SHT_RET SHT::write() {
         snprintf(this->log, sizeof(this->log), "%s write err. %s", this->tag,
             esp_err_to_name(err));
 
-        if (logOnce) { // Logs only once.
-            this->sendErr(this->log, true);
-            logOnce = false;
-
-        } else { // Then to serial, until reset by WRITE_OK.
-            this->sendErr(this->log);
-        }
-
+        this->sendErr(this->log);
         return SHT_RET::WRITE_FAIL;
     }
 
-    logOnce = true; // Reset error logging.
     return SHT_RET::WRITE_OK;
 }
 
@@ -77,8 +59,6 @@ SHT_RET SHT::write() {
 SHT_RET SHT::read(size_t readSize) {
 
     // The reading format is specified by pg 11 of the datasheet.
-
-    static bool logOnce = true;
 
     esp_err_t transErr = i2c_master_transmit(
         this->i2cHandle,
@@ -102,13 +82,7 @@ SHT_RET SHT::read(size_t readSize) {
     if (transErr == ESP_ERR_TIMEOUT || receiveErr == ESP_ERR_TIMEOUT) {
 
         snprintf(this->log, sizeof(this->log), "%s read timeout", this->tag);
-
-        if (logOnce) { // Log only once.
-            this->sendErr(this->log, true);
-        } else { // Then to serial until reset by good read.
-            this->sendErr(this->log);
-        }
-
+        this->sendErr(this->log);
         return SHT_RET::READ_TIMEOUT;
 
     } else if (transErr != ESP_OK || receiveErr != ESP_OK) {
@@ -117,16 +91,10 @@ SHT_RET SHT::read(size_t readSize) {
             "%s read err. Transmit- %s, Receive- %s", this->tag, 
             esp_err_to_name(transErr), esp_err_to_name(receiveErr));
 
-        if (logOnce) { // Log only once.
-            this->sendErr(this->log, true);
-        } else { // Then to serial until reset by good read.
-            this->sendErr(this->log);
-        }
-
+        this->sendErr(this->log);
         return SHT_RET::READ_FAIL;
     }
 
-    logOnce = true; // Reset to allow logging.
     return SHT_RET::READ_OK;
 }
 
@@ -212,34 +180,18 @@ SHT_RET SHT::computeTemps(SHT_VALS &carrier) {
     return SHT_RET::READ_OK;
 }
 
-// Requires message, level, and boolean log. Level is default to err, and log
-// is default to false. If true is passed, will create log entry as well. This
-// is to prevent from constant logging in the event of a devie error.
-void SHT::sendErr(const char* msg, bool isLog, Messaging::Levels lvl) {
-    static uint8_t totalLogs = 0;
-
-    // Used for a single log to prevent log pollution. The log once works
-    // by sending an immediate log, but no more logs until reset by good data.
-    // However if data is intermittently good and bad, this will trigger several
-    // logs, and the point is just to show via log, that there is a problem to
-    // address, that could be lost if log is overtaken by something like 
-    // checksum errors.
-    if (isLog && (totalLogs++ < SHT_MAX_LOGS)) { 
-        Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-            Messaging::Method::SRL_LOG);
-
-    } else {
-        Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-            Messaging::Method::SRL);
-    }
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to ERROR, ignoreRepeat default to false.
+void SHT::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 SHT::SHT() : tag("(SHT31)"), isInit(false) {
     
-    memset(this->log, 0, sizeof(this->log));
     this->packet.reset(); // Inits RW packet
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
-    this->sendErr(this->log, true, Messaging::Levels::INFO);
+    this->sendErr(this->log, Messaging::Levels::INFO, true);
 } 
 
 // Requires uint8_t address. Configures the I2C and adds the address to the 
@@ -263,8 +215,6 @@ void SHT::init(uint8_t address) {
 SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
     this->packet.reset(true, timeout_ms);
 
-    static bool logOnce = true;
-    
     carrier.dataSafe = false; // Sets to true once complete.
 
     // Set write buffer MSB by shifting Cmd MSB by 8 and putting it in IDX0.
@@ -293,17 +243,10 @@ SHT_RET SHT::readAll(START_CMD cmd, SHT_VALS &carrier, int timeout_ms) {
         this->packet.readBuffer[5] != crcHum) {
 
         snprintf(this->log, sizeof(this->log), "%s checksum Err", this->tag);
-
-        if (logOnce) { // Log only once
-            this->sendErr(this->log, true);
-        } else { // Then log into serial until reset.
-            this->sendErr(this->log);
-        }
-
+        this->sendErr(this->log);
         return SHT_RET::READ_FAIL_CHECKSUM;
     }
 
-    logOnce = true; // Reset if good.
     return this->computeTemps(carrier);
 }
 

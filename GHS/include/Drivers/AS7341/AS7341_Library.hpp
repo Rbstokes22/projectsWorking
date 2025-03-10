@@ -15,7 +15,6 @@ namespace AS7341_DRVR {
 #define AS7341_MIN 0 // 0 counts
 #define AS7341_MAX 65535 // full 16 bit int
 #define AS7341_WAIT 1000 // milliseconds timeout.
-#define AS7341_MAX_LOGS 10 // Prevents intermittent errors from polluting log.
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
@@ -124,8 +123,8 @@ class AS7341basic {
     void setSMUXLowChannels(bool f1_f4);
     void setup_F1F4_Clear_NIR();
     void setup_F5F8_Clear_NIR();
-    void sendErr(const char* msg, bool isLog = false, bool bypassLogMax = false,
-        Messaging::Levels lvl = Messaging::Levels::ERROR);
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
 
     public:
     AS7341basic(CONFIG &conf);

@@ -13,7 +13,7 @@ FlagReg::FlagReg(const char* tag) : tag(tag), reg{0} {
     char log[30]{0}; // Only used here to show object created.
     snprintf(log, sizeof(log), "%s Ob created", this->tag);
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
-        log, Messaging::Method::SRL_LOG); 
+        log, Messaging::Method::SRL_LOG, true); 
 }
 
 // Requires bitIndex of the flag. Returns true if set, and false if not.

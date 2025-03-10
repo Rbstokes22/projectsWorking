@@ -30,7 +30,7 @@ class Creds { // Singleton
     Creds(const Creds&) = delete; // prevent copying
     Creds &operator=(const Creds&) = delete; // prevent assignment
     static void sendErr(const char* msg, Messaging::Levels lvl = 
-        Messaging::Levels::ERROR);
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
 
     public:
     static Creds* get(CredParams* parameter = nullptr);

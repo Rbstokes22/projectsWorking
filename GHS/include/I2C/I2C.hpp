@@ -22,7 +22,7 @@ class I2C {
     I2C(const I2C&) = delete; // prevent copying
     I2C &operator=(const I2C&) = delete; // prevent assignment
     void sendErr(const char* msg, Messaging::Levels lvl = 
-        Messaging::Levels::CRITICAL);
+        Messaging::Levels::CRITICAL, bool ignoreRepeat = false);
 
     public:
     static I2C* get();

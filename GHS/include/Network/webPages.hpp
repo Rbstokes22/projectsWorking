@@ -208,7 +208,12 @@ const char STApage[] = R"rawliteral(
     <div id="log"></div>
     <button onclick="openLog()">Open Log</button>
 
-    <script>
+    <script> 
+
+        // Build NOTES:
+        // Ensure that from the handlers, that both version and status are checked
+        // as the keys. It will be one or the other. Looks at the hander header files.
+
         let socket;
         let poll;
         let checkUpdates;
@@ -384,14 +389,17 @@ const char STApage[] = R"rawliteral(
             fetch(OTAURL)
             .then(res => res.json())
             .then(res => {
-                const version = res.version;
-                const noActionResp = ["Invalid JSON", "match"];
+                const {status} = res;
+                const noActionResp = ["Invalid JSON", "match", "wap", 
+                    "Connection open fail", "Connection init fail"];
 
-                if (noActionResp.indexOf(version) == -1) {
+                // If -1, means that there is an actual value, so the update
+                // should be available in button form.
+                if (noActionResp.indexOf(status) == -1) {
                     const html = `
                         <button class="sleekButton" onclick="DLfirmware(
                         '${res.signatureURL}', '${res.firmwareURL}')">
-                            Update to Version ${version}
+                            Update to Version ${status}
                         </button>
                     `;
 
@@ -408,9 +416,10 @@ const char STApage[] = R"rawliteral(
             let updHTML = OTAdisp.innerHTML;
 
             fetch(URL)
-            .then(resp => resp.text())
-            .then(resp => {
-                if (resp === "OK") {
+            .then(res => res.json())
+            .then(res => {
+                const {status} = res;
+                if (status === "OK") {
                     Flags.OTAchk = true; // should restart anyway, redundant
                     let secToReload = 10;
                     let intervalID = setInterval(() => {
@@ -453,7 +462,7 @@ const char STApage[] = R"rawliteral(
                 if (curTime >= expireTime) runCheck();
             }
 
-        }, 600000); // Checks every 10 min
+        }, 600000); // Checks every 10 min make const settable!!!
 
         setTimeout(() => { // checkOTA upon start + 15 sec
             checkOTA()

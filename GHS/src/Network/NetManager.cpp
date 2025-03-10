@@ -269,10 +269,13 @@ bool NetManager::handleDestruction(NetMain &mode) {
     return true;
 }
 
-// Requires message and messaging level. Level default to INFO.
-void NetManager::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to INFO, ignoreRepeat default to false.
+void NetManager::sendErr(const char* msg, Messaging::Levels lvl, 
+        bool ignoreRepeat) {
+
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Constructor. Takes station, wap, and OLED references.

@@ -13,13 +13,14 @@ I2C::I2C() : tag("(I2C)"), freq(I2C_FREQ::STD), isInit(false) {
 
     memset(this->log, 0, sizeof(this->log));
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
-    this->sendErr(this->log, Messaging::Levels::INFO);
+    this->sendErr(this->log, Messaging::Levels::INFO, true);
 }
 
-// Requires message and messaging level. Level is set to ERROR by default.
-void I2C::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to CRITICAL, ignoreRepeat default to false.
+void I2C::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Returns a pointer to the I2C instance.

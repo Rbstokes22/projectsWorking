@@ -70,8 +70,8 @@ class NetMain {
     void setNetType(NetMode NetType);
     float getHeapSize(HEAP_SIZE type);
     httpd_handle_t getServer();
-    void sendErr(const char* msg, 
-            Messaging::Levels lvl = Messaging::Levels::ERROR);
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR, bool ignoreRepeat = false);
     LogToggle* getLogToggle();
 };
 

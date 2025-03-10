@@ -264,11 +264,13 @@ httpd_handle_t NetMain::getServer() {
     return this->server;
 }
 
-// Requires message and messaging level which is set to ERROR in default.
-// Prints message to log and serial. Ensure passed message is <= 120 bytes.
-void NetMain::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to ERROR, ignoreRepeat default to false.
+void NetMain::sendErr(const char* msg, Messaging::Levels lvl, 
+    bool ignoreRepeat) {
+
     Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Returns the log toggle struct ptr for reading and writing.

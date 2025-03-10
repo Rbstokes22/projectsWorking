@@ -9,6 +9,8 @@ namespace Messaging {
 
 #define LOG_SIZE 16384 // bytes of log information. 16 KB.
 #define LOG_MAX_ENTRY 128 // max entry size per log.
+#define LOG_MAX_ENTRY_PAD 40 // Used to add time and loc data to log entry.
+#define LOG_PREV_MSGS 5 // Used in comparison to current message to avoid repeat
 #define MLH_DELIM ';' // delimiter used in log entries
 #define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.
 
@@ -80,16 +82,19 @@ class MsgLogHandler {
     MsgLogHandler(); 
     MsgLogHandler(const MsgLogHandler&) = delete; // prevent copying
     MsgLogHandler &operator=(const MsgLogHandler&) = delete; // prevent assgnmt
-    void writeSerial(Levels level, const char* message);
+    void writeSerial(Levels level, const char* message, uint32_t seconds);
     void writeOLED(Levels level, const char* message);
-    void writeLog(Levels level, const char* message); 
+    void writeLog(Levels level, const char* message, uint32_t seconds, 
+        bool ignoreRepeat); 
     size_t stripLogMsg(size_t newMsgLen);
-    
+    bool analyzeLogEntry(const char* message, uint32_t seconds);
+   
     public:
     static MsgLogHandler* get();
     void OLEDMessageCheck();
-    void handle(Levels level, const char* message, Method method);
-    bool getNewLogEntry();
+    void handle(Levels level, const char* message, Method method, 
+        bool ignoreRepeat = false);
+    bool newLogAvail();
     void resetNewLogFlag();
     const char* getLog();
     bool addOLED(UI::IDisplay &OLED);

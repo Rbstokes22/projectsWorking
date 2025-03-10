@@ -31,9 +31,9 @@ class OTAHAND : public MASTERHAND {
     static bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size);
     static cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size);
     static bool processJSON(cJSON* json, httpd_req_t* req, 
-        cJSON* version);
+        cJSON** version);
 
-    static bool respondJSON(httpd_req_t* req, cJSON* verson, 
+    static bool respondJSON(httpd_req_t* req, cJSON** verson, 
         const char* buffer);
         
     static bool whitelistCheck(const char* URL); // add domains in the src file.

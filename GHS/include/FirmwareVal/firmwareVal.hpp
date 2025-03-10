@@ -37,7 +37,7 @@ class FWVal {
         size_t signatureLen);
     
     void sendErr(const char* msg, Messaging::Levels lvl = 
-        Messaging::Levels::WARNING);
+        Messaging::Levels::WARNING, bool ignoreRepeat = false);
 
     public:
     static FWVal* get();

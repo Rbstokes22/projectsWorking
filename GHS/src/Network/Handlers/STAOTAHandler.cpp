@@ -141,7 +141,7 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
         .crt_bundle_attach = esp_crt_bundle_attach
     };
 
-    if (OTAHAND::initClient(client, config, flag, req)) { // Attempt init.
+    if (!OTAHAND::initClient(client, config, flag, req)) { // Attempt init.
         return NULL; // Err handling within function. Allows caller to err chk.
     }
 
@@ -196,8 +196,14 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
 // the version is a pointer to a pointer. Sets the version to point to 
 // the version in the JSON string. Returns ESP_OK for valid JSON data,
 // and ESP_FAIL for invalid.
-bool OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON* version) {
-    
+bool OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON** version) {
+
+    // Double pointers passed to pointer to a pointer. This allows mod
+    // to the original cJSON pointer by allowing it to point to a new
+    // cJSON object. If a single pointer was passed, in the get object item,
+    // the assignment would only change the local copy of the pointer. This
+    // is because the get object item returns a pointer.
+
     if (json == NULL || json == nullptr) { // SHOULD NEVER OCCUR!!!
 
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
@@ -211,16 +217,16 @@ bool OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON* version) {
     }
 
     // Sets the version to point at the cJSON object with key = version.
-    version = cJSON_GetObjectItem(json, "version"); // Set by server
+    *version = cJSON_GetObjectItem(json, "version"); // Set by server
 
     // Checks that the version exists and is a string. Returns OK if good,
     // if not good, logs and responds to client.
-    if (version != NULL && cJSON_IsString(version)) {
+    if (*version != NULL && cJSON_IsString(*version)) {
         return true; // Data is solid.
 
     } else { // Version does not exist or is not a string.
 
-        version = NULL; // Ensure version set back to NULL.
+        *version = NULL; // Ensure version set back to NULL.
 
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Unable to get firmware version", OTAHAND::tag);
@@ -240,7 +246,7 @@ bool OTAHAND::processJSON(cJSON* json, httpd_req_t* req, cJSON* version) {
 // version match. If they are not equal, sends entire response buffer from the 
 // web server to the client for parsing, indicating an updatable version. If the
 // data is corrupt, sends a response of invalid JSON. Returns ESP_OK.
-bool OTAHAND::respondJSON(httpd_req_t* req, cJSON* version, 
+bool OTAHAND::respondJSON(httpd_req_t* req, cJSON** version, 
     const char* buffer) {
 
     // Checks if the version is different than the current version. If 
@@ -251,9 +257,9 @@ bool OTAHAND::respondJSON(httpd_req_t* req, cJSON* version,
     // than the current version. If different, returns true and sends back the
     // url data for the firmware and signature. If not, returns false, and
     // logs. 
-    if (version != NULL && cJSON_IsString(version)) {
+    if (*version != NULL && cJSON_IsString(*version)) {
         char _version[20]{0}; // Will never exceed this size.
-        snprintf(_version, sizeof(_version), "%s", (version)->valuestring);
+        snprintf(_version, sizeof(_version), "%s", (*version)->valuestring);
 
         if (strcmp(_version, FIRMWARE_VERSION) == 0) { // Match, no update req
         
@@ -345,12 +351,11 @@ bool OTAHAND::openClient(esp_http_client_handle_t &client,
     esp_err_t err = ESP_FAIL; // Default if conditions are not met below.
 
     // Opens the connection if not already open and has been init.
-    if (!flag.getFlag(OTAFLAGS::OPEN) && flag.getFlag(OTAFLAGS::OPEN)) {
+    if (!flag.getFlag(OTAFLAGS::OPEN) && flag.getFlag(OTAFLAGS::INIT)) {
         err = esp_http_client_open(client, 0);
     }
  
     if (err == ESP_OK) { // Has been open, set flag.
-
         flag.setFlag(OTAFLAGS::OPEN);
         return true;
 
@@ -731,7 +736,7 @@ esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
 
     // if JSON valid, processes the new JSON. Checks to ensure that version is
     // located within the JSON, if not/NULL, handles errors and logging within.
-    if (!OTAHAND::processJSON(json, req, version)) {
+    if (!OTAHAND::processJSON(json, req, &version)) {
         cJSON_Delete(json); // Del before return.
         return ESP_OK; // Required by URI reg. Err handling within function.
     }
@@ -739,7 +744,7 @@ esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
     // If JSON processed, responds to the client with the buffer data if new
     // firmware avail. If not, sends client information indicating invalid JSON,
     // or a match. All error handling within function, no bool check req.
-    OTAHAND::respondJSON(req, version, buffer);
+    OTAHAND::respondJSON(req, &version, buffer);
     cJSON_Delete(json);
 
     return ESP_OK; // Must return ESP_OK

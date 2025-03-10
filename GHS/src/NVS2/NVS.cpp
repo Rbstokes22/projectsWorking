@@ -10,10 +10,13 @@ NVS_Config::NVS_Config(const char* nameSpace) :
 
     handle(NVS_NULL), nameSpace(nameSpace) {}
 
-// Requires messaging and messaging level. Level is default to ERROR.
-void NVSctrl::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to ERROR, ignoreRepeat default to false.
+void NVSctrl::sendErr(const char* msg, Messaging::Levels lvl,
+    bool ignoreRepeat) {
+
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Requires the namespace. Max namespace is 15 chars, leaving room
@@ -21,7 +24,7 @@ void NVSctrl::sendErr(const char* msg, Messaging::Levels lvl) {
 NVSctrl::NVSctrl(const char* nameSpace) : tag("(NVSctrl)"), conf(nameSpace) {
 
     snprintf(this->log, sizeof(this->log), "%s Ob Created", this->tag);
-    this->sendErr(this->log, Messaging::Levels::INFO);
+    this->sendErr(this->log, Messaging::Levels::INFO, true);
 }
 
 // Requires no params. Inititializes the NVS if it hasnt been initialized.

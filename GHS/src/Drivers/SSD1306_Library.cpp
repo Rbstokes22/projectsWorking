@@ -106,10 +106,13 @@ void OLEDbasic::writeLine() {
     this->bufferIDX = bufferAdjustment + sizeof(OLEDbasic::charCMD);
 }
 
-// Requires messaging and messaing level. Level defaults to ERROR.
-void OLEDbasic::sendErr(const char* msg, Messaging::Levels lvl) {
+// Requires message, message level, and if repeating log analysis should be 
+// ignored. Messaging default to ERROR, ignoreRepeat default to false.
+void OLEDbasic::sendErr(const char* msg, Messaging::Levels lvl, 
+    bool ignoreRepeat) {
+
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+        Messaging::Method::SRL_LOG, ignoreRepeat);
 }
 
 // Defaults to 5x7 char font upon creation.
@@ -135,7 +138,7 @@ OLEDbasic::OLEDbasic() :
         memset(this->bufferB, 0, sizeof(this->bufferB));
         
         snprintf(this->log, sizeof(this->log), "%s Ob Created", this->tag);
-        this->sendErr(this->log, Messaging::Levels::INFO);
+        this->sendErr(this->log, Messaging::Levels::INFO, true);
     }
 
 // Initializes at def i2c freq. Configures the i2c settings, and adds the i2c 
