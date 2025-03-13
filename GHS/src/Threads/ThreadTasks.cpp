@@ -94,10 +94,7 @@ void soilTask(void* parameter) { // Soil sensors
     };
 
     // Single soil parameter structure that include 4 channels.
-    Peripheral::SoilParams soilParams = {
-        params->adc_unit,
-        channels
-    };
+    Peripheral::SoilParams soilParams = {params->adc_unit, channels};
 
     // Init here to get a singleton class.
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
@@ -125,9 +122,6 @@ void routineTask(void* parameter) {
     const float autoSaveCts = roundf((1000.0f * AUTO_SAVE_FRQ) / params->delay);
     static size_t count = 0;
 
-    // Use additional counts if desired to manage things if they do not occur
-    // on the second.
-
     while (true) {
         // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
@@ -139,8 +133,8 @@ void routineTask(void* parameter) {
         Peripheral::Report::get()->manageTimer();
 
         // Calls the message check on an interval to ensure that display
-        // messages are cleared after n seconds. 
-        Messaging::MsgLogHandler::get()->OLEDMessageCheck(); 
+        // messages are both sent and cleared from the queue.
+        Messaging::MsgLogHandler::get()->OLEDMessageMgr(); 
 
         // Calls the autosave feature based on it's frequency setting.
         if ((++count) >= autoSaveCts) { // Increments count when checking.

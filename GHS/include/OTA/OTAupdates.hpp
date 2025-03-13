@@ -7,44 +7,40 @@
 #include "Network/NetMain.hpp"
 #include "esp_http_client.h"
 #include "Threads/Threads.hpp"
+#include "Common/FlagReg.hpp"
+#include "UI/MsgLogHandler.hpp"
 #include <cstddef>
 
 namespace OTA {
 
 #define URLSIZE 128 // Used for url query
 
-enum class OTA_RET {
+enum class OTA_RET { // Over the air update return values.
     OTA_OK, OTA_FAIL, LAN_CON, LAN_DISC,
     REQ_OK, REQ_FAIL, SIG_OK, SIG_FAIL, 
     FW_OK, FW_FAIL
 };
 
-enum class THREAD {
-    SUSPEND, UNSUSPEND
-};
+enum OTAFLAGS : uint8_t {INIT, CON, OTA}; // Flags
 
 struct URL {
-    char firmware[URLSIZE];
-    char signature[URLSIZE];
+    char firmware[URLSIZE]; // Firmware URL
+    char signature[URLSIZE]; // Signature URL.
     URL();
-};
-
-struct CloseFlags {
-    bool init;
-    bool conn;
-    bool ota;
 };
 
 class OTAhandler {
     private:
-    static CloseFlags flags;
-    Comms::NetMain &station;
-    static UI::Display* OLED;
-    Threads::Thread** toSuspend;
-    size_t threadQty;
-    esp_ota_handle_t OTAhandle;
-    esp_http_client_config_t config;
-    esp_http_client_handle_t client;
+    const char* tag;
+    char log[LOG_MAX_ENTRY];
+    Flag::FlagReg flags;  // OTA handling flags.
+    Comms::NetMain &station; // station object, required or web OTA updates.
+    UI::Display &OLED; // OLED used to update OTA progress, exclusive functions.
+    Threads::Thread** toSuspend; // All threads to suspend for updates.
+    size_t threadQty; // Total amount of threads.
+    esp_ota_handle_t OTAhandle; // Handle for over the air updates.
+    esp_http_client_config_t config; // http client configuration for web upd.
+    esp_http_client_handle_t client; // http client handle for web upd.
     bool isConnected();
     int64_t openConnection();
     bool close();
@@ -52,6 +48,8 @@ class OTAhandler {
     OTA_RET writeSignature(const char* sigURL, const char* label); 
     OTA_RET writeFirmware(const char* firmURL, const esp_partition_t* part,
         int64_t contentLen);
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::INFO);
     
     public:
     OTAhandler(UI::Display &OLED,  Comms::NetMain &station,
@@ -59,8 +57,6 @@ class OTAhandler {
 
     OTA_RET update(URL &url, bool isLAN = false);
     bool rollback();
-    void sendErr(const char* err);
-    
 };
 
 }

@@ -24,12 +24,13 @@ namespace Comms {
 // Requires command data, buffer, and buffer size. Executes the command passed,
 // and compiles response into json and replies.
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
-    int written{0}; // Ensures the snprintf is working by checking write size.
+    int written{-1}; // Ensures the snprintf is working by checking write size.
+    bool writeLog = true; // Set to false by functions not meant to log.
 
     // reply is the typical reply to a request, with the exception of the
     // GET_ALL request. Used throughout the function.
     const char* reply = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
-    "\"id\":\"%s\"}";
+    "\"id\":\"%s\"}"; 
 
     // All commands work from here. CMD list is on header doc.
     switch(data.cmd) {
@@ -39,6 +40,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // of data required to pass to the client.
         case CMDS::GET_ALL: {
         
+        writeLog = false; // Commonly used command, do not want to log.
+
         // Commonly used pointers in the scope of GET_ALL. Declared them here
         // to avoid using verbose commands.
         Clock::DateTime* dtg = Clock::DateTime::get();
@@ -195,6 +198,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // receives the log, they will send a socket command here which will
         // reset the flag back to false.
         case CMDS::NEW_LOG_RCVD: {
+
+            writeLog = false; // Not req to log a log.
+
             Messaging::MsgLogHandler::get()->resetNewLogFlag();
 
             written = snprintf(buffer, size, reply, 1,
@@ -397,6 +403,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Temp Re att fail", 0, 
                 data.idNum);
         } else { // attach relay if within range.
+
+            writeLog = false; // Has logging.
             SOCKHAND::attachRelayTH( // If 4 will detach.
                 data.suppData, Peripheral::TempHum::get()->getTempConf()
             );
@@ -543,6 +551,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Hum Re att fail", 0, 
                 data.idNum);
         } else { // attach relay if within range.
+
+            writeLog = false; // Has logging.
             SOCKHAND::attachRelayTH( // If 4 will detach.
                 data.suppData, Peripheral::TempHum::get()->getHumConf()
             );
@@ -934,6 +944,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             written = snprintf(buffer, size, reply, 0, "Lgt Re att fail", 0, 
                 data.idNum);
         } else { // attach relay if within range.
+
+            writeLog = false; // Has logging.
             SOCKHAND::attachRelayLT( // If 4 will detach.
                 data.suppData, Peripheral::Light::get()->getConf()
             );
@@ -1064,6 +1076,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
     }
 
+    if (writeLog) { // Will log the JSON response string.
+        MASTERHAND::sendErr(buffer, Messaging::Levels::INFO);
+    }
+
     if (written <= 0) {
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
             "%s error formatting string", SOCKHAND::tag);
@@ -1110,8 +1126,7 @@ bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size,
 // Requires relay number and pointer to TempHum configuration. Ensures relay
 // number is between 0 and 4, 0 - 3 (relays 1 - 4), and 4 sets the relay to
 // nullptr and remove functionality. 
-void SOCKHAND::attachRelayTH( // Temp Hum relay attach
-    uint8_t relayNum, 
+void SOCKHAND::attachRelayTH(uint8_t relayNum, 
     Peripheral::TH_TRIP_CONFIG* conf) {
         
     if (relayNum < 4) { // Checks for valid relay number.

@@ -14,12 +14,9 @@
 #include "esp_crt_bundle.h"
 #include "esp_transport.h"
 #include "Config/config.hpp"
+#include "Common/FlagReg.hpp"
 
 namespace OTA {
-// Static setup
-CloseFlags OTAhandler::flags{false, false, false};
-
-UI::Display* OTAhandler::OLED = nullptr;
 
 URL::URL() {
     memset(this->firmware, 0, sizeof(URLSIZE));
@@ -38,8 +35,8 @@ bool OTAhandler::isConnected() {
 // Opens all connections. Fetches header with an int64_t content
 // length, and if > 0, returns the content length.
 int64_t OTAhandler::openConnection() {
-    if (!OLED->getOverrideStat()) { // Allows OLED population during OTA
-        OLED->setOverrideStat(true);
+    if (!this->OLED.getOverrideStat()) { // Allows OLED population during OTA
+        this->OLED.setOverrideStat(true);
     }
 
     if (DEVmode) { // used for development mode only.
@@ -53,7 +50,7 @@ int64_t OTAhandler::openConnection() {
         this->close();
         return 0;
     } else {
-        OTAhandler::flags.conn = true;
+        this->flags.setFlag(OTAFLAGS::CON);
     }
 
     int64_t contentLength = esp_http_client_fetch_headers(client);
@@ -74,36 +71,38 @@ int64_t OTAhandler::openConnection() {
 bool OTAhandler::close() {
     uint8_t closeErrors{0};
 
-    if (OTAhandler::flags.ota) {
+    if (this->flags.getFlag(OTAFLAGS::OTA)) {
+
         if (esp_ota_end(this->OTAhandle) != ESP_OK) {
             this->sendErr("Unable to close OTA");
             closeErrors++;
+
         } else {
-            OTAhandler::flags.ota = false;
+            this->flags.releaseFlag(OTAFLAGS::OTA);
         }
     }
 
-    if (OTAhandler::flags.conn && !OTAhandler::flags.ota) {
+    if (this->flags.getFlag(OTAFLAGS::CON) && !this->flags.getFlag(OTAFLAGS::OTA)) {
         if (esp_http_client_close(this->client) != ESP_OK) {
             this->sendErr("Unable to close client");
             closeErrors++;
         } else {
-            OTAhandler::flags.conn = false;
+            this->flags.releaseFlag(OTAFLAGS::CON);
         }
     }
 
-    if (OTAhandler::flags.init && !OTAhandler::flags.conn) {
+    if (this->flags.getFlag(INIT) && !this->flags.getFlag(CON)) {
         if (esp_http_client_cleanup(this->client) != ESP_OK) {
             this->sendErr("Unable to cleanup client");
             closeErrors++;
         } else {
-            OTAhandler::flags.init = false;
+            this->flags.releaseFlag(INIT);
         }
     }
 
     // Allows typical OLEd function, once closed.
-    if (OLED->getOverrideStat()) {
-        OLED->setOverrideStat(false);
+    if (this->OLED.getOverrideStat()) {
+        this->OLED.setOverrideStat(false);
     }
     
     return (closeErrors == 0);
@@ -137,7 +136,7 @@ OTA_RET OTAhandler::processReq(URL &url) {
     // config, init, and open http client
     this->config.url = url.signature;
     this->client = esp_http_client_init(&this->config);
-    OTAhandler::flags.init = true;
+    this->flags.setFlag(INIT);
     contentLen = this->openConnection();
     SIG_SIZE = (size_t)contentLen;
 
@@ -155,7 +154,7 @@ OTA_RET OTAhandler::processReq(URL &url) {
     // config, init, and open http client
     this->config.url = url.firmware;
     this->client = esp_http_client_init(&this->config);
-    OTAhandler::flags.init = true;
+    this->flags.setFlag(INIT);
     contentLen = this->openConnection();
     FW_SIZE = (size_t)contentLen;
 
@@ -177,17 +176,17 @@ OTA_RET OTAhandler::processReq(URL &url) {
 
     if (err != Boot::val_ret_t::VALID) {
         this->sendErr("OTA firmware invalid, will not set next partition");
-        OLED->printUpdates("Firmware Sig Invalid");
+        this->OLED.printUpdates("Firmware Sig Invalid");
         return OTA_RET::REQ_FAIL;
     }
 
     if (esp_ota_set_boot_partition(part) == ESP_OK) {
-        OLED->printUpdates("OTA Success, restarting");
+        this->OLED.printUpdates("OTA Success, restarting");
         printf("Signature valid, setting next partition\n");
         return OTA_RET::REQ_OK; 
 
     } else {
-        OLED->printUpdates("OTA Fail");
+        this->OLED.printUpdates("OTA Fail");
         return OTA_RET::REQ_FAIL;
     }
 }
@@ -218,17 +217,17 @@ OTA_RET OTAhandler::writeSignature(const char* sigURL, const char* label) {
     }
 
     printf("Writing to filepath: %s\n", filepath);
-    OLED->printUpdates("Writing Signature");
+    this->OLED.printUpdates("Writing Signature");
 
     // Writes the buffer into the appropriate spiffs file.
     writeSize = fwrite(buffer, 1, dataRead, f);
     fclose(f);
  
     if (writeSize > 0) {
-        OLED->printUpdates("Signature OK");
+        this->OLED.printUpdates("Signature OK");
         return OTA_RET::SIG_OK;
     } else {
-        OLED->printUpdates("Signature Fail");
+        this->OLED.printUpdates("Signature Fail");
         this->sendErr("Did not write to spiffs");
         return OTA_RET::SIG_FAIL;
     }
@@ -257,7 +256,7 @@ OTA_RET OTAhandler::writeFirmware(
         this->sendErr("OTA did not begin");
         return OTA_RET::FW_FAIL;
     } else {
-        OTAhandler::flags.ota = true;
+        this->flags.setFlag(OTA);
     }
 
     if (part == NULL) {
@@ -271,7 +270,7 @@ OTA_RET OTAhandler::writeFirmware(
         return OTA_RET::FW_FAIL;
     }
 
-    OLED->printUpdates("OTA writing firmware");
+    this->OLED.printUpdates("OTA writing firmware");
     printf("Writing firmware to label %s\n", part->label);
 
     // Loop to read data from the HTTP response in chunks, until complete.
@@ -301,7 +300,7 @@ OTA_RET OTAhandler::writeFirmware(
             sizeof(progress), 
             " %.1f%%", 
             static_cast<float>(totalWritten) * 100 / contentLen);
-        OLED->updateProgress(progress);
+        this->OLED.updateProgress(progress);
     }
 
     if (totalWritten == contentLen) {
@@ -311,72 +310,47 @@ OTA_RET OTAhandler::writeFirmware(
     }
 }
 
-OTAhandler::OTAhandler(
-    UI::Display &OLED, 
-    Comms::NetMain &station,
-    Threads::Thread** toSuspend,
-    size_t threadQty) : 
+// Requires message and level. Level default to INFO.
+void OTAhandler::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg,
+        Messaging::Method::SRL_LOG);
+}
 
-    station(station), toSuspend(toSuspend), threadQty(threadQty), 
-    OTAhandle(0), config {}
+OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,
+    Threads::Thread** toSuspend, size_t threadQty) : 
+
+    flags("(OTAFlag)"), station(station), OLED(OLED), toSuspend(toSuspend), 
+    threadQty(threadQty), OTAhandle(0), config{} {}
     
-    {
-        OTAhandler::OLED = &OLED; 
+
+// Requires reference to firmware and signature url, and if the update is 
+// LAN or WEB. This is the entry point for an update. Suspends all threads
+// to be suspending during an update. Returns OTA_OK or OTA_FAIL.
+OTA_RET OTAhandler::update(URL &url, bool isLAN) { 
+    
+    if (this->toSuspend == nullptr or *(this->toSuspend) == nullptr) {
+        return OTA_RET::OTA_FAIL;
     }
 
-// Entrance to OTA updates. Passed url object with both firmware and
-// signature urls, as well if it is a LAN update or not. Suspends all
-// threads that are to be suspended, and calls to process the URL object
-// Returns OTA_OK or OTA_FAIL.
-OTA_RET OTAhandler::update(
-    URL &url, 
-    bool isLAN
-    ) { 
+    // Suspends all threads in the passed toSuspend thread array.
+    for (int i = 0; i < this->threadQty; i++) {
+        (*this->toSuspend[i]).suspendTask();
+    }
 
-    // Suspends all threads in the toSuspend thread array.
-    auto Threads = [this](THREAD action){
-        switch(action) {
-            case THREAD::SUSPEND:
-            for (int i = 0; i < this->threadQty; i++) {
-                (*this->toSuspend[i]).suspendTask();
-            }
-            break;
-
-            case THREAD::UNSUSPEND:
-            for (int i = 0; i < this->threadQty; i++) {
-                (*this->toSuspend[i]).resumeTask();
-            }
-            break;
-        }
-    };
-
-    // Suspend thread before beginning. Will be unsuspended before 
-    // returns.
-    Threads(THREAD::SUSPEND);
-
-    switch(isLAN) { 
-        case true:
-        if (this->processReq(url) == OTA_RET::REQ_OK) {
-            Threads(THREAD::UNSUSPEND);
-            return OTA_RET::OTA_OK;
-        }
-        break;
-
-        // If Web, set all configurations before opening connection.
-        case false: 
+    if (!isLAN) { // If web, set configuration settings.
         this->config.cert_pem = NULL;
         this->config.skip_cert_common_name_check = DEVmode; // false for testing
         this->config.crt_bundle_attach = esp_crt_bundle_attach;
-
-        if (this->processReq(url) == OTA_RET::REQ_OK) {
-            Threads(THREAD::UNSUSPEND);
-            return OTA_RET::OTA_OK;
-        }
-        break;
     }
 
-    Threads(THREAD::UNSUSPEND);
-    return OTA_RET::OTA_FAIL;
+    OTA_RET ret = this->processReq(url); // Process OTA update request.
+
+    for (int i = 0; i < this->threadQty; i++) { // Lifts thread suspension.
+        (*this->toSuspend[i]).resumeTask();
+    }
+
+    if (ret == OTA_RET::REQ_OK) {return OTA_RET::OTA_OK;}
+    else {return OTA_RET::OTA_FAIL;}
 }
 
 // Allows the client to rollback to a previous version if there
@@ -389,26 +363,20 @@ bool OTAhandler::rollback() {
     const esp_partition_t* other = 
         (current->address != next->address) ? next : current;
 
-    OLED->setOverrideStat(true); // Keep error displayed if no rollback
+    this->OLED.setOverrideStat(true); // Allow update display.
 
     if (esp_ota_set_boot_partition(other) == ESP_OK) {
+
+
+
         printf("Rolling back to partition %s\n", other->label);
-        OLED->printUpdates("Rolling back to previous firmware");
-        return true; // will prompt a restart
+        this->OLED.printUpdates("Rolling back to prev firmware"); // Blocking
+        return true; // will prompt a restart, to release of override status.
     } else {
-        OLED->printUpdates("Unable to Roll back");
-        OLED->setOverrideStat(false);
+        this->OLED.printUpdates("Unable to Roll back"); // Blocking. Log as well.!!!!!
+        this->OLED.setOverrideStat(false);
         return false;
     }
-}
-
-// Primary error handler.
-void OTAhandler::sendErr(const char* err) {
-    Messaging::MsgLogHandler::get()->handle(
-        Messaging::Levels::ERROR,
-        err,
-        Messaging::Method::SRL
-    );
 }
 
 }

@@ -3,6 +3,9 @@
 
 #include <cstddef>
 
+// ATTENTION. This was already built and one of the first headers/src files.
+// This must exist to decouple the established program.
+
 // IDisplay is an abstract class, also called interface. This does not require 
 // a .cpp file, and serves to prevent circular dependencies between the Display.h
 // and Network.h. Display.h depends on Network.h, but Network.h needs to be passed 
@@ -10,11 +13,10 @@
 
 namespace UI {
 
-enum class UIvals {
-    msgIndicyTotal = 10, // prevents overflow in error buffer
-    OLEDCapacity = 200 // this is for 5x7 font
-};
-    
+#define OLED_UPDATE_DELAY_ms 1000 // delay to allow OLED updates to be viewed
+#define OLED_CHAR_SIZE UI_DRVR::DIM::D5x7
+#define OLED_CAPACITY 200 // Qty of 5x7 chars in the OLED display.
+
 class IDisplay {
     public:
     // Makes this an abstract class.

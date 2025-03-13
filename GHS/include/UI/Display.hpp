@@ -2,7 +2,7 @@
 #define DISPLAY_HPP
 
 #include <cstdint>
-#include "UI/IDisplay.hpp"
+#include <cstddef>
 #include "Drivers/SSD1306_Library.hpp"
 #include "Network/NetSTA.hpp"
 #include "Network/NetWAP.hpp"
@@ -15,13 +15,6 @@ class Display : public IDisplay {
     UI_DRVR::OLEDbasic display;
 	bool displayOverride; // will allow system errors to display
 
-	// Starting addresses for each error.
-	uint8_t msgAddresses[static_cast<int>(UIvals::msgIndicyTotal)];
-	uint8_t lastIndex;
-	char msgBuffer[static_cast<int>(UIvals::OLEDCapacity)];
-	void removeMessage();
-	void appendMessage(char* msg);
-
     public:
     bool displayStatus;
     Display(); // constructor
@@ -31,13 +24,9 @@ class Display : public IDisplay {
 	void printUpdates(const char* update);
 	void updateProgress(const char* progress);
 	void invalidFirmware();
-
-	// this is meant for errors or runtime messaging
-	void displayMsg(char* msg) override; // inherits from IDisplay
-	bool getOverrideStat() override;
-	
-	// allows error display to take priority over net display.
-	void setOverrideStat(bool setting) override; 
+	void displayMsg(char* msg); 
+	bool getOverrideStat();
+	void setOverrideStat(bool setting); 
 	size_t getOLEDCapacity() const;
 };
 

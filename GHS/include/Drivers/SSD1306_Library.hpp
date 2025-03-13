@@ -68,7 +68,7 @@ class OLEDbasic {
     
     public:
     OLEDbasic();
-    bool init(uint8_t address);
+    bool init(uint8_t address); 
     void makeTemplate();
     void reset(bool clearScreen = false);
     void setCharDim(DIM dimension);

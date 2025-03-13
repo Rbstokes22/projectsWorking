@@ -3,7 +3,8 @@
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 // RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
 
-// Complete with NVS, on OTA
+// Complete with NVS, did msglogerr, now back on OTA. This one should bea bit
+// complicated, but the last complicated one.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

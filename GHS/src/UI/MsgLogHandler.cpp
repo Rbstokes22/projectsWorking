@@ -11,26 +11,33 @@ namespace Messaging {
 
 Threads::Mutex MsgLogHandler::mtx; // Create static instance
 
-// Maps to levels. 
+// Maps to levels. Used in printing.
 const char LevelsMap[5][11]{"[DEBUG]", "[INFO]", "[WARNING]", "[ERROR]",
     "[CRITICAL]"};
 
+// Used for serial display, allows different colors for error types.
 const char LevelsColors[5][10]{SRL_CYN, SRL_GRN, SRL_YEL, SRL_RED, SRL_MAG};
 
-// Requires parameters, which should be globally created. 
+// Requires no params allowing immediate use. Relies on timing, and will likely
+// init the dateTime singleton.
 MsgLogHandler::MsgLogHandler() : 
 
-    msgClearTime(0), msgClearInterval(MSG_CLEAR_SECS), OLED(nullptr),
-    serialOn(SERIAL_ON), clrMsgOLED{false}, newLogEntry{false} {
+    tag("(MSGLOGERR)"), OLED(nullptr), serialOn(SERIAL_ON), newLogEntry{false} {
 
+        memset(this->errLog, 0, sizeof(this->errLog));
         memset(this->log, 0, LOG_SIZE);
-
-        this->handle(Messaging::Levels::INFO, "(MSGLOGERR) init",
-            Messaging::Method::SRL_LOG);
+        memset(this->OLEDqueue, 0, sizeof(this->OLEDqueue));
+        
+        snprintf(this->errLog, sizeof(this->errLog), "%s init", this->tag);
+        this->handle(Levels::INFO, this->errLog, Method::SRL_LOG);
     } 
 
 // Requires level of message, and the message. If serial writing is enabled,
 // writes the message to serial output.
+
+// Requires the message level, the message, and the system seconds invoked.
+// If serial writing is enabled, writes message to serial output with proper
+// coloring.
 void MsgLogHandler::writeSerial(Levels level, const char* message, 
     uint32_t seconds) {
 
@@ -42,47 +49,81 @@ void MsgLogHandler::writeSerial(Levels level, const char* message,
     }
 }
 
-// Requires the level of message, and the message. Writes message to the OLED
-// by blocking typical OLED display briefly allowing the message to be read.
-void MsgLogHandler::writeOLED(Levels level, const char* message) {
-    if (this->OLED == nullptr) {
-        this->handle(Levels::ERROR, "(MSGLOGERR) OLED not added", Method::SRL);
-        return;
+// Requires level, message, and system time in seconds. Writes message to
+// first available queue spot to be handled by the OLED message manager.
+// Returns true upon sucessful add, and false if not.
+bool MsgLogHandler::writeOLED(Levels level, const char* message, 
+    uint32_t seconds) {
+
+    if (!this->OLEDcheck()) return false; // Block.
+
+    // When invoking this method, this will always send something to the
+    // queue to be sent if a spot is available. When this method exits,
+    // there will always be something in the queue, unlike the manager.
+
+    int written = -1; // chars written to buffer. -1 for err handling.
+    uint8_t lvl = static_cast<uint8_t>(level);
+
+    Queue* queue = nullptr; // Will be reset upon queue availability.
+
+    // Iterate the queue to set the the queue pointer to the queue of interest.
+    for (int i = 0; i < OLED_QUEUE_QTY; i++) {
+        if (!OLEDqueue[i].used) { // spot open.
+            queue = &OLEDqueue[i]; // Set pointer to point at message.
+            break; // Exit after first success.
+        }
     }
 
-    // OLED has 200 char capacity @ 5x7, and is set max for the
-    // buffer size. Errors will always display in 5x7 font.
-    char msg[static_cast<int>(UI::UIvals::OLEDCapacity)]{}; 
+    if (queue == nullptr) { // No spots available.
+        snprintf(this->errLog, sizeof(this->errLog), "%s No OLED msg avail", 
+            this->tag);
 
-    int writtenChars = snprintf(msg, sizeof(msg), "%s: %s",
-    LevelsMap[static_cast<uint8_t>(level)], 
-    message);
-
-    if (writtenChars < 0 || writtenChars >= sizeof(msg)) {
-        strncpy(msg, "ERROR: Message too long", sizeof(msg) - 1);
-        msg[sizeof(msg) -1] = '\0';
+        this->handle(Levels::ERROR, this->errLog, Method::SRL_LOG);
+        return false; // Block if no availabilities.
     }
 
-    // Displays the message and sets timer to clear the last message.
-    this->OLED->displayMsg(msg); 
+    // Success. Write to the OLED queue, which will be managed by the OLED 
+    // message manager. Set the expiration to current time to allow manager
+    // to find the first message in queue.
+    written = snprintf(queue->msg, sizeof(queue->msg), "%s (%lu): %s",
+        LevelsMap[lvl], seconds, message);
+    
+    if (written < 0) {
+        return false;
 
-    // Once called, sets the message clear time and allows the OLED message
-    // check function to clear the OLED message when conditions are met.
-    uint32_t curSeconds = Clock::DateTime::get()->seconds();
-    this->msgClearTime = (curSeconds + this->msgClearInterval);
-    this->clrMsgOLED = false; // Allows OLED display.
+    } else if (written > LOG_MAX_ENTRY) {
+
+        snprintf(this->errLog, sizeof(this->errLog), 
+            "%s OLED msg exceeds max size, truncated", this->tag);
+        
+        this->handle(Levels::ERROR, this->errLog, Method::SRL_LOG);
+    }
+    
+    // Set queue variables if successful message write. Sets expiration to
+    // the time message was set. This is to allow the manager to see the oldest
+    // message in the queue and handle it first.
+    queue->expiration = Clock::DateTime::get()->micros(); 
+    queue->used = true;
+    queue->sending = false; // Will set to true once actually sent.
+
+    return true; // Added to queue.
 }
 
-// LOG HANDLING. Keep message below limit or it will be chopped. The format is
-// the following entry1;entry2;...;entryn;
+// Requires level, message, time in seconds, and ignore repeating entries.
+// Repeating entries are filtered to prevent log pollution, for example in the
+// event of a disconnected sensor wire. Those will display at a set interval.
+// If ignoreRepeat is set to true, it will repeat chosen entries, such as a
+// class that is creating 5 objects at once, it will display the creation of
+// all of those objects. The log is sent via http in the format:
+// entry1;entry2;...;entryn; with the delimiter being a semicolon.
 void MsgLogHandler::writeLog(Levels level, const char* message, 
     uint32_t seconds, bool ignoreRepeat) {
 
     if (!ignoreRepeat) { // Prevents the analysis from running and forces log.
 
         // Check for block. If true, allows a write, if false, it does not. This
-        // analyzes repeating entries ensuring logbook pollution control and will
-        // write repeat entries only when set conditions are met.
+        // analyzes repeating entries ensuring logbook pollution control and 
+        // will write repeat entries only when set conditions are met.
         if (!this->analyzeLogEntry(message, seconds)) return;
     }
 
@@ -119,7 +160,9 @@ void MsgLogHandler::writeLog(Levels level, const char* message,
     // several times until the remaining space is large enough to accomodate
     // the new entry.
     if (strlen(entry) >= remaining) { // Purge beginning
-        while(true) {
+
+        while(true) { 
+
             remaining = this->stripLogMsg(written);
             if (remaining >= written) break;
         }
@@ -133,6 +176,10 @@ void MsgLogHandler::writeLog(Levels level, const char* message,
 // Requires no parameters. Strips the first message from the LOG when a new
 // entry is added, but the data space is full. Returns remaining size after
 // stripping entry.
+
+// Requires the size of the new message length. This strips the first message
+// from the log when a new entry is added, but the log is full. Returns the
+// remaining size after the beginning entry(ies) is/are stripped.
 size_t MsgLogHandler::stripLogMsg(size_t newMsgLen) {
     int delimPos = -1; // Indicates no delimiter exists
 
@@ -196,6 +243,7 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
             if (consecutive <= CONSECUTIVE_ENTRIES) {
                 resetTime = time + CONSECUTIVE_ENTRY_TIMEOUT; // Establish
                 return true; // Allow log
+
             } else if (time >= resetTime) {
                 resetTime = time + CONSECUTIVE_ENTRY_TIMEOUT; // Re-establish
                 return true; // Allow log
@@ -212,6 +260,97 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
     return true; // ALlow write, new entry.
 }
 
+// Requires no params. Returns true if OLED != nullptr and can proceed.
+bool MsgLogHandler::OLEDcheck() {
+    if (this->OLED == nullptr) {
+        snprintf(this->errLog, sizeof(this->errLog), "%s OLED req adding",
+            this->tag);
+
+        this->handle(Levels::WARNING, this->log, Method::SRL_LOG);
+    }
+
+    return (this->OLED != nullptr);
+}
+
+// Requires no params. Checks the queue for the message with the longest time
+// inside. Changes to status and sends that message if and only if another
+// message isnt currently being displayed. Works hand-in-hand with 
+// OLEDQueueRemove().
+bool MsgLogHandler::OLEDQueueSend() {
+    // Unlike the writeOLED(), there may not always be something in the queue
+    // which means that special iterations are required to ensure proper
+    // management.
+
+    int64_t maxExp = INT64_MAX; // Allows proper setting in queue iteration.
+    Queue* queue = nullptr;
+
+    // First gather the required metadata. This will return the index of the
+    // message with the first expiration time, that is currently being used
+    // and not in the sending process.
+    for (int i = 0; i < OLED_QUEUE_QTY; i++) {
+
+        // If any messages are sending, this will return until removed from
+        // sending status by the OLEDQueueRemove function.
+        if (this->OLEDqueue[i].used == true) { // Message is in queue.
+            if (this->OLEDqueue[i].sending) return false; // Block if sending
+         
+            // If not sending, check expiration time. If it is lower than
+            // the previous, will set the first expiration time to the exp
+            // time from the queue. Sets queue to the one with the most
+            // time in the queue.
+            if (this->OLEDqueue[i].expiration < maxExp) {
+                maxExp = this->OLEDqueue[i].expiration;
+                queue = &this->OLEDqueue[i]; 
+            }
+        }
+    }
+
+    if (queue == nullptr) return false; // No messages in queue.
+
+    // If good, adjust queue parameters and send message.
+    queue->sending = true;
+    queue->expiration = Clock::DateTime::get()->micros() +
+        (1000000 * OLED_MSG_EXPIRATION_SECONDS);
+
+    this->OLED->setOverrideStat(true); // Block updates until expired.
+    this->OLED->displayMsg(queue->msg);
+    return true;
+}
+
+// Requires no parameters. Iterates the queue to ensure that any messages that
+// were sent, and their expiration time is met, are deleted and their params
+// are reset.
+bool MsgLogHandler::OLEDQueueRemove() {
+    
+    Queue* queue = nullptr;
+    size_t remaining = 0;
+
+    // Iterate the queue. Only one message can be set to sending and this will
+    // set the queue to point at the first sending message.
+    for (int i = 0; i < OLED_QUEUE_QTY; i++) {
+
+        remaining += this->OLEDqueue[i].used; // Incremement to total usage.
+
+        if (this->OLEDqueue[i].sending) { 
+            queue = &this->OLEDqueue[i];
+            // No need to break, only one sending status at a time.
+        }
+    }
+
+    if (queue == nullptr) return false; // Nothing to remove.
+
+    // If expired, reset params to allow re-use. Will not reset to override
+    // status to false until the queue is clear. Uses 1, since 1 accounts
+    // for the current message being deleted.
+    if (Clock::DateTime::get()->micros() >= queue->expiration) {
+        memset(queue, 0, sizeof(*queue));
+        if (remaining <= 1) this->OLED->setOverrideStat(false);
+        return true;
+    }
+
+    return false; // Indicates no removal occured.
+}
+
 // Requires no params. Returns static instance to class.
 MsgLogHandler* MsgLogHandler::get() {
 
@@ -223,25 +362,15 @@ MsgLogHandler* MsgLogHandler::get() {
     return &instance;
 }
 
-// Monitors the current system time in seconds and compares it with the time
-// that the message sent to the OLED is set to clear. Once called, changes the
-// override status back to false to allow normal OLED functionality.
-void MsgLogHandler::OLEDMessageCheck() {
-    if (this->OLED == nullptr) {
-        this->handle(Levels::ERROR, "(MSGLOGERR) OLED not added", Method::SRL);
-        return;
-    }
+// Requires no params. Checks for new queue messages to send, and sent message
+// to remove once expired. WARNING: This must be called externally on an 
+// interval, in order to properly execute. If not called, messages will never
+// send or be removed. Recommend calling this function at 1 Hz.
+void MsgLogHandler::OLEDMessageMgr() {
+    if (!this->OLEDcheck()) return; // BLOCK
 
-    uint32_t curSeconds = Clock::DateTime::get()->seconds();
-
-    // Checks the current seconds against the clear time specified in the
-    // write OLED function. Once true, sends the OLED override to false to
-    // allow normal operation. Sets clearMsgOLED to true to allow a single
-    // call when conditions are met.
-    if ((curSeconds >= this->msgClearTime) && !this->clrMsgOLED) {
-        this->OLED->setOverrideStat(false);
-        this->clrMsgOLED = true;
-    }
+    this->OLEDQueueSend();
+    this->OLEDQueueRemove();
 }
 
 // Requires the level of error, message, sending method, and option to ignore
@@ -260,7 +389,7 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
 
         case Method::SRL_OLED:
         this->writeSerial(level, message, seconds);
-        this->writeOLED(level, message);
+        this->writeOLED(level, message, seconds);
         break;
 
         case Method::SRL_LOG:
@@ -269,11 +398,11 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
         break;
 
         case Method::OLED:
-        this->writeOLED(level, message);
+        this->writeOLED(level, message, seconds);
         break;
 
         case Method::OLED_LOG:
-        this->writeOLED(level, message);
+        this->writeOLED(level, message, seconds);
         this->writeLog(level, message, seconds, ignoreRepeat);
         break;
 
@@ -283,7 +412,7 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
 
         case Method::SRL_OLED_LOG:
         this->writeSerial(level, message, seconds);
-        this->writeOLED(level, message);
+        this->writeOLED(level, message, seconds);
         this->writeLog(level, message, seconds, ignoreRepeat);
         break;
 
@@ -317,13 +446,15 @@ bool MsgLogHandler::addOLED(UI::IDisplay &OLED) {
     this->OLED = &OLED;
 
     if (this->OLED == nullptr) {
-        this->handle(Levels::WARNING, "(MSGLOGERR) OLED not added",
-            Method::SRL_LOG);
-            
+        snprintf(this->errLog, sizeof(this->errLog), "%s OLED not added", 
+            this->tag);
+
+        this->handle(Levels::WARNING, this->errLog, Method::SRL_LOG);
         return false;
     }
 
-    this->handle(Levels::INFO, "(MSGLOGERR) OLED added",Method::SRL_LOG);
+    snprintf(this->errLog, sizeof(this->errLog), "%s OLED added", this->tag);
+    this->handle(Levels::INFO, this->errLog, Method::SRL_LOG);
 
     return true;
 }
