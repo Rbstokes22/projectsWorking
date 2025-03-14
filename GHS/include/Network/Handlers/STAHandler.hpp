@@ -12,7 +12,6 @@ namespace Comms {
 #define OTA_URL_SIZE 100 // max size of url
 #define OTA_CHECKNEW_BUFFER_SIZE 300 // json data with some padding, est 200.
 
-
 // Src file STAHandler.cpp
 esp_err_t STAIndexHandler(httpd_req_t* req);
 esp_err_t STALogHandler(httpd_req_t* req);
@@ -45,7 +44,8 @@ class OTAHAND : public MASTERHAND {
         Flag::FlagReg &flag, httpd_req_t* req);
 
     static bool initCheck(httpd_req_t* req);
-    static bool cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag);
+    static bool cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag, 
+        size_t attempt = 0);
 
     public:
     static bool init(OTA::OTAhandler &ota);

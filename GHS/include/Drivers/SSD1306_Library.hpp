@@ -13,8 +13,7 @@ namespace UI_DRVR {
 
 #define SSD1306_I2C_TIMEOUT 500 // Timeout
 
-enum class Size { // Sise parameters, some specified by datasheet.
-    OLEDbytes = 1024,
+enum class Size { // Size parameters, some specified by datasheet.
     pages = 8,
     columns = 128,
     bufferSize = 1088
@@ -31,7 +30,10 @@ enum class DIM { // Dimensions.
     D5x7, D6x8
 };
 
-enum class TXTCMD { // Text Command Used to start and end entries.
+// Text commands to start and end. Using START will ensure that you can 
+// write multiple chars to the display without breaking the line. Using
+// END will automatically increment to the next page once complete.
+enum class TXTCMD { 
     START, END
 };
 

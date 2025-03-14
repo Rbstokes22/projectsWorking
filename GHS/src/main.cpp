@@ -4,7 +4,8 @@
 // RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
 
 // Complete with NVS, did msglogerr, now back on OTA. This one should bea bit
-// complicated, but the last complicated one.
+// complicated, but the last complicated one. In process REQ now, built the init,
+// open, and cleanup to use for the rest of the code.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

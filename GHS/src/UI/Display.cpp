@@ -103,7 +103,7 @@ void Display::displayMsg(char* msg) {  // Override handled in msglogerr.
     if (strlen(msg) >= OLED_CAPACITY) return; // Prevents overflow
 
     this->display.setCharDim(UI_DRVR::DIM::D5x7); // Force if not set.
-    this->display.write(msg);
+    this->display.cleanWrite(msg);
     this->display.send();
 }
 

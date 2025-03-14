@@ -14,6 +14,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Network/Handlers/MasterHandler.hpp"
 #include "Common/FlagReg.hpp"
+#include "Peripherals/saveSettings.hpp"
 
 namespace Comms {
 
@@ -129,7 +130,9 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     esp_err_t err = ESP_FAIL;
     esp_http_client_handle_t client = NULL; // Establish client.
 
-    static Flag::FlagReg flag("(OTAFlag)"); // Used to handle cleanup.
+    // Static declaration here is fine as opposed to a static class var.
+    // Just requires passing as reference vs directly referencing the global.
+    static Flag::FlagReg flag("(OTAHANDFlag)"); // Used to handle cleanup.
 
     // Client configuration with the crt bundle attached for webserver 
     // cert validation. This is provided by esp and uses mozillas data.
@@ -395,10 +398,31 @@ bool OTAHAND::initCheck(httpd_req_t* req) {
     return OTAHAND::isInit;
 }
 
-// Requires references to the clients and flags. Closes and cleans up the 
-// client connections. Returns true if it has been cleaned up, and false if
-// not. ATTENTION: Will only close and cleanup what has been set.
-bool OTAHAND::cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag) {
+// Requires references to the clients and flags, and the attempt which is 
+// default to 0. This is for internal handling and should only be call with a
+// number other than 0 internally. Closes and cleans the client connections.
+// Returns true if clean, and false if not. Cleans iff the flag has been set.
+bool OTAHAND::cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag, 
+    size_t attempt) {
+
+    attempt++; // Incremenet the passed attempt. This is to handle retries.
+
+    if (attempt >= OTA_CLEANUP_ATTEMPTS) {
+      
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+            "%s Unable to close connection, restarting", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::CRITICAL);
+        NVS::settingSaver::get()->save(); // Save peripheral settings
+
+        esp_restart(); // Restart esp attempt.
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), // Log if failure.
+            "%s Unable to restart", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::CRITICAL);
+        return false; // Just in case it doesnt restart.
+    }
 
     // Default to ESP_OK in the event that one or both flags are not set.
     esp_err_t close{ESP_OK}, cleanup{ESP_OK}; 
@@ -413,7 +437,9 @@ bool OTAHAND::cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag) {
                 esp_err_to_name(close));
 
             MASTERHAND::sendErr(MASTERHAND::log);
-            return false; // client is open but cant close.
+            vTaskDelay(pdMS_TO_TICKS(50)); // Delay before retry.
+            OTAHAND::cleanup(client, flag, attempt); // Retry
+    
         }
 
         flag.releaseFlag(OTAFLAGS::OPEN); // Release if closed.
@@ -429,13 +455,14 @@ bool OTAHAND::cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag) {
                 esp_err_to_name(cleanup));
 
             MASTERHAND::sendErr(MASTERHAND::log);
-            return false; // client is init but cant cleanup
+            vTaskDelay(pdMS_TO_TICKS(50)); // Delay before retry.
+            OTAHAND::cleanup(client, flag, attempt);
         }
 
         flag.releaseFlag(OTAFLAGS::INIT); // Release if cleaned up.
     }
 
-    return (close == ESP_OK && cleanup == ESP_OK);
+    return (close == ESP_OK && cleanup == ESP_OK); // Typically a success.
 }
 
 // Reuires the ref/addr to the OTA handler object. Once init, ota will have
@@ -519,6 +546,7 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
                     MHAND_SUCCESS), OTAHAND::tag, "updLAN")) {
 
                     vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to resp
+                    NVS::settingSaver::get()->save(); // Save periph settings
                     esp_restart(); // Restart after sending.
                 };
 
@@ -587,6 +615,7 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
                     MHAND_SUCCESS), OTAHAND::tag, "updWEB")) {
 
                     vTaskDelay(pdMS_TO_TICKS(500)); //Delay 500 ms to resp
+                    NVS::settingSaver::get()->save(); // Save periph settings
                     esp_restart(); // Restart after sending.
                 } // No else block required.
 

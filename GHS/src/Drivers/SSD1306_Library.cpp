@@ -285,7 +285,7 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
             continue;
         }
 
-        grabChar(msg[i]); // writes char bytes to Worker buffer.
+        this->grabChar(msg[i]); // writes char bytes to Worker buffer.
 
         // If the next char will extend beyond the column max, the 
         // line is written.
@@ -294,7 +294,9 @@ void OLEDbasic::write(const char* msg, TXTCMD cmd) {
         }
     }
 
-    // Only writes if end is specified in the text command.
+    // If col > 0, implies that text has been written to line. Iff END is 
+    // called, will incremement page causing a line break. If END is not called
+    // the buffer index will not be adjusted.
     if ((cmd == TXTCMD::END) && this->col > 0) {
         this->writeLine(); // Adjusts buffer index
     }
@@ -319,28 +321,33 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
     uint8_t nextSpace{0};
     uint8_t i{0};
 
-    while (i < msgLen) {
-        nextSpace = i;
+    while (i < msgLen) { // Iterate the length of the message.
+        nextSpace = i; // Set equal to iterator value.
 
-        // Find and set the next space index value.
+        // Iterates until it encounters a space, or the end of the message.
+        // Incremenets nextSpace for each iteration. This will put the next
+        // space at a different value than i, which will be the width that
+        // the word requires.
         while(nextSpace < msgLen && msg[nextSpace] != ' ') {
             nextSpace++;
         }
 
-        // Computes the number of columns that the next word will
-        // occupy.
-        uint8_t wordLen = (nextSpace - i) * this->charDim.width;
+        uint8_t wordLen = nextSpace - i; // Word length in chars.
+
+        // Computes the number of pixels/columns that the next word will
+        // occupy based on the word length.
+        uint8_t pixels = (wordLen) * this->charDim.width;
 
         // If the single word extends beyond the column max, it will
         // be written with no text wrapping. It will then skip the 
         // rest of the iteration, and continue wrapping text.
-        if (wordLen >= static_cast<int>(Size::columns)) {
+        if (pixels >= static_cast<int>(Size::columns)) {
             char temp[210]{0}; // 204 is the max chars @ 5x7. Padded.
             
-            strncpy(temp, &msg[i], nextSpace - i);
-            temp[nextSpace - i] = '\0';
-        
-            this->write(temp, TXTCMD::START); // start to no break line.
+            snprintf(temp, wordLen, "%s", &msg[i]);
+            
+            // Sends START to preserve buffer index and avoid line break.
+            this->write(temp, TXTCMD::START); 
             i += strlen(temp);
             continue;
         }
@@ -349,7 +356,7 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
         // exceeds the maximum value, it will write the current
         // line and begin the rest of everything on a new page
         // wrapping the text.
-        if ((this->col + wordLen) >= this->colMax) {
+        if ((this->col + pixels) >= this->colMax) {
             this->writeLine(); // Adjusts buffer index
         } 
 

@@ -15,220 +15,352 @@
 #include "esp_transport.h"
 #include "Config/config.hpp"
 #include "Common/FlagReg.hpp"
+#include "Peripherals/saveSettings.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace OTA {
 
+// Holds the firmware and signature URLs.
 URL::URL() {
     memset(this->firmware, 0, sizeof(URLSIZE));
     memset(this->signature, 0, sizeof(URLSIZE));
 }
 
-// Ensures that the net is actively connected to station mode.
-// Returns true or false
-bool OTAhandler::isConnected() {
-    Comms::NetMode netMode = Comms::NetMain::getNetType();
-    bool netConnected = station.isActive();
+// Requires no params. Checks that the station connection is active and returns
+// true or false.
+bool OTAhandler::isConnected() {return station.isActive();}
 
-    return (netMode == Comms::NetMode::STA && netConnected);
-}
+// Requires no variables. Initializes the client based on the configuration.
+// Returns true if successful, and false if not.
+bool OTAhandler::initClient() {
 
-// Opens all connections. Fetches header with an int64_t content
-// length, and if > 0, returns the content length.
-int64_t OTAhandler::openConnection() {
-    if (!this->OLED.getOverrideStat()) { // Allows OLED population during OTA
-        this->OLED.setOverrideStat(true);
+    // If not init, then init. Sets client = NULL if error.
+    if (!this->flags.getFlag(OTAFLAGS::INIT)) {
+        this->client = esp_http_client_init(&this->config);
     }
 
-    if (DEVmode) { // used for development mode only.
+    // Null check. If good set flag and return true.
+    if (this->client != NULL) {
+        this->flags.setFlag(OTAFLAGS::INIT);
+        return true;
+
+    } else { // Client not init. Log and return false.
+
+        snprintf(this->log, sizeof(this->log), "%s Connection unable to init",
+            this->tag);
+
+        this->sendErr(this->log);
+        this->cleanup();
+        return false;
+    }
+}
+
+// Requires no params. Opens client if it has been initiated. Returns true if
+// successful, and false if not.
+bool OTAhandler::openClient(int64_t &contentLen) {
+
+    esp_err_t err = ESP_FAIL; // Defaul if below conditions are not met.
+
+    if (DEVmode) { // used for development mode only. Set before opening.
         esp_http_client_set_header(client, "ngrok-skip-browser-warning", "1");
     }
 
-    // Opens client connection, writes 0 meaning that no explicit write
-    // function has to be called.
-    if (esp_http_client_open(this->client, 0) != ESP_OK) {
-        this->sendErr("Unable to open connection");
-        this->close();
-        return 0;
-    } else {
-        this->flags.setFlag(OTAFLAGS::CON);
+    // Opens the connection if not already open, and it has been init.
+    if (!this->flags.getFlag(OTAFLAGS::OPEN) && 
+        this->flags.getFlag(OTAFLAGS::INIT)) {
+
+        err = esp_http_client_open(this->client, 0); // just open, no write.
     }
 
-    int64_t contentLength = esp_http_client_fetch_headers(client);
+    if (err == ESP_OK) { // is open, set flag. Carry on
+        this->flags.setFlag(OTAFLAGS::OPEN);
 
-    if (contentLength <= 0) {
-        this->sendErr("Invalid content length");
-        this->close();
-        return 0;
+    } else { // Flag not set, unable to open. Cleanup.
+
+        snprintf(this->log, sizeof(this->log), "%s Connection unable to open",
+            this->tag);
+
+        this->sendErr(this->log);
+        this->cleanup();
+        return false;
     }
 
-    return contentLength;
+    // Connection successfully opened.
+    this->OLED.setOverrideStat(true); // Override to OLED print updates/prog.
+
+    contentLen = esp_http_client_fetch_headers(client); // Set reference
+
+    // Check content length
+    if (contentLen < 0) { // Indicates error
+        snprintf(this->log, sizeof(this->log), "%s invalid content len",
+            this->tag);
+
+        this->sendErr(this->log);
+        this->cleanup();
+        return false;
+    }
+
+    return true; // If content length is solid.
 }
 
-// Closes the appropriate connections that were previously opened. 
-// Checks the flag to see if open, if so, attempts a close and 
-// changes flag back to false. The checks are in linear order.
-// Returns true or false.
-bool OTAhandler::close() {
-    uint8_t closeErrors{0};
+// Requires attempt number of cleanup. Defaults to 0. This has an internal
+// handling system that will retry cleanups for failures, ultimately returning
+// true if successful or false if not. Closes and cleans all connections
+// iff their specific flag has been set to true during the process. WARNING:
+// attempts should only be set within this function to retry another attempt. 
+// All fresh cleanup calls should be 0.
+bool OTAhandler::cleanup(size_t attempt) {
+    attempt++; // Increment the passed attempt. This is to handle retries.
 
-    if (this->flags.getFlag(OTAFLAGS::OTA)) {
+    if (attempt >= OTA_CLEANUP_ATTEMPTS) {
+        this->OLED.setOverrideStat(false); // Release hold
+        snprintf(this->log, sizeof(this->log), 
+            "%s Unable to close connection, restarting", this->tag);
 
-        if (esp_ota_end(this->OTAhandle) != ESP_OK) {
-            this->sendErr("Unable to close OTA");
-            closeErrors++;
+        this->sendErr(this->log, Messaging::Levels::CRITICAL);
+        NVS::settingSaver::get()->save(); // Save peripheral settings
 
-        } else {
-            this->flags.releaseFlag(OTAFLAGS::OTA);
+        esp_restart(); // Restart esp attempt.
+
+        snprintf(this->log, sizeof(this->log), // Log if failure.
+            "%s Unable to restart", this->tag);
+
+        this->sendErr(this->log, Messaging::Levels::CRITICAL);
+        return false; // Just in case it doesnt restart.
+    }
+
+    // Default to ESP_OK in event that any of the flags are not set.
+    esp_err_t close{ESP_OK}, cleanup{ESP_OK}, otaEnd{ESP_OK};
+
+    // First check OTA
+    if (this->flags.getFlag(OTAFLAGS::OTA)) { // OTA has been opened
+        otaEnd = esp_ota_end(this->OTAhandle);
+
+        if (otaEnd != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s unable to close OTA att # %zu", this->tag, attempt);
+
+            this->sendErr(this->log);
+            vTaskDelay(pdMS_TO_TICKS(50)); // Delay before retry.
+            this->cleanup(attempt); // Retry.
+        } 
+        
+        this->flags.releaseFlag(OTAFLAGS::OTA);
+    }
+
+    // Next check client open. OTA will have to be closed before invoking this.
+    if (this->flags.getFlag(OTAFLAGS::OPEN)) {
+
+        close = esp_http_client_close(this->client);
+
+        if (close != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s unable to close client",
+                this->tag);
+
+            this->sendErr(this->log);
+            vTaskDelay(pdMS_TO_TICKS(50)); // Delay before retry.
+            this->cleanup(attempt); // Retry.
         }
+
+        this->flags.releaseFlag(OTAFLAGS::OPEN);
     }
 
-    if (this->flags.getFlag(OTAFLAGS::CON) && !this->flags.getFlag(OTAFLAGS::OTA)) {
-        if (esp_http_client_close(this->client) != ESP_OK) {
-            this->sendErr("Unable to close client");
-            closeErrors++;
-        } else {
-            this->flags.releaseFlag(OTAFLAGS::CON);
+    // Finally check init. Client will need to be closed before invoking this.
+    if (this->flags.getFlag(OTAFLAGS::INIT)) {
+
+        cleanup = esp_http_client_cleanup(this->client);
+
+        if (cleanup != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s unable to cleanup client",this->tag);
+
+            this->sendErr(this->log);
+            vTaskDelay(pdMS_TO_TICKS(50)); // Delay before retry.
+            this->cleanup(attempt); // retry.
         }
+
+        this->flags.releaseFlag(OTAFLAGS::INIT);
     }
 
-    if (this->flags.getFlag(INIT) && !this->flags.getFlag(CON)) {
-        if (esp_http_client_cleanup(this->client) != ESP_OK) {
-            this->sendErr("Unable to cleanup client");
-            closeErrors++;
-        } else {
-            this->flags.releaseFlag(INIT);
-        }
-    }
-
-    // Allows typical OLEd function, once closed.
-    if (this->OLED.getOverrideStat()) {
-        this->OLED.setOverrideStat(false);
-    }
-    
-    return (closeErrors == 0);
+    this->OLED.setOverrideStat(false); // Release hold.
+    return (close == ESP_OK && cleanup == ESP_OK && otaEnd == ESP_OK);
 }
 
-// Processes the requests of the URL struct sent. Will receive both a firmware
-// and signature URL. Inits and opens connection with the webserver, and passes
-// the content length to writeSignature and writeFirmware methods. If both sig
-// and firmware are successful, and firmware signature validation is successful,
-// returns REQ_OK, else returns REQ_FAIL.
+// Requires the URL object reference with both the firmware and signature URL.
+// Inits and opens connection with the hosting webserver. Processes the 
+// request. If both the signature and firmware updates are successful, and
+// the signature is validated, returns REQ_OK, else returns REQ_FAIL.
 OTA_RET OTAhandler::processReq(URL &url) {
 
     const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
-    int64_t contentLen{0};
-    size_t FW_SIZE{0};
-    size_t SIG_SIZE{0};
-    char label[20]{0}; // Gets label name either app0 or app1
-    strcpy(label, part->label);
 
-    if (part == NULL) {
-        this->sendErr("No OTA partitition found");
+    if (part == NULL || part == nullptr) { // No partition.
+        snprintf(this->log, sizeof(this->log), "%s no partition found", 
+            this->tag);
+
+        this->sendErr(this->log);
         return OTA_RET::REQ_FAIL;
     }
 
-    // Checks for an active station connection.
-    if (!this->isConnected()) {
-        this->sendErr("Not connected to network");
+    if (!this->isConnected()) { // Checks for an active station connection.
+        snprintf(this->log, sizeof(this->log), "%s not con to network", 
+            this->tag);
+
+        this->sendErr(this->log);
         return OTA_RET::REQ_FAIL;
     }
 
-    // config, init, and open http client
-    this->config.url = url.signature;
-    this->client = esp_http_client_init(&this->config);
-    this->flags.setFlag(INIT);
-    contentLen = this->openConnection();
-    SIG_SIZE = (size_t)contentLen;
+    // Partition exists and station is connected. Proceed.
+    size_t FW_SIZE = 0; // Firmware size
+    size_t SIG_SIZE = 0; // Signature size
 
-    if (contentLen <= 0) return OTA_RET::REQ_FAIL;
+    if (!this->processSig(url, SIG_SIZE, part)) return OTA_RET::REQ_FAIL;
+    if (!this->processFW(url, FW_SIZE, part)) return OTA_RET::REQ_FAIL;
 
-    // Calls to write the signature. Closes 
-    if (writeSignature(url.signature, label) == OTA_RET::SIG_FAIL) {
-        this->close();
-        this->sendErr("Unable to write signature");
-        return OTA_RET::REQ_FAIL;
-    }
-
-    this->close();
-
-    // config, init, and open http client
-    this->config.url = url.firmware;
-    this->client = esp_http_client_init(&this->config);
-    this->flags.setFlag(INIT);
-    contentLen = this->openConnection();
-    FW_SIZE = (size_t)contentLen;
-
-    if (contentLen <= 0) return OTA_RET::REQ_FAIL;
-
-    OTA_RET FW = writeFirmware(url.firmware, part, contentLen);
-   
-    if (FW == OTA_RET::FW_FAIL) {
-        this->sendErr("Unable to write firmware");
-        this->close();
-        return OTA_RET::REQ_FAIL;
-    }
-
-    this->close();
+    // Successful write of both signature and firmware. Validate partition now.
+    // If valid, set the next boot partition and trigger the http handler
+    // to restart the device.
 
     // Validate partition. If good, sets the next boot partition.
     Boot::val_ret_t err = Boot::FWVal::get()->checkPartition(Boot::PART::NEXT, 
         FW_SIZE, SIG_SIZE);
 
     if (err != Boot::val_ret_t::VALID) {
-        this->sendErr("OTA firmware invalid, will not set next partition");
-        this->OLED.printUpdates("Firmware Sig Invalid");
+        snprintf(this->log, sizeof(this->log), 
+            "%s FW invalid, next part not set", this->tag);
+
+        this->sendErr(this->log, Messaging::Levels::WARNING);
+        this->OLED.printUpdates("Firmware Sig Invalid"); // Blocking
         return OTA_RET::REQ_FAIL;
     }
 
     if (esp_ota_set_boot_partition(part) == ESP_OK) {
-        this->OLED.printUpdates("OTA Success, restarting");
-        printf("Signature valid, setting next partition\n");
+        snprintf(this->log, sizeof(this->log), "%s valid, set next partition", 
+            this->tag);
+
+        this->sendErr(this->log, Messaging::Levels::INFO);
+        this->OLED.printUpdates("OTA Success, restarting"); // Blocking
         return OTA_RET::REQ_OK; 
 
     } else {
-        this->OLED.printUpdates("OTA Fail");
+        snprintf(this->log, sizeof(this->log), "%s OTA Fail", this->tag);
+        this->sendErr(this->log, Messaging::Levels::WARNING);
+        this->OLED.printUpdates("OTA Fail"); // Blocking
         return OTA_RET::REQ_FAIL;
     }
 }
 
-// Accepts the sigURL and partititon label. Writes the signature to 
-// spiffs. There are two partitions app0 and app1, and there are two 
-// corresponding signatures app0firmware.sig and app1firmware.sig, which
-// alternate. Returns SIG_OK or SIG_FAIL.
-OTA_RET OTAhandler::writeSignature(const char* sigURL, const char* label) {
-    size_t writeSize{0};
-    char filepath[35]{0};
-    uint8_t buffer[275]{0}; // Used to read the signature shouldnt exceed 260
+// Requires url and signature size references, as well as the poiter to the
+// partition. Processes the signature request by reading it from the client,
+// and writing it to the ESP. Returns true if successful, or false if not.
+bool OTAhandler::processSig(URL &url, size_t &SIGSIZE, 
+    const esp_partition_t* part) {
 
-    sprintf(filepath, "/spiffs/%sfirmware.sig", label); // either app0 or app1
+    // Copy over either app0 or app1 to the partition label. Used to label 
+    // appropriate signature to partition.
+    char label[sizeof(part->label)]{0}; 
+    snprintf(label, sizeof(label), "%s", part->label); 
+    int64_t contentLen = 0;
+
+    // Process the signature. Configure the client using config settings.
+    this->config.url = url.signature;
+
+    // Initialize client and open connection. Pass contentLength to be 
+    // populated.
+    if (!this->initClient()) return false;
+    if (!this->openClient(contentLen)) return false;
+
+    SIGSIZE = static_cast<size_t>(contentLen); // Convert
+
+    // Calls to write the signature. Closes 
+    if (writeSignature(url.signature, label) == OTA_RET::SIG_FAIL) { 
+        this->cleanup();
+        return false; // Error logging within callback.
+    }
+
+    return this->cleanup(); // Close and clean connection. If success ret true.
+}
+
+// Requires url and firmware size references, as well as the poiter to the
+// partition. Processes the firmware request by reading it from the client,
+// and writing it to the ESP. Returns true if successful, or false if not.
+bool OTAhandler::processFW(URL &url, size_t &FWSIZE, 
+    const esp_partition_t* part) {
+
+    int64_t contentLen = 0;
+
+    // Configure the client using config settings.
+    this->config.url = url.firmware;
+
+    // Initialize client and open connection. Pass content length to be pop.
+    if (!this->initClient()) return false;
+    if (!this->openClient(contentLen)) return false;
+
+    FWSIZE = static_cast<size_t>(contentLen); // Convert
+
+    if (writeFirmware(url.firmware, part, contentLen) == OTA_RET::FW_FAIL) {
+        this->cleanup();
+        return false;
+    }
+
+    return this->cleanup(); // Close and clean connection. If success ret true.
+}
+
+// Requires signature url and label. Writes the signauture to the spiffs using
+// the passed label. There are two partitions app0 and app1, which have 
+// corresponding signatures being app0firmware.sig and app1firmware.sig, 
+// which alternate. Returns SIG_OK or SIG_FAIL.
+OTA_RET OTAhandler::writeSignature(const char* sigURL, const char* label) {
+    size_t writeSize{0}; // Total size written to file.
+    char filepath[OTA_FILEPATH_SIZE]{0}; 
+
+    // Adds either app0 or app1 to the filepath.
+    snprintf(filepath, sizeof(filepath), "/spiffs/%sfirmware.sig", label);
     
     // C-casts buffer to char* since it is required by the read function.
-    int dataRead = esp_http_client_read(this->client, (char*)buffer, sizeof(buffer));
+    int dataRead = esp_http_client_read(this->client, (char*)this->buffer, 
+        sizeof(this->buffer));
 
-    if (dataRead <= 0) {
-        this->sendErr("Error reading signature Data");
+    if (dataRead <= 0) { // Indicates error if < 0. Captured a 0 read as well.
+        snprintf(this->log, sizeof(this->log), 
+            "%s error reading signature data", this->tag);
+
+        this->sendErr(this->log);
         return OTA_RET::SIG_FAIL;
     }
 
     // Open the file to write in binary.
     FILE* f = fopen(filepath, "wb");
-    if (f == NULL) {
-        printf("Unable to open file: %s\n", filepath);
+
+    if (f == NULL || f == nullptr) {
+        snprintf(this->log, sizeof(this->log), 
+            "%s unable to open filepath %s", this->tag, filepath);
+
+        this->sendErr(this->log);
+        return OTA_RET::SIG_FAIL;
     }
 
-    printf("Writing to filepath: %s\n", filepath);
-    this->OLED.printUpdates("Writing Signature");
+    snprintf(this->log, sizeof(this->log), "%s writing to filepath %s",
+        this->tag, filepath);
+
+    this->sendErr(this->log, Messaging::Levels::INFO);
+    this->OLED.printUpdates("Writing Signature"); // Blocks before writing.
 
     // Writes the buffer into the appropriate spiffs file.
-    writeSize = fwrite(buffer, 1, dataRead, f);
+    writeSize = fwrite(this->buffer, 1, dataRead, f);
     fclose(f);
  
     if (writeSize > 0) {
+        snprintf(this->log, sizeof(this->log), "%s signature OK", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
         this->OLED.printUpdates("Signature OK");
         return OTA_RET::SIG_OK;
+
     } else {
+        snprintf(this->log, sizeof(this->log), "%s signature fail", this->tag);
+        this->sendErr(this->log, Messaging::Levels::WARNING);
         this->OLED.printUpdates("Signature Fail");
-        this->sendErr("Did not write to spiffs");
         return OTA_RET::SIG_FAIL;
     }
 }
@@ -237,80 +369,100 @@ OTA_RET OTAhandler::writeSignature(const char* sigURL, const char* label) {
 // stream of requested binary firmware data, via ota, to the next 
 // partition in chunks. Returns FW_FAIL, FW_OTA_START_FAIL, and 
 // FW_OK.
-OTA_RET OTAhandler::writeFirmware(
-    const char* firmURL,
-    const esp_partition_t* part,
-    int64_t contentLen
-    ) {
+OTA_RET OTAhandler::writeFirmware(const char* firmURL,
+    const esp_partition_t* part, int64_t contentLen) {
 
     esp_err_t err;
-    uint8_t buffer[1024]{0};
+    memset(this->buffer, 0, sizeof(this->buffer));
     int dataRead{0};
     int totalWritten{0};
     char progress[20]{0};
 
-    // Begins the OTA with the appropriate content length.
-    err = esp_ota_begin(part, contentLen, &this->OTAhandle);
+    // Initialize and begin the ota if not began.
+    if (!this->flags.getFlag(OTAFLAGS::OTA)) { // Safety check.
 
-    if (err != ESP_OK) {
-        this->sendErr("OTA did not begin");
-        return OTA_RET::FW_FAIL;
-    } else {
-        this->flags.setFlag(OTA);
+        // Begins the OTA with the appropriate content length.
+        err = esp_ota_begin(part, contentLen, &this->OTAhandle);
+
+        if (err != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s OTA did not begin", 
+                this->tag);
+
+            this->sendErr(this->log); // Cleanup handled in calling func.
+            return OTA_RET::FW_FAIL;
+        }
+
+        this->flags.setFlag(OTAFLAGS::OTA);
     }
 
-    if (part == NULL) {
-        this->sendErr("No OTA partitition found");
+    // Check partition validity.
+    if (part == NULL || part == nullptr) {
+        snprintf(this->log, sizeof(this->log), "%s OTA pos not found", 
+            this->tag);
+
+        this->sendErr(this->log); // Cleanup handled in calling func.
         return OTA_RET::FW_FAIL;
     }
 
-    // Checks for an active station connection.
-    if (!this->isConnected()) {
-        this->sendErr("Not connected to network");
-        return OTA_RET::FW_FAIL;
-    }
+    // Checks are good, go ahead and begin writing firmware to esp.
+    snprintf(this->log, sizeof(this->log), "%s OTA writing FW to label %s",
+        this->tag, part->label);
 
+    this->sendErr(this->log, Messaging::Levels::INFO);
     this->OLED.printUpdates("OTA writing firmware");
-    printf("Writing firmware to label %s\n", part->label);
 
     // Loop to read data from the HTTP response in chunks, until complete.
     // dataRead is the primary control mechanism, and once there is no data
     // left to read, the loop breaks.
     while (true) { 
-        dataRead = esp_http_client_read(client, (char*)buffer, sizeof(buffer));
 
-        if (dataRead < 0) {
-            this->sendErr("http read error");
+        dataRead = esp_http_client_read(this->client, (char*)this->buffer, 
+            sizeof(this->buffer));
+
+        if (dataRead < 0) { // Indicates error
+            snprintf(this->log, sizeof(this->log), "%s http read err", 
+                this->tag);
+
+            this->sendErr(this->log);
             return OTA_RET::FW_FAIL;
         }
 
-        if (dataRead == 0) break;
+        if (dataRead == 0) break; // Nothing left to read/write
 
         // Write the data to the OTA partition
-        err = esp_ota_write(this->OTAhandle, buffer, dataRead);
+        err = esp_ota_write(this->OTAhandle, this->buffer, dataRead);
+
         if (err != ESP_OK) {
-            this->sendErr("OTA failed");
+            snprintf(this->log, sizeof(this->log), "%s OTA fail", this->tag);
+            this->sendErr(this->log);
             return OTA_RET::FW_FAIL;
         }
 
+        // If successful write, incremenet the total written by the data read.
         totalWritten += dataRead;
 
-        snprintf( // Prints progress to OLED as float, until done.
-            progress, 
-            sizeof(progress), 
-            " %.1f%%", 
+        // One of the few times the OLED update progress is used. This is 
+        // non-blocking and updates the float value based on the current 
+        // progress.
+        snprintf(progress, sizeof(progress), " %.1f%%", 
             static_cast<float>(totalWritten) * 100 / contentLen);
-        this->OLED.updateProgress(progress);
+
+        this->OLED.updateProgress(progress); // Write progress to OLED.
     }
 
+    // Once complete, ensure the total written is equal to the total read.
     if (totalWritten == contentLen) {
+        snprintf(this->log, sizeof(this->log), "%s write complete", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
         return OTA_RET::FW_OK;
     } else {
+        snprintf(this->log, sizeof(this->log), "%s write fail", this->tag);
+        this->sendErr(this->log, Messaging::Levels::WARNING);
         return OTA_RET::FW_FAIL;
     }
 }
 
-// Requires message and level. Level default to INFO.
+// Requires message and level. Level default to ERROR.
 void OTAhandler::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg,
         Messaging::Method::SRL_LOG);
@@ -319,8 +471,12 @@ void OTAhandler::sendErr(const char* msg, Messaging::Levels lvl) {
 OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,
     Threads::Thread** toSuspend, size_t threadQty) : 
 
-    flags("(OTAFlag)"), station(station), OLED(OLED), toSuspend(toSuspend), 
-    threadQty(threadQty), OTAhandle(0), config{} {}
+    flags("(OTAUpdFlag)"), station(station), OLED(OLED), toSuspend(toSuspend), 
+    threadQty(threadQty), OTAhandle(0), config{} {
+
+    memset(this->buffer, 0, sizeof(this->buffer));
+
+    }
     
 
 // Requires reference to firmware and signature url, and if the update is 
@@ -329,7 +485,7 @@ OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,
 OTA_RET OTAhandler::update(URL &url, bool isLAN) { 
     
     if (this->toSuspend == nullptr or *(this->toSuspend) == nullptr) {
-        return OTA_RET::OTA_FAIL;
+        return OTA_RET::OTA_FAIL; // Gate.
     }
 
     // Suspends all threads in the passed toSuspend thread array.
@@ -366,14 +522,21 @@ bool OTAhandler::rollback() {
     this->OLED.setOverrideStat(true); // Allow update display.
 
     if (esp_ota_set_boot_partition(other) == ESP_OK) {
+        snprintf(this->log, sizeof(this->log), 
+            "%s rolling back to partition %s", this->tag, other->label);
 
-
-
-        printf("Rolling back to partition %s\n", other->label);
+        this->sendErr(this->log, Messaging::Levels::INFO);
         this->OLED.printUpdates("Rolling back to prev firmware"); // Blocking
-        return true; // will prompt a restart, to release of override status.
-    } else {
-        this->OLED.printUpdates("Unable to Roll back"); // Blocking. Log as well.!!!!!
+        this->OLED.setOverrideStat(false);
+        return true; // will prompt a restart with handler.
+
+    } else { // Unable to roll back.
+
+        snprintf(this->log, sizeof(this->log), 
+            "%s Unable to roll back partition", this->tag);
+
+        this->sendErr(this->log, Messaging::Levels::WARNING);
+        this->OLED.printUpdates("Unable to Roll back"); // Blocking. 
         this->OLED.setOverrideStat(false);
         return false;
     }
