@@ -7,6 +7,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Common/Timing.hpp"
 #include "string.h" 
+#include "Common/FlagReg.hpp"
 
 namespace Peripheral {
 
@@ -16,7 +17,7 @@ Threads::Mutex Light::mtx; // Def of static var
 
 Light::Light(LightParams &params) : 
     
-    readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    flags("(Lightflag)"), readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     averages{
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0},
@@ -24,11 +25,14 @@ Light::Light(LightParams &params) :
     conf{0, LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 
         LIGHT_NO_RELAY, 0, 0, 0},
 
-    lightDuration(0), photoVal(0), flags{false, false, false, false},
-    params(params) {}
+    lightDuration(0), photoVal(0), params(params) {
+
+        snprintf(Light::log, sizeof(Light::log), "%s Ob created", Light::tag);
+        Light::sendErr(Light::log, Messaging::Levels::INFO);
+    }
 
 // Requires isSpectral bool. Computes either the spectral or photoresistors
-// averages.
+// averages and saves them into averages variable.
 void Light::computeAverages(bool isSpec) {
 
     // Check if photoresistor
@@ -39,7 +43,7 @@ void Light::computeAverages(bool isSpec) {
         // difference, divided by the new poll count, to the averages.
         float delta = this->photoVal - this->averages.photoResistor;
         this->averages.photoResistor += (delta / this->averages.pollCtPho); 
-        return;
+        return; // Block spectral below.
     }
 
     // To efficiently process everything, created two arrays that can be
@@ -77,25 +81,33 @@ void Light::computeAverages(bool isSpec) {
 void Light::computeLightTime(size_t ct, bool isLight) { 
     
     // Main gate, prevents any count that is not at the threshold from
-    // continuing.
+    // continuing. Once counts are met of consecutive criteria, passes.
     if (ct < LIGHT_CONSECUTIVE_CTS) return;
 
-    // Start toggle at true. If it is dark when the device starts, light 
+    // Start on toggle at true. If it is dark when the device starts, light 
     // duration will remain at 0, and will only begin counting once light
     // is present, which will then change the toggle to false allow duration
-    // to be computed.
-    static bool toggle = true;
+    // to be computed. Of toggle is used to log dark start only.
+    static bool onToggle = true, offToggle = true;
     static uint32_t lightStart = 0;
+    Clock::TIME* dt = Clock::DateTime::get()->getTime();
 
     switch (isLight) {
-        case true:
-        if (toggle) { // If true, captures start time and sets toggle to false.
-            toggle = false;
+        case true: // If light
+        offToggle = true; // reset toggle for next dark period
+        if (onToggle) { // If true, captures start time and sets toggle to false.
+            onToggle = false;
             this->lightDuration = 0; // Reset at light start
             lightStart = Clock::DateTime::get()->seconds();
+            snprintf(Light::log, sizeof(Light::log), 
+                "%s Light start at time %u:%u:%u", this->tag, dt->hour, 
+                dt->minute, dt->second);
+
+            Light::sendErr(Light::log, Messaging::Levels::INFO);
 
         // Once toggle is set to false, the light duration can be captured.
-        } else if (!toggle) {
+        } else if (!onToggle) {
+
             this->lightDuration = 
                 Clock::DateTime::get()->seconds() - lightStart;
         }
@@ -103,7 +115,17 @@ void Light::computeLightTime(size_t ct, bool isLight) {
         break;
 
         case false: // If dark
-        toggle = true; // reset toggle for next light period
+        onToggle = true; // reset toggle for next light period
+        if (offToggle) { // If true, captures and logs the dark time.
+            offToggle = false;
+
+            snprintf(Light::log, sizeof(Light::log), 
+                "%s Light stoped at time %u:%u:%u", Light::tag, dt->hour, 
+                dt->minute, dt->second);
+
+            Light::sendErr(Light::log, Messaging::Levels::INFO);
+        }
+
         break;
     }
 }
@@ -116,16 +138,19 @@ void Light::handleRelay(bool relayOn, size_t ct) {
 
     switch (relayOn) {
         case true: // Relay is set to turn on.
-        if (this->conf.relay == nullptr || !this->flags.photoNoErr || 
-        ct < LIGHT_CONSECUTIVE_CTS || this->conf.condition == RECOND::NONE) {
-            return; // Return if gate parameters are not met.
+        if (this->conf.relay == nullptr || 
+            !this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
+            ct < LIGHT_CONSECUTIVE_CTS || 
+            this->conf.condition == RECOND::NONE) {
+            return; // Return if gate parameters are not met. Block
         }
 
-        this->conf.relay->on(this->conf.controlID);
+        this->conf.relay->on(this->conf.controlID); // Logging capture in func
         break;
 
         case false: // Relay is set to turn off.
-        if (!this->flags.photoNoErr || ct < LIGHT_CONSECUTIVE_CTS) {
+        if (!this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
+            ct < LIGHT_CONSECUTIVE_CTS) {
             return; // Return if gate parameers are not met.
         }
 
@@ -160,10 +185,7 @@ Light* Light::get(LightParams* parameter) {
         Light::sendErr(Light::log, Messaging::Levels::CRITICAL);
         return nullptr; 
 
-    } else if (parameter != nullptr && !isInit) { // Used only for logging only.
-
-        snprintf(Light::log, sizeof(Light::log), "%s Init", Light::tag);
-        Light::sendErr(Light::log, Messaging::Levels::INFO);
+    } else if (parameter != nullptr) { 
         isInit = true;
     }
 
@@ -185,20 +207,26 @@ bool Light::readSpectrum() {
     // show the light reading to be down.
     read = this->params.as7341.readAll(this->readings);
 
-    if (read) {
-        this->flags.specNoDispErr = true;
-        this->flags.specNoErr = true;
+    if (read) { // Show no error flags if true
+        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
+        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR);
         this->computeAverages(true); // Compute avg upon success.
         errCt = 0; // resets count.
-    } else {
-        this->flags.specNoErr = false; // Indicates error.
+    } else { // If error, release flag to false.
+        this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR);
         errCt++; // inc count by 1.
     }
 
     // Sets the diplay to true if the error count is less than max allowed.
-    this->flags.specNoDispErr = (errCt < LIGHT_ERR_CT_MAX);
+    // If exceeded the display will be set to false telling client of error.
+    // This is to filter bad reads from constantly alerting client.
+    if (errCt < LIGHT_ERR_CT_MAX) {
+        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
+    } else {
+        this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
+    }
 
-    return this->flags.specNoErr; // Returns true if data is OK.
+    return this->flags.getFlag(LIGHTFLAGS::SPEC_NO_ERR); // true if data OK
 }
 
 // Requires no parameters. Reads the analog reading of the photoresistor and
@@ -215,20 +243,23 @@ bool Light::readPhoto() {
 
     // Upon sucess, changes the flags to true indicating no error.
     if (err == ESP_OK) {
-        errCt = 0; // zero out
         this->computeAverages(false); // compute avg upon success.
-        this->flags.photoNoDispErr = true;
-        this->flags.photoNoErr = true;
-
+        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR);
+        errCt = 0; // zero out
     } else {
-        this->flags.photoNoErr = false; // If false, set flag to false.
+        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
         errCt++; // Increment error count.
     }
 
-    // Sets display to true if the error ct is less than max allowed.
-    this->flags.photoNoDispErr = (errCt < LIGHT_ERR_CT_MAX);
+    // Sets display to true if the error ct is less than max.
+    if (errCt < LIGHT_ERR_CT_MAX) {
+        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+    } else {
+        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+    }
 
-    return this->flags.photoNoErr; // Returns true if OK.
+    return this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR); // true if OK
 }
 
 // Returns pointer to spectrum data.
@@ -242,8 +273,8 @@ int Light::getPhoto() {
 }
 
 // Returns the flags about error status.
-isUpLight Light::getStatus() {
-    return this->flags;
+Flag::FlagReg* Light::getFlags() {
+    return &this->flags;
 }
 
 // Requires no parameters. Checks the boundaries of the photoresistor settings.
@@ -251,7 +282,7 @@ isUpLight Light::getStatus() {
 // appropriately. Returns true if successful, and false if there is an error
 // reading the photoresistor.
 bool Light::checkBounds() { // Acts as a gate to ensure data integ.
-    if (!this->flags.photoNoErr) return false;
+    if (!this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR)) return false;
 
     // Bounds of the allowable range.
     int lowerBound = this->conf.tripVal - LIGHT_HYSTERESIS;

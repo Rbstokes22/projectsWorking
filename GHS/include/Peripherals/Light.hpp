@@ -7,6 +7,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 namespace Peripheral {
 
@@ -40,11 +41,11 @@ struct RelayConfigLight {
     size_t offCt; // Consecutive off counts to turn relay off.
 };
 
-struct isUpLight { // 4 bytes, return as value.
-    bool photoNoDispErr; // photoresistor no error displayed to client.
-    bool photoNoErr; // photoresistor, no error, read ok.
-    bool specNoDispErr; // spectral no error displace to client.
-    bool specNoErr; // spectral, no error, read ok.
+enum LIGHTFLAGS : uint8_t {
+    PHOTO_NO_ERR_DISP, // Photoresistor no error displayed to client.
+    PHOTO_NO_ERR, // Photoresistor no err, read ok.
+    SPEC_NO_ERR_DISP, // Spectral no error displayed to client.
+    SPEC_NO_ERR // Spectral no error, read ok.
 };
 
 // Taken from the same structure as the AS7341 driver, in float and simplified
@@ -67,12 +68,12 @@ class Light {
     private:
     static const char* tag; // Static req to use in get().
     static char log[LOG_MAX_ENTRY]; // Static req to use in get().
+    Flag::FlagReg flags;
     AS7341_DRVR::COLOR readings;
     Light_Averages averages; 
     RelayConfigLight conf;
     uint32_t lightDuration;
     int photoVal;
-    isUpLight flags;
     static Threads::Mutex mtx;
     LightParams &params;
     Light(LightParams &params); 
@@ -90,7 +91,7 @@ class Light {
     bool readPhoto(); // read photoresistor
     AS7341_DRVR::COLOR* getSpectrum();
     int getPhoto();
-    isUpLight getStatus();
+    Flag::FlagReg* getFlags();
     bool checkBounds();
     RelayConfigLight* getConf();
     Light_Averages* getAverages();

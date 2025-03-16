@@ -330,10 +330,14 @@ const char STApage[] = R"rawliteral(
 
         let calibrateTime = (seconds) => { // calibrates time if different
             const time = new Date();
+            const padding = 2;
             let secPastMid = (time.getHours() * 3600) + (time.getMinutes() * 60) 
                 + time.getSeconds();
 
-            if (seconds != secPastMid) { // Calibrates clock if unequal
+            // Compute delta
+            const delta = ((seconds - secPastMid)**2)**(1/2);
+
+            if (delta >= padding) { // Calibrates clock if unequal
                 const ID = getID();
                 socket.send(`${convert("CALIBRATE_TIME")}/${secPastMid}/${ID}`);
             }
@@ -343,10 +347,9 @@ const char STApage[] = R"rawliteral(
         const setAll = (data) => { // Sets the addData object to response
             allData = data; // Allows modification between poll interval waits
             const title = document.getElementById("title");
-         
-            if (data.newLog === 1) getLog(); // Gets log if avail
             calibrateTime(data.sysTime); // Ensures sys clock is calib to client
-
+            if (data.newLog === 1) getLog(); // Gets log if avail
+            
             title.innerHTML = `Greenhouse Monitor V${data.firmv}`;
        
         }

@@ -167,8 +167,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         static_cast<uint8_t>(light->getConf()->condition),
         light->getConf()->tripVal,
         light->getDuration(),
-        light->getStatus().photoNoDispErr,
-        light->getStatus().specNoDispErr,
+        light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::PHOTO_NO_ERR_DISP),
+        light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::SPEC_NO_ERR_DISP),
         light->getConf()->darkVal,
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
