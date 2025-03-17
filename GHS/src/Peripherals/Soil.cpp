@@ -62,7 +62,7 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
 
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed.
-        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg);
+        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, "soil"); // Add tag here.
 
         if (!conf.toggle) {
             printf("Alert: Message Sent.\n");

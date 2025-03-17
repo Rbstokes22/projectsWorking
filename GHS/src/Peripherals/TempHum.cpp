@@ -100,7 +100,7 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
 
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed.
-        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg);
+        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, "temphum"); // When edit add tag
         
         if (!conf.toggle) {
             printf("Alert: Message Sent.\n");

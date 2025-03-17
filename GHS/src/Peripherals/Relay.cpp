@@ -4,6 +4,13 @@
 #include "string.h"
 #include "Common/Timing.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "NVS2/NVS.hpp"
+#include "Threads/Mutex.hpp"
+#include "Peripherals/Soil.hpp"
+#include "Config/config.hpp"
+#include "Peripherals/Relay.hpp"
+#include "UI/MsgLogHandler.hpp"
+#include "Peripherals/Alert.hpp"
 
 namespace Peripheral {
 
@@ -31,8 +38,8 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
     // Immediately filters IDs outside the index scope.
     if (ID >= RELAY_IDS) {
         snprintf(Relay::log, sizeof(Relay::log), 
-            "%s Relay ID %u exceeds allowable limit at %u. State unchanged",
-            this->tag, ID, RELAY_IDS);
+            "%s ID %u <%s> exceeds allowable limit at %u. State unchanged",
+            this->tag, ID, this->clientStr[ID], RELAY_IDS);
 
         this->sendErr(Relay::log);
         return false;
@@ -49,8 +56,8 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
     // have isAttached() return true, which passes this filter.
     if (!this->isAttached(ID) && newState != IDSTATE::RESERVED) {
         snprintf(Relay::log, sizeof(Relay::log), 
-            "%s relay %u ID: %u, state not changed from %s to %s", this->tag, 
-            this->ReNum, ID,
+            "%s ID %u [%s] state not changed from %s to %s", 
+            this->tag, ID, this->clientStr[ID],
             IDSTATEMap[static_cast<uint8_t>(clients[ID])],
             IDSTATEMap[static_cast<uint8_t>(newState)]);
 
@@ -58,15 +65,16 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
         return false; // Block.
     }
 
-    // Set the clients state to the new state. Log change.
-    clients[ID] = newState;
+    // Log the state of the change before implementing below.
     snprintf(Relay::log, sizeof(Relay::log), 
-        "%s relay %u ID: %u, state changed from %s to %s", this->tag, 
-        this->ReNum, ID,
+        "%s ID %u [%s] state changing from %s to %s", 
+        this->tag, ID, this->clientStr[ID],
         IDSTATEMap[static_cast<uint8_t>(clients[ID])],
         IDSTATEMap[static_cast<uint8_t>(newState)]);
 
     this->sendErr(Relay::log, Messaging::Levels::INFO);
+
+    clients[ID] = newState; // Implement.
 
     // Client quantity is limited to the amount of clients actively
     // energizing the relay. This is managed everytime the state toggles
@@ -90,13 +98,14 @@ void Relay::sendErr(const char* msg, Messaging::Levels lvl) {
 // Requires gpio pin number, and the relay number.
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
 
-    pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clients{
-    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
-    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
-    IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, IDSTATE::AVAILABLE, 
-    IDSTATE::AVAILABLE}, clientQty(0),
+    pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clientQty(0),
     timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false},
     mtx() {
+
+        memset(this->clients, static_cast<uint8_t>(IDSTATE::AVAILABLE), 
+            sizeof(this->clients));
+
+        memset(this->clientStr, 0 , sizeof(this->clientStr));
 
         snprintf(this->tag, sizeof(this->tag), "(RELAY%u)", ReNum);
         snprintf(Relay::log, sizeof(Relay::log), "%s Ob created", this->tag);
@@ -121,16 +130,16 @@ bool Relay::on(uint8_t ID) {
         if (gpio_set_level(this->pin, 1) != ESP_OK) {
 
             snprintf(Relay::log, sizeof(Relay::log), 
-                "%s relay %u, ID: %u unable to turn on", this->tag,
-                this->ReNum, ID);
+                "%s ID %u <%s> unable to turn on", this->tag, ID, 
+                this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
             return false;
             }
 
         this->relayState = RESTATE::ON;
-        snprintf(Relay::log, sizeof(Relay::log), 
-            "%s relay %u, ID: %u energized", this->tag, this->ReNum, ID);
+        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u <%s> energized", 
+            this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
     }
@@ -156,16 +165,16 @@ bool Relay::off(uint8_t ID) {
 
         if (gpio_set_level(this->pin, 0) != ESP_OK) {
             snprintf(Relay::log, sizeof(Relay::log), 
-                "%s relay %u, ID: %u unable to turn off", this->tag,
-                this->ReNum, ID);
+                "%s ID %u <%s> unable to turn off", this->tag, ID, 
+                this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
             return false;
         }
 
         this->relayState = RESTATE::OFF;
-        snprintf(Relay::log, sizeof(Relay::log), 
-            "%s relay %u, ID: %u de-energized", this->tag, this->ReNum, ID);
+        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u <%s> de-energized", 
+            this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
     }
@@ -179,21 +188,19 @@ bool Relay::off(uint8_t ID) {
 // Require no parameters. Forces the relay to turn off despite any current
 // clients. Does not delete the clients, but acts as a suspension, rather than
 // a switch. Works well for emergencies.
-void Relay::forceOff() {
+void Relay::forceOff() { // No ID req, since it is global to the relay.
     Threads::MutexLock(this->mtx);
 
-    if (gpio_set_level(this->pin, 0) != ESP_OK) {
-        snprintf(Relay::log, sizeof(Relay::log), 
-            "%s relay %u unable to turn off", this->tag, this->ReNum);
+    if (gpio_set_level(this->pin, 0) != ESP_OK) { 
+        snprintf(Relay::log, sizeof(Relay::log), "%s unable to turn off", 
+            this->tag);
 
         this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
         return; // Block.
     }
 
     this->relayState = RESTATE::FORCED_OFF; // inhibit on activity
-    snprintf(Relay::log, sizeof(Relay::log), "%s relay %u forced off",
-        this->tag, this->ReNum);
-
+    snprintf(Relay::log, sizeof(Relay::log), "%s forced off",this->tag);
     this->sendErr(Relay::log, Messaging::Levels::INFO);
 }
 
@@ -201,29 +208,33 @@ void Relay::forceOff() {
 void Relay::removeForce() {
     Threads::MutexLock(this->mtx);
 
-    snprintf(Relay::log, sizeof(Relay::log), "%s relay %u force off rmvd",
-        this->tag, this->ReNum);
-    
+    snprintf(Relay::log, sizeof(Relay::log), "%s force off rmvd", this->tag);
     this->sendErr(Relay::log, Messaging::Levels::INFO);
     this->relayState = RESTATE::FORCE_REMOVED;
 }
 
-// Iterates clients array and reserves the first spot available.
-// Returns the index value of the reserved spot that will be used
-// in all relay requests going forward. Returns 255 if no allocations
-// are available or error. This will prevent use from class features.
-uint8_t Relay::getID() {
+// Requires caller string, that will be assigned to returned ID. Iterates
+// clients array and reserves the first spot available. Returns the index value
+// of the reserved spot that will be used in all relay requests going forward.
+// Returns 255 if no allocations are available, or there was an error. This
+// will prevent use of class features.
+uint8_t Relay::getID(const char* caller) {
     Threads::MutexLock(this->mtx);
 
     for (int i = 0; i < RELAY_IDS; i++) {
 
         if (clients[i] == IDSTATE::AVAILABLE) {
+
+            // If available, load caller into the client for log purposes.
+            snprintf(this->clientStr[i], sizeof(this->clientStr[i]),
+                    "%s", caller);
+
             return this->changeIDState(i, IDSTATE::RESERVED) ? i : RELAY_BAD_ID;
         }
     }
 
-    snprintf(Relay::log, sizeof(Relay::log), 
-        "%s relay %u, not attached, zero avail", this->tag, this->ReNum);
+    snprintf(Relay::log, sizeof(Relay::log), "%s not attached, zero avail", 
+        this->tag);
 
     this->sendErr(Relay::log);
     return RELAY_BAD_ID;  // This indicates no ID available.
@@ -239,6 +250,8 @@ bool Relay::removeID(uint8_t ID) {
 
     if (this->off(ID)) { // Logging within function, none req here.
         return this->changeIDState(ID, IDSTATE::AVAILABLE);
+        // No requirement to change anything other than available as string
+        // will be re-acquired.
     }
 
     return false; // Unable to turn off.
@@ -259,33 +272,48 @@ RESTATE Relay::getState() {
 bool Relay::timerSet(bool on, uint32_t time) {
     Threads::MutexLock(this->mtx);
 
-    if (time == RELAY_TIMER_OFF || time >= 86400) { // Disables timer
+    if (time == RELAY_TIMER_OFF) { // Disables timer
         this->timer.onSet = this->timer.offSet = false;
         this->timer.onTime = this->timer.offTime = RELAY_TIMER_OFF;
+        snprintf(Relay::log, sizeof(Relay::log), "%s timer disabled",
+            this->tag);
+
+        this->sendErr(Relay::log, Messaging::Levels::INFO);
         return true;
 
-    } else if (time >= 86400) { // Seconds per day
+    } else if (time >= 86400) { // Seconds per day are exceeded
+        snprintf(Relay::log, sizeof(Relay::log), 
+            "%s timer notset, Exceeds time @ %lu", this->tag, time);
+
+        this->sendErr(Relay::log);
         return false; // Prevents overflow, must be between 0 and 64399.
     }
     
-    if (on) {
+    if (on) { // Checks if setting on time or off time.
         this->timer.onTime = time;
         timer.onSet = true;
+        snprintf(Relay::log, sizeof(Relay::log), "%s on time = %lu", this->tag, 
+            time);
+
     } else {
+
         this->timer.offTime = time;
         timer.offSet = true;
+        snprintf(Relay::log, sizeof(Relay::log), "%s off time = %lu", this->tag, 
+            time);
     }
+
+    this->sendErr(Relay::log, Messaging::Levels::INFO);
 
     // Enusres that both on and off are set, and the are not equal.
     this->timer.isReady = (this->timer.onSet && this->timer.offSet && 
         (this->timer.onTime != this->timer.offTime));
 
-    snprintf(Relay::log, sizeof(Relay::log), 
-        "%s relay %u timer set with on time: %zu, and off time %zu",
-        this->tag, this->ReNum, (size_t)this->timer.onTime,
-        (size_t)this->timer.offTime);
+    if (this->timer.isReady) { // If ready, log ready.
+        snprintf(Relay::log, sizeof(Relay::log), "%s timer enabled", this->tag);
+        this->sendErr(Relay::log, Messaging::Levels::INFO);
+    }
 
-    this->sendErr(Relay::log, Messaging::Levels::INFO);
     return true;
 }
 
@@ -294,7 +322,7 @@ bool Relay::timerSet(bool on, uint32_t time) {
 void Relay::manageTimer() {
     Threads::MutexLock(this->mtx);
 
-    static uint8_t ID = this->getID();
+    static uint8_t ID = this->getID("ManTimer");
 
     if (this->timer.isReady) {
         Clock::DateTime* time = Clock::DateTime::get();

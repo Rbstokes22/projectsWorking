@@ -88,13 +88,13 @@ i2c_master_dev_handle_t I2C::addDev(i2c_device_config_t &dev_cfg) {
         &devHandle);
 
     if (err != ESP_OK) { // Not added, prep msg.
-        snprintf(this->log, sizeof(this->log), "%s ADDR %u not added. %s", 
+        snprintf(this->log, sizeof(this->log), "%s ADDR %#x not added. %s", 
             this->tag, dev_cfg.device_address, esp_err_to_name(err));
 
         this->sendErr(this->log);
 
     } else { // Added, prep msg.
-        snprintf(this->log, sizeof(this->log), "%s ADDR %u added", 
+        snprintf(this->log, sizeof(this->log), "%s ADDR %#x added", 
             this->tag, dev_cfg.device_address);
 
         this->sendErr(this->log, Messaging::Levels::INFO);

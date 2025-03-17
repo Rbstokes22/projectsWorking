@@ -89,12 +89,20 @@ int64_t DateTime::micros() {
     return esp_timer_get_time();
 }
 
-// Returns int64_t system runtime in millis.
+// Returns int64_t system runtime in millis. WARNING: there is some precision 
+// lost due to division operation, meaning the result will be always be floored.
+// The precison is ranged from 0, dead accurate, to 999 micros being floored to
+// zero, resulting in an accurace range of 0 - 999 micros, or 0 to 0.999 millis.
 int64_t DateTime::millis() {
     return micros() / 1000;
 }
 
-// Returns uint32_t system runtime in seconds.
+// Returns uint32_t system runtime in seconds. WARNING: there is some precision
+// lost due to division operation, meaning the result will always be floored.
+// The precision is ranged from 0, dead accurate, to 999 millis beging floored
+// to zero, resulting in an accuracy range of 0 - 999 millis, or 0 - 0.999 sec.
+// Combined with the millis() accuracy range, seconds will be anywhere from 0
+// to 0.999999 seconds off.
 uint32_t DateTime::seconds() {
     return millis() / 1000;
 }

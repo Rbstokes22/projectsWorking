@@ -14,6 +14,7 @@ namespace Peripheral {
 #define RELAY_TAG_SIZE 16 
 #define RELAY_BAD_ID 255 // ID set with the number will not be usable.
 #define RELAY_ID_STATES 4 // ID states in class enum
+#define RELAY_ID_CALLER_LEN 16 // Chars allowable to caller.
 
 enum class RECOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Relay condition
 
@@ -47,9 +48,10 @@ class Relay {
     static char log[LOG_MAX_ENTRY]; // Shared between several objects.
     static const char* IDSTATEMap[RELAY_ID_STATES];
     gpio_num_t pin; // Relay pin
-    uint8_t ReNum; // Relay num, used as an ID.
+    uint8_t ReNum; // Relay num, used as an ID. Not currently used thru program.
     RESTATE relayState; // Current relay state, 
     IDSTATE clients[RELAY_IDS]; // Client IDs attached to relay.
+    char clientStr[RELAY_IDS][RELAY_ID_CALLER_LEN]; // client callers.
     uint8_t clientQty; // Clients currently energizing relay.
     Timer timer; // Timer to control relay on and off setings.
     Threads::Mutex mtx; // Mutex
@@ -64,7 +66,7 @@ class Relay {
     bool off(uint8_t ID);
     void forceOff();
     void removeForce();
-    uint8_t getID();
+    uint8_t getID(const char* caller);
     bool removeID(uint8_t ID);
     RESTATE getState();
     bool timerSet(bool on, uint32_t time);

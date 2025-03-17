@@ -3,7 +3,17 @@
 // Test, when able, that WAP mode prevents socket commands. (FUTURE)
 // RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
 
-// On light done with alert
+// On report, done with relay.
+
+// !!!URGENT. Light averages started clearing for no reason, over and over. Check into this.
+// 23:59:00:356 -> [INFO] (879): (LIGHT) Avg clear
+// 23:59:21:355 -> [INFO] (900): (LIGHT) Avg clear
+// 23:59:22:355 -> [INFO] (901): (LIGHT) Avg clear 
+
+// This actually seems alright considering the times, it did what it was supposed to.
+// Check to see why it cleared so many times and didnt set a toggle. I think I fixed,
+// adjust time to near midnight to check for just one clear.
+
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

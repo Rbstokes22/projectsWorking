@@ -3,6 +3,7 @@
 
 #include "cstdint"
 #include "stddef.h"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
 
@@ -25,12 +26,16 @@ struct TimerData {
 
 class Report {
     private:
+    const char* tag;
+    char log[LOG_MAX_ENTRY];
     Report();
     Report(const Report&) = delete; // prevent copying
     Report &operator=(const Report&) = delete; // prevent assignment
     TimerData timer;
     bool compileAll(char* jsonRep, size_t bytes);
     void clearAll();
+    void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR);
 
     public:
     static Report* get();

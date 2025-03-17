@@ -365,6 +365,9 @@ void Light::clearAverages() {
     memset(&this->averages, 0, sizeof(this->averages.color));
     this->averages.photoResistor = 0.0f;
     this->averages.pollCtClr = this->averages.pollCtPho = 0;
+
+    snprintf(this->log, sizeof(this->log), "%s Avg clear", this->tag);
+    this->sendErr(this->log, Messaging::Levels::INFO);
 }
 
 // Returns duration of light above the trip value.

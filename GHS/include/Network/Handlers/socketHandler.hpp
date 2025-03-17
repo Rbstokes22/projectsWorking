@@ -91,10 +91,10 @@ class SOCKHAND : public MASTERHAND {
     static bool init(Peripheral::Relay* relays);
     static esp_err_t wsHandler(httpd_req_t* req); // Entrance point.
     static void attachRelayTH(uint8_t relayNum, 
-        Peripheral::TH_TRIP_CONFIG* conf);
+        Peripheral::TH_TRIP_CONFIG* conf, const char* caller);
 
     static void attachRelayLT(uint8_t relayNum,
-        Peripheral::RelayConfigLight* conf);
+        Peripheral::RelayConfigLight* conf, const char* caller);
 };
 
 }

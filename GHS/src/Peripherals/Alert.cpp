@@ -94,7 +94,16 @@ bool Alert::executeMsg(const char* jsonData) {
     if (!this->executeRead(response, sizeof(response))) return false; 
     this->cleanup(); // Final cleanup.
 
-    return (strcmp("OK", response) == 0); // true if return == OK.
+    if (strcmp("OK", response) == 0) { // server received.
+        snprintf(this->log, sizeof(this->log), "%s sent", this->tag);
+        this->sendErr(this->log, Messaging::Levels::INFO);
+        return true;
+    } 
+
+    // Server did not receive.
+    snprintf(this->log, sizeof(this->log), "%s not sent", this->tag);
+    this->sendErr(this->log);
+    return false;
 }
 
 bool Alert::executeWrite(const char* jsonData) {
@@ -306,11 +315,12 @@ void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
         Messaging::Method::SRL_LOG);
 }
 
-// Requires 8-char API key, 10 Digit Phone, and message. Generates a POST 
+// Requires 8-char API key, 10 Digit Phone, message and caller. Generates a POST 
 // request in JSON format and sends to the server. Ensure that the server
 // responds with "OK" or "FAIL" depending on the success. If "OK", returns
 // true, if anything else, returns false.
-bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg) {
+bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg,
+    const char* caller) {
 
     // Creates JSON from passed arguments and sets write length for headers.
     char jsonData[ALT_JSON_DATA_SIZE] = {0}; // Should be plenty large.
@@ -320,6 +330,11 @@ bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg) {
 
     // Ensures that the appropriate amount of data is written.
     if (written < 0 || written > ALT_JSON_DATA_SIZE) return false;
+
+    snprintf(this->log, sizeof(this->log), "%s sending Alt from %s", this->tag,
+        caller);
+        
+    this->sendErr(this->log, Messaging::Levels::INFO);
 
     return this->prepMsg(jsonData);
 }
@@ -337,6 +352,9 @@ bool Alert::sendReport(const char* JSONmsg) {
 
     // Ensure that the appropriate amount of data is written.
     if (written < 0 || written > adjustedSize) return false;
+
+    snprintf(this->log, sizeof(this->log), "%s sending report", this->tag);
+    this->sendErr(this->log, Messaging::Levels::INFO);
 
     return this->prepMsg(jsonData);
 }

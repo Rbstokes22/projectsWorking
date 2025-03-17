@@ -7,6 +7,7 @@
 #include "Config/config.hpp"
 #include "Peripherals/Relay.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Peripherals/Alert.hpp"
 
 // NVS carriers are in the master struct. These carriers are responsible to
 // communicate with the NVS, so current data is copied to these structs, and
@@ -73,7 +74,7 @@ class settingSaver { // Singleton
     private:
     static Threads::Mutex mtx;
     const char* relayKeys[TOTAL_RELAYS]; // All relay NVS keys.
-    const char* soilKeys[SOIL_SENSORS]; // ALl soil sensor NVS keys.
+    const char* soilKeys[SOIL_SENSORS]; // All soil sensor NVS keys.
     const char* tag; // Used in logging.
     char log[LOG_MAX_ENTRY]; // Used to log/print entries.
     nvs_ret_t err; // Error of nvs read/write returns.
@@ -84,15 +85,16 @@ class settingSaver { // Singleton
     settingSaver(); 
     settingSaver(const settingSaver&) = delete; // prevent copying
     settingSaver &operator=(const settingSaver&) = delete; // prevent assignment
-    void saveTH();
-    void saveRelayTimers();
-    void saveSoil();
-    void saveLight();
-    void loadTH();
-    void loadRelayTimers();
-    void loadSoil();
-    void loadLight();
-    void sendLog(Messaging::Levels level = Messaging::Levels::ERROR);
+    bool saveTH();
+    bool saveRelayTimers();
+    bool saveSoil();
+    bool saveLight();
+    bool loadTH();
+    bool loadRelayTimers();
+    bool loadSoil();
+    bool loadLight();
+    void sendErr(const char* msg, Messaging::Levels level = 
+        Messaging::Levels::ERROR);
 
     // Compare function to test current values against new values. If !=,
     // copies to new value to the current value and returns false indicating
@@ -108,8 +110,8 @@ class settingSaver { // Singleton
 
     public:
     static settingSaver* get();
-    void save();
-    void load();
+    bool save();
+    bool load();
     void initRelays(Peripheral::Relay* relayArray);
 };
 

@@ -214,7 +214,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // removed. Forced off is an override feature that will shut the relay
         // off despite another function/process using it.
         case CMDS::RELAY_1: // inRange not required here due to else block.
-        static uint8_t IDR1 = SOCKHAND::Relays[0].getID(); // Perm ID
+        static uint8_t IDR1 = SOCKHAND::Relays[0].getID("SkHandRE1"); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[0].off(IDR1);
         } else if (data.suppData == 1) {
@@ -232,7 +232,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // See RELAY_1
         case CMDS::RELAY_2: // inRange not required here due to else block.
-        static uint8_t IDR2 = SOCKHAND::Relays[1].getID(); // Perm ID
+        static uint8_t IDR2 = SOCKHAND::Relays[1].getID("SkHandRE2"); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[1].off(IDR2);
         } else if (data.suppData == 1) {
@@ -250,7 +250,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // See RELAY_1
         case CMDS::RELAY_3: // inRange not required here due to else block.
-        static uint8_t IDR3 = SOCKHAND::Relays[2].getID(); // Perm ID
+        static uint8_t IDR3 = SOCKHAND::Relays[2].getID("SkHandRE3"); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[2].off(IDR3);
         } else if (data.suppData == 1) {
@@ -268,7 +268,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // See RELAY_1
         case CMDS::RELAY_4: // inRange not required here due to else block.
-        static uint8_t IDR4 = SOCKHAND::Relays[3].getID(); // Perm ID
+        static uint8_t IDR4 = SOCKHAND::Relays[3].getID("SkHandRE4"); // Perm ID
         if (data.suppData == 0) {
             SOCKHAND::Relays[3].off(IDR4);
         } else if (data.suppData == 1) {
@@ -406,8 +406,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
             writeLog = false; // Has logging.
             SOCKHAND::attachRelayTH( // If 4 will detach.
-                data.suppData, Peripheral::TempHum::get()->getTempConf()
-            );
+                data.suppData, Peripheral::TempHum::get()->getTempConf(), 
+                "Temp");
 
             written = snprintf(buffer, size, reply, 1, "Temp Re att", 
                 data.suppData, data.idNum);
@@ -554,8 +554,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
             writeLog = false; // Has logging.
             SOCKHAND::attachRelayTH( // If 4 will detach.
-                data.suppData, Peripheral::TempHum::get()->getHumConf()
-            );
+                data.suppData, Peripheral::TempHum::get()->getHumConf(), "Hum");
 
             written = snprintf(buffer, size, reply, 1, "Hum Relay att", 
                 data.suppData, data.idNum);
@@ -947,8 +946,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
             writeLog = false; // Has logging.
             SOCKHAND::attachRelayLT( // If 4 will detach.
-                data.suppData, Peripheral::Light::get()->getConf()
-            );
+                data.suppData, Peripheral::Light::get()->getConf(), "light");
 
             written = snprintf(buffer, size, reply, 1, "Lgt Re att", 
                 data.suppData, data.idNum);
@@ -1127,7 +1125,7 @@ bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size,
 // number is between 0 and 4, 0 - 3 (relays 1 - 4), and 4 sets the relay to
 // nullptr and remove functionality. 
 void SOCKHAND::attachRelayTH(uint8_t relayNum, 
-    Peripheral::TH_TRIP_CONFIG* conf) {
+    Peripheral::TH_TRIP_CONFIG* conf, const char* caller) {
         
     if (relayNum < 4) { // Checks for valid relay number.
         // If active relay is currently assigned, ensures that it is 
@@ -1137,7 +1135,7 @@ void SOCKHAND::attachRelayTH(uint8_t relayNum,
         }
 
         conf->relay.relay = &SOCKHAND::Relays[relayNum];
-        conf->relay.controlID = SOCKHAND::Relays[relayNum].getID();
+        conf->relay.controlID = SOCKHAND::Relays[relayNum].getID(caller);
         conf->relay.num = relayNum; // Display purposes only
 
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
@@ -1169,7 +1167,7 @@ void SOCKHAND::attachRelayTH(uint8_t relayNum,
 }
 
 void SOCKHAND::attachRelayLT(uint8_t relayNum, 
-    Peripheral::RelayConfigLight* conf) {
+    Peripheral::RelayConfigLight* conf, const char* caller) {
 
     if (relayNum < 4) { // Checks for valid relay number.
         // If active relay is currently assigned, ensures that it is 
@@ -1179,7 +1177,7 @@ void SOCKHAND::attachRelayLT(uint8_t relayNum,
         }
 
         conf->relay = &SOCKHAND::Relays[relayNum];
-        conf->controlID = SOCKHAND::Relays[relayNum].getID();
+        conf->controlID = SOCKHAND::Relays[relayNum].getID(caller);
         conf->num = relayNum; // Display purposes only
 
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 

@@ -42,7 +42,9 @@ class Alert {
 
     public:
     static Alert* get();
-    bool sendAlert(const char* APIkey, const char* phone, const char* msg);
+    bool sendAlert(const char* APIkey, const char* phone, const char* msg, 
+        const char* caller);
+        
     bool sendReport(const char* JSONmsg);
 };
 
