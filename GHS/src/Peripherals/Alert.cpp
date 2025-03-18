@@ -311,8 +311,7 @@ bool Alert::cleanup(size_t attempt) {
 
 // Requires message and messaging level. Level default to ERROR.
 void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, ALT_LOG_METHOD);
 }
 
 // Requires 8-char API key, 10 Digit Phone, message and caller. Generates a POST 

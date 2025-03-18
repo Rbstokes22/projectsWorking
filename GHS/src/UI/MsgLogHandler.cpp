@@ -109,17 +109,20 @@ bool MsgLogHandler::writeOLED(Levels level, const char* message,
     return true; // Added to queue.
 }
 
-// Requires level, message, time in seconds, and ignore repeating entries.
-// Repeating entries are filtered to prevent log pollution, for example in the
-// event of a disconnected sensor wire. Those will display at a set interval.
-// If ignoreRepeat is set to true, it will repeat chosen entries, such as a
-// class that is creating 5 objects at once, it will display the creation of
-// all of those objects. The log is sent via http in the format:
-// entry1;entry2;...;entryn; with the delimiter being a semicolon.
+// Requires level, message, time in seconds, ignore repeating entries, and
+// big log. Repeating entries are filtered to prevent log pollution, for ex:
+// in the event of a disconnected sensor wire. Those will display at a set
+// interval. IF ignore repeat is set to true, it will repeat chosen entries,
+// such as a class logging the creation of several objects at once. The big log
+// will allow up to 512 bytes vs 128 bytes. This must be set to true to allow
+// the increased size of up to 512 bytes. The log is sent via http in the 
+// format: entry1;entry2;...;entryn; with the delimiter being a semicolon.
 void MsgLogHandler::writeLog(Levels level, const char* message, 
-    uint32_t seconds, bool ignoreRepeat) {
+    uint32_t seconds, bool ignoreRepeat, bool bigLog) {
 
-    if (!ignoreRepeat) { // Prevents the analysis from running and forces log.
+    // Prevents the analysis from running if set to ignore repeat is set to
+    // false or if sending a big log entry.
+    if (!ignoreRepeat || !bigLog) { 
 
         // Check for block. If true, allows a write, if false, it does not. This
         // analyzes repeating entries ensuring logbook pollution control and 
@@ -129,9 +132,11 @@ void MsgLogHandler::writeLog(Levels level, const char* message,
 
     // Max log size throughout the program is limited to 128 bytes. The max
     // entry adds a padding to that in order to allow the level of message,
-    // calling function tag, and time.
-    const size_t maxEntrySize = LOG_MAX_ENTRY + LOG_MAX_ENTRY_PAD;
-
+    // calling function tag, and time. If using a big log, the max entry will
+    // be set to 512 bytes, plus this padding.
+    const size_t maxEntrySize = bigLog ? BIGLOG_MAX_ENTRY + LOG_MAX_ENTRY_PAD :
+                                         LOG_MAX_ENTRY + LOG_MAX_ENTRY_PAD;
+    
     char entry[maxEntrySize] = {0};
     size_t remaining = LOG_SIZE - strlen(this->log) - 1;  // - 1 for null term
 
@@ -223,13 +228,14 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
     // also logs the failure, it will keep resetting itself preventing the
     // intent of this function.
 
+    // These arrays will be responsible to hold the previous n entries. This
+    // allows for specific control for each entry, rather than other entries
+    // affecting other entries.
     static char prevMsgs[LOG_PREV_MSGS][LOG_MAX_ENTRY] = {""};
-    static size_t index = 0; // Used with prevMsgs to index new entries.
+    static uint32_t resetTimes[LOG_PREV_MSGS]{0}; // Allows log to be re-ran
+    static size_t consecutiveCts[LOG_PREV_MSGS]{0}; // Allows n consec logs.
 
-    // Adds the timeout to the passed time. When the time meets this value,
-    // a repeating log entry can be sent.
-    static uint32_t resetTime = 0; 
-    static size_t consecutive = 0;
+    static size_t index = 0; // Used with prevMsgs to index new entries.
 
     for (int i = 0; i < LOG_PREV_MSGS; i++) { // Iterate all prev messages.
 
@@ -238,14 +244,16 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
         // entries limit, returns true which will log. If below the limit, will
         // log when the reset time is reached.
         if (strcmp(message, prevMsgs[i]) == 0) {
-            consecutive++;
+            consecutiveCts[i]++; 
 
-            if (consecutive <= CONSECUTIVE_ENTRIES) {
-                resetTime = time + CONSECUTIVE_ENTRY_TIMEOUT; // Establish
+            // First check entries.
+            if (consecutiveCts[i] <= CONSECUTIVE_ENTRIES) {
+                resetTimes[i] = time + CONSECUTIVE_ENTRY_TIMEOUT; // Establish
                 return true; // Allow log
 
-            } else if (time >= resetTime) {
-                resetTime = time + CONSECUTIVE_ENTRY_TIMEOUT; // Re-establish
+            // Then times if all consecutive entries have been logged.
+            } else if (time >= resetTimes[i]) {
+                resetTimes[i] = time + CONSECUTIVE_ENTRY_TIMEOUT; // Re-estab
                 return true; // Allow log
             }
 
@@ -254,9 +262,14 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
     }
 
     // No match to any previous entry. New entry is added into the array.
-    snprintf(prevMsgs[index++], LOG_MAX_ENTRY, "%s", message);
-    index %= LOG_PREV_MSGS; // Runs 0 to max index, and repeates.
-    consecutive = 0;
+    snprintf(prevMsgs[index], LOG_MAX_ENTRY, "%s", message);
+    consecutiveCts[index] = 0; // Set count to 0.
+    index++; // Increment after adding values and adjusting times.
+
+    // Runs between 0 and max. This ensures that the log is cyclic 0 - n, 0 - n,
+    // always clearing the oldest entires next.
+    index %= LOG_PREV_MSGS; 
+    
     return true; // ALlow write, new entry.
 }
 
@@ -373,12 +386,12 @@ void MsgLogHandler::OLEDMessageMgr() {
     this->OLEDQueueRemove();
 }
 
-// Requires the level of error, message, sending method, and option to ignore
-// repeated logs which is default to false. Prints the messaging in the 
-// applicable method. NOTE: Log max entry is 128 bytes, OLED is 200 bytes, and
-// Serial in unrestricted.
+// Requires the level of error, message, sending method, option to ignore 
+// repeated logs (def false), and if bigLog (def false), which exceeds the 
+// typlical log entry max of 128 bytes, at 512 bytes. OLED is restricted to 200 
+// bytes, and serial is unrestricted.
 void MsgLogHandler::handle(Levels level, const char* message, Method method,
-    bool ignoreRepeat) {
+    bool ignoreRepeat, bool bigLog) {
    
     uint32_t seconds = Clock::DateTime::get()->seconds();
 
@@ -394,7 +407,7 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
 
         case Method::SRL_LOG:
         this->writeSerial(level, message, seconds);
-        this->writeLog(level, message, seconds, ignoreRepeat);
+        this->writeLog(level, message, seconds, ignoreRepeat, bigLog);
         break;
 
         case Method::OLED:
@@ -403,17 +416,17 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
 
         case Method::OLED_LOG:
         this->writeOLED(level, message, seconds);
-        this->writeLog(level, message, seconds, ignoreRepeat);
+        this->writeLog(level, message, seconds, ignoreRepeat, bigLog);
         break;
 
         case Method::LOG:
-        this->writeLog(level, message, seconds, ignoreRepeat);
+        this->writeLog(level, message, seconds, ignoreRepeat, bigLog);
         break;
 
         case Method::SRL_OLED_LOG:
         this->writeSerial(level, message, seconds);
         this->writeOLED(level, message, seconds);
-        this->writeLog(level, message, seconds, ignoreRepeat);
+        this->writeLog(level, message, seconds, ignoreRepeat, bigLog);
         break;
 
         default:;

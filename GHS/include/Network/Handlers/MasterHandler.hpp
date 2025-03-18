@@ -5,6 +5,8 @@
 
 namespace Comms {
 
+#define MHAND_LOG_METHOD Messaging::Method::SRL_LOG
+
 // Handles logging and features used throughout all the handlers. The client
 // should be accepting these as responses in order to parse.
 

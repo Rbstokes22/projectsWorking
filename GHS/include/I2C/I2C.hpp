@@ -6,8 +6,7 @@
 
 namespace Serial {
 
-// Does not use any other type of OLED or logging capability, only
-// printf statement due to non-dependency when used again.
+#define I2C_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class I2C_FREQ : uint32_t {STD = 100000, FAST = 400000};
 

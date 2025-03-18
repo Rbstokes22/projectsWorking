@@ -63,6 +63,7 @@ struct configSaveReLight { // Relay config photoresistor.
     uint16_t darkVal; // Dark value for light duration computation.
 }; // x1
 
+// Composite class consisting of structs for individual device.
 struct configSaveMaster {
     configSaveReTimer relays[TOTAL_RELAYS]; 
     configSaveReAltTH temp, hum;

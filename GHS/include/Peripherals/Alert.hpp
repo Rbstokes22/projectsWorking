@@ -14,6 +14,7 @@ namespace Peripheral {
 #define MSG_RESPONSE_SIZE 16 // used to receive response from server {OK or FAIL}
 #define WEB_URL_SIZE 64 // used in prepMsg
 #define ALT_CLEANUP_ATTEMPTS 5 // max attempts to clean an http connection.
+#define ALT_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
 enum ALTFLAGS : uint8_t {INIT, OPEN};

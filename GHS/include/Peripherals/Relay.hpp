@@ -15,6 +15,7 @@ namespace Peripheral {
 #define RELAY_BAD_ID 255 // ID set with the number will not be usable.
 #define RELAY_ID_STATES 4 // ID states in class enum
 #define RELAY_ID_CALLER_LEN 16 // Chars allowable to caller.
+#define RELAY_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class RECOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Relay condition
 

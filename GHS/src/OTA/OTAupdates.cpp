@@ -464,8 +464,7 @@ OTA_RET OTAhandler::writeFirmware(const char* firmURL,
 
 // Requires message and level. Level default to ERROR.
 void OTAhandler::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, OTA_LOG_METHOD);
 }
 
 OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,

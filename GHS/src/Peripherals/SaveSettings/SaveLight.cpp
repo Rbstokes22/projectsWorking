@@ -88,21 +88,21 @@ bool settingSaver::loadLight() {
     snprintf(this->log, sizeof(this->log), "%s light config loaded", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);
 
-    // If relay condition != NONE, copy settings over.
+    // If relay condition != NONE, copy settings over and reattach relay.
     if (this->master.light.relayCond != Peripheral::RECOND::NONE) {
         lt->condition = this->master.light.relayCond;
         lt->tripVal = this->master.light.relayTripVal;
+
+        if (this->master.light.relayNum < TOTAL_RELAYS &&
+            this->master.light.relayNum != LIGHT_NO_RELAY) {
+
+                Comms::SOCKHAND::attachRelayLT(this->master.light.relayNum, lt, 
+                    "light");
+        }
     }
 
     // Copy dark val settings.
     lt->darkVal = this->master.light.darkVal;
-
-    // If relay number exists and is not LIGHT_NO_RELAY, will reattach relay
-    if ((this->master.light.relayNum != LIGHT_NO_RELAY) && 
-        this->master.light.relayNum < TOTAL_RELAYS) {
-        Comms::SOCKHAND::attachRelayLT(this->master.light.relayNum, lt, 
-            "light");
-    }
 
     return true;
 }

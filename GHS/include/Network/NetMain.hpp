@@ -11,6 +11,7 @@
 namespace Comms {
 
 #define STACK_SIZE 8192 // Used for http config.
+#define NET_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class wifi_ret_t { // wifi return type
     INIT_OK, INIT_FAIL, WIFI_OK, WIFI_FAIL,

@@ -274,8 +274,8 @@ bool NetManager::handleDestruction(NetMain &mode) {
 void NetManager::sendErr(const char* msg, Messaging::Levels lvl, 
         bool ignoreRepeat) {
 
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, NET_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 // Constructor. Takes station, wap, and OLED references.

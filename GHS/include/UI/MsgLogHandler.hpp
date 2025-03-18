@@ -8,6 +8,7 @@
 namespace Messaging {
 
 #define LOG_SIZE 16384 // bytes of log information. 16 KB.
+#define BIGLOG_MAX_ENTRY 512 // bytes for logging large text data.
 #define LOG_MAX_ENTRY 128 // max entry size per log.
 #define LOG_MAX_ENTRY_PAD 40 // Used to add time and loc data to log entry.
 #define LOG_PREV_MSGS 5 // Used in comparison to current message to avoid repeat
@@ -97,7 +98,8 @@ class MsgLogHandler {
     void writeSerial(Levels level, const char* message, uint32_t seconds);
     bool writeOLED(Levels level, const char* message, uint32_t seconds);
     void writeLog(Levels level, const char* message, uint32_t seconds, 
-        bool ignoreRepeat); 
+        bool ignoreRepeat, bool bigLog); 
+
     size_t stripLogMsg(size_t newMsgLen);
     bool analyzeLogEntry(const char* message, uint32_t seconds);
     bool OLEDcheck();
@@ -108,7 +110,8 @@ class MsgLogHandler {
     static MsgLogHandler* get();
     void OLEDMessageMgr();
     void handle(Levels level, const char* message, Method method, 
-        bool ignoreRepeat = false);
+        bool ignoreRepeat = false, bool bigLog = false);
+
     bool newLogAvail();
     void resetNewLogFlag();
     const char* getLog();

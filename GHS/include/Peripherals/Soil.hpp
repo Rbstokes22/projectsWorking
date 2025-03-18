@@ -17,6 +17,7 @@ namespace Peripheral {
 #define SOIL_ALT_MSG_ATT 3 // Attempts to send an alert
 #define SOIL_MIN 1 // 0, but cant set lower. 12 bit value.
 #define SOIL_MAX 4094 // 4095, but cant set higher.
+#define SOIL_LOG_METHOD Messaging::Method::SRL_LOG
 
 // Alert configuration, relay configurations are omitted for soil sensors due
 // to potential to overwater if there are capacitance issues, this is a 
@@ -50,6 +51,8 @@ struct SoilReadings {
 
 class Soil {
     private:
+    static const char* tag;
+    static char log[LOG_MAX_ENTRY];
     SoilReadings data[SOIL_SENSORS];
     static Threads::Mutex mtx;
     AlertConfigSo conf[SOIL_SENSORS];
@@ -57,8 +60,11 @@ class Soil {
     Soil(SoilParams &params); 
     Soil(const Soil&) = delete; // prevent copying
     Soil &operator=(const Soil&) = delete; // prevent assignment
-    void handleAlert(AlertConfigSo &conf, SoilReadings &data, bool alertOn, 
-        size_t ct);
+    static void handleAlert(AlertConfigSo &conf, SoilReadings &data, 
+        bool alertOn, size_t ct);
+
+    static void sendErr(const char* msg, Messaging::Levels lvl =
+        Messaging::Levels::ERROR);
     
     public:
     // set to nullptr to reduce arguments when calling after init.

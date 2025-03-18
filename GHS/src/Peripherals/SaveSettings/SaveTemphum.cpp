@@ -92,25 +92,25 @@ bool settingSaver::loadTH() {
             return false;
         }
 
+        // If the read relay condition was set, Copy data over and reattach
+        // the relays.
         if (from.relayCond != Peripheral::RECOND::NONE) { 
-            // If relay condition is set, copy the condition and value.
+
             to->relay.condition = from.relayCond;
             to->relay.tripVal = from.relayTripVal;
+
+            if (from.relayNum < TOTAL_RELAYS && 
+                from.relayNum != TEMP_HUM_NO_RELAY) {
+
+                Comms::SOCKHAND::attachRelayTH(from.relayNum, to, caller);
+            }
         }
 
+        // If the read alert condition was set, copy data over.
         if (from.altCond != Peripheral::ALTCOND::NONE) { 
-            // If alert condition is set, copy the condition and value.
+
             to->alt.condition = from.altCond;
             to->alt.tripVal = from.altTripVal;
-        }
-
-        // If relay was set, attaches relay to the temp/hum settings. Indicies
-        // begin at zero, so checks against total relays to ensure range 
-        // compliance.
-        if (from.relayNum != TEMP_HUM_NO_RELAY && 
-            from.relayNum < TOTAL_RELAYS) {
-                
-            Comms::SOCKHAND::attachRelayTH(from.relayNum, to, caller);
         }
 
         return true;

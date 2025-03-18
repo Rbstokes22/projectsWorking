@@ -12,6 +12,7 @@
 namespace UI_DRVR {
 
 #define SSD1306_I2C_TIMEOUT 500 // Timeout
+#define SSD1306_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class Size { // Size parameters, some specified by datasheet.
     pages = 8,

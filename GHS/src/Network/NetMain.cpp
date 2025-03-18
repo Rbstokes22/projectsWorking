@@ -270,7 +270,7 @@ void NetMain::sendErr(const char* msg, Messaging::Levels lvl,
     bool ignoreRepeat) {
 
     Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+        NET_LOG_METHOD, ignoreRepeat);
 }
 
 // Returns the log toggle struct ptr for reading and writing.

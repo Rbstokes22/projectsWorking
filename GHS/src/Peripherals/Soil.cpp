@@ -9,6 +9,8 @@
 
 namespace Peripheral {
 
+const char* Soil::tag("(SOIL)");
+char Soil::log[LOG_MAX_ENTRY]{0};
 Threads::Mutex Soil::mtx; // define instance of mtx
 
 Soil::Soil(SoilParams &params) : 
@@ -22,7 +24,11 @@ Soil::Soil(SoilParams &params) :
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 2, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 3, 0},
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 4, 0}
-    }, params(params) {}
+    }, params(params) {
+
+        snprintf(Soil::log, sizeof(Soil::log), "%s Ob created", Soil::tag);
+        Soil::sendErr(Soil::log, Messaging::Levels::INFO);
+    }
 
 // Requires SOIL_TRIP_CONFIG data, readings data, whether to sound alert or 
 // reset alert, and the count number of consecutive trips. 
@@ -41,42 +47,45 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
     if (alertOn) {
         if (!conf.toggle) return; // avoids repeated alerts.
 
-        NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
+        NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
 
         // Returned val is nullptr if API key and/or phone do not meet the
         // criteria.
         if (sms == nullptr) {
-            printf("Soil Alerts: Not able to send, missing API key and/or "
-            "phone\n");
+            snprintf(Soil::log, sizeof(Soil::log), 
+                "%s sms unable to send, missing API key and/or phone", 
+                Soil::tag);
+
+            Soil::sendErr(Soil::log);
             return;
         }
 
+        // sms is valid.
         char msg[SOIL_ALT_MSG_SIZE] = {0}; // message to send to server
         Alert* alt = Alert::get();
 
         // write the message to the msg array, in preparation to send to
         // the server.
-        snprintf(msg, sizeof(msg), 
-                "Alert: Soil Sensor %u at value %d",conf.ID, data.val
-                );
+        snprintf(msg, sizeof(msg), "Alert: Soil Sensor %u at value %d",
+            conf.ID, data.val);
 
         // Upon success, set to false. If no success, it will keep trying until
-        // attempts are maxed.
-        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, "soil"); // Add tag here.
+        // attempts are maxed. Sends tag because the alert takes care of 
+        // logging. No logging required.
+        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, Soil::tag);
 
-        if (!conf.toggle) {
-            printf("Alert: Message Sent.\n");
-            conf.attempts = 0; // Resets value
-        } else {
-            printf("Alert: Message Not Sent.\n");
-            conf.attempts++; // Increase value to avoid oversending
-        }
+        // Increment or clear depending on success. 
+        conf.attempts = conf.toggle ? conf.attempts + 1 : 0;
 
         // For an unsuccessful server response, after reaching max attempt 
         // value, set to false to prevent further trying. Will reset once 
         // the soil is within its acceptable values.
         if (conf.attempts >= SOIL_ALT_MSG_ATT) {
-            conf.toggle = false;
+            snprintf(Soil::log, sizeof(Soil::log), "%s max send attempts @ %u",
+                Soil::tag, conf.attempts);
+
+            Soil::sendErr(Soil::log);
+            conf.toggle = false; // Indicates successful send, TRICK.
         }
 
     } else {
@@ -86,6 +95,11 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
         conf.toggle = true;
         conf.attempts = 0;
     }
+}
+
+// Requires message and messaging level. Default level set to ERROR.
+void Soil::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, SOIL_LOG_METHOD);
 }
 
 // Requires SoilParms* parameter.
@@ -100,7 +114,12 @@ Soil* Soil::get(SoilParams* parameter) {
     static bool isInit{false};
     
     if (parameter == nullptr && !isInit) {
+        snprintf(Soil::log, sizeof(Soil::log), 
+            "%s using uninit instance, ret nullptr", Soil::tag);
+
+        Soil::sendErr(Soil::log, Messaging::Levels::CRITICAL);
         return nullptr; // Blocks instance from being created.
+
     } else if (parameter != nullptr) {
         isInit = true; // Opens gate after proper init
     }
@@ -121,7 +140,8 @@ AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
 // Reads all soil sensors and stores the data in the data variable.
 void Soil::readAll() {
     esp_err_t err;
-
+    static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
+    
     for (int i = 0; i < SOIL_SENSORS; i++) {
         err = adc_oneshot_read(
             this->params.handle, this->params.channels[i], &this->data[i].val
@@ -133,20 +153,48 @@ void Soil::readAll() {
             this->data[i].noErr = true;
             this->data[i].errCt = 0;
 
-        } else {
+            if (!logOnce[i]) { // Can only be set by err below.
+                snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d err fixed",
+                    Soil::tag, i);
+
+                Soil::sendErr(Soil::log, Messaging::Levels::INFO);
+                logOnce[i] = true; // Preven re-log, allow err logging.
+            }
+
+        } else { // Error
+
             this->data[i].noErr = false;
             this->data[i].errCt++;
         }
 
         // Sets the display flag to true if error count is below max.
         this->data[i].noDispErr = (this->data[i].errCt < SOIL_ERR_MAX);
+
+        // If error, log once until reset by no error. Must preceed the fixed
+        // err msg.
+        if (!this->data[i].noDispErr && logOnce[i]) {
+            snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d read err",
+                Soil::tag, i);
+
+            Soil::sendErr(Soil::log);
+            logOnce[i] = false; // Prevents re-log, allows fixed error log.
+        }
     }
 }   
 
 // Requires the sensor number you are trying to read. Returns pointer to the
 // soil reading data if correct sensor index value is used, and nullptr if not.
 SoilReadings* Soil::getReadings(uint8_t indexNum) {
-    if (indexNum >= (SOIL_SENSORS)) return nullptr;
+    if (indexNum >= SOIL_SENSORS) {
+        snprintf(Soil::log, sizeof(Soil::log), 
+            "%s index num %u exceeds %u ret nullptr", Soil::tag, indexNum, 
+            SOIL_SENSORS);
+
+        Soil::sendErr(Soil::log, Messaging::Levels::CRITICAL);
+        return nullptr;
+    }
+
+    // IDx num is good, return pointer to data.
     return &this->data[indexNum];
 }
 

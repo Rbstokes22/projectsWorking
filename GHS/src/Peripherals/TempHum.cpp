@@ -6,23 +6,33 @@
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Network/NetCreds.hpp"
+#include "Common/FlagReg.hpp"
+#include "string.h"
 
 namespace Peripheral {
 
+const char* TempHum::tag("(TEMPHUM)");
+char TempHum::log[LOG_MAX_ENTRY]{0};
 Threads::Mutex TempHum::mtx; // define static mutex instance
 
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
-    flags{false, false}, 
+    flags("(THflag)"), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
     tempConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
-    params(params) {}
+    params(params) {
+
+        snprintf(TempHum::log, sizeof(TempHum::log), "%s Ob Created", 
+            TempHum::tag);
+
+        TempHum::sendErr(TempHum::log, Messaging::Levels::INFO);
+    }
 
 // Requires relay configuration, relayOn boolean, true to turn on, false to
 // turn off, and counts of exceeding boundaries. If 5 consecutive counts are 
@@ -38,9 +48,9 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
     // energize once params are met.
     switch (relayOn) {
         case true:
-        if (conf.relay == nullptr || !this->flags.noErr ||
+        if (conf.relay == nullptr || !this->flags.getFlag(THFLAGS::NO_ERR) ||
         ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == RECOND::NONE) {
-            return;
+            return; // block
         }
 
         conf.relay->on(conf.controlID);
@@ -51,8 +61,9 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
         // will signal that it is no longer being held in an energized position
         // by the SHT.
         case false:
-        if (!this->flags.noErr || ct < TEMP_HUM_CONSECUTIVE_CTS) {
-            return;
+        if (!this->flags.getFlag(THFLAGS::NO_ERR) || 
+            ct < TEMP_HUM_CONSECUTIVE_CTS) {
+            return; // Blocks
         }
         
         conf.relay->off(conf.controlID);
@@ -60,15 +71,17 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
     }
 }
 
-// Requires alert configuration, alert on to be sent, and the count of 
+// Requires alert configuration, alert on or (to send), and the count of 
 // consecutive value trips. Works like the relay; however, the alerts will be
 // reset once the values are back within range.
 void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) { 
 
     // Mirrors the same setup as the relay activity.
-    if (!this->flags.noErr || ct < TEMP_HUM_CONSECUTIVE_CTS || 
+    if (!this->flags.getFlag(THFLAGS::NO_ERR) || 
+        ct < TEMP_HUM_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) { 
-        return;
+
+        return; // Block.
     }
 
     // Check to see if the alert is being called to send. If yes, ensures that
@@ -83,38 +96,39 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
         // Returned val is nullptr if API key and/or phone
         // do not meet the criteria.
         if (sms == nullptr) { 
-            printf("Temp Hum Alerts: Not able to send, "
-            "missing API key and/or phone\n");
-            return;
+            snprintf(TempHum::log, sizeof(TempHum::log), 
+                "%s sms unable to send, missing API key and/or phone", 
+                TempHum::tag);
+
+            TempHum::sendErr(TempHum::log);
+            return; // block.
         }
 
         char msg[TEMP_HUM_ALT_MSG_SIZE] = {0}; // message to send to server
         Alert* alt = Alert::get(); 
 
+        if (alt == nullptr) return; // Not required, will never return nullptr
+
         // write the message to the msg array, in preparation to send to
         // the server.
         snprintf(msg, sizeof(msg), 
                 "Alert: Temp at %0.2fC/%0.2fF, Humidity at %0.2f%%",
-                this->data.tempC, this->data.tempF, this->data.hum
-                );
+                this->data.tempC, this->data.tempF, this->data.hum);
 
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed.
-        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, "temphum"); // When edit add tag
-        
-        if (!conf.toggle) {
-            printf("Alert: Message Sent.\n");
-            conf.attempts = 0; // Resets value
-        } else {
-            printf("Alert: Message Not Sent.\n");
-            conf.attempts++; // Increase value to avoid oversending
-        }
+        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, 
+            TempHum::tag); 
 
-        // For an unsuccessful server response, after reaching max attempt 
-        // value, set to false to prevent further trying. Will reset once 
-        // the temp or hum is within its acceptable values.
+        // Increment or clear, depending on success.
+        conf.attempts = conf.toggle ? conf.attempts + 1 : 0;
+        
         if (conf.attempts >= TEMP_HUM_ALT_MSG_ATT) {
-            conf.toggle = false;
+            snprintf(TempHum::log, sizeof(TempHum::log), 
+                "%s max send attempts @ %u", TempHum::tag, conf.attempts);
+
+            TempHum::sendErr(TempHum::log);
+            conf.toggle = false; // Indicates successful send, TRICK.
         }
 
     } else {
@@ -250,6 +264,11 @@ void TempHum::computeAvgs() {
     this->averages.hum += (deltaH / this->averages.pollCt);
 }
 
+// Requires messand and messaging level. Level default to ERROR.
+void TempHum::sendErr(const char* msg, Messaging::Levels lvl) {
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, TEMP_HUM_LOG_METHOD);
+}
+
 // Singleton class object, requires temphum parameters for first init. Once
 // init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
@@ -261,7 +280,12 @@ TempHum* TempHum::get(TempHumParams* parameter) {
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
+        snprintf(TempHum::log, sizeof(TempHum::log), 
+            "%s using uninit instance, ret nullptr", TempHum::tag);
+
+        TempHum::sendErr(TempHum::log, Messaging::Levels::CRITICAL);
         return nullptr; // Blocks instance from being created.
+
     } else if (parameter != nullptr) {
         isInit = true; // Opens gate after proper init
     }
@@ -277,12 +301,12 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 bool TempHum::read() {
     static size_t errCt{0};
     SHT_DRVR::SHT_RET read;
+    static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // boolean return. SHT driver reads data and populates the SHT_VALS
     // struct carrier.
-    read = this->params.sht.readAll(
-        SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, this->data
-        );
+    read = this->params.sht.readAll(SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, 
+        this->data);
 
     // upon success, updates averages and changes both flags to true.
     // If unsuccessful, will change the noErr flag to false indicating an
@@ -291,19 +315,44 @@ bool TempHum::read() {
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
         this->computeAvgs();
-        this->flags.noDispErr = true;
-        this->flags.noErr = true;
+        this->flags.setFlag(THFLAGS::NO_ERR_DISP);
+        this->flags.setFlag(THFLAGS::NO_ERR);
         errCt = 0; // resets count.
-    } else {
-        this->flags.noErr = false; // Indicates error
+
+        if (!logOnce) {
+            snprintf(TempHum::log, sizeof(TempHum::log), "%s err fixed",
+                TempHum::tag);
+
+            TempHum::sendErr(TempHum::log, Messaging::Levels::INFO);
+            logOnce = true; // Prevent re-log, allow err logging.
+        }
+
+    } else { // If error, set flag to false. No err handling necessary here.
+        this->flags.releaseFlag(THFLAGS::NO_ERR);
         errCt++; // inc count by one.
     }
 
-    // Sets the display to true if error ct is less than max allowed.
-    this->flags.noDispErr = (errCt < TEMP_HUM_ERR_CT_MAX);
+    // Sets the display to true if the error count is less than maxed allowed.
+    // If exceeded, the display will be set to false alerting client of error.
+    // This is to filter the bad reads from constantly alerting the client.
+    if (errCt < TEMP_HUM_ERR_CT_MAX) {
+        this->flags.setFlag(THFLAGS::NO_ERR_DISP);
+
+    } else {
+
+        if (logOnce) {
+            snprintf(TempHum::log, sizeof(TempHum::log), "%s read err",
+                TempHum::tag);
+
+            TempHum::sendErr(TempHum::log);
+            logOnce = false; // Prevents re-log, allows fixed error log.
+        }
+
+        this->flags.releaseFlag(THFLAGS::NO_ERR_DISP);
+    }
 
     // Returns true of data is ok.
-    return this->flags.noErr;
+    return this->flags.getFlag(THFLAGS::NO_ERR);
 }
 
 // Returns humidity value float.
@@ -336,7 +385,7 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // the SHT driver.
 bool TempHum::checkBounds() { 
 
-    if (!this->flags.noErr) return false; // Filters bad data.
+    if (!this->flags.getFlag(THFLAGS::NO_ERR)) return false; // Filter bad data.
 
     // Checks each individual bound after confirming data is safe.
     this->relayBounds(this->data.tempC, this->tempConf.relay, true);
@@ -347,9 +396,9 @@ bool TempHum::checkBounds() {
     return true;
 }
 
-// returns the current bool flags, specifically immediate and display in this.
-isUpTH TempHum::getStatus() {
-    return this->flags;
+// Require no params. Returns pointer to the flags object.
+Flag::FlagReg* TempHum::getFlags() {
+    return &this->flags;
 }
 
 // Returns current, and previous averages structure for modification or viewing.
@@ -359,11 +408,29 @@ TH_Averages* TempHum::getAverages() {
 
 // Clears the current data after copying it over to the previous values.
 void TempHum::clearAverages() {
+
+    // Write averages into log. Prep log, do not send until complete. First
+    // in order to capture current averages before resetting.
+    snprintf(TempHum::log, sizeof(TempHum::log),
+        "%s Averages Cleared. TempC: %.1f, TempF: %.1f,"
+        " Hum: %.1f. Count %zu", 
+        TempHum::tag,
+        this->averages.temp, (this->averages.temp * 1.8 + 32),
+        this->averages.hum, this->averages.pollCt
+    );
+
+    // Copy averages over
     this->averages.prevHum = this->averages.hum;
     this->averages.prevTemp = this->averages.temp;
+
+    // Reset current values.
     this->averages.hum = 0.0f;
     this->averages.temp = 0.0f;
     this->averages.pollCt = 0; 
+
+    // Send log
+    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+        TempHum::log, TEMP_HUM_LOG_METHOD, true, false);
 }
 
 // void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST

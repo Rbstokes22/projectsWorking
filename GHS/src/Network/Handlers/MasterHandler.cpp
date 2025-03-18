@@ -8,8 +8,7 @@ char MASTERHAND::log[LOG_MAX_ENTRY]{0}; // Used in all handlers
 // Requires message pointer, and level. Level is set to ERROR by default. Sends
 // to the log and serial, the printed error.
 void MASTERHAND::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, MHAND_LOG_METHOD);
 }
 
 // Requires error return from the sendstr functionality and the source or 

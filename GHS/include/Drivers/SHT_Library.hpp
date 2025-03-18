@@ -20,6 +20,7 @@ namespace SHT_DRVR {
 #define SHT_MAX_HUM 99 // 100, but cant set above 100.
 #define SHT_READ_DELAY 50 // 50 millis, used between request and read.
 #define SHT_STATUS_BYTES 2 // uint16_t / 2 bytes expected
+#define SHT_LOG_METHOD Messaging::Method::SRL_LOG
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.

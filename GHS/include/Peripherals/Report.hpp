@@ -7,6 +7,8 @@
 
 namespace Peripheral {
 
+#define REPORT_LOG_METHOD Messaging::Method::SRL_LOG
+
 #define TIMER_OFF 99999 // random value which indicates timer off
 #define SEND_ATTEMPTS 3 // Max attempts to try to send average message 0 - 255
 

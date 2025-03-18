@@ -249,8 +249,8 @@ val_ret_t FWVal::verifySig(const uint8_t* firmwareHash, const uint8_t* signature
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to WARNING, ignoreRepeat default to false.
 void FWVal::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, FW_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 FWVal* FWVal::get() {

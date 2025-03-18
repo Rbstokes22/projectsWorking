@@ -111,8 +111,8 @@ void OLEDbasic::writeLine() {
 void OLEDbasic::sendErr(const char* msg, Messaging::Levels lvl, 
     bool ignoreRepeat) {
 
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, SSD1306_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 // Defaults to 5x7 char font upon creation.

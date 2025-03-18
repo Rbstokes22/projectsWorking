@@ -17,6 +17,7 @@ namespace OTA {
 #define OTA_CLEANUP_ATTEMPTS 5 // Attempts to try to close connection
 #define OTA_BUFFER_SIZE 1024 // Used for signature and firmware.
 #define OTA_FILEPATH_SIZE 32 // Used to access spiffs filepath
+#define OTA_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class OTA_RET { // Over the air update return values.
     OTA_OK, OTA_FAIL, LAN_CON, LAN_DISC,

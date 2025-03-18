@@ -151,8 +151,8 @@ void AS7341basic::setup_F5F8_Clear_NIR() {
 void AS7341basic::sendErr(const char* msg, Messaging::Levels lvl, 
     bool ignoreRepeat) {
 
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, AS7341_LOG_METH, 
+        ignoreRepeat);
 }
 
 AS7341basic::AS7341basic(CONFIG &conf) : 

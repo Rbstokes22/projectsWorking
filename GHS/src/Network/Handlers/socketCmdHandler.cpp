@@ -44,7 +44,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // Commonly used pointers in the scope of GET_ALL. Declared them here
         // to avoid using verbose commands.
-        Clock::DateTime* dtg = Clock::DateTime::get();
+        Clock::TIME* dtg = Clock::DateTime::get()->getTime();
         Peripheral::TempHum* th = Peripheral::TempHum::get();
         Peripheral::Timer* re1Timer = SOCKHAND::Relays[0].getTimer();
         Peripheral::Timer* re2Timer = SOCKHAND::Relays[1].getTimer();
@@ -58,7 +58,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // client. Ensure client uses same JSON and same commands.
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
-        "\"sysTime\":%zu,\"hhmmss\":\"%d:%d:%d\",\"timeCalib\":%d,"
+        "\"sysTime\":%lu,\"hhmmss\":\"%d:%d:%d\",\"timeCalib\":%d,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
         "\"re3\":%d,\"re3TimerEn\":%d,\"re3TimerOn\":%zu,\"re3TimerOff\":%zu,"
@@ -90,9 +90,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         FIRMWARE_VERSION, 
         data.idNum,
         Messaging::MsgLogHandler::get()->newLogAvail(),
-        static_cast<size_t>(dtg->getTime()->raw), 
-        dtg->getTime()->hour, dtg->getTime()->minute, dtg->getTime()->second,
-        dtg->isCalibrated(),
+        dtg->raw, dtg->hour, dtg->minute, dtg->second,
+        Clock::DateTime::get()->isCalibrated(),
         static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
         re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
         static_cast<uint8_t>(SOCKHAND::Relays[1].getState()),
@@ -113,7 +112,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getHumConf()->relay.tripVal,
         static_cast<uint8_t>(th->getHumConf()->alt.condition),
         th->getHumConf()->alt.tripVal,
-        th->getStatus().noDispErr,
+        th->getFlags()->getFlag(Peripheral::THFLAGS::NO_ERR_DISP),
         th->getAverages()->temp,
         th->getAverages()->hum,
         th->getAverages()->prevTemp,

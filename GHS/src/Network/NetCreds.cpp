@@ -28,8 +28,8 @@ Creds::Creds(CredParams &params) :
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to ERROR, ignoreRepeat default to false.
 void Creds::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, CREDS_LOG_METHOD,
+        ignoreRepeat);
 }
 
 // Requires CredParams pointer, which is default set to nullptr, and must be 

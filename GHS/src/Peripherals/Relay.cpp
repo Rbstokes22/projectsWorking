@@ -91,8 +91,8 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
 // is set to true to allow all relay on/off activity to be tracked, even when
 // repeated.
 void Relay::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, true);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, RELAY_LOG_METHOD, 
+        true);
 }
 
 // Requires gpio pin number, and the relay number.

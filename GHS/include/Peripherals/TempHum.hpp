@@ -6,6 +6,8 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
+#include "Common/FlagReg.hpp"
+#include "UI/MsgLogHandler.hpp"
 
 namespace Peripheral {
 
@@ -14,7 +16,8 @@ namespace Peripheral {
 #define TEMP_HUM_ERR_CT_MAX 3 // Error counts to show error on display
 #define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
-#define TEMP_HUM_NO_RELAY 99 // Used to show no relay attached.
+#define TEMP_HUM_NO_RELAY 255 // Used to show no relay attached.
+#define TEMP_HUM_LOG_METHOD Messaging::Method::SRL_LOG
 
 // Alert configuration. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server.
@@ -61,17 +64,18 @@ struct TempHumParams {
     SHT_DRVR::SHT &sht;
 };
 
-// Serves to see if the temp and hum sensor is up or down.
-struct isUpTH { 
-    bool noDispErr; // Used for display after consecutive errors
-    bool noErr; // used immediately to prevent relay errors
+enum THFLAGS : uint8_t {
+    NO_ERR, // Used for display after consecutive errors
+    NO_ERR_DISP // Used for immediate error to preven pre-mature relay/alt act
 };
 
 class TempHum {
     private:
+    static const char* tag;
+    static char log[LOG_MAX_ENTRY];
     SHT_DRVR::SHT_VALS data;
     TH_Averages averages;
-    isUpTH flags;
+    Flag::FlagReg flags;
     static Threads::Mutex mtx;
     TH_TRIP_CONFIG humConf;
     TH_TRIP_CONFIG tempConf;
@@ -84,6 +88,8 @@ class TempHum {
     void relayBounds(float value, relayConfigTH &conf, bool isTemp);
     void alertBounds(float value, alertConfigTH &conf, bool isTemp);
     void computeAvgs();
+    static void sendErr(const char* msg, Messaging::Levels lvl = 
+        Messaging::Levels::ERROR);
 
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
@@ -93,7 +99,7 @@ class TempHum {
     TH_TRIP_CONFIG* getHumConf();
     TH_TRIP_CONFIG* getTempConf();
     bool checkBounds();
-    isUpTH getStatus();
+    Flag::FlagReg* getFlags();
     TH_Averages* getAverages();
     void clearAverages();
     // void test(bool isTemp, float val); // Uncomment out when testing.

@@ -13,6 +13,7 @@ namespace NVS {
 #define MAX_NVS_ENTRY 512 // Max value storage
 #define NVS_MAX_INIT_ATT 5 // Attempts at initializing.
 #define NVS_NULL 0 // Used for handle
+#define NVS_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class nvs_ret_t {
     NVS_INIT_OK, MAX_INIT_ATTEMPTS, NVS_INIT_FAIL,

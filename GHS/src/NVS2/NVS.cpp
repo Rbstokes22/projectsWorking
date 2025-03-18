@@ -15,8 +15,8 @@ NVS_Config::NVS_Config(const char* nameSpace) :
 void NVSctrl::sendErr(const char* msg, Messaging::Levels lvl,
     bool ignoreRepeat) {
 
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, NVS_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 // Requires the namespace. Max namespace is 15 chars, leaving room

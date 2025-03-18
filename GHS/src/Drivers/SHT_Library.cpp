@@ -183,8 +183,8 @@ SHT_RET SHT::computeTemps(SHT_VALS &carrier) {
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to ERROR, ignoreRepeat default to false.
 void SHT::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, SHT_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 SHT::SHT() : tag("(SHT31)"), isInit(false) {

@@ -19,8 +19,8 @@ I2C::I2C() : tag("(I2C)"), freq(I2C_FREQ::STD), isInit(false) {
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to CRITICAL, ignoreRepeat default to false.
 void I2C::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG, ignoreRepeat);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, I2C_LOG_METHOD, 
+        ignoreRepeat);
 }
 
 // Returns a pointer to the I2C instance.

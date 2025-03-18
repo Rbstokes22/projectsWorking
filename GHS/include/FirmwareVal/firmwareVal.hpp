@@ -8,6 +8,7 @@ namespace Boot {
 
 #define PART_CHUNK_SIZE 1024 // bytes of chunks of partition data.
 #define FW_FILEPATH_SIZE 35 // size of data used in filepath.
+#define FW_LOG_METHOD Messaging::Method::SRL_LOG
 
 enum class val_ret_t { // valid return type
     SIG_OK, SIG_OK_BU, SIG_FAIL, PARTITION_OK,

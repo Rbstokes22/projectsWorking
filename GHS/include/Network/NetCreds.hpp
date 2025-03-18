@@ -7,6 +7,8 @@
 
 namespace NVS {
 
+#define CREDS_LOG_METHOD Messaging::Method::SRL_LOG
+
 struct CredParams {
     const char nameSpace[12]; // Max 12 per NVS for "CS" addition, 11 with null.
 };

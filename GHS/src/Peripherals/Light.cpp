@@ -120,7 +120,7 @@ void Light::computeLightTime(size_t ct, bool isLight) {
             offToggle = false;
 
             snprintf(Light::log, sizeof(Light::log), 
-                "%s Light stoped at time %u:%u:%u", Light::tag, dt->hour, 
+                "%s Light stopped at time %u:%u:%u", Light::tag, dt->hour, 
                 dt->minute, dt->second);
 
             Light::sendErr(Light::log, Messaging::Levels::INFO);
@@ -162,8 +162,7 @@ void Light::handleRelay(bool relayOn, size_t ct) {
 // Requires message string, and level. Level is default to ERROR. Prints to
 // both serial and log.
 void Light::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg, 
-        Messaging::Method::SRL_LOG);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, LIGHT_LOG_METHOD);
 }
 
 // Singleton class object, require light parameters for first init. Once init
@@ -179,8 +178,8 @@ Light* Light::get(LightParams* parameter) {
 
     // Gate. If nullptr is passed, and hasnt been init, returns nullptr.
     if (parameter == nullptr && !isInit) {
-        snprintf(Light::log, sizeof(Light::log), "%s Using uninit instance",
-            Light::tag);
+        snprintf(Light::log, sizeof(Light::log), 
+            "%s using uninit instance ret nullptr", Light::tag);
  
         Light::sendErr(Light::log, Messaging::Levels::CRITICAL);
         return nullptr; 
@@ -199,6 +198,7 @@ Light* Light::get(LightParams* parameter) {
 bool Light::readSpectrum() {
     static size_t errCt{0};
     bool read{false};
+    static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Upon success, updates the averages and changes the flags to true.
     // If not, will change the noErr flag to false indicating an immediate
@@ -212,7 +212,20 @@ bool Light::readSpectrum() {
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR);
         this->computeAverages(true); // Compute avg upon success.
         errCt = 0; // resets count.
+
+        if (!logOnce) { // Log for first trip only, can only be set with err.
+
+            snprintf(Light::log, sizeof(Light::log), "%s spec err fixed", 
+                Light::tag);
+
+            Light::sendErr(Light::log, Messaging::Levels::INFO);
+            logOnce = true; // Prevent re-log, allow err logging.
+        }
+        
     } else { // If error, release flag to false.
+
+        // No err handling, Driver handles this, only capture prolonged err
+        // below if the err Ct exceeds count max.
         this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR);
         errCt++; // inc count by 1.
     }
@@ -222,7 +235,17 @@ bool Light::readSpectrum() {
     // This is to filter bad reads from constantly alerting client.
     if (errCt < LIGHT_ERR_CT_MAX) {
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
+
     } else {
+
+        if (logOnce) { // Log for first trip. Must preceed fixed err msg.
+            snprintf(Light::log, sizeof(Light::log), "%s spec read err", 
+                Light::tag);
+
+            Light::sendErr(Light::log);
+            logOnce = false; // prevents re-log, allows fixed error log.
+        }
+
         this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
     }
 
@@ -235,6 +258,7 @@ bool Light::readSpectrum() {
 bool Light::readPhoto() {
     esp_err_t err;
     static size_t errCt{0};
+    static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Reads the analog value of the photoresistor and stores value to
     // class variable.
@@ -247,7 +271,18 @@ bool Light::readPhoto() {
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR);
         errCt = 0; // zero out
+
+        if (!logOnce) { // Log for first trip only, can only be set with err.
+
+            snprintf(Light::log, sizeof(Light::log), "%s photo err fixed", 
+                Light::tag);
+
+            Light::sendErr(Light::log, Messaging::Levels::INFO);
+            logOnce = true; // Prevent re-log, allow err logging.
+        }
+
     } else {
+
         this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
         errCt++; // Increment error count.
     }
@@ -255,8 +290,18 @@ bool Light::readPhoto() {
     // Sets display to true if the error ct is less than max.
     if (errCt < LIGHT_ERR_CT_MAX) {
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+
     } else {
+
         this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+
+        if (logOnce) { // Log for first trip. Must preceed fixed err msg.
+            snprintf(Light::log, sizeof(Light::log), "%s photo read err", 
+                Light::tag);
+
+            Light::sendErr(Light::log);
+            logOnce = false; // prevents re-log, allows fixed error log.
+        }
     }
 
     return this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR); // true if OK
@@ -358,16 +403,37 @@ Light_Averages* Light::getAverages() {return &this->averages;}
 // Requires no parameters. Clears the current data after moving current values
 // over to previous values.
 void Light::clearAverages() {
+
+    char log[BIGLOG_MAX_ENTRY / 2]{0}; // Can use up to 256 bytes
+
+    // Write averages into log. Prep log, do not send until complete. First
+    // in order to capture current averages before resetting.
+    snprintf(log, sizeof(log), 
+    "%s Averages Cleared. CL: %.1f, VI: %.1f, IN: %.1f, BL: %.1f"
+    " CY %.1f, GN %1.f, YL %.1f, OR: %.1f, RD: %.1f, NIR: %.1f"
+    " PHTO: %.1f. COUNT#> PHTO: %zu, SPEC: %zu", 
+    Light::tag,
+    this->averages.color.clear, this->averages.color.violet,
+    this->averages.color.indigo, this->averages.color.blue,
+    this->averages.color.cyan, this->averages.color.green,
+    this->averages.color.yellow, this->averages.color.orange,
+    this->averages.color.red, this->averages.color.nir,
+    this->averages.photoResistor,
+    this->averages.pollCtPho, this->averages.pollCtClr
+    );
+
+    // copy averages to previous averages.
     this->averages.prevColor = this->averages.color; // copies over
     this->averages.prevPhotoResistor = this->averages.photoResistor;
 
-    // Resets, the color and photoResistor only.
+    // Resets, the color and photoResistor only, NONE of the previous data.
     memset(&this->averages, 0, sizeof(this->averages.color));
     this->averages.photoResistor = 0.0f;
     this->averages.pollCtClr = this->averages.pollCtPho = 0;
 
-    snprintf(this->log, sizeof(this->log), "%s Avg clear", this->tag);
-    this->sendErr(this->log, Messaging::Levels::INFO);
+    // Send log.
+    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+        log, LIGHT_LOG_METHOD, true, true); 
 }
 
 // Returns duration of light above the trip value.

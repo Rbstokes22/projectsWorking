@@ -84,8 +84,7 @@ void Report::clearAll() {
 
 // Requires message and messaging level. Level set default to ERROR.
 void Report::sendErr(const char* msg, Messaging::Levels lvl) {
-    Messaging::MsgLogHandler::get()->handle(lvl, msg,
-        Messaging::Method::SRL_LOG);
+    Messaging::MsgLogHandler::get()->handle(lvl, msg, REPORT_LOG_METHOD);
 }
 
 // Requires the seconds past midnight to send message. If 99999 is passed,
@@ -121,7 +120,8 @@ void Report::setTimer(uint32_t seconds) {
 // at a 1 Hz frequency in order to capture the important time raises. If a 
 // frequency of > 10 Hz is called, will potentially miss the toggle handling
 // which will cause further issues. This sends all averages to the Alerts 
-// class that will be sent to the client.
+// class that will be sent to the client. Also handles secondary control of
+// logging a new day in the 10 secs before midnight.
 void Report::manageTimer() { 
     
     // System time, raw format gives you seconds past midnight. Max Time is
@@ -133,7 +133,8 @@ void Report::manageTimer() {
 
     static uint8_t attempts = 0; // Sending attempts
     bool sent = false; // Is message sent
-    static bool toggle = true; // Used to block code after successful attempt
+    static bool toggle = true; // Used to send/clear a single time
+    static bool dailyLogToggle = true; // Sends daily log at midnight.
 
     // If the range exceeds the total seconds per day - 10, ot 86390, will 
     // default to 86390 to ensure success.
@@ -149,6 +150,8 @@ void Report::manageTimer() {
     // If the system time is within the range of the time set and the max,
     // Attempt to send.
     if ((sysTime >= this->timer.timeSet) && (sysTime <= maxTime) && toggle) {
+
+        dailyLogToggle = true; // Reset toggle allowing single NEW DAY log entry
 
         // If no time is set for averages, will clear at least once per day
         // at 23:59PM. This will only run this specific part and not attempt
@@ -185,10 +188,20 @@ void Report::manageTimer() {
 
     // Resets after alloted time expired. 10 Second working window in worst
     // case scenario. Timing is crucial to capture since the sysTime will 
-    // reset to 0 at midnigh, which will not clear until a 24 hour period.
-    } else if (sysTime > maxTime) { 
+    // reset to 0 at midnight, which will not clear until a 24 hour period.
+    } else if (sysTime > maxTime) { // Indicates last 10 seconds of the day.
         attempts = 0;
-        toggle = true;
+        toggle = true; // Reset toggle to clear/send report.
+    }
+
+    // Waits until the system time is the last 10 seconds before midnight, and
+    // logs a new day entry.
+    if (sysTime > MAX_TOTAL_SET_TIME && dailyLogToggle) {
+        snprintf(this->log, sizeof(this->log), "%s NEW DAY", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            this->log, Messaging::Method::SRL_OLED_LOG);
+
+        dailyLogToggle = false;
     }
 }
 
