@@ -20,11 +20,18 @@ namespace ThreadTask {
 // Requires the netThreadParams pointer. Responsible for running
 // thread dedicated to the network management.
 void netTask(void* parameter) { // Runs on 1 second intervals.
+    
+    if (parameter == nullptr) {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            "NET task fail", Messaging::Method::SRL_LOG);
+        return;
+    } else {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "NET task running", Messaging::Method::SRL_LOG);
+    }
+
     Threads::netThreadParams* params = 
         static_cast<Threads::netThreadParams*>(parameter);
-
-    #define LOCK_NET params->mutex.lock()
-    #define UNLOCK_NET params->mutex.unlock();
 
     while (true) {
         // in this portion, check wifi switch for position. 
@@ -37,9 +44,19 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
 // Requires the shtThreadParams pointer. Responsible for running
 // thread dedicated to the temperature and humidity sensor management.
 void SHTTask(void* parameter) { 
+
+    if (parameter == nullptr) {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            "SHT task fail", Messaging::Method::SRL_LOG);
+        return;
+    } else {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "SHT task running", Messaging::Method::SRL_LOG);
+    }
+
     Threads::SHTThreadParams* params = 
         static_cast<Threads::SHTThreadParams*>(parameter);
-    
+
     // Init here using parameters passed within the thread.
     Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
@@ -54,6 +71,16 @@ void SHTTask(void* parameter) {
 // Requires the AS7341ThreadParams pointer. Responsible for running
 // thread dedicated to the spectral light sensor management.
 void AS7341Task(void* parameter) { // AS7341 & photo Resistor
+
+    if (parameter == nullptr) {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            "AS7341 task fail", Messaging::Method::SRL_LOG);
+        return;
+    } else {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "AS7341 task running", Messaging::Method::SRL_LOG);
+    }
+
     Threads::AS7341ThreadParams* params = 
         static_cast<Threads::AS7341ThreadParams*>(parameter);
 
@@ -82,6 +109,16 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
 // Requires the soilThreadParams pointer. Responsible for running
 // thread dedicated to the capacitive soil sensor management.
 void soilTask(void* parameter) { // Soil sensors
+
+    if (parameter == nullptr) {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            "SOIL task fail", Messaging::Method::SRL_LOG);
+        return;
+    } else {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "SOIL task running", Messaging::Method::SRL_LOG);
+    }
+
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
     
@@ -113,6 +150,16 @@ void soilTask(void* parameter) { // Soil sensors
 // Requires the routineThreadParams pointer. Responsible for running
 // thread dedicated to all routine commands, such as managing timers.
 void routineTask(void* parameter) {
+
+    if (parameter == nullptr) {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            "RTN task fail", Messaging::Method::SRL_LOG);
+        return;
+    } else {
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "RTN task running", Messaging::Method::SRL_LOG);
+    }
+
     Threads::routineThreadParams* params = 
         static_cast<Threads::routineThreadParams*>(parameter);
 

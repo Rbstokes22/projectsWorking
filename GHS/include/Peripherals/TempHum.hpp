@@ -18,6 +18,8 @@ namespace Peripheral {
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
 #define TEMP_HUM_NO_RELAY 255 // Used to show no relay attached.
 #define TEMP_HUM_LOG_METHOD Messaging::Method::SRL_LOG
+#define TEMP_HUM_TAG "(TEMPHUM)"
+#define TEMP_HUM_FLAG_TAG "(THFlag)"
 
 // Alert configuration. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server.

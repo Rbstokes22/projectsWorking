@@ -20,6 +20,8 @@ namespace Peripheral {
 #define PHOTO_MAX 4094 // 12 bit max - 1, set for error purposes.
 #define LIGHT_NO_RELAY 255 // Used to show no relay attached.
 #define LIGHT_LOG_METHOD Messaging::Method::SRL_LOG
+#define LIGHT_TAG "(LIGHT)"
+#define LIGHT_FLAG_TAG "(LIGHTFlag)"
 
 struct LightParams {
     adc_oneshot_unit_handle_t handle; // analog-digital conv handle

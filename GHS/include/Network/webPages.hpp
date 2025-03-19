@@ -328,6 +328,7 @@ const char STApage[] = R"rawliteral(
             document.getElementById("log").innerHTML = html;
         }
 
+        
         let calibrateTime = (seconds) => { // calibrates time if different
             const time = new Date();
             const padding = 2;
@@ -336,8 +337,9 @@ const char STApage[] = R"rawliteral(
 
             // Compute delta
             const delta = ((seconds - secPastMid)**2)**(1/2);
-
-            if (delta >= padding) { // Calibrates clock if unequal
+   
+            // calibrate clock if esp time out of range. Ignore midnight switch.
+            if (delta >= padding && secPastMid != 0) { 
                 const ID = getID();
                 socket.send(`${convert("CALIBRATE_TIME")}/${secPastMid}/${ID}`);
             }

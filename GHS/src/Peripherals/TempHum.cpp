@@ -11,15 +11,15 @@
 
 namespace Peripheral {
 
-const char* TempHum::tag("(TEMPHUM)");
+const char* TempHum::tag(TEMP_HUM_TAG);
 char TempHum::log[LOG_MAX_ENTRY]{0};
-Threads::Mutex TempHum::mtx; // define static mutex instance
+Threads::Mutex TempHum::mtx(TEMP_HUM_TAG); // define static mutex instance
 
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
     data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
-    flags("(THflag)"), 
+    flags(TEMP_HUM_FLAG_TAG), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 

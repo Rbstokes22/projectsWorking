@@ -7,49 +7,49 @@
 
 namespace Threads {
 
-// A mutex will be created for each peripheral to prevent its data from access
-// during a read write. This is due to each peripheral from being on a 
-// separate thread.
-Mutex::Mutex() : 
+Mutex::Mutex(const char* tag) : 
 
-    xMutex{xSemaphoreCreateMutex()}, isLocked(false), init(true) {
+    tag(tag), xMutex{xSemaphoreCreateMutex()}, isLocked(false), init(true) {
 
     if (this->xMutex == NULL) { // Handles uncreated Mutex.
-        Messaging::MsgLogHandler::get()->handle(
-            Messaging::Levels::CRITICAL,
-            "Thread Mutex not created",
-            Messaging::Method::SRL_LOG
-        );
+        snprintf(this->log, sizeof(this->log), "%s MTX not created", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            this->log, Messaging::Method::SRL_LOG);
 
     } else {
-        Messaging::MsgLogHandler::get()->handle(
-            Messaging::Levels::INFO, 
-            "Thread Mutex created", 
-            Messaging::Method::SRL_LOG);
+        snprintf(this->log, sizeof(this->log), "%s MTX created", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            this->log, Messaging::Method::SRL_LOG);
     }
 }
 
-// Requires no parameters. Checks if there is a lock on the mutex, if yes,
-// returns false preventing attempt to lock, and returns true upon success.
+// Requires no parameters. Attemps to take a lock, only delaying acquisition
+// by the set LOCK_DELAY. If acquired, locks and returns true. If not, 
+// returns false.
 bool Mutex::lock() {
-    if (!init) return false; // Prevents calls if not init.
+    if (!init) return false; // Prevents mutex noise before mutex is init.
 
     // Attempts to lock the mutex and delays for LOCK_DELAY amount of millis
     // allowing non-permanent-blocking code. Once acquired, changes the 
     // isLocked bool to true.
     if (xSemaphoreTake(this->xMutex, pdMS_TO_TICKS(LOCK_DELAY)) == pdTRUE) {
-        this->isLocked.store(true);
+        this->isLocked.store(true); // Update this for lock release below.
         return true;
+
     } else {
-        printf("Unable to acquire MUTEX lock\n");
+        snprintf(this->log, sizeof(this->log), "%s MTX not locked", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            this->log, Messaging::Method::SRL_LOG);
+        
         return false;
     }
 }
 
-// Requires no parameters. Checks if there is no lock on the muted, if true,
-// returns false before attempting to unlock, and returns true upon success.
+// Requires no params. Checks first to see if already unlock, will return true
+// if unlocked. If locked, attempts to release lock, returning true if 
+// successful and false if not.
 bool Mutex::unlock() {
-    if (!init) return false; // Prevents calls if not init.
+    if (!init) return false; // Prevents mutex noise before init.
 
     // Will check to see if unlocked, if unlocked, returns true, if locked,
     // proceeds to unlock and returns true once done.
@@ -58,8 +58,14 @@ bool Mutex::unlock() {
     if (xSemaphoreGive(this->xMutex) == pdTRUE) {
         this->isLocked.store(false);
         return true;
+
     } else {
-        printf("Unable to release MUTEX lock\n");
+        snprintf(this->log, sizeof(this->log), "%s MTX lock not released", 
+            this->tag);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            this->log, Messaging::Method::SRL_LOG);
+            
         return false;
     }
 }

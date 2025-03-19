@@ -11,9 +11,9 @@
 
 namespace Peripheral {
 
-const char* Light::tag("(LIGHT)");
+const char* Light::tag(LIGHT_TAG);
 char Light::log[LOG_MAX_ENTRY]{0};
-Threads::Mutex Light::mtx; // Def of static var
+Threads::Mutex Light::mtx(LIGHT_FLAG_TAG); // Def of static var
 
 Light::Light(LightParams &params) : 
     

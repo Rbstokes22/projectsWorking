@@ -95,19 +95,25 @@ void Relay::sendErr(const char* msg, Messaging::Levels lvl) {
         true);
 }
 
+// Require Relay Number. Dynamically creates tag. Returns the pointer to the
+// tag. Called in the construction of the mutex.
+const char* Relay::createTag(uint8_t ReNum) {
+    snprintf(this->tag, sizeof(this->tag), "(RELAY%u)", ReNum);
+    return this->tag;
+}
+
 // Requires gpio pin number, and the relay number.
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
 
     pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clientQty(0),
     timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false},
-    mtx() {
+    mtx(this->createTag(ReNum)) {
 
         memset(this->clients, static_cast<uint8_t>(IDSTATE::AVAILABLE), 
             sizeof(this->clients));
 
         memset(this->clientStr, 0 , sizeof(this->clientStr));
 
-        snprintf(this->tag, sizeof(this->tag), "(RELAY%u)", ReNum);
         snprintf(Relay::log, sizeof(Relay::log), "%s Ob created", this->tag);
         this->sendErr(Relay::log, Messaging::Levels::INFO);
     }

@@ -17,7 +17,7 @@
 
 namespace Clock {
 
-Threads::Mutex DateTime::mtx; // Define static mutex since used in get()
+Threads::Mutex DateTime::mtx("(DATETIME)"); 
 
 // Requires no parameters. Adjusts the current time to the correct 
 // hours, minutes, seconds, and raw time.

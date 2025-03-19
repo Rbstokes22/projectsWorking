@@ -16,6 +16,7 @@ namespace Messaging {
 #define MLH_DELIM_REP ':' // Replaces delimiter with : if contained in msg.
 #define OLED_QUEUE_QTY 5 // Quantity of messages in queue
 #define OLED_MSG_EXPIRATION_SECONDS 2 // Will stop or display next message then
+#define MLH_TAG "(MSGLOGERR)"
 
 
 // COLOR CODING escape chars, these can be interjected anywhere.
@@ -91,7 +92,7 @@ class MsgLogHandler {
     bool serialOn; // Enables serial printing.
     char log[LOG_SIZE]; // Main log, very large.
     bool newLogEntry; // New log message available to client.
-    static Threads::Mutex mtx; // Removed <atomic> with mtx implementation.
+    static Threads::Mutex mtx; // mutex
     MsgLogHandler(); 
     MsgLogHandler(const MsgLogHandler&) = delete; // prevent copying
     MsgLogHandler &operator=(const MsgLogHandler&) = delete; // prevent assgnmt

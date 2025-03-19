@@ -9,7 +9,7 @@
 
 namespace Messaging {
 
-Threads::Mutex MsgLogHandler::mtx; // Create static instance
+Threads::Mutex MsgLogHandler::mtx(MLH_TAG); // Create static instance
 
 // Maps to levels. Used in printing.
 const char LevelsMap[5][11]{"[DEBUG]", "[INFO]", "[WARNING]", "[ERROR]",
@@ -22,7 +22,7 @@ const char LevelsColors[5][10]{SRL_CYN, SRL_GRN, SRL_YEL, SRL_RED, SRL_MAG};
 // init the dateTime singleton.
 MsgLogHandler::MsgLogHandler() : 
 
-    tag("(MSGLOGERR)"), OLED(nullptr), serialOn(SERIAL_ON), newLogEntry{false} {
+    tag(MLH_TAG), OLED(nullptr), serialOn(SERIAL_ON), newLogEntry{false} {
 
         memset(this->errLog, 0, sizeof(this->errLog));
         memset(this->log, 0, LOG_SIZE);

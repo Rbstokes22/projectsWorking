@@ -60,6 +60,7 @@ class Relay {
     bool changeIDState(uint8_t ID, IDSTATE newState);
     void sendErr(const char* msg, Messaging::Levels lvl = 
         Messaging::Levels::ERROR);
+    const char* createTag(uint8_t ReNum);
 
     public:
     Relay(gpio_num_t pin, uint8_t ReNum);

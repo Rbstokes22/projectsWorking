@@ -35,6 +35,7 @@ namespace NVS {
 #define RELAY2_KEY "relay2Save"
 #define RELAY3_KEY "relay3Save"
 #define RELAY4_KEY "relay4Save"
+#define SETTINGS_TAG "(SETTINGS)"
 
 #define NVS_SETTING_DELAY 20 // millis to delay between NVS read/write calls.
 

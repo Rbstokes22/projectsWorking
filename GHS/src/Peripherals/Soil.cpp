@@ -9,9 +9,9 @@
 
 namespace Peripheral {
 
-const char* Soil::tag("(SOIL)");
+const char* Soil::tag(SOIL_TAG);
 char Soil::log[LOG_MAX_ENTRY]{0};
-Threads::Mutex Soil::mtx; // define instance of mtx
+Threads::Mutex Soil::mtx(SOIL_TAG); // define instance of mtx
 
 Soil::Soil(SoilParams &params) : 
 

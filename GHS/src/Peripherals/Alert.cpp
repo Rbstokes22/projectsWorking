@@ -12,9 +12,9 @@
 
 namespace Peripheral {
 
-Threads::Mutex Alert::mtx; // Define static mutex instance.
+Threads::Mutex Alert::mtx(ALT_TAG); // Define static mutex instance.
 
-Alert::Alert() : tag("(ALERT)"), flags("(ALTflag)") {
+Alert::Alert() : tag(ALT_TAG), flags(ALT_FLAG_TAG) {
 
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);

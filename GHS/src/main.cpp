@@ -1,11 +1,7 @@
 // CURRENT NOTES: 
 
-// Test, when able, that WAP mode prevents socket commands. (FUTURE)
-// RETEST EVERYTHING WHEN DONE AND REWRITE REPORTS BELOW.
-
-// On Threads, then UI. Periph done. See a log for a client side recalibration
-// at midnight actual time, Look into manipulating data on both client and server
-// to ensure that it does not log every midnight. Use sockets and client adjust.
+// TESTING: Test everything once client page is up an running. Ensure that WAP
+// mode prevents certain socket commands. CODE COMPLETE FOR NOW.
 
 // ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
 // subscribes, they will receive an API key that they would enter in the WAP setup page. This would

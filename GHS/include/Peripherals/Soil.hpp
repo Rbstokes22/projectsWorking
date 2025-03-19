@@ -18,6 +18,7 @@ namespace Peripheral {
 #define SOIL_MIN 1 // 0, but cant set lower. 12 bit value.
 #define SOIL_MAX 4094 // 4095, but cant set higher.
 #define SOIL_LOG_METHOD Messaging::Method::SRL_LOG
+#define SOIL_TAG "(SOIL)"
 
 // Alert configuration, relay configurations are omitted for soil sensors due
 // to potential to overwater if there are capacitance issues, this is a 

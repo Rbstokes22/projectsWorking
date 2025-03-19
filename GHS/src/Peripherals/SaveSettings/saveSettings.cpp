@@ -13,13 +13,13 @@
 
 namespace NVS {
 
-Threads::Mutex settingSaver::mtx; // define static var.
+Threads::Mutex settingSaver::mtx(SETTINGS_TAG); // define static var.
 
 settingSaver::settingSaver() : 
 
     relayKeys{RELAY1_KEY, RELAY2_KEY, RELAY3_KEY, RELAY4_KEY},
     soilKeys{SOIL1_KEY, SOIL2_KEY, SOIL3_KEY, SOIL4_KEY},
-    tag("(SETTINGS)"),
+    tag(SETTINGS_TAG),
     nvs(NVS_NAMESPACE_SAVE), expected(0), total(0),
     relays(nullptr) {
 

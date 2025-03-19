@@ -6,58 +6,80 @@
 
 namespace Threads {
 
-Thread::Thread(const char* name) :
+Thread::Thread(const char* tag) :
 
-    taskHandle{NULL}, name(name) {}
+    taskHandle{NULL}, tag(tag) {}
 
-void Thread::initThread(
-    void (*taskFunc)(void*), 
-    uint16_t stackSize, 
-    void* parameters, 
-    UBaseType_t priority) {
+// Requires the task function, the stacksize in words (4 bytes = 1 word 32-bit),
+// the parameters being passed to the function, and the priority. Creates a
+// thread and returns true if successful, and false if not.
+bool Thread::initThread(void (*taskFunc)(void*), uint16_t stackSize, 
+    void* parameters, UBaseType_t priority) {
 
-    BaseType_t taskCreate = xTaskCreate(
-        taskFunc, this->name, stackSize, parameters, 
-        priority, &this->taskHandle
-    );
+    // Attempt to create a thread. Returns pdPASS if successful.
+    BaseType_t taskCreate = xTaskCreate(taskFunc, this->tag, stackSize, 
+        parameters, priority, &this->taskHandle);
 
-    if (taskCreate == pdPASS) {
-        printf("Task Handle %s Created @ %p\n", this->name, this->taskHandle);
+    if (taskCreate == pdPASS) { // Success
+        snprintf(this->log, sizeof(this->log), 
+            "Task handle (%s) created @ addr: %p", this->tag, this->taskHandle);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            this->log, THREAD_LOG_METHOD);
+        return true;
+
+    } else { // Failure.
+
+        snprintf(this->log, sizeof(this->log), 
+            "Task handle (%s) not created", this->tag);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            this->log, THREAD_LOG_METHOD);
+
+        this->taskHandle = NULL; // Ensure null for future error handling.
+        return false;
     }
 }
 
-void Thread::suspendTask() { 
-    char msg[30]{0};
-    sprintf(msg, "%s suspended", this->name);
+// Requires no parameters. If thread was properly init, this will suspend
+// the thread. If successful, returns true, if not, returns false.
+bool Thread::suspendTask() { 
 
     if (this->taskHandle != NULL) {
         vTaskSuspend(this->taskHandle);
-        Messaging::MsgLogHandler::get()->handle(
-        Messaging::Levels::INFO, 
-        msg, 
-        Messaging::Method::SRL
-        );
-    } 
+        snprintf(this->log, sizeof(this->log), "%s suspended", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO, 
+            this->log, Messaging::Method::SRL_LOG);
+        return true;
+    }
+
+    return false;
 }
 
-void Thread::resumeTask() {
-    char msg[30]{0};
-    sprintf(msg, "%s resumed", this->name);
-    
+// Requires no params. If thread was properly init, and suspended, it will
+// be resumed. If successful, return true, false if not.
+bool Thread::resumeTask() {
+
     if (this->taskHandle != NULL) {
         vTaskResume(this->taskHandle);
-        Messaging::MsgLogHandler::get()->handle(
-        Messaging::Levels::INFO, 
-        msg, 
-        Messaging::Method::SRL
-        );
+        snprintf(this->log, sizeof(this->log), "%s resumed", this->tag);
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO, 
+            this->log, Messaging::Method::SRL_LOG);
+        return true;
     }
+
+    return false;
 }
 
 Thread::~Thread() {
     if (this->taskHandle != NULL) {
         vTaskDelete(this->taskHandle);
-        printf("Task Handle %s Deleted @ %p\n", this->name, this->taskHandle);
+        snprintf(this->log,sizeof(this->log), 
+            "Task Handle (%s) Deleted @ addr: %p\n", this->tag, 
+            this->taskHandle);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO, 
+            this->log, Messaging::Method::SRL_LOG);
     }
 }
 
