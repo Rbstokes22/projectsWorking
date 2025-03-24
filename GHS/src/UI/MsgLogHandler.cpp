@@ -267,7 +267,7 @@ bool MsgLogHandler::analyzeLogEntry(const char* message, uint32_t time) {
     index++; // Increment after adding values and adjusting times.
 
     // Runs between 0 and max. This ensures that the log is cyclic 0 - n, 0 - n,
-    // always clearing the oldest entires next.
+    // always clearing the oldest entires next. 
     index %= LOG_PREV_MSGS; 
     
     return true; // ALlow write, new entry.

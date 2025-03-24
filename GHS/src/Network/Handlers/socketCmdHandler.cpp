@@ -29,7 +29,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
     // reply is the typical reply to a request, with the exception of the
     // GET_ALL request. Used throughout the function.
-    const char* reply = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
+    char reply[SKT_REPLY_SIZE] = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
     "\"id\":\"%s\"}"; 
 
     // All commands work from here. CMD list is on header doc.
@@ -1071,6 +1071,68 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         default:
         break;
+
+        // When called, device will reply in json format, all trends of temp,
+        // humidity, and spectral light, based on hourly readings. JSON return
+        // uses temp, hum, and each color captured, nir, and clear.
+        case CMDS::GET_TRENDS: 
+        if (!SOCKHAND::inRange(1, TREND_HOURS, data.suppData)) {
+            written = snprintf(buffer, size, reply, 0, "Trend hour rangeErr", 0, 
+                data.idNum);
+
+        } else { 
+
+            writeLog = false; // Prevent large log of data
+            Peripheral::TH_Trends* th = Peripheral::TempHum::get()->getTrends();
+
+            Peripheral::Light_Trends* lt = 
+                Peripheral::Light::get()->getTrends();
+
+            int iter = data.suppData; // Iterations
+            
+           // Create all float buffers to populate data into.
+            char tempBuf[SKT_REPLY_SIZE]{0};
+            char humBuf[SKT_REPLY_SIZE]{0};
+
+            // Populate buffers above with requested data.
+            SOCKHAND::THtrend(th->temp, tempBuf, SKT_REPLY_SIZE, iter);
+            SOCKHAND::THtrend(th->hum, humBuf, SKT_REPLY_SIZE, iter);
+
+            // Create all unit16_t buffers to populate data into.
+            char ltClr[SKT_REPLY_SIZE]{0}; 
+            char ltVio[SKT_REPLY_SIZE]{0}; 
+            char ltInd[SKT_REPLY_SIZE]{0}; 
+            char ltBlu[SKT_REPLY_SIZE]{0}; 
+            char ltCya[SKT_REPLY_SIZE]{0}; 
+            char ltGre[SKT_REPLY_SIZE]{0}; 
+            char ltYel[SKT_REPLY_SIZE]{0}; 
+            char ltOra[SKT_REPLY_SIZE]{0}; 
+            char ltRed[SKT_REPLY_SIZE]{0}; 
+            char ltNir[SKT_REPLY_SIZE]{0}; 
+
+            // Populate buffers above with requested data.
+            SOCKHAND::lightTrend(lt->clear, ltClr, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->violet, ltVio, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->indigo, ltInd, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->blue, ltBlu, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->cyan, ltCya, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->green, ltGre, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->yellow, ltYel, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->orange, ltOra, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->red, ltRed, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->nir, ltNir, SKT_REPLY_SIZE, iter);
+
+            // Write JSON data back to client.
+            written = snprintf(buffer, size, 
+            "{\"id\":\"%s\",\"temp\":[%s],\"hum\":[%s],"
+            "\"clear\":[%s],\"violet\":[%s],\"indigo\":[%s],\"blue\":[%s],"
+            "\"cyan\":[%s],\"green\":[%s],\"yellow\":[%s],\"orange\":[%s],"
+            "\"red\":[%s],\"nir\":[%s]}",
+            data.idNum, tempBuf, humBuf, ltClr, ltVio, ltInd, ltBlu, ltCya,
+            ltGre, ltYel, ltOra, ltRed, ltNir);
+        }
+
+        break;
     }
 
     if (writeLog) { // Will log the JSON response string.
@@ -1118,6 +1180,61 @@ bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size,
     }
 
     return true; // is station mode.
+}
+
+// Requires float pointer to array, char buffer, the buffersize, and number
+// of iterations, typically 1 to 12. Populates a json array, with the requested
+// values to be replied back to the socket client.
+void SOCKHAND::THtrend(float *arr, char* buf, size_t bufSize, int iter) {
+
+    if (arr == nullptr || buf == nullptr) {
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+            "%s nullptr passed", SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+        return; // Block
+    }
+
+    char miniBuf[32]{0}; // Used as a temporary buffer for creation.
+
+    for (int i = 0; i < iter; i++) {
+        if (i == (iter - 1)) { // Changes last index to remove comma.
+            snprintf(miniBuf, sizeof(miniBuf), "%0.2f", arr[i]);
+        } else {
+            snprintf(miniBuf, sizeof(miniBuf), "%0.2f, ", arr[i]);
+        }
+
+        size_t remaining = bufSize - strlen(buf) - 1; // Null term.
+        strncat(buf, miniBuf, remaining); // Add new entry.
+    }
+}
+
+// Requires uint16_t pointer to array, char buffer, the buffersize, and number
+// of iterations, typically 1 to 12. Populates a json array, with the requested
+// values to be replied back to the socket client.
+void SOCKHAND::lightTrend(uint16_t* arr, char* buf, size_t bufSize, 
+    int iter) {
+
+    if (arr == nullptr || buf == nullptr) {
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+            "%s nullptr passed", SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+        return; // Block
+    }
+
+    char miniBuf[32]{0}; // Used as a temp buffer for creation.
+
+    for (int i = 0; i < iter; i++) {
+        if (i == (iter - 1)) { // Changes last index to remove comma
+            snprintf(miniBuf, sizeof(miniBuf), "%u", arr[i]);
+        } else {
+            snprintf(miniBuf, sizeof(miniBuf), "%u, ", arr[i]);
+        }
+
+        size_t remaining = bufSize - strlen(buf) - 1; // null term
+        strncat(buf, miniBuf, remaining);
+    }
 }
 
 // Requires relay number and pointer to TempHum configuration. Ensures relay

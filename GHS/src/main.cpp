@@ -1,46 +1,20 @@
 // CURRENT NOTES: 
 
+// Building a 6 hour capture for temp, hum, and light. Almost done with TH.
+// Just need to implement the read functions. Build light to mirror temp hum
+// then finish the socket command handler. Test quickly, maybe use trend capture
+// if the minute has changed, and if that works, awesome. Once done, go back
+// to client.
+
 // TESTING: Test everything once client page is up an running. Ensure that WAP
-// mode prevents certain socket commands. CODE COMPLETE FOR NOW.
-
-// ALERTS AND SUBSCRIPTION: I think I am set on using twilio from the server only. When a user
-// subscribes, they will receive an API key that they would enter in the WAP setup page. This would
-// be the key they use to send alerts and communicate with the database. Probably include this with
-// the version check with the client page, that it sends back subscibed, non-subscribed, or 
-// expired. If not subscibed, it wouldnt even attempt sending any alerts to save on web traffic. 
-// Maybe that isnt too feasible, explore when crossing this bridge. Maybe alerts should be 
-// exclusive to critical things. Such as temperature, humidity, dryness. I dont think light will
-// warrant an alerts, since a daily wrapup will show them their averages and their light quality.
-
-// TEST RESULTS:
-// Temphum. Tested relays and alerts for the SHT. Relays turn on and off when criteria met.
-// Alerts send, and reset when criteria is met. Both temp and hum are independent. Ran temphum
-// test in report to ensure it works. Without it being set, at 2359 the values were refreshed
-// and the previous values were populated. Clearing temphum average works. Report is sent properly
-// and turned off using 99999, works.
-
-// Soil. Tested alert values for soil1 and soil2. A single message is sent when criteria is met,
-// and reset when the hysteresis criteria is met. All functions as expected.
-
-// Log. Tested log to ensure that when new space was required, the beginning entry was deleted. 
-// Ran test for several attempts where a value, via text, was always added in and increased 
-// exponentially. When needed, The first several entries were stripped, showing it works as 
-// advertised. Tested via web, getting and splitting log into array and displaying all log
-// entries.
-
-// Autosave. Tested autosave with initial settings. Worked as advertised. Next tried auto
-// save on changing the temperature and humdity relays. Worked as advertised, both saved
-// and loaded as expected. 
-
-// Time calibrations work as expected.
+// mode prevents certain socket commands. CODE COMPLETE FOR NOW. When html
+// is done, split into css, or however things need to be splitted into chunks,
+// and served together using snprintf. Ideally this will make it possible to 
+// render pages with certain features.
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
-// Change in config.cpp, devmode = false for production.
-// On the STAOTA handler, change skip certs to false, and remove header for NGROK. The current
-// settings apply to NGROK testing only. Do the same for OTAupdates.cpp. On Mutex.cpp, delete
-// the print statements from lock and unlock once all testing is done with peripherals and
-// everything, this is to ensure they work.
+
 
 // PERSISTING NOTES:
 // Singleton classes have a static mutex which is located in the get() methods

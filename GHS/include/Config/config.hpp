@@ -77,6 +77,9 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 // Autosave frequency in seconds, once per n seconds.
 #define AUTO_SAVE_FRQ 60
 
+// Temp/hum and light trend hours
+#define TREND_HOURS 12 // Takes 12 hours on the hour of trend data.
+
 // GPIO configuration.
 namespace CONF_PINS {
     #define AnalogPinQty 5

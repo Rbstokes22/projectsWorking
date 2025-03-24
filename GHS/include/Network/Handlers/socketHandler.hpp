@@ -14,6 +14,7 @@ namespace Comms {
 
 #define SKT_BUF_SIZE 2000 // Large to accomodate the get all call
 #define SKT_MAX_RESP_ARGS 5 // Max response arguments
+#define SKT_REPLY_SIZE 128 // Basic replies
 
 // All commands sent by the client. Starts at index 1. When client passes
 // numerical command, it corresponds to this enum, and will execute 
@@ -37,7 +38,7 @@ enum class CMDS : uint8_t {
     SET_SOIL4_LWR_THAN, SET_SOIL4_GTR_THAN, SET_SOIL4_COND_NONE,
     ATTACH_LIGHT_RELAY, SET_LIGHT_RE_LWR_THAN, SET_LIGHT_RE_GTR_THAN,
     SET_LIGHT_RE_COND_NONE, SET_DARK_VALUE, CLEAR_LIGHT_AVG,
-    SEND_REPORT_SET_TIME, SAVE_AND_RESTART
+    SEND_REPORT_SET_TIME, SAVE_AND_RESTART, GET_TRENDS
 };
 
 struct cmdData { // Command Data
@@ -86,6 +87,9 @@ class SOCKHAND : public MASTERHAND {
         const char* reply, const char* idNum);
     
     static bool initCheck(httpd_req_t* req);
+    static void THtrend(float* arr, char* buf, size_t bufSize, int iter); 
+    static void lightTrend(uint16_t* arr, char* buf, size_t bufSize, 
+        int iter);
     
     public:
     static bool init(Peripheral::Relay* relays);

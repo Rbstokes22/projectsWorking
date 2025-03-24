@@ -17,15 +17,14 @@ Threads::Mutex Light::mtx(LIGHT_FLAG_TAG); // Def of static var
 
 Light::Light(LightParams &params) : 
     
-    flags("(Lightflag)"), readings{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    averages{
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0, 0, 0},
-
+    flags("(Lightflag)"), 
     conf{0, LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 
         LIGHT_NO_RELAY, 0, 0, 0},
 
     lightDuration(0), photoVal(0), params(params) {
+        memset(&this->readings, 0, sizeof(this->readings));
+        memset(&this->averages, 0, sizeof(this->averages));
+        memset(&this->trends, 0, sizeof(this->trends));
 
         snprintf(Light::log, sizeof(Light::log), "%s Ob created", Light::tag);
         Light::sendErr(Light::log, Messaging::Levels::INFO);
@@ -72,6 +71,59 @@ void Light::computeAverages(bool isSpec) {
         float delta = readings[i] - *averages[i];
 
         *averages[i] += (delta / this->averages.pollCtClr);
+    }
+}
+
+// Requires no params. Gets the current hour. When the hour switches, hours
+// 0 to n - 1 will be captured and moved to position 1 to n, position 0 will
+// have the new value written into it after the move. 
+void Light::computeTrends() {
+
+    // Get current hour. Set static last hour equal to. This should init at
+    // 0, 0.
+    uint8_t hour = Clock::DateTime::get()->getTime()->hour;
+    static uint8_t lastHour = hour; 
+
+    static bool firstCal = false; // Used to handle init calibration.
+
+    if (!firstCal) { // Once calibrated, zeros out trends for accuracy.
+        if (Clock::DateTime::get()->isCalibrated()) {
+            firstCal = true; // Block from running again.
+            memset(&this->trends, 0, sizeof(this->trends)); // Clear all.
+        }
+    }
+
+    if (hour != lastHour) { // Change detected.
+
+        // Set size the size of the memmoves, these will be standard. Used nir
+        // to fit on one line only.
+        size_t size = sizeof(this->trends.nir) - sizeof(this->trends.nir[0]);
+
+        // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.
+        memmove(&this->trends.clear[1], this->trends.clear, size);
+        memmove(&this->trends.violet[1], this->trends.violet, size);
+        memmove(&this->trends.indigo[1], this->trends.indigo, size);
+        memmove(&this->trends.blue[1], this->trends.blue, size);
+        memmove(&this->trends.cyan[1], this->trends.cyan, size);
+        memmove(&this->trends.green[1], this->trends.green, size);
+        memmove(&this->trends.yellow[1], this->trends.yellow, size);
+        memmove(&this->trends.orange[1], this->trends.orange, size);
+        memmove(&this->trends.red[1], this->trends.red, size);
+        memmove(&this->trends.nir[1], this->trends.nir, size);
+
+        // Copys the new values to each index 0.
+        this->trends.clear[0] = this->readings.Clear;
+        this->trends.violet[0] = this->readings.F1_415nm_Violet;
+        this->trends.indigo[0] = this->readings.F2_445nm_Indigo;
+        this->trends.blue[0] = this->readings.F3_480nm_Blue;
+        this->trends.cyan[0] = this->readings.F4_515nm_Cyan;
+        this->trends.green[0] = this->readings.F5_555nm_Green;
+        this->trends.yellow[0] = this->readings.F6_590nm_Yellow;
+        this->trends.orange[0] = this->readings.F7_630nm_Orange;
+        this->trends.red[0] = this->readings.F8_680nm_Red;
+        this->trends.nir[0] = this->readings.NIR;
+
+        lastHour = hour; // Update time for next change.
     }
 }
 
@@ -211,6 +263,7 @@ bool Light::readSpectrum() {
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR);
         this->computeAverages(true); // Compute avg upon success.
+        this->computeTrends();
         errCt = 0; // resets count.
 
         if (!logOnce) { // Log for first trip only, can only be set with err.
@@ -399,6 +452,9 @@ RelayConfigLight* Light::getConf() {return &this->conf;}
 
 // Returns a pointer to the spectral, and photoresistor averages.
 Light_Averages* Light::getAverages() {return &this->averages;}
+
+// Returns a pointer to the trends.
+Light_Trends* Light::getTrends() {return &this->trends;}
 
 // Requires no parameters. Clears the current data after moving current values
 // over to previous values.

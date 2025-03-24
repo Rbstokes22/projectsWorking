@@ -8,6 +8,7 @@
 #include "Network/NetCreds.hpp"
 #include "Common/FlagReg.hpp"
 #include "string.h"
+#include "Common/Timing.hpp"
 
 namespace Peripheral {
 
@@ -18,8 +19,7 @@ Threads::Mutex TempHum::mtx(TEMP_HUM_TAG); // define static mutex instance
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
-    data{0.0f, 0.0f, 0.0f, true}, averages{0, 0.0f, 0.0f, 0.0f, 0.0f}, 
-    flags(TEMP_HUM_FLAG_TAG), 
+    data{0.0f, 0.0f, 0.0f, true}, flags(TEMP_HUM_FLAG_TAG), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
@@ -27,6 +27,9 @@ TempHum::TempHum(TempHumParams &params) :
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
     params(params) {
+
+        memset(&this->averages, 0, sizeof(this->averages));
+        memset(&this->trends, 0.0f, sizeof(this->trends));
 
         snprintf(TempHum::log, sizeof(TempHum::log), "%s Ob Created", 
             TempHum::tag);
@@ -264,6 +267,44 @@ void TempHum::computeAvgs() {
     this->averages.hum += (deltaH / this->averages.pollCt);
 }
 
+// Requires no params. Gets the current hour. When the hour switches, hours
+// 0 to n - 1 will be captured and moved to position 1 to n, position 0 will
+// have the new value written into it after the move. 
+void TempHum::computeTrends() {
+
+    // Get current hour. Set static last hour equal to. This should init at
+    // 0, 0.
+    uint8_t hour = Clock::DateTime::get()->getTime()->hour;
+    static uint8_t lastHour = hour; 
+
+    static bool firstCal = false; // Used to handle init calibration.
+
+    if (!firstCal) { // Once calibrated, zeros out trends for accuracy.
+        if (Clock::DateTime::get()->isCalibrated()) {
+            firstCal = true; // Block from running again.
+            memset(&this->trends, 0, sizeof(this->trends)); // Clear all.
+        }
+    }
+
+    if (hour != lastHour) { // Change detected.
+
+        // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.
+        memmove(&this->trends.temp[1], this->trends.temp, 
+            sizeof(this->trends.temp) - sizeof(this->trends.temp[0]));
+
+        this->trends.temp[0] = this->data.tempC; // Insert current reading.
+
+        // Same as above.
+        memmove(&this->trends.hum[1], this->trends.hum, 
+            sizeof(this->trends.hum) - sizeof(this->trends.hum[0]));
+
+        this->trends.hum[0] = this->data.hum; // same.
+
+        lastHour = hour; // Update time for next change.
+    }
+}
+
+
 // Requires messand and messaging level. Level default to ERROR.
 void TempHum::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, TEMP_HUM_LOG_METHOD);
@@ -308,13 +349,14 @@ bool TempHum::read() {
     read = this->params.sht.readAll(SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, 
         this->data);
 
-    // upon success, updates averages and changes both flags to true.
+    // upon success, updates averages/trends and changes both flags to true.
     // If unsuccessful, will change the noErr flag to false indicating an
     // immediate error, which means the data is garbage. Upon a pre-set 
     // consecutive error read, display flag is set to false allowing the 
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
         this->computeAvgs();
+        this->computeTrends();
         this->flags.setFlag(THFLAGS::NO_ERR_DISP);
         this->flags.setFlag(THFLAGS::NO_ERR);
         errCt = 0; // resets count.
@@ -404,6 +446,11 @@ Flag::FlagReg* TempHum::getFlags() {
 // Returns current, and previous averages structure for modification or viewing.
 TH_Averages* TempHum::getAverages() { 
     return &this->averages;
+}
+
+// Requires no params. Returns the current temp/hum trend struct.
+TH_Trends* TempHum::getTrends() {
+    return &this->trends;
 }
 
 // Clears the current data after copying it over to the previous values.

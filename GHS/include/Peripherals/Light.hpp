@@ -8,6 +8,7 @@
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Common/FlagReg.hpp"
+#include "Config/config.hpp"
 
 namespace Peripheral {
 
@@ -58,6 +59,19 @@ struct Color_Averages {
     yellow, orange, red, nir;
 };
 
+struct Light_Trends { // Prevous n hours of light values, on the hour.
+    uint16_t clear[TREND_HOURS];
+    uint16_t violet[TREND_HOURS];
+    uint16_t indigo[TREND_HOURS];
+    uint16_t blue[TREND_HOURS];
+    uint16_t cyan[TREND_HOURS];
+    uint16_t green[TREND_HOURS];
+    uint16_t yellow[TREND_HOURS];
+    uint16_t orange[TREND_HOURS];
+    uint16_t red[TREND_HOURS];
+    uint16_t nir[TREND_HOURS];
+};
+
 struct Light_Averages {
     Color_Averages color; // Current color count averages.
     Color_Averages prevColor; // Previous color count averages.
@@ -73,6 +87,7 @@ class Light {
     static char log[LOG_MAX_ENTRY]; // Static req to use in get().
     Flag::FlagReg flags;
     AS7341_DRVR::COLOR readings;
+    Light_Trends trends;
     Light_Averages averages; 
     RelayConfigLight conf;
     uint32_t lightDuration;
@@ -83,6 +98,7 @@ class Light {
     Light(const Light&) = delete; // prevent copying
     Light &operator=(const Light&) = delete; // prevent assignment
     void computeAverages(bool isSpec);
+    void computeTrends();
     void computeLightTime(size_t ct, bool isLight);
     void handleRelay(bool relayOn, size_t ct);
     static void sendErr(const char* msg, Messaging::Levels lvl = 
@@ -98,6 +114,7 @@ class Light {
     bool checkBounds();
     RelayConfigLight* getConf();
     Light_Averages* getAverages();
+    Light_Trends* getTrends();
     void clearAverages();
     uint32_t getDuration();
 };

@@ -8,6 +8,7 @@
 #include "Threads/Mutex.hpp"
 #include "Common/FlagReg.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Config/config.hpp"
 
 namespace Peripheral {
 
@@ -61,6 +62,11 @@ struct TH_Averages {
     float prevHum; // Previous values copied when cleared.
 };
 
+struct TH_Trends {
+    float temp[TREND_HOURS];
+    float hum[TREND_HOURS];
+};
+
 // temperature and humidity parameters required for init.
 struct TempHumParams {
     SHT_DRVR::SHT &sht;
@@ -77,6 +83,7 @@ class TempHum {
     static char log[LOG_MAX_ENTRY];
     SHT_DRVR::SHT_VALS data;
     TH_Averages averages;
+    TH_Trends trends;
     Flag::FlagReg flags;
     static Threads::Mutex mtx;
     TH_TRIP_CONFIG humConf;
@@ -90,6 +97,7 @@ class TempHum {
     void relayBounds(float value, relayConfigTH &conf, bool isTemp);
     void alertBounds(float value, alertConfigTH &conf, bool isTemp);
     void computeAvgs();
+    void computeTrends();
     static void sendErr(const char* msg, Messaging::Levels lvl = 
         Messaging::Levels::ERROR);
 
@@ -103,6 +111,7 @@ class TempHum {
     bool checkBounds();
     Flag::FlagReg* getFlags();
     TH_Averages* getAverages();
+    TH_Trends* getTrends();
     void clearAverages();
     // void test(bool isTemp, float val); // Uncomment out when testing.
 };
