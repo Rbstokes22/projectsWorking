@@ -23,9 +23,10 @@ namespace Peripheral {
 #define TEMP_HUM_FLAG_TAG "(THFlag)"
 
 // Alert configuration. All variables serve as a packet of data assigned to
-// each sensor to allow proper handling and sending to the server.
+// each sensor to allow proper handling and sending to the server. For the
+// temperature specific, the value will represent a float * 100.
 struct alertConfigTH {
-    int tripVal; // Sends alert
+    int tripVal; // Sends alert. 
     ALTCOND condition; // Alert condition.
     ALTCOND prevCondition; // Alert previous condition.
     size_t onCt; // Consecutive on counts to send alert.
@@ -35,9 +36,10 @@ struct alertConfigTH {
 };
 
 // Relay configuration. All variables server as a packet of data assigned to
-// each sensor to allow proper handling of relays.
+// each sensor to allow proper handling of relays. For the temperature 
+// specific, the value will represent a flaot * 100.
 struct relayConfigTH {
-    int tripVal; // Turns relay on.
+    int tripVal; // Turns relay on. 
     RECOND condition; // Relay condition.
     RECOND prevCondition; // Relays previous condition.
     Relay* relay; // Relay attached to device.

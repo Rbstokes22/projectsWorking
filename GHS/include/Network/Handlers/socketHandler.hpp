@@ -15,6 +15,7 @@ namespace Comms {
 #define SKT_BUF_SIZE 2000 // Large to accomodate the get all call
 #define SKT_MAX_RESP_ARGS 5 // Max response arguments
 #define SKT_REPLY_SIZE 128 // Basic replies
+#define SKT_RANGE_EXC -999 // Default range value for exceptions.
 
 // All commands sent by the client. Starts at index 1. When client passes
 // numerical command, it corresponds to this enum, and will execute 
@@ -82,7 +83,8 @@ class SOCKHAND : public MASTERHAND {
 
     static void ws_async_send(void* arg);
     static void compileData(cmdData &data, char* buffer, size_t size);
-    static bool inRange(int lower, int upper, int value, int exception = -999);
+    static bool inRange(int lower, int upper, int value, 
+        int exception = SKT_RANGE_EXC, int multiplier = 1);
     static bool checkSTA(int &written, char* buffer, size_t size, 
         const char* reply, const char* idNum);
     

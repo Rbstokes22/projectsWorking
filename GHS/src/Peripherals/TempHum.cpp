@@ -143,14 +143,19 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
     }
 }
 
-// Requires the value and relay configuration that lists the trip value and 
-// the relay condition, being less than, gtr than, or none. Once the value
-// exceeds the bound, it is handled appropriately to energize or de-energize
-// the attached relay. Hysteresis is applied to avoid oscillations around the
-// trip value.
+// Requires the value, relay config that lists the trip value and relay 
+// condition being LT, GT, or NONE, and if it is a temp. If it is a temp, this
+// indicates a float that is multiplied by 100 in int form (10.2 = 10200). 
+// This allows the client to have precision over the precise temperature rather
+// than steps of celcius degrees. Once the value exceeds the bound, it is
+// handled appropriately to energize or de-energize the attached relay. 
+// Hysteresis is applied to dampen the osciallations around the trip val.
 void TempHum::relayBounds(float value, relayConfigTH &conf, bool isTemp) {
 
     float tripVal = static_cast<float>(conf.tripVal);
+
+    if (isTemp) tripVal /= 100.0f; // div by 100 if a temp.
+
     float lowerBound = tripVal - TEMP_HUM_HYSTERESIS; 
     float upperBound = tripVal + TEMP_HUM_HYSTERESIS;
 
@@ -197,16 +202,21 @@ void TempHum::relayBounds(float value, relayConfigTH &conf, bool isTemp) {
     }
 }
 
-// Requires the value and alert configuration that lists the trip value and 
-// the alert condition, being less than, gtr than, or none. Once the value
-// exceeds the bound, it is handled appropriately to send an alert to the
-// server, or reset the toggle once the value is within prescribed bounds.
-// Hysteresis is applied to avoid oscillations around the trip value.
+// Requires the value, alert config that lists the trip value and alert 
+// condition being LT, GT, or NONE, and if it is a temp. If it is a temp, this
+// indicates a float that is multiplied by 100 in int form (10.2 = 10200). 
+// This allows the client to have precision over the precise temperature rather
+// than steps of celcius degrees. Once the value exceeds the bound, it is
+// handled appropriately to energize or de-energize the attached relay. 
+// Hysteresis is applied to dampen the osciallations around the trip val.
 void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
 
-    float tripVal = static_cast<float>(conf.tripVal); 
-    float lowerBound = tripVal - TEMP_HUM_HYSTERESIS;
-    float upperBound = tripVal + TEMP_HUM_HYSTERESIS;
+    float tripVal = static_cast<float>(conf.tripVal);
+
+    if (isTemp) tripVal /= 100.0f; // div by 100 if a temp.
+
+    float lowerBound = conf.tripVal - TEMP_HUM_HYSTERESIS;
+    float upperBound = conf.tripVal + TEMP_HUM_HYSTERESIS;
 
     // Checks to see if the alert conditions have changed. If true,
     // resets the counts and changes the previous condition to current

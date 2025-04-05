@@ -1,10 +1,6 @@
 // CURRENT NOTES: 
 
-// Building a 6 hour capture for temp, hum, and light. Almost done with TH.
-// Just need to implement the read functions. Build light to mirror temp hum
-// then finish the socket command handler. Test quickly, maybe use trend capture
-// if the minute has changed, and if that works, awesome. Once done, go back
-// to client.
+// On client.
 
 // TESTING: Test everything once client page is up an running. Ensure that WAP
 // mode prevents certain socket commands. CODE COMPLETE FOR NOW. When html
@@ -14,6 +10,11 @@
 
 // PRE-production notes:
 // Create a datasheet for socket handling codes.
+// On relays 2 & 3, use a not outlet as well mostly for light, This way it can
+// cover things when off. For example, once it is light, the lights shut off,
+// and a pump starts running to heat up a barrel of water. Once the light is low,
+// the pump kicks off, and the inside lights come one. Also put a 15 amp relay
+// maybe on relay 4 to allow 1500 watts.
 
 
 // PERSISTING NOTES:
@@ -24,6 +25,8 @@
 // Polling in the averages for the SHT and AS7341 is a size_t variable. This
 // leaves 136 years of polling, No polling should be quicker than 1 poll per
 // second.
+
+
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

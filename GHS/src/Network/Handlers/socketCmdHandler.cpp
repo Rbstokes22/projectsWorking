@@ -19,10 +19,17 @@
 // NOTE. Some of these functionalities are for station mode only. These commands
 // have a built in check to ensure requirements are met.
 
+// ATTENTION: Temperatures will all be passed in C * 100. This is to account
+// for precision without passing float values via socket commands. A temperature
+// of 10.2 will be passed as 10200 from the client, and stored as such thru
+// the program, When being used, it will be divided by 100 to achieve the 
+// correct float value.
+
 namespace Comms {
 
 // Requires command data, buffer, and buffer size. Executes the command passed,
-// and compiles response into json and replies.
+// and compiles response into json and replies. Temperature will be passed as
+// an int which is a float * 100 (10.2 is 10200).
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{-1}; // Ensures the snprintf is working by checking write size.
     bool writeLog = true; // Set to false by functions not meant to log.
@@ -67,23 +74,23 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"tempAltCond\":%u,\"tempAltVal\":%d,"
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
         "\"humAltCond\":%u,\"humAltVal\":%d,"
-        "\"SHTUp\":%d,\"tempAvg\":%0.2f,\"humAvg\":%0.2f,"
-        "\"tempAvgPrev\":%0.2f,\"humAvgPrev\":%0.2f,"
-        "\"soil1\":%d,\"soil1Cond\":%u,\"soil1AltVal\":%d,\"soil1Up\":%d,"
-        "\"soil2\":%d,\"soil2Cond\":%u,\"soil2AltVal\":%d,\"soil2Up\":%d,"
-        "\"soil3\":%d,\"soil3Cond\":%u,\"soil3AltVal\":%d,\"soil3Up\":%d,"
-        "\"soil4\":%d,\"soil4Cond\":%u,\"soil4AltVal\":%d,\"soil4Up\":%d,"
+        "\"SHTUp\":%d,\"tempAvg\":%0.1f,\"humAvg\":%0.1f,"
+        "\"tempAvgPrev\":%0.1f,\"humAvgPrev\":%0.1f,"
+        "\"soil1\":%d,\"soil1AltCond\":%u,\"soil1AltVal\":%d,\"soil1Up\":%d,"
+        "\"soil2\":%d,\"soil2AltCond\":%u,\"soil2AltVal\":%d,\"soil2Up\":%d,"
+        "\"soil3\":%d,\"soil3AltCond\":%u,\"soil3AltVal\":%d,\"soil3Up\":%d,"
+        "\"soil4\":%d,\"soil4AltCond\":%u,\"soil4AltVal\":%d,\"soil4Up\":%d,"
         "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,\"green\":%u,"
         "\"yellow\":%u,\"orange\":%u,\"red\":%u,\"nir\":%u,\"clear\":%u,"
         "\"photo\":%d,"
-        "\"violetAvg\":%0.2f,\"indigoAvg\":%0.2f,\"blueAvg\":%0.2f,"
-        "\"cyanAvg\":%0.2f,\"greenAvg\":%0.2f,\"yellowAvg\":%0.2f,"
-        "\"orangeAvg\":%0.2f,\"redAvg\":%0.2f,\"nirAvg\":%0.2f,"
-        "\"clearAvg\":%0.2f,\"photoAvg\":%0.2f,"
-        "\"violetAvgPrev\":%0.2f,\"indigoAvgPrev\":%0.2f,\"blueAvgPrev\":%0.2f,"
-        "\"cyanAvgPrev\":%0.2f,\"greenAvgPrev\":%0.2f,\"yellowAvgPrev\":%0.2f,"
-        "\"orangeAvgPrev\":%0.2f,\"redAvgPrev\":%0.2f,\"nirAvgPrev\":%0.2f,"
-        "\"clearAvgPrev\":%0.2f,\"photoAvgPrev\":%0.2f,"
+        "\"violetAvg\":%0.1f,\"indigoAvg\":%0.1f,\"blueAvg\":%0.1f,"
+        "\"cyanAvg\":%0.1f,\"greenAvg\":%0.1f,\"yellowAvg\":%0.1f,"
+        "\"orangeAvg\":%0.1f,\"redAvg\":%0.1f,\"nirAvg\":%0.1f,"
+        "\"clearAvg\":%0.1f,\"photoAvg\":%0.1f,"
+        "\"violetAvgPrev\":%0.1f,\"indigoAvgPrev\":%0.1f,\"blueAvgPrev\":%0.1f,"
+        "\"cyanAvgPrev\":%0.1f,\"greenAvgPrev\":%0.1f,\"yellowAvgPrev\":%0.1f,"
+        "\"orangeAvgPrev\":%0.1f,\"redAvgPrev\":%0.1f,\"nirAvgPrev\":%0.1f,"
+        "\"clearAvgPrev\":%0.1f,\"photoAvgPrev\":%0.1f,"
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
         "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,\"darkVal\":%u,"
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
@@ -417,9 +424,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Sets temperature relay to turn on if lower than that supp data 
         // passed. Supp data will be in celcius to function correctly. If 20
         // is passed, then relay will turn on when the temperature is lower 
-        // than 20. 
+        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
         case CMDS::SET_TEMP_RE_LWR_THAN: 
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) { // SHT limits in C
+        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, -999, 100)) { 
             written = snprintf(buffer, size, reply, 0, "Temp RE RangeErr", 0, 
                 data.idNum);
         } else {
@@ -438,9 +445,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Sets temperature relay to turn on if greater than that supp data 
         // passed. Supp data will be in celcius to function correctly. If 20
         // is passed, then relay will turn on when the temperature is greater 
-        // than 20. 
+        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
         case CMDS::SET_TEMP_RE_GTR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) { // SHT limits in C
+        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, -999, 100)) { 
             written = snprintf(buffer, size, reply, 0, "Temp Re RangeErr", 0, 
                 data.idNum);
         } else {
@@ -480,16 +487,20 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Sets temperature alert to send if lower than that supp data 
         // passed. Supp data will be in celcius to function correctly. If 20
         // is passed, then alert will send when the temperature is lower 
-        // than 20. 
+        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
         case CMDS::SET_TEMP_ALT_LWR_THAN:
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
 
-        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
+        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, 
+            SKT_RANGE_EXC, 100)) { // multiplier of 100, SKT_RANGE is PH only.
+
             written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
                 data.idNum);
+
         } else {
+
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getTempConf();
 
@@ -504,15 +515,18 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Sets temperature alert to send if greater than that supp data 
         // passed. Supp data will be in celcius to function correctly. If 20
         // is passed, then alert will send when the temperature is greater 
-        // than 20. 
+        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
         case CMDS::SET_TEMP_ALT_GTR_THAN:
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
 
-        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData)) {
+        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, 
+            SKT_RANGE_EXC, 100)) { // multiplier of 100
+
             written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
                 data.idNum);
+
         } else {
             Peripheral::TH_TRIP_CONFIG* conf = 
                 Peripheral::TempHum::get()->getTempConf();
@@ -1155,14 +1169,21 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     } 
 }
 
-// Requires the lower and upper bounds, the value, and the exception value.
-// The exception value is if a value is out of range, but equals the exception,
-// it continues. An example is if you have the seconds of the day for a timer,
-// it can look like inRange(0, 86399, 4252, 99999), which will determine if 
-// 4252 is between 0 and 86399, or if it equals 99999. The default exception
-// is set to -999. Returns true if good, or false if not.
-bool SOCKHAND::inRange(int lower, int upper, int value, int exception) {
-        return ((value >= lower && value <= upper) || (value == exception));
+// Requires the lower and upper bounds, the value, the exception value, and the
+// multiplier. The exception value is if a value is out of range, but equals 
+// the exception, it will return true. Such as a relay time in second setting 
+// can only be between 0 and 86400, but 99999 is the signal to shut it off. The
+// default is set to -999. The multiplier is default to 1. This is used for 
+// temp, since float values are required, the value will be multiplied by
+// 100, such as 10.2C will be passed as 10200, so the normal range of -39 to 
+// 124 will be multiplied by 100 to account for that precision. Returns true
+// if within range, and false if not.
+bool SOCKHAND::inRange(int lower, int upper, int value, int exception, 
+    int multiplier) {
+
+        return ((value >= (lower * multiplier)) && 
+               (value <= (upper * multiplier))) ||
+               (value == exception);
 }
 
 // Requires the written int ref, buffer, buffer size, reply char array, and
@@ -1199,9 +1220,9 @@ void SOCKHAND::THtrend(float *arr, char* buf, size_t bufSize, int iter) {
 
     for (int i = 0; i < iter; i++) {
         if (i == (iter - 1)) { // Changes last index to remove comma.
-            snprintf(miniBuf, sizeof(miniBuf), "%0.2f", arr[i]);
+            snprintf(miniBuf, sizeof(miniBuf), "%0.1f", arr[i]);
         } else {
-            snprintf(miniBuf, sizeof(miniBuf), "%0.2f, ", arr[i]);
+            snprintf(miniBuf, sizeof(miniBuf), "%0.1f, ", arr[i]);
         }
 
         size_t remaining = bufSize - strlen(buf) - 1; // Null term.
