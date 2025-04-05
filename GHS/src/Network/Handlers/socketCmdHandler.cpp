@@ -702,7 +702,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // might have unique readings that the client will be able to adjust
         // to. If 2000 is passed, an alert will send when the soil reading is
         // below 2000. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_LWR_THAN: 
+        case CMDS::SET_SOIL1_ALT_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -729,7 +729,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // might have unique readings that the client will be able to adjust
         // to. If 2000 is passed, an alert will send when the soil reading is
         // above 2000. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_GTR_THAN: 
+        case CMDS::SET_SOIL1_ALT_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -752,7 +752,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // Removes the greater/lower than condition and resets the trip value
         // alert to 0, and disables alerts. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_COND_NONE: {
+        case CMDS::SET_SOIL1_ALT_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
 
@@ -769,7 +769,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL2_LWR_THAN: 
+        case CMDS::SET_SOIL2_ALT_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -791,7 +791,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL2_GTR_THAN: 
+        case CMDS::SET_SOIL2_ALT_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -813,7 +813,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL2_COND_NONE: {
+        case CMDS::SET_SOIL2_ALT_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
 
@@ -829,7 +829,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL3_LWR_THAN: 
+        case CMDS::SET_SOIL3_ALT_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -851,7 +851,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL3_GTR_THAN: 
+        case CMDS::SET_SOIL3_ALT_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -873,7 +873,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL3_COND_NONE: {
+        case CMDS::SET_SOIL3_ALT_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
 
@@ -889,7 +889,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL4_LWR_THAN: 
+        case CMDS::SET_SOIL4_ALT_LWR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -911,7 +911,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL4_GTR_THAN: 
+        case CMDS::SET_SOIL4_ALT_GTR_THAN: 
 
         // Prevents WAP mode from running station only features.
         if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
@@ -933,7 +933,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
 
         // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL4_COND_NONE: {
+        case CMDS::SET_SOIL4_ALT_COND_NONE: {
 
         // STATION CHECK NOT NEEDED.
 
