@@ -145,7 +145,7 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
 
 // Requires the value, relay config that lists the trip value and relay 
 // condition being LT, GT, or NONE, and if it is a temp. If it is a temp, this
-// indicates a float that is multiplied by 100 in int form (10.2 = 10200). 
+// indicates a float that is multiplied by 100 in int form (10.2 = 1020). 
 // This allows the client to have precision over the precise temperature rather
 // than steps of celcius degrees. Once the value exceeds the bound, it is
 // handled appropriately to energize or de-energize the attached relay. 
@@ -204,7 +204,7 @@ void TempHum::relayBounds(float value, relayConfigTH &conf, bool isTemp) {
 
 // Requires the value, alert config that lists the trip value and alert 
 // condition being LT, GT, or NONE, and if it is a temp. If it is a temp, this
-// indicates a float that is multiplied by 100 in int form (10.2 = 10200). 
+// indicates a float that is multiplied by 100 in int form (10.2 = 1020). 
 // This allows the client to have precision over the precise temperature rather
 // than steps of celcius degrees. Once the value exceeds the bound, it is
 // handled appropriately to energize or de-energize the attached relay. 

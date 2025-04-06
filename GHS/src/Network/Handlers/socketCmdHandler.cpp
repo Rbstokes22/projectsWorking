@@ -21,7 +21,7 @@
 
 // ATTENTION: Temperatures will all be passed in C * 100. This is to account
 // for precision without passing float values via socket commands. A temperature
-// of 10.2 will be passed as 10200 from the client, and stored as such thru
+// of 10.2 will be passed as 1020 from the client, and stored as such thru
 // the program, When being used, it will be divided by 100 to achieve the 
 // correct float value.
 
@@ -29,7 +29,7 @@ namespace Comms {
 
 // Requires command data, buffer, and buffer size. Executes the command passed,
 // and compiles response into json and replies. Temperature will be passed as
-// an int which is a float * 100 (10.2 is 10200).
+// an int which is a float * 100 (10.2 is 1020).
 void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     int written{-1}; // Ensures the snprintf is working by checking write size.
     bool writeLog = true; // Set to false by functions not meant to log.
@@ -1175,7 +1175,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 // can only be between 0 and 86400, but 99999 is the signal to shut it off. The
 // default is set to -999. The multiplier is default to 1. This is used for 
 // temp, since float values are required, the value will be multiplied by
-// 100, such as 10.2C will be passed as 10200, so the normal range of -39 to 
+// 100, such as 10.2C will be passed as 1020, so the normal range of -39 to 
 // 124 will be multiplied by 100 to account for that precision. Returns true
 // if within range, and false if not.
 bool SOCKHAND::inRange(int lower, int upper, int value, int exception, 
