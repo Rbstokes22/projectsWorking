@@ -157,7 +157,7 @@ void AS7341basic::sendErr(const char* msg, Messaging::Levels lvl,
 
 AS7341basic::AS7341basic(CONFIG &conf) : 
 
-    tag("(AS7341)"), conf(conf), isInit(false) {
+    tag("(AS7341)"), conf(conf), isInit(false), specEn(false) {
 
         snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
         this->sendErr(this->log, Messaging::Levels::INFO, true);
@@ -181,8 +181,11 @@ bool AS7341basic::init(uint8_t address) {
     actualVal += this->power(PWR::OFF); // Clear register before config
     actualVal += this->power(PWR::ON); // Powers on device.
     vTaskDelay(pdMS_TO_TICKS(10)); // Delay of > 200 micros req by datasheet.
-    actualVal += this->configATIME(this->conf.ATIME);
-    actualVal += this->configASTEP(this->conf.ASTEP);
+
+    // ATIME and ASTEP were private conf functions, To allow them to be set,
+    // changed them over to public and from confAXXXX to setAXXXX.
+    actualVal += this->setATIME(this->conf.ATIME); 
+    actualVal += this->setASTEP(this->conf.ASTEP);
     actualVal += this->configWTIME(this->conf.WTIME);
 
     // Write SMUX configuration from RAM to SMUX chain.

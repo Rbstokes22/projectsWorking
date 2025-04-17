@@ -26,6 +26,18 @@ Light::Light(LightParams &params) :
         memset(&this->averages, 0, sizeof(this->averages));
         memset(&this->trends, 0, sizeof(this->trends));
 
+        // Set the AGAIN, ASTEP, and ATIME configuration variables by reading
+        // the current values witten to the AS7341.
+        bool dataSafe = false;
+        uint16_t data = this->params.as7341.getAGAIN_RAW(dataSafe);
+        this->specConf.AGAIN = dataSafe ? static_cast<AS7341_DRVR::AGAIN>(data) 
+            : AS7341_DRVR::AGAIN::X256;
+
+        data = this->params.as7341.getASTEP_RAW(dataSafe);
+        this->specConf.ASTEP = dataSafe ? data : AS7341_ASTEP;
+        data = this->params.as7341.getATIME_RAW(dataSafe);
+        this->specConf.ATIME = dataSafe ? data : AS7341_ATIME;
+
         snprintf(Light::log, sizeof(Light::log), "%s Ob created", Light::tag);
         Light::sendErr(Light::log, Messaging::Levels::INFO);
     }
@@ -96,32 +108,31 @@ void Light::computeTrends() {
     if (hour != lastHour) { // Change detected.
 
         // Set size the size of the memmoves, these will be standard. Used nir
-        // to fit on one line only.
+        // to fit on one line only, but they are all 16 bit values.
         size_t size = sizeof(this->trends.nir) - sizeof(this->trends.nir[0]);
+        size_t clrTot = 11;
 
-        // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.
-        memmove(&this->trends.clear[1], this->trends.clear, size);
-        memmove(&this->trends.violet[1], this->trends.violet, size);
-        memmove(&this->trends.indigo[1], this->trends.indigo, size);
-        memmove(&this->trends.blue[1], this->trends.blue, size);
-        memmove(&this->trends.cyan[1], this->trends.cyan, size);
-        memmove(&this->trends.green[1], this->trends.green, size);
-        memmove(&this->trends.yellow[1], this->trends.yellow, size);
-        memmove(&this->trends.orange[1], this->trends.orange, size);
-        memmove(&this->trends.red[1], this->trends.red, size);
-        memmove(&this->trends.nir[1], this->trends.nir, size);
+        // Array of colors to be iterated over to populate trends at hour chg.
+        uint16_t* clrTrends[clrTot] = {this->trends.clear, this->trends.violet,
+            this->trends.indigo, this->trends.blue, this->trends.cyan,
+            this->trends.green, this->trends.yellow, this->trends.orange,
+            this->trends.red, this->trends.nir, this->trends.photo};
 
-        // Copys the new values to each index 0.
-        this->trends.clear[0] = this->readings.Clear;
-        this->trends.violet[0] = this->readings.F1_415nm_Violet;
-        this->trends.indigo[0] = this->readings.F2_445nm_Indigo;
-        this->trends.blue[0] = this->readings.F3_480nm_Blue;
-        this->trends.cyan[0] = this->readings.F4_515nm_Cyan;
-        this->trends.green[0] = this->readings.F5_555nm_Green;
-        this->trends.yellow[0] = this->readings.F6_590nm_Yellow;
-        this->trends.orange[0] = this->readings.F7_630nm_Orange;
-        this->trends.red[0] = this->readings.F8_680nm_Red;
-        this->trends.nir[0] = this->readings.NIR;
+        // Coresponding current values to the color trends above. Max for 
+        // photoval is 4095, no negative exp, uint16_t cast is harmless.
+        uint16_t readings[clrTot] = {this->readings.Clear, 
+            this->readings.F1_415nm_Violet, this->readings.F2_445nm_Indigo,
+            this->readings.F3_480nm_Blue, this->readings.F4_515nm_Cyan,
+            this->readings.F5_555nm_Green, this->readings.F6_590nm_Yellow,
+            this->readings.F7_630nm_Orange, this->readings.F8_680nm_Red,
+            this->readings.NIR, static_cast<uint16_t>(this->photoVal)};
+
+        // Iterate arrays. Move block from (idx 0 to n-1), to (idx 1 to n).
+        // Opens idx 0 which is populated by the current readings.
+        for (int i = 0; i < clrTot; i++) {
+            memmove(&clrTrends[i][1], &clrTrends[i], size);
+            clrTrends[i][0] = readings[i];
+        }
 
         lastHour = hour; // Update time for next change.
     }
@@ -188,24 +199,19 @@ void Light::computeLightTime(size_t ct, bool isLight) {
 // energize or de-energize depending on the settings.
 void Light::handleRelay(bool relayOn, size_t ct) {
 
+    // Run primary checks to ensure that the relay can be utilized. For
+    // special checks, include in the switch case.
+    if (this->conf.relay == nullptr || 
+        !this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
+        ct < LIGHT_CONSECUTIVE_CTS) return; // Block
+
     switch (relayOn) {
         case true: // Relay is set to turn on.
-        if (this->conf.relay == nullptr || 
-            !this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
-            ct < LIGHT_CONSECUTIVE_CTS || 
-            this->conf.condition == RECOND::NONE) {
-            return; // Return if gate parameters are not met. Block
-        }
-
+        if (this->conf.condition == RECOND::NONE) return; // Block
         this->conf.relay->on(this->conf.controlID); // Logging capture in func
         break;
 
         case false: // Relay is set to turn off.
-        if (!this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
-            ct < LIGHT_CONSECUTIVE_CTS) {
-            return; // Return if gate parameers are not met.
-        }
-
         this->conf.relay->off(this->conf.controlID);
         break;
     }
@@ -450,6 +456,9 @@ bool Light::checkBounds() { // Acts as a gate to ensure data integ.
 // returns a pointer to the light relay configuration for the photoresistor.
 RelayConfigLight* Light::getConf() {return &this->conf;}
 
+// Returns a pointer to the spectral configuration.
+Spec_Conf* Light::getSpecConf() {return &this->specConf;}
+
 // Returns a pointer to the spectral, and photoresistor averages.
 Light_Averages* Light::getAverages() {return &this->averages;}
 
@@ -494,5 +503,41 @@ void Light::clearAverages() {
 
 // Returns duration of light above the trip value.
 uint32_t Light::getDuration() {return this->lightDuration;}
+
+// Requires ATIME value. This is part of the integration method, with larger
+// values increasing the duration of light reading. Returns true if successful,
+// and false if not. Range 0 - 255. Sets class specConf variable if success.
+bool Light::setATIME(uint8_t val) {
+    if (this->params.as7341.setATIME(val)) {
+        this->specConf.ATIME = val;
+        return true;
+    }
+
+    return false;
+}
+
+// Requires ASTEP value. This is part of the integration method, with larger
+// values increasing the duration of light reading. Returns true if successful,
+// and false if not. Range 0 - 65534. Sets class specConf variable if success.
+bool Light::setASTEP(uint16_t val) {
+    if (this->params.as7341.setASTEP(val)) {
+        this->specConf.ASTEP = val;
+        return true;
+    }
+
+    return false;
+}
+
+// Requires AGAIN enum value. Converts to 0 to 10. Increases or decreases the
+// overall gain of the existing light reading. Returns true if successful,
+// and false if not. Sets class specConf variable if success.
+bool Light::setAGAIN(AS7341_DRVR::AGAIN val) {
+    if (this->params.as7341.setAGAIN(val)) {
+        this->specConf.AGAIN = val;
+        return true;
+    }
+
+    return false;
+}
 
 }

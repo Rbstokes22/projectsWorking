@@ -1,5 +1,21 @@
 // CURRENT NOTES: 
 
+// Soil complete. Needs socket testing. Once done, build timer and light,
+// which will conclude everything. 
+
+// Relay timer. <relay num><start Sec><dur Min> 
+//    RSSSSSSS SSSSSSSS SSDDDDDD DDDDDDDD. Max S = 131072, MaxD = 16384
+
+// Light. <re cond><val> RRRRVVVV VVVVVVVV Maxc R = 8, Max V = 4096
+
+// COMPLETE:
+// photoresistor trends.
+// AGAIN, ASTEP, and ATIME built in both driver and peripheral. 
+// Tested all Axxxx, works as advertised.
+// Tested Relay control, works as advertised.
+// Tested Attach Relays, works as advertised.
+// Tested SET_TEMPHUM, works as advertised.
+
 // On client.
 
 // TESTING: Test everything once client page is up an running. Ensure that WAP

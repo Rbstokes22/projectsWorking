@@ -45,8 +45,8 @@ extern char confLog[50]; // Reusable log for config src.
 extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 
 // AS7341 (default values by datasheet are 599, 29, 0)
-#define AS7341_ASTEP 599 
-#define AS7341_ATIME 29
+#define AS7341_ASTEP 599 // Range from 0 - 65534. Rec 599 per datasheet.
+#define AS7341_ATIME 29 // Range from 0 - 255. Rec 29 per datasheet.
 #define AS7341_WTIME 0
 
 // I2C Addresses

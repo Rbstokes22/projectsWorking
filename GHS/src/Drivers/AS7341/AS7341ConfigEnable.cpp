@@ -16,32 +16,6 @@ bool AS7341basic::power(PWR state, bool verbose) {
         verbose);
 }
 
-// Requires value and verbose bool. Sets integration time for spectral
-// measurements. Determines how long the sensory collects light before
-// taking the measurement. Returns true or false. (Recommend 29).
-bool AS7341basic::configATIME(uint8_t value, bool verbose) {
-    return this->validateWrite(REG::ATIME, value, verbose);
-}
-
-// Requires value and verbose bool. Used to configure step time for SMUX
-// operation. Controls the timeing of how long the sensor waits between
-// switiching between different photo dioded. Writes two 8-bit registers
-// equating to a 16-bit value. Retruns true of false. (Recommend 599).
-bool AS7341basic::configASTEP(uint16_t value, bool verbose) {
-    uint8_t total{0};
-
-    uint8_t ASTEPdata = 0x00 | (value & 0x00FF); // lower byte
-
-    if (value >= 65535) value = 65534; // 65535 is reserved
-
-    total += this->validateWrite(REG::ASTEP_LWR, ASTEPdata, verbose);
-
-    ASTEPdata = 0x00 | (this->conf.ASTEP >> 8); // upper byte
-
-    total += this->validateWrite(REG::ASTEP_UPR, ASTEPdata, verbose);
-    return (total == 2);
-}
-
 // Requires value and verbose bool. Handles time between measurements.
 // Returns true of false.
 bool AS7341basic::configWTIME(uint8_t value, bool verbose) {
@@ -171,8 +145,16 @@ bool AS7341basic::enableSpectrum(SPECTRUM state, bool verbose) {
     }
 
     if (dataSafe) {
-        return this->validateWrite(REG::ENABLE, enableREG, verbose);
+        bool write = this->validateWrite(REG::ENABLE, enableREG, verbose);
+
+        // If bit 1 is set, shows enabled, If not, shows disabled.
+        if (write) this->specEn = (enableREG >> 1) & 0b1; 
+
+        return write;
+
     } else {
+        snprintf(this->log, sizeof(this->log), "%s spec enable err", this->tag);
+        this->sendErr(this->log);
         return false;
     }
 }

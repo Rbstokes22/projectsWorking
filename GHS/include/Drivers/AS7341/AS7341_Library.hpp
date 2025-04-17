@@ -73,7 +73,7 @@ enum class LED_CONF : uint8_t {ENABLE, DISABLE};
 // ASTEP 0 - 65534. (Recommended 599)
 // ATIME 0 - 255. (Recommended 29)
 // WTIME 0 - 255. (Recommended 0)
-// Integration time is (ATIME + 1) * (ASTEP + 1) * 2.78µs
+// Integration time is (ATIME + 1) * (ASTEP + 1) * 2.78µs. @ recmd = 50 ms.
 struct CONFIG {
     uint16_t ASTEP;
     uint8_t ATIME;
@@ -106,13 +106,12 @@ class AS7341basic {
     i2c_master_dev_handle_t i2cHandle; // handle for i2c init.
     CONFIG &conf; // Configuration
     bool isInit; // Is initialized.
+    bool specEn;
     bool setBank(REG reg);
     bool writeRegister(REG reg, uint8_t val);
     uint8_t readRegister(REG reg, bool &dataSafe);
     bool validateWrite(REG reg, uint8_t dataOut, bool verbose = true);
     bool power(PWR state, bool verbose = true);
-    bool configATIME(uint8_t value, bool verbose = true);
-    bool configASTEP(uint16_t value, bool verbose = true);
     bool configWTIME(uint8_t value, bool verbose = true);
     bool configSMUX(SMUX_CONF config, bool verbose = true);
     bool enableLED(LED_CONF state, bool verbose = true);
@@ -133,6 +132,8 @@ class AS7341basic {
     bool isDevInit();
     bool setLEDCurrent(LED state, uint16_t mAdriving = 12);
     bool setAGAIN(AGAIN val);
+    bool setATIME(uint8_t val);
+    bool setASTEP(uint16_t val);
     uint16_t getLEDCurrent(bool &dataSafe);
     uint8_t getAGAIN_RAW(bool &dataSafe);
     float getAGAIN(bool &dataSafe);

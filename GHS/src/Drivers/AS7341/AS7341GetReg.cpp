@@ -33,11 +33,10 @@ uint8_t AS7341basic::getAGAIN_RAW(bool &dataSafe) {
     return this->readRegister(REG::AGAIN, dataSafe);
 }
 
-// Requires dataSafe bool. Returns float from 0.5 to
-// 512.
+// Requires dataSafe bool. Returns float from 0.5 to 512.
 float AS7341basic::getAGAIN(bool &dataSafe) {
 
-    // Gets the raw AGAIn data. Bits 0 - 4.
+    // Gets the raw AGAIN data. Bits 0 - 4.
     uint8_t val = this->getAGAIN_RAW(dataSafe) & 0b00011111;
 
     // If value is 0 returns 0.5. If > 0, shifts bits by 

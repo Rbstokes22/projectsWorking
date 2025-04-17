@@ -43,19 +43,16 @@ TempHum::TempHum(TempHumParams &params) :
 // consecutive readings, the relay will either energize, or de-endergize 
 // depending on settings.
 void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
+
+    // Primary checks to ensure usability for relay. Special conditions are
+    // with the appropriate case, if they exist.
+    if (conf.relay == nullptr || !this->flags.getFlag(THFLAGS::NO_ERR) ||
+        ct < TEMP_HUM_CONSECUTIVE_CTS) return; // Block 
     
-    // Checks if the relay is set to be energized or de-energized. If true,
-    // checks to ensure the relay is attached, there are no immediate flags
-    // indicating SHT read error, the counts are above the required counts,
-    // and that the condition is not set to NONE. If so, the relay will 
-    // energize once params are met.
+    // Checks if the relay is set to be energized or de-energized. 
     switch (relayOn) {
         case true:
-        if (conf.relay == nullptr || !this->flags.getFlag(THFLAGS::NO_ERR) ||
-        ct < TEMP_HUM_CONSECUTIVE_CTS || conf.condition == RECOND::NONE) {
-            return; // block
-        }
-
+        if (conf.condition == RECOND::NONE) return; // Block
         conf.relay->on(conf.controlID);
         break;
 
@@ -64,11 +61,6 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
         // will signal that it is no longer being held in an energized position
         // by the SHT.
         case false:
-        if (!this->flags.getFlag(THFLAGS::NO_ERR) || 
-            ct < TEMP_HUM_CONSECUTIVE_CTS) {
-            return; // Blocks
-        }
-        
         conf.relay->off(conf.controlID);
         break;
     }

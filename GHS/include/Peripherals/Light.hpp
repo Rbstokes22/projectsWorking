@@ -70,6 +70,7 @@ struct Light_Trends { // Prevous n hours of light values, on the hour.
     uint16_t orange[TREND_HOURS];
     uint16_t red[TREND_HOURS];
     uint16_t nir[TREND_HOURS];
+    uint16_t photo[TREND_HOURS];
 };
 
 struct Light_Averages {
@@ -81,12 +82,23 @@ struct Light_Averages {
     size_t pollCtPho; // Poll counts for photoresistor.
 };
 
+// This isn't necessary and a redundancy. This is populated upon creation of 
+// the object by getting the raw values from the AS7341 driver. In order to 
+// prevent a constant pinging, this struct holds the necessary values, and the
+// will update upon a successful driver device update. 
+struct Spec_Conf {
+    uint8_t ATIME; 
+    uint16_t ASTEP;
+    AS7341_DRVR::AGAIN AGAIN;
+};
+
 class Light {
     private:
     static const char* tag; // Static req to use in get().
     static char log[LOG_MAX_ENTRY]; // Static req to use in get().
     Flag::FlagReg flags;
     AS7341_DRVR::COLOR readings;
+    Spec_Conf specConf;
     Light_Trends trends;
     Light_Averages averages; 
     RelayConfigLight conf;
@@ -113,10 +125,14 @@ class Light {
     Flag::FlagReg* getFlags();
     bool checkBounds();
     RelayConfigLight* getConf();
+    Spec_Conf* getSpecConf();
     Light_Averages* getAverages();
     Light_Trends* getTrends();
     void clearAverages();
     uint32_t getDuration();
+    bool setATIME(uint8_t val);
+    bool setASTEP(uint16_t val);
+    bool setAGAIN(AS7341_DRVR::AGAIN val);
 };
 
 }

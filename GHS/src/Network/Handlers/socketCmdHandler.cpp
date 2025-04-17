@@ -25,6 +25,11 @@
 // the program, When being used, it will be divided by 100 to achieve the 
 // correct float value.
 
+// ATTENTION: Most of these are direct with command/data/id format. The 
+// exceptions to the cut and dry programming, besides temperatures measured 
+// above, are the integration time. Since there are multiple values, these
+// are passed together and encoded using bitwise operations.
+
 namespace Comms {
 
 // Requires command data, buffer, and buffer size. Executes the command passed,
@@ -93,6 +98,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"clearAvgPrev\":%0.1f,\"photoAvgPrev\":%0.1f,"
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
         "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,\"darkVal\":%u,"
+        "\"atime\":%u,\"astep\":%u,\"again\":%u,"
         "\"repTimeEn\":%d,\"repSendTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
@@ -176,6 +182,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::PHOTO_NO_ERR_DISP),
         light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::SPEC_NO_ERR_DISP),
         light->getConf()->darkVal,
+        light->getSpecConf()->ATIME,
+        light->getSpecConf()->ASTEP,
+        static_cast<uint8_t>(light->getSpecConf()->AGAIN),
         Peripheral::Report::get()->getTimeData()->isSet,
         Peripheral::Report::get()->getTimeData()->timeSet
         );
@@ -215,78 +224,55 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Relays 1 - 4 controls. Changes relay status to supp data which will
-        // control the relay behavior to on, off, forced off, and force off 
-        // removed. Forced off is an override feature that will shut the relay
-        // off despite another function/process using it.
-        case CMDS::RELAY_1: // inRange not required here due to else block.
-        static uint8_t IDR1 = SOCKHAND::Relays[0].getID("SkHandRE1"); // Perm ID
-        if (data.suppData == 0) {
-            SOCKHAND::Relays[0].off(IDR1);
-        } else if (data.suppData == 1) {
-            SOCKHAND::Relays[0].on(IDR1);
-        } else if (data.suppData == 2) {
-            SOCKHAND::Relays[0].forceOff();
-        } else {
-            SOCKHAND::Relays[0].removeForce();
+        // Controls relays 1 - 4 by changing the relay status using bitwise
+        // operations. Below is the 8-bit bitwise breakdown.
+        // RRRR CCCC
+        // R = relay number: 0 - 3, 0 is relay 1, 3 is relay 4.
+        // C = command: 0 = off, 1 = on, 2 = force off, 3 = force removed
+        case CMDS::RELAY_CTRL: {
+        uint8_t reNum = (data.suppData >> 4) & 0b1111;
+        uint8_t cmd = data.suppData & 0b1111;
+        writeLog = false; // Log written in relay class.
+
+        // Run some range checks
+        bool reRange = SOCKHAND::inRange(0, 3, reNum);
+        bool cmdRange = SOCKHAND::inRange(0, 3, cmd);
+
+        if (!reRange || !cmdRange) {
+            written = snprintf(buffer, size, reply, 0, "Re Att Range bust", 
+                0, data.idNum);
+            break; // Break and block if range error.
         }
 
-        written = snprintf(buffer, size, reply, 1, "Re1 set", data.suppData,
-            data.idNum);
+        // Register all 4 relays upon first call. Put into array for mapping.
+        static uint8_t IDR1 = SOCKHAND::Relays[0].getID("SKHANDRE1");
+        static uint8_t IDR2 = SOCKHAND::Relays[0].getID("SKHANDRE2");
+        static uint8_t IDR3 = SOCKHAND::Relays[0].getID("SKHANDRE3");
+        static uint8_t IDR4 = SOCKHAND::Relays[0].getID("SKHANDRE4");
+        static uint8_t IDS[] = {IDR1, IDR2, IDR3, IDR4};
 
-        break;
+        // Use the renum to make the correct call.
+        switch (cmd) {
+            case 0: // off
+            SOCKHAND::Relays[reNum].off(IDS[reNum]);
+            break;
 
-        // See RELAY_1
-        case CMDS::RELAY_2: // inRange not required here due to else block.
-        static uint8_t IDR2 = SOCKHAND::Relays[1].getID("SkHandRE2"); // Perm ID
-        if (data.suppData == 0) {
-            SOCKHAND::Relays[1].off(IDR2);
-        } else if (data.suppData == 1) {
-            SOCKHAND::Relays[1].on(IDR2);
-        } else if (data.suppData == 2) {
-            SOCKHAND::Relays[1].forceOff();
-        } else {
-            SOCKHAND::Relays[1].removeForce();
-        }
-        
-        written = snprintf(buffer, size, reply, 1, "Re2 set", data.suppData, 
-            data.idNum);
+            case 1: // on
+            SOCKHAND::Relays[reNum].on(IDS[reNum]);
+            break;
 
-        break;
+            case 2: // force off (shuts relay off regardless of dependency)
+            SOCKHAND::Relays[reNum].forceOff(); // ID not required.
+            break;
 
-        // See RELAY_1
-        case CMDS::RELAY_3: // inRange not required here due to else block.
-        static uint8_t IDR3 = SOCKHAND::Relays[2].getID("SkHandRE3"); // Perm ID
-        if (data.suppData == 0) {
-            SOCKHAND::Relays[2].off(IDR3);
-        } else if (data.suppData == 1) {
-            SOCKHAND::Relays[2].on(IDR3);
-        } else if (data.suppData == 2) {
-            SOCKHAND::Relays[2].forceOff();
-        } else {
-            SOCKHAND::Relays[2].removeForce();
+            case 3: // remove the force.
+            SOCKHAND::Relays[reNum].removeForce(); // ID not required.
+            break;
         }
 
-        written = snprintf(buffer, size, reply, 1, "Re3 set", data.suppData, 
-            data.idNum);
-
-        break;
-
-        // See RELAY_1
-        case CMDS::RELAY_4: // inRange not required here due to else block.
-        static uint8_t IDR4 = SOCKHAND::Relays[3].getID("SkHandRE4"); // Perm ID
-        if (data.suppData == 0) {
-            SOCKHAND::Relays[3].off(IDR4);
-        } else if (data.suppData == 1) {
-            SOCKHAND::Relays[3].on(IDR4);
-        } else if (data.suppData == 2) {
-            SOCKHAND::Relays[3].forceOff();
-        } else {
-            SOCKHAND::Relays[3].removeForce();
+        written = snprintf(buffer, size, reply, 1, "Relay Change", 
+            reNum, data.idNum);
         }
-
-        written = snprintf(buffer, size, reply, 1, "Re4 set", data.suppData, 
-            data.idNum);
 
         break;
 
@@ -401,289 +387,122 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Attaches a single relay to the temperature sensor. Supp data should
-        // be 0 to 3, corresponding to relays 1 - 4, or 4, which will detach 
-        // the relay.
-        case CMDS::ATTACH_TEMP_RELAY: 
-        if (!SOCKHAND::inRange(0, 4, data.suppData)) {
-            written = snprintf(buffer, size, reply, 0, "Temp Re att fail", 0, 
-                data.idNum);
-        } else { // attach relay if within range.
+        // Attaches a single relay to a peripheral device using bitwise 
+        // operations. Below is the 8-bit bitwise breakdown.
+        // DDDD RRRR
+        // D = device: 0 for temp, 1 for humidity, and 2 for light.
+        // R = relay number: 0 - 4, 0 is relay 1, 3 is relay 4, 4 is detach.
+        case CMDS::ATTACH_RELAYS: {
+        uint8_t device = (data.suppData >> 4) & 0b1111;
+        uint8_t reNum = data.suppData & 0b1111;
+        writeLog = false; // Will be written to log using attach function.
+        Peripheral::Light* lt = Peripheral::Light::get();
+        Peripheral::TempHum* th = Peripheral::TempHum::get();
 
-            writeLog = false; // Has logging.
-            SOCKHAND::attachRelayTH( // If 4 will detach.
-                data.suppData, Peripheral::TempHum::get()->getTempConf(), 
-                "Temp");
+        // Run some range checks
+        bool devRange = SOCKHAND::inRange(0, 2, device);
+        bool reRange = SOCKHAND::inRange(0, 4, reNum);
 
-            written = snprintf(buffer, size, reply, 1, "Temp Re att", 
-                data.suppData, data.idNum);
+        if (!devRange || !reRange) {
+            written = snprintf(buffer, size, reply, 0, "Re Att Range bust", 
+                0, data.idNum);
+            break; // Break and block if range error
         }
 
-        break;
+        // Checks good, within range. Continue.
+        switch (device) {
+            case 0: // Temperature
+            SOCKHAND::attachRelayTH(reNum, th->getTempConf(), "Temp");
+            written = snprintf(buffer, size, reply, 1, "Temp Relay att", 
+                reNum, data.idNum);
 
-        // Sets temperature relay to turn on if lower than that supp data 
-        // passed. Supp data will be in celcius to function correctly. If 20
-        // is passed, then relay will turn on when the temperature is lower 
-        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
-        case CMDS::SET_TEMP_RE_LWR_THAN: 
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, -999, 100)) { 
-            written = snprintf(buffer, size, reply, 0, "Temp RE RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getTempConf(); 
-            
-            conf->relay.condition = Peripheral::RECOND::LESS_THAN;
-            conf->relay.tripVal = data.suppData;
+            break;
 
-            written = snprintf(buffer, size, reply, 1, "Temp Re <", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
-        // Sets temperature relay to turn on if greater than that supp data 
-        // passed. Supp data will be in celcius to function correctly. If 20
-        // is passed, then relay will turn on when the temperature is greater 
-        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
-        case CMDS::SET_TEMP_RE_GTR_THAN:
-        if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, -999, 100)) { 
-            written = snprintf(buffer, size, reply, 0, "Temp Re RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getTempConf();
-            
-            conf->relay.condition = Peripheral::RECOND::GTR_THAN;
-            conf->relay.tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "Temp RE >", 
-                data.suppData, data.idNum);
-        }
-            
-        break;
-
-        // Removes the lower or greater than condition. This will also ensure 
-        // that the attached relay will turn off if one is currently attached,
-        // and the trip value will be set to 0.
-        case CMDS::SET_TEMP_RE_COND_NONE: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getTempConf();
-
-        // If relay is active, switching to condtion NONE will 
-        // shut off the relay if energized.
-        if (conf->relay.relay != nullptr) {
-            conf->relay.relay->off(conf->relay.controlID); 
-        } 
-
-        conf->relay.condition = Peripheral::RECOND::NONE;
-        conf->relay.tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "Temp Re cond NONE", 0, 
-            data.idNum);
-        }    
-
-        break;
-
-        // Sets temperature alert to send if lower than that supp data 
-        // passed. Supp data will be in celcius to function correctly. If 20
-        // is passed, then alert will send when the temperature is lower 
-        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
-        case CMDS::SET_TEMP_ALT_LWR_THAN:
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, 
-            SKT_RANGE_EXC, 100)) { // multiplier of 100, SKT_RANGE is PH only.
-
-            written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
-                data.idNum);
-
-        } else {
-
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getTempConf();
-
-            conf->alt.condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alt.tripVal = data.suppData;
-            written = snprintf(buffer, size, reply, 1, "Temp Alt <", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
-        // Sets temperature alert to send if greater than that supp data 
-        // passed. Supp data will be in celcius to function correctly. If 20
-        // is passed, then alert will send when the temperature is greater 
-        // than 20. Pass 100 multiplier to account for ATTENTION note at top.
-        case CMDS::SET_TEMP_ALT_GTR_THAN:
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SHT_MIN, SHT_MAX, data.suppData, 
-            SKT_RANGE_EXC, 100)) { // multiplier of 100
-
-            written = snprintf(buffer, size, reply, 0, "Temp Alt RangeErr", 0, 
-                data.idNum);
-
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getTempConf();
-
-            conf->alt.condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alt.tripVal = data.suppData;
-            written = snprintf(buffer, size, reply, 1, "Temp Alt >", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
-        // Removes the lower or greater than condition. This will also ensure 
-        // that the trip value will be set to 0.
-        case CMDS::SET_TEMP_ALT_COND_NONE: {
-        
-        // STATION CHECK NOT NEEDED.
-        
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getTempConf();
-
-        conf->alt.condition = Peripheral::ALTCOND::NONE;
-        conf->alt.tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "Temp Alt cond NONE", 0, 
-            data.idNum);
-        }   
-
-        break;
-
-        // ALL COMMANDS ABOVE REGARDING TEMPERATURE ARE COPIES FOR ALL 
-        // COMMANDS REGARDING HUMITIDY BELOW FROM ATTACH_HUM_RELAY TO 
-        // SET_HUM_ALT_COND_NONE. 0 to 4 must be passed.
-        case CMDS::ATTACH_HUM_RELAY:
-        if (!SOCKHAND::inRange(0, 4, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Hum Re att fail", 0, 
-                data.idNum);
-        } else { // attach relay if within range.
-
-            writeLog = false; // Has logging.
-            SOCKHAND::attachRelayTH( // If 4 will detach.
-                data.suppData, Peripheral::TempHum::get()->getHumConf(), "Hum");
-
+            case 1: // Humidity
+            SOCKHAND::attachRelayTH(reNum, th->getHumConf(), "Hum");
             written = snprintf(buffer, size, reply, 1, "Hum Relay att", 
-                data.suppData, data.idNum);
+                reNum, data.idNum);
+            break;
+
+            case 2: // Light
+            SOCKHAND::attachRelayLT(reNum, lt->getConf(), "light");
+            written = snprintf(buffer, size, reply, 1, "Light Relay att", 
+                reNum, data.idNum);
+            break;
+
+            default:;
+        }
         }
 
         break;
 
-        // See SET_TEMP_RE_LWR_THAN.
-        case CMDS::SET_HUM_RE_LWR_THAN: 
-        if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getHumConf();
-            
-            conf->relay.condition = Peripheral::RECOND::LESS_THAN;
-            conf->relay.tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "Hum <", data.suppData, 
-                data.idNum);
-        }
-
-        break;
-
-        // See SET_TEMP_RE_GTR_THAN.
-        case CMDS::SET_HUM_RE_GTR_THAN: 
-        if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Hum Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getHumConf();
-            
-            conf->relay.condition = Peripheral::RECOND::GTR_THAN;
-            conf->relay.tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "Hum >", data.suppData, 
-                data.idNum);
-        }
+        // Sets the temperature and humidity conditions and trip values for
+        // relay and alerts using bitwise operations. 
+        // Below is the 32-bit int bitwise breakdown.
+        // 0000 00SR   0000 00CC   VVVV VVVV   VVVV VVVV
+        // S = sensor type: 0 for Humidity, 1 for Temperature
+        // R = relay/alt: 0 for relay, 1 for Alert
+        // C = condition: 0 = less than, 1 = greater than, 2 = none.
+        // V = value: 16 but integer value supports temps to 655 C due to 
+        //     value being passed as a 2 point float mult by 100.
+        case CMDS::SET_TEMPHUM: {
+        uint8_t sensor = (data.suppData >> 25) & 0b1;
+        uint8_t controlType = (data.suppData >> 24) & 0b1;
+        uint8_t condition = (data.suppData >> 16) & 0b11;
+        uint16_t value = data.suppData & 0xFFFF;
+        Peripheral::TH_TRIP_CONFIG* conf = nullptr; // Will be set later.
         
-        break;
+        // Alert conditions which will be populated by the condition value,
+        // by mapping it to the array index. 
+        const Peripheral::ALTCOND ACOND[] = {Peripheral::ALTCOND::LESS_THAN,
+            Peripheral::ALTCOND::GTR_THAN, Peripheral::ALTCOND::NONE};
 
-        // See SET_TEMP_RE_COND_NONE.
-        case CMDS::SET_HUM_RE_COND_NONE: {
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getHumConf();
+        // Relay conditions, work just like alert condition above.
+        const Peripheral::RECOND RECOND[] = {Peripheral::RECOND::LESS_THAN,
+            Peripheral::RECOND::GTR_THAN, Peripheral::RECOND::NONE};
 
-        // If relay is active, switching to condtion NONE will 
-        // shut off the relay.
-        if (conf->relay.relay != nullptr) {
-            conf->relay.relay->off(conf->relay.controlID);
+        // Run range checks. Sensor val of 1 is temperature.
+        bool condRange = SOCKHAND::inRange(0, 2, condition);
+        bool valRange = (sensor == 1) ? 
+            SOCKHAND::inRange(SHT_MIN, SHT_MAX, value, -999, 100) :
+            SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, value);
+
+        if (!condRange || !valRange) {
+            written = snprintf(buffer, size, reply, 0, "TH Range bust", 
+                0, data.idNum);
+            break; // Break if range error
+        }
+       
+        // Ranges are good, go ahead and assign values.
+
+        // Sets the correct pointer depending on setting of bit 25.
+        if (sensor == 1) { // Indicates temperature.
+            conf = Peripheral::TempHum::get()->getTempConf();
+        } else { // Indicates humidity.
+            conf = Peripheral::TempHum::get()->getHumConf();
         }
 
-        conf->relay.condition = Peripheral::RECOND::NONE;
-        conf->relay.tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "Hum condition NONE", 0, 
-            data.idNum);
-        }            
-        break;
+        // Sets either the relay or alert based on bit 24. If the conditon is
+        // NONE or value 2, set tripval to 0.
+        if (controlType == 1) { // Indicates Alert
 
-        // See SET_TEMP_ALT_LWR_THAN.
-        case CMDS::SET_HUM_ALT_LWR_THAN:
+            // If using alert, ensure you are in station mode.
+            if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {
+                break; // break and block.
+            }
 
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+            conf->alt.condition = ACOND[condition];
+            conf->alt.tripVal = (condition == 2) ? 0 : value;
+            written = snprintf(buffer, size, reply, 1, "TEMPHUM alert set", 
+                0, data.idNum);
 
-        else if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Hum Alt RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getHumConf();
-
-            conf->alt.condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->alt.tripVal = data.suppData;
-            written = snprintf(buffer, size, reply, 1, "Hum Alt <", 
-                data.suppData, data.idNum);
+        } else { // Indicates relay.
+            conf->relay.condition = RECOND[condition];
+            conf->relay.tripVal = (condition == 2) ? 0 : value;
+            written = snprintf(buffer, size, reply, 1, "TEMPHUM relay set", 
+                0, data.idNum);
         }
-
-        break;
-
-        // See SET_TEMP_ALT_GTR_THAN.
-        case CMDS::SET_HUM_ALT_GTR_THAN:
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Hum Alt RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::TH_TRIP_CONFIG* conf = 
-                Peripheral::TempHum::get()->getHumConf();
-
-            conf->alt.condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->alt.tripVal = data.suppData;
-            written = snprintf(buffer, size, reply, 1, "Hum Alt >", 
-                data.suppData, data.idNum);
         }
-
-        break;
-
-        // See SET_TEMP_ALT_COND_NONE.
-        case CMDS::SET_HUM_ALT_COND_NONE: {
-
-        // STATION CHECK NOT NEEDED.
-
-        Peripheral::TH_TRIP_CONFIG* conf = 
-            Peripheral::TempHum::get()->getHumConf();
-
-        conf->alt.condition = Peripheral::ALTCOND::NONE;
-        conf->alt.tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "Hum Alt cond NONE", 0, 
-            data.idNum);
-        }   
 
         break;
 
@@ -692,6 +511,53 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::TempHum::get()->clearAverages();
             written = snprintf(buffer, size, reply, 1, "TH Avg Clear", 0, 
                 data.idNum);
+        }
+
+        break;
+
+        // Sets the soil alert conditions and trip values using bitwise 
+        // operations. Below is the 32-bit bitwise breakdown.
+        // 0000 0000   SSSS CCCC   VVVV VVVV   VVVV VVVV
+        // S = soil sensor num. 0 is 1, 3 is 4.
+        // C = alert condition. 0 = less than, 1 = gtr than, 2 = none.
+        // V = 16 bit integer value. Max is 4095, which is 12 bits.
+        case CMDS::SET_SOIL: {
+        
+        // Ensure you are conncted to the station mode for alert features.
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {
+            break; // Break and block;
+        }
+
+        // If good, extract data.
+        uint8_t num = data.suppData >> 20 & 0b1111;
+        uint8_t cond = data.suppData >> 16 & 0b1111;
+        uint16_t val = data.suppData & 0xFFFF;
+
+        // Alert conditions which will be populated by the condition value,
+        // by mapping it to the array index. 
+        const Peripheral::ALTCOND ACOND[] = {Peripheral::ALTCOND::LESS_THAN,
+            Peripheral::ALTCOND::GTR_THAN, Peripheral::ALTCOND::NONE};
+
+        // Run some range checks
+        bool numRange = SOCKHAND::inRange(0, 3, num);
+        bool condRange = SOCKHAND::inRange(0, 2, cond);
+        bool valRange = SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, val);
+
+        if (!numRange || !condRange || !valRange) {
+            written = snprintf(buffer, size, reply, 0, "Soil Range bust", 
+                num, data.idNum);
+            break; // break and block if range err.
+        }
+
+        // Ranges are good, connected to STA, establish sensor configuration.
+        Peripheral::AlertConfigSo* conf = 
+            Peripheral::Soil::get()->getConfig(num);
+
+        conf->condition = ACOND[cond]; // Set condition using array map.
+        conf->tripVal = (cond == 2) ? 0 : val; // If NONE, set to 0.
+
+        written = snprintf(buffer, size, reply, 1, "Soil alt set", 
+            num, data.idNum);
         }
 
         break;
@@ -948,25 +814,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         
         break;
 
-        // Attaches a single relay to the photoresistor. Supp data should
-        // be 0 to 3, corresponding to relays 1 - 4, or 4, which will detach 
-        // the relay. AS7341 is read only.
-        case CMDS::ATTACH_LIGHT_RELAY:
-        if (!SOCKHAND::inRange(0, 4, data.suppData)) {
-            written = snprintf(buffer, size, reply, 0, "Lgt Re att fail", 0, 
-                data.idNum);
-        } else { // attach relay if within range.
-
-            writeLog = false; // Has logging.
-            SOCKHAND::attachRelayLT( // If 4 will detach.
-                data.suppData, Peripheral::Light::get()->getConf(), "light");
-
-            written = snprintf(buffer, size, reply, 1, "Lgt Re att", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
         // Sets the light relay to turn on if lower than the supp data passed.
         // Supp data will be between 1 & 4094 (12-bit). If 500 is passed
         // then the relay will turn on when the photoresistor reading is below
@@ -1054,6 +901,69 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Sets the spectral integration time. This is composed of both the 
+        // ATIME and ASTEP. This will be passed as an integer with two 
+        // sub-integers. The ATIME is a uint8_t and will be in the LSB.
+        // The ASTEP is a uint16_t, and will fills bytes 1 and 2. From there
+        // Range checks will occur and the values will be set.
+        case CMDS::SET_SPEC_INTEGRATION_TIME: {
+        uint8_t ATIME = data.suppData & 0xFF; // Extract the ATIME.
+        uint16_t ASTEP = (data.suppData & 0xFFFF00) >> 8; // Extract the ASTEP.
+
+        if (!SOCKHAND::inRange(0, 255, ATIME) || 
+            !SOCKHAND::inRange(0, 65534, ASTEP)) {
+
+            written = snprintf(buffer, size, reply, 0, "Lgt Integ RangeErr", 0, 
+                data.idNum);
+
+        } else {
+
+            Peripheral::Light* lt = Peripheral::Light::get();
+
+            if (lt->setASTEP(ASTEP)) {
+                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay required per test.
+
+                if (lt->setATIME(ATIME)) {
+                    written = snprintf(buffer, size, reply, 1, "Lgt Integ Set", 
+                        0, data.idNum);
+                } else {
+                    written = snprintf(buffer, size, reply, 0, "Lgt Integ Err", 
+                        0, data.idNum);
+                }
+
+            } else {
+                written = snprintf(buffer, size, reply, 1, "Lgt Integ Err", 0, 
+                    data.idNum);
+            }
+        }
+        }
+            
+        break;
+
+        // Sets the spectral gain. This is typically done dynamically. The
+        // values are 0 - 10, and correspond to the AS7341 driver AGAIN enum.
+        case CMDS::SET_SPEC_GAIN: {
+            if (!SOCKHAND::inRange(0, 10, data.suppData)) {
+                written = snprintf(buffer, size, reply, 0, "Lgt Gain RangeErr", 
+                    data.suppData, data.idNum);
+
+            } else {
+                bool set = Peripheral::Light::get()->setAGAIN(
+                    static_cast<AS7341_DRVR::AGAIN>(data.suppData));
+
+                if (set) {
+                    written = snprintf(buffer, size, reply, 1, "Lgt Gain Set", 
+                        data.suppData, data.idNum);
+
+                } else {
+                    written = snprintf(buffer, size, reply, 0, "Lgt Gain Err", 
+                        data.suppData, data.idNum);
+                }
+            }
+        }
+
+        break;
+
         // // Sets the second past midnight that the daily report is set to send.
         // // IF value 99999 is passed, it will shut the timer down until reset
         // // with a proper integer.
@@ -1102,7 +1012,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Light_Trends* lt = 
                 Peripheral::Light::get()->getTrends();
 
-            int iter = data.suppData; // Iterations
+            int iter = data.suppData; // Iterations or hours to compute.
             
            // Create all float buffers to populate data into.
             char tempBuf[SKT_REPLY_SIZE]{0};
@@ -1113,16 +1023,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::THtrend(th->hum, humBuf, SKT_REPLY_SIZE, iter);
 
             // Create all unit16_t buffers to populate data into.
-            char ltClr[SKT_REPLY_SIZE]{0}; 
-            char ltVio[SKT_REPLY_SIZE]{0}; 
-            char ltInd[SKT_REPLY_SIZE]{0}; 
-            char ltBlu[SKT_REPLY_SIZE]{0}; 
-            char ltCya[SKT_REPLY_SIZE]{0}; 
-            char ltGre[SKT_REPLY_SIZE]{0}; 
-            char ltYel[SKT_REPLY_SIZE]{0}; 
-            char ltOra[SKT_REPLY_SIZE]{0}; 
+            char ltClr[SKT_REPLY_SIZE]{0}; char ltVio[SKT_REPLY_SIZE]{0}; 
+            char ltInd[SKT_REPLY_SIZE]{0}; char ltBlu[SKT_REPLY_SIZE]{0}; 
+            char ltCya[SKT_REPLY_SIZE]{0}; char ltGre[SKT_REPLY_SIZE]{0}; 
+            char ltYel[SKT_REPLY_SIZE]{0}; char ltOra[SKT_REPLY_SIZE]{0}; 
             char ltRed[SKT_REPLY_SIZE]{0}; 
-            char ltNir[SKT_REPLY_SIZE]{0}; 
+            char ltNir[SKT_REPLY_SIZE]{0}; // Near infrared
+            char ltPho[SKT_REPLY_SIZE]{0}; // Photoresistor
 
             // Populate buffers above with requested data.
             SOCKHAND::lightTrend(lt->clear, ltClr, SKT_REPLY_SIZE, iter);
@@ -1135,15 +1042,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::lightTrend(lt->orange, ltOra, SKT_REPLY_SIZE, iter);
             SOCKHAND::lightTrend(lt->red, ltRed, SKT_REPLY_SIZE, iter);
             SOCKHAND::lightTrend(lt->nir, ltNir, SKT_REPLY_SIZE, iter);
+            SOCKHAND::lightTrend(lt->photo, ltPho, SKT_REPLY_SIZE, iter);
 
             // Write JSON data back to client.
             written = snprintf(buffer, size, 
             "{\"id\":\"%s\",\"temp\":[%s],\"hum\":[%s],"
             "\"clear\":[%s],\"violet\":[%s],\"indigo\":[%s],\"blue\":[%s],"
             "\"cyan\":[%s],\"green\":[%s],\"yellow\":[%s],\"orange\":[%s],"
-            "\"red\":[%s],\"nir\":[%s]}",
+            "\"red\":[%s],\"nir\":[%s],\"photo\":[%s]}",
             data.idNum, tempBuf, humBuf, ltClr, ltVio, ltInd, ltBlu, ltCya,
-            ltGre, ltYel, ltOra, ltRed, ltNir);
+            ltGre, ltYel, ltOra, ltRed, ltNir, ltPho);
         }
 
         break;
