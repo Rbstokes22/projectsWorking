@@ -38,7 +38,7 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
     // Immediately filters IDs outside the index scope.
     if (ID >= RELAY_IDS) {
         snprintf(Relay::log, sizeof(Relay::log), 
-            "%s ID %u <%s> exceeds allowable limit at %u. State unchanged",
+            "%s ID %u [%s] exceeds allowable limit at %u. State unchanged",
             this->tag, ID, this->clientStr[ID], RELAY_IDS);
 
         this->sendErr(Relay::log);
@@ -74,7 +74,7 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
 
     this->sendErr(Relay::log, Messaging::Levels::INFO);
 
-    clients[ID] = newState; // Implement.
+    clients[ID] = newState; // Set after log.
 
     // Client quantity is limited to the amount of clients actively
     // energizing the relay. This is managed everytime the state toggles
@@ -106,13 +106,18 @@ const char* Relay::createTag(uint8_t ReNum) {
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
 
     pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clientQty(0),
-    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false, false, false},
+    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false},
     mtx(this->createTag(ReNum)) {
 
         memset(this->clients, static_cast<uint8_t>(IDSTATE::AVAILABLE), 
             sizeof(this->clients));
 
         memset(this->clientStr, 0 , sizeof(this->clientStr));
+
+        // Set the timer manager ID after memset.
+        char ID[16] = {0};
+        snprintf(ID, sizeof(ID), "ManTmr%u", ReNum);
+        this->timerID = this->getID(ID);
 
         snprintf(Relay::log, sizeof(Relay::log), "%s Ob created", this->tag);
         this->sendErr(Relay::log, Messaging::Levels::INFO);
@@ -122,13 +127,12 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
 // of the relay, if not, returns false. If successful, changes the client
 // state and energizes relay, returning true.
 bool Relay::on(uint8_t ID) {
+    Threads::MutexLock(this->mtx);
 
     // Will not run if relay is forced off or bad ID.
     if (this->relayState == RESTATE::FORCED_OFF || ID == RELAY_BAD_ID) {
         return false;
     }
-
-    Threads::MutexLock(this->mtx);
 
     // Turns on only if previously off or force removed.
     if (this->relayState != RESTATE::ON) {
@@ -136,7 +140,7 @@ bool Relay::on(uint8_t ID) {
         if (gpio_set_level(this->pin, 1) != ESP_OK) {
 
             snprintf(Relay::log, sizeof(Relay::log), 
-                "%s ID %u <%s> unable to turn on", this->tag, ID, 
+                "%s ID %u [%s] unable to turn on", this->tag, ID, 
                 this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
@@ -144,7 +148,7 @@ bool Relay::on(uint8_t ID) {
             }
 
         this->relayState = RESTATE::ON;
-        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u <%s> energized", 
+        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u [%s] energized", 
             this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
@@ -171,7 +175,7 @@ bool Relay::off(uint8_t ID) {
 
         if (gpio_set_level(this->pin, 0) != ESP_OK) {
             snprintf(Relay::log, sizeof(Relay::log), 
-                "%s ID %u <%s> unable to turn off", this->tag, ID, 
+                "%s ID %u [%s] unable to turn off", this->tag, ID, 
                 this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
@@ -179,7 +183,7 @@ bool Relay::off(uint8_t ID) {
         }
 
         this->relayState = RESTATE::OFF;
-        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u <%s> de-energized", 
+        snprintf(Relay::log, sizeof(Relay::log), "%s ID %u [%s] de-energized", 
             this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
@@ -270,56 +274,43 @@ RESTATE Relay::getState() {
     return this->relayState;
 }
 
-// Requires bool on or off, to set the on or off time, as well as the time.
-// The value passed must be between 0 and 86399, and the value 99999 will
-// set the on and off setting to false preventing the relay from being 
-// energized on time schedule. Returns true if successful, or false if
-// parameters are exceeded.
-bool Relay::timerSet(bool on, uint32_t time) {
+// Requires the on and off seconds between 0 and 86399. If 99999 is passed for 
+// either the on or off seconds, or they are equal in value, the timer will
+// disable to its default settings. Returns true if successful, false if not.
+bool Relay::timerSet(uint32_t onSeconds, uint32_t offSeconds) {
     Threads::MutexLock(this->mtx);
 
-    if (time == RELAY_TIMER_OFF) { // Disables timer
-        this->timer.onSet = this->timer.offSet = false;
-        this->timer.onTime = this->timer.offTime = RELAY_TIMER_OFF;
+    if (onSeconds == RELAY_TIMER_OFF || offSeconds == RELAY_TIMER_OFF ||
+        onSeconds == offSeconds) { // Set to default if conditions are met.
+
+        this->timer.isReady = false;
+        this->timer.onTime = RELAY_TIMER_OFF;
+        this->timer.offTime = RELAY_TIMER_OFF;
         snprintf(Relay::log, sizeof(Relay::log), "%s timer disabled",
             this->tag);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
-        return true;
+        return true; // True because shutting off is intentional.
 
-    } else if (time >= 86400) { // Seconds per day are exceeded
+    } else if (onSeconds >= 86400 || offSeconds >= 86400) { // Exceeds max
         snprintf(Relay::log, sizeof(Relay::log), 
-            "%s timer notset, Exceeds time @ %lu", this->tag, time);
+            "%s timer exceeds boundaries. Seconds on @ %lu, off @ %lu.", 
+            this->tag, onSeconds, offSeconds);
 
         this->sendErr(Relay::log);
-        return false; // Prevents overflow, must be between 0 and 64399.
+        return false; // Prevents overflow.
     }
-    
-    if (on) { // Checks if setting on time or off time.
-        this->timer.onTime = time;
-        timer.onSet = true;
-        snprintf(Relay::log, sizeof(Relay::log), "%s on time = %lu", this->tag, 
-            time);
 
-    } else {
+    // Checks are good, set timer and duration.
+    this->timer.onTime = onSeconds;
+    this->timer.offTime = offSeconds;
+    this->timer.isReady = true;
 
-        this->timer.offTime = time;
-        timer.offSet = true;
-        snprintf(Relay::log, sizeof(Relay::log), "%s off time = %lu", this->tag, 
-            time);
-    }
+    snprintf(Relay::log, sizeof(Relay::log), 
+        "%s timer enabled. On = %lu , Off = %lu", this->tag, onSeconds,
+        offSeconds);
 
     this->sendErr(Relay::log, Messaging::Levels::INFO);
-
-    // Enusres that both on and off are set, and the are not equal.
-    this->timer.isReady = (this->timer.onSet && this->timer.offSet && 
-        (this->timer.onTime != this->timer.offTime));
-
-    if (this->timer.isReady) { // If ready, log ready.
-        snprintf(Relay::log, sizeof(Relay::log), "%s timer enabled", this->tag);
-        this->sendErr(Relay::log, Messaging::Levels::INFO);
-    }
-
     return true;
 }
 
@@ -327,8 +318,6 @@ bool Relay::timerSet(bool on, uint32_t time) {
 // turn them on and off during their set times.
 void Relay::manageTimer() {
     Threads::MutexLock(this->mtx);
-
-    static uint8_t ID = this->getID("ManTimer");
 
     if (this->timer.isReady) {
         Clock::DateTime* time = Clock::DateTime::get();
@@ -339,27 +328,32 @@ void Relay::manageTimer() {
 
         // Checks the current time with the set on and off times. If conditions
         // are met, timer will turn on or off. The mutex is unlocked before
-        // calling on and off to avoid both of those functions from reaquiring
-        // an existing lock, but the other variables need to be protected.
+        // calling on and off. This is to prevent those functions from trying
+        // to aquire a lock and it is already locked. It is because the on and
+        // off functions can be called outside of this manage timer function.
         if (runsThruMid) {
             if (curTime >= this->timer.onTime || 
                 curTime <= this->timer.offTime) {
                 this->mtx.unlock(); 
-                this->on(ID);
+                this->on(this->timerID);
             } else {
                 this->mtx.unlock();
-                this->off(ID);
+                this->off(this->timerID);
             }
 
         } else {
             if (curTime >= timer.onTime && curTime <= timer.offTime) {
                 this->mtx.unlock();
-                this->on(ID);
+                this->on(this->timerID);
             } else {
                 this->mtx.unlock();
-                this->off(ID);
+                this->off(this->timerID);
             }
         }
+
+    } else { // Captures if a timer is shut off with an energized relay.
+        this->mtx.unlock();
+        this->off(this->timerID);
     }
 }
 

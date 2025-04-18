@@ -1,20 +1,23 @@
 // CURRENT NOTES: 
 
-// Soil complete. Needs socket testing. Once done, build timer and light,
-// which will conclude everything. 
+// Required testing:
+// SET_LIGHT, CLEAR_AVERAGES
 
-// Relay timer. <relay num><start Sec><dur Min> 
-//    RSSSSSSS SSSSSSSS SSDDDDDD DDDDDDDD. Max S = 131072, MaxD = 16384
-
-// Light. <re cond><val> RRRRVVVV VVVVVVVV Maxc R = 8, Max V = 4096
+// Once complete with testing, move back to client. First thing, ensure that 
+// the new commands are all compatiable. These are more managable to be built
+// into the server, to give live replies, and then the client bitwise. See 
+// test.js for the encoding for the client, it is relatively simple and should
+// be able to be built into existing commands.
 
 // COMPLETE:
 // photoresistor trends.
 // AGAIN, ASTEP, and ATIME built in both driver and peripheral. 
 // Tested all Axxxx, works as advertised.
-// Tested Relay control, works as advertised.
-// Tested Attach Relays, works as advertised.
+// Tested RELAY_CTRL, works as advertised.
+// Tested ATTACH_RELAYS, works as advertised.
 // Tested SET_TEMPHUM, works as advertised.
+// Tested SET_SOIL, works as advertised.
+// Tested RELAY_TIMER, works as advertised after some ID issues.
 
 // On client.
 

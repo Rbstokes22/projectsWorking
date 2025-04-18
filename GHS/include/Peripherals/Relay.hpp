@@ -38,8 +38,6 @@ enum class IDSTATE : uint8_t {
 struct Timer {
     uint32_t onTime; // time to turn relay on, seconds past midnight.
     uint32_t offTime; // time to turn relay off, secons past midnight.
-    bool onSet; // is set
-    bool offSet; // is set
     bool isReady; // bot on and off times have been set and are not equal.
 };
 
@@ -48,6 +46,7 @@ class Relay {
     char tag[RELAY_TAG_SIZE]; // Changes on relay number
     static char log[LOG_MAX_ENTRY]; // Shared between several objects.
     static const char* IDSTATEMap[RELAY_ID_STATES];
+    uint8_t timerID;
     gpio_num_t pin; // Relay pin
     uint8_t ReNum; // Relay num, used as an ID. Not currently used thru program.
     RESTATE relayState; // Current relay state, 
@@ -71,7 +70,7 @@ class Relay {
     uint8_t getID(const char* caller);
     bool removeID(uint8_t ID);
     RESTATE getState();
-    bool timerSet(bool on, uint32_t time);
+    bool timerSet(uint32_t onSeconds, uint32_t offSeconds);
     void manageTimer();
     Timer* getTimer();
 };

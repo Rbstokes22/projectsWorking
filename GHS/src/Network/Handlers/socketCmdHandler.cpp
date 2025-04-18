@@ -246,9 +246,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // Register all 4 relays upon first call. Put into array for mapping.
         static uint8_t IDR1 = SOCKHAND::Relays[0].getID("SKHANDRE1");
-        static uint8_t IDR2 = SOCKHAND::Relays[0].getID("SKHANDRE2");
-        static uint8_t IDR3 = SOCKHAND::Relays[0].getID("SKHANDRE3");
-        static uint8_t IDR4 = SOCKHAND::Relays[0].getID("SKHANDRE4");
+        static uint8_t IDR2 = SOCKHAND::Relays[1].getID("SKHANDRE2");
+        static uint8_t IDR3 = SOCKHAND::Relays[2].getID("SKHANDRE3");
+        static uint8_t IDR4 = SOCKHAND::Relays[3].getID("SKHANDRE4");
         static uint8_t IDS[] = {IDR1, IDR2, IDR3, IDR4};
 
         // Use the renum to make the correct call.
@@ -276,113 +276,43 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Sets the relay 1 timer on time. A value not exceeding 86399 must 
-        // be passed and the timer will be set to turn on when the system time
-        // reaches that value in seconds. If the value 99999 is passed for 
-        // either timer on or off, it will shut the 
-        
-        //APPLIES FOR RELAYS 1 - 4
-        case CMDS::RELAY_1_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[0].timerSet(true, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re1 timer on time set", data.suppData, data.idNum);
+        // Sets the relay timer on and off times using bitwise operations. 
+        // Below is the 32-bit bitwise breakdown. It is a little unusal, but
+        // required to keep it within the constraints of an int.
+        // RRRR SSSS   SSSS SSSS   SSSS SDDD   DDDD DDDD
+        // R = relay number. 0 is 1, 3 is 4.
+        // S = start time in seconds. 17-bits, allow max of 131072.
+        // D = duration in minutes. 11-bits, allow max of 2048.
+        case CMDS::RELAY_TIMER: {
+        uint8_t reNum = (data.suppData >> 28) & 0b1111; // 4 bits
+        uint32_t start = (data.suppData >> 11) & 0x1FFFF; // 17 bits
+        uint16_t dur = data.suppData & 0x7FF; // 11 bits
+
+        // Run range checks.
+        bool reRange = SOCKHAND::inRange(0, 3, reNum);
+        bool startRange = SOCKHAND::inRange(0, 86399, start, RELAY_TIMER_OFF);
+
+        // If the start condition is to shut the relay off, durRange is set to
+        // true since it has no function meaning duration can be anything.
+        bool durRange = (start == RELAY_TIMER_OFF) ? true : 
+            SOCKHAND::inRange(1, 1439, dur);
+
+        if (!reRange || !startRange || !durRange) {
+            written = snprintf(buffer, size, reply, 0, "Re Tmr Range bust", 
+                0, data.idNum);
+            break; // Break and block if range error.
         }
 
-        break;
+        // Compute the off seconds based on start time and duration, and set.
+        uint32_t finish = (start + (dur * 60)) % 86400;
 
-        // Sets the relay 1 timer off time. A value not exceeding 86399 must 
-        // be passed and the timer will be set to turn off when the system time
-        // reaches that value in seconds. APPLIES FOR RELAYS 1 - 4
-        case CMDS::RELAY_1_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re1 timer bust", 0, 
-                data.idNum);
+        if (!SOCKHAND::Relays[reNum].timerSet(start, finish)) {
+            written = snprintf(buffer, size, reply, 0, "Re Tmr not set", 
+                0, data.idNum);
         } else {
-            SOCKHAND::Relays[0].timerSet(false, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re1 timer off time set", data.suppData, data.idNum);
+            written = snprintf(buffer, size, reply, 1, "Re Tmr set", reNum, 
+                data.idNum);
         }
-
-        break;
-
-        // See RELAY_1_TIMER_ON
-        case CMDS::RELAY_2_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[1].timerSet(true, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re2 timer on time set", data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See RELAY_1_IMER_OFF
-        case CMDS::RELAY_2_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re2 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[1].timerSet(false, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re2 timer off time set", data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See RELAY_1_TIMER_ON
-        case CMDS::RELAY_3_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[2].timerSet(true, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re3 timer on time set", data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See RELAY_1_IMER_OFF
-        case CMDS::RELAY_3_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) {
-            written = snprintf(buffer, size, reply, 0, "Re3 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[2].timerSet(false, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re3 timer off time set", data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See RELAY_1_TIMER_ON
-        case CMDS::RELAY_4_TIMER_ON:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[3].timerSet(true, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re4 timer on time set", data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See RELAY_1_IMER_OFF
-        case CMDS::RELAY_4_TIMER_OFF:
-        if (!SOCKHAND::inRange(0, 86399, data.suppData, RELAY_TIMER_OFF)) { 
-            written = snprintf(buffer, size, reply, 0, "Re4 timer bust", 0, 
-                data.idNum);
-        } else {
-            SOCKHAND::Relays[3].timerSet(false, data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Re4 timer off time set", data.suppData, data.idNum);
         }
 
         break;
@@ -467,6 +397,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::inRange(SHT_MIN, SHT_MAX, value, -999, 100) :
             SOCKHAND::inRange(SHT_MIN_HUM, SHT_MAX_HUM, value);
 
+        // Manipulate the tertiary operator, which will already check the 
+        // range. If condition = 2, the val range doesnt matter, it will be
+        // set to true.
+        if (condition == 2) valRange = true;
+
         if (!condRange || !valRange) {
             written = snprintf(buffer, size, reply, 0, "TH Range bust", 
                 0, data.idNum);
@@ -506,15 +441,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Clears the temperature and humidity average values. 
-        case CMDS::CLEAR_TEMPHUM_AVG: {
-            Peripheral::TempHum::get()->clearAverages();
-            written = snprintf(buffer, size, reply, 1, "TH Avg Clear", 0, 
-                data.idNum);
-        }
-
-        break;
-
         // Sets the soil alert conditions and trip values using bitwise 
         // operations. Below is the 32-bit bitwise breakdown.
         // 0000 0000   SSSS CCCC   VVVV VVVV   VVVV VVVV
@@ -541,7 +467,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Run some range checks
         bool numRange = SOCKHAND::inRange(0, 3, num);
         bool condRange = SOCKHAND::inRange(0, 2, cond);
-        bool valRange = SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, val);
+
+        // Checks if condition is set to NONE, If so, the val doesn't matter
+        // and range check can be set to true. Otherwise, range check occurs.
+        bool valRange = (cond == 2) ? true : 
+            SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, val);
 
         if (!numRange || !condRange || !valRange) {
             written = snprintf(buffer, size, reply, 0, "Soil Range bust", 
@@ -562,350 +492,63 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Sets soil 1 alert to send if lower than that supp data passed.
-        // Supp data will be between 1 and 4094, and is an analog reading of
-        // the capacitance of the soil. There is no calibration, so each sensor
-        // might have unique readings that the client will be able to adjust
-        // to. If 2000 is passed, an alert will send when the soil reading is
-        // below 2000. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_ALT_LWR_THAN: 
+        // Sets the light conditions and trip values for the relay. Light has
+        // the dark value which begins the duration of light, and the relay 
+        // trip values. Below is the 32-bit bitwise breakdown.
+        // 000T 00CC   DDDD DDDD   DDDD PPPP   PPPP PPPP
+        // T = type, 0 for dark, 1 for photo.
+        // C = condition. 0 = less than, 1 = gtr than, 2 = none.
+        // D = dark value, 12 bits, max 4095.
+        // P = photo value, 12 bits, max 4095.
+        case CMDS::SET_LIGHT: {
+            uint8_t type = (data.suppData >> 28) & 0b1;
+            uint8_t cond = (data.suppData >> 24) & 0b11;
+            uint16_t dark = (data.suppData >> 12) & 0x0FFF;
+            uint16_t photo = data.suppData & 0x0FFF;
 
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+            // Relay conditions, work just like alert condition above.
+            const Peripheral::RECOND RECOND[] = {Peripheral::RECOND::LESS_THAN,
+                Peripheral::RECOND::GTR_THAN, Peripheral::RECOND::NONE};
 
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(0);
-        
-            conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->tripVal = data.suppData;
+            // Sets the ranges depending on the type.
+            bool valRange = (type == 0) ? // Indicates dark val
+                SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, dark) :
+                SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, photo);
 
-            written = snprintf(buffer, size, reply, 1, "so1 <", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
+            bool condRange = (type == 0) ? true : SOCKHAND::inRange(0, 2, cond);
 
-        // Sets soil 1 alert to send if greater than that supp data passed.
-        // Supp data will be between 1 and 4094, and is an analog reading of
-        // the capacitance of the soil. There is no calibration, so each sensor
-        // might have unique readings that the client will be able to adjust
-        // to. If 2000 is passed, an alert will send when the soil reading is
-        // above 2000. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_ALT_GTR_THAN: 
+            if (!valRange || !condRange) {
+                written = snprintf(buffer, size, reply, 0, "Light Range bust", 
+                    0, data.idNum);
+                break; // Break if range error
+            }
 
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 1 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(0);
-        
-            conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so1 >", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // Removes the greater/lower than condition and resets the trip value
-        // alert to 0, and disables alerts. APPLIES TO SOIL 1 - 4.
-        case CMDS::SET_SOIL1_ALT_COND_NONE: {
-
-        // STATION CHECK NOT NEEDED.
-
-        Peripheral::AlertConfigSo* conf =
-            Peripheral::Soil::get()->getConfig(0);
-
-        conf->condition = Peripheral::ALTCOND::NONE;
-        conf->tripVal = 0;
-
-        written = snprintf(buffer, size, reply, 1, "so1 alt None", 
-            data.suppData, data.idNum);
-        }
-
-        break;
-
-        // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL2_ALT_LWR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(1);
-        
-            conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so2 <", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL2_ALT_GTR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 2 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(1);
-        
-            conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so2 >", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL2_ALT_COND_NONE: {
-
-        // STATION CHECK NOT NEEDED.
-
-        Peripheral::AlertConfigSo* conf =
-            Peripheral::Soil::get()->getConfig(1);
-
-        conf->condition = Peripheral::ALTCOND::NONE;
-        conf->tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "so2 alt None", 
-            data.suppData, data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL3_ALT_LWR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) {
-            written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(2);
-        
-            conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so3 <", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL3_ALT_GTR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 3 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(2);
-        
-            conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so3 >", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL3_ALT_COND_NONE: {
-
-        // STATION CHECK NOT NEEDED.
-
-        Peripheral::AlertConfigSo* conf =
-            Peripheral::Soil::get()->getConfig(2);
-
-        conf->condition = Peripheral::ALTCOND::NONE;
-        conf->tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "so3 alt None", 
-            data.suppData, data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_LWR_THAN.
-        case CMDS::SET_SOIL4_ALT_LWR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(3);
-        
-            conf->condition = Peripheral::ALTCOND::LESS_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so4 <", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_GTR_THAN.
-        case CMDS::SET_SOIL4_ALT_GTR_THAN: 
-
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
-
-        else if (!SOCKHAND::inRange(SOIL_MIN, SOIL_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Soil 4 Range Bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::AlertConfigSo* conf =
-                Peripheral::Soil::get()->getConfig(3);
-        
-            conf->condition = Peripheral::ALTCOND::GTR_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "so4 >", data.suppData, 
-                data.idNum);
-        }
-        
-        break;
-
-        // See SET_SOIL1_COND_NONE.
-        case CMDS::SET_SOIL4_ALT_COND_NONE: {
-
-        // STATION CHECK NOT NEEDED.
-
-        Peripheral::AlertConfigSo* conf =
-            Peripheral::Soil::get()->getConfig(3);
-
-        conf->condition = Peripheral::ALTCOND::NONE;
-        conf->tripVal = 0;
-        written = snprintf(buffer, size, reply, 1, "so4 alt None", 
-            data.suppData, data.idNum);
-        }
-        
-        break;
-
-        // Sets the light relay to turn on if lower than the supp data passed.
-        // Supp data will be between 1 & 4094 (12-bit). If 500 is passed
-        // then the relay will turn on when the photoresistor reading is below
-        // 500.
-        case CMDS::SET_LIGHT_RE_LWR_THAN: 
-        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::RelayConfigLight* conf =
+            // Checks are good, go ahead an make the setting change.
+            Peripheral::RelayConfigLight* conf = 
                 Peripheral::Light::get()->getConf();
 
-            conf->condition = Peripheral::RECOND::LESS_THAN;
-            conf->tripVal = data.suppData;
+            if (type == 0) { // Indicates dark value
 
-            written = snprintf(buffer, size, reply, 1, "Lgt Re <", 
-                data.suppData, data.idNum);
+                conf->darkVal = dark;
+                written = snprintf(buffer, size, reply, 1, "Dark Val", 
+                    dark, data.idNum);
+
+            } else { // Indicates photo value.
+
+                conf->condition = RECOND[cond];
+                conf->tripVal = (cond == 2) ? 0 : photo;
+                written = snprintf(buffer, size, reply, 1, "Photo Relay Set", 
+                    conf->tripVal, data.idNum);
+            }
         }
 
         break;
 
-        // Sets the light relay to turn on if greater than the supp data passed.
-        // Supp data will be between 1 & 4094 (12-bit). If 500 is passed
-        // then the relay will turn on when the photoresistor reading is above
-        // 500.
-        case CMDS::SET_LIGHT_RE_GTR_THAN:
-        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) { 
-            written = snprintf(buffer, size, reply, 0, "Lgt RE RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::RelayConfigLight* conf =
-                Peripheral::Light::get()->getConf();
-
-            conf->condition = Peripheral::RECOND::GTR_THAN;
-            conf->tripVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "Lgt Re >", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
-        // Removes the lower or greater than condition. This will also ensure
-        // that the attached relay will turn off if one is currently attached.
-        // The trip value will then be set to 0.
-        case CMDS::SET_LIGHT_RE_COND_NONE: {
-        Peripheral::RelayConfigLight* conf =
-            Peripheral::Light::get()->getConf();
-
-        // If relay is active, switching to condtion NONE will 
-        // shut off the relay if energized.
-        if (conf->relay != nullptr) {
-            conf->relay->off(conf->controlID); 
-        } 
-
-        conf->condition = Peripheral::RECOND::NONE;
-        conf->tripVal = 0;
-
-        written = snprintf(buffer, size, reply, 1, "Lgt Re cond NONE", 0,
-            data.idNum);
-        }
-
-        break;
-
-        // Sets the dark value of the photoresitor. This allows daylight
-        // duration to be counted.
-        case CMDS::SET_DARK_VALUE: 
-        if (!SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, data.suppData)) {
-            written = snprintf(buffer, size, reply, 0, "Lgt Dark RangeErr", 0, 
-                data.idNum);
-        } else {
-            Peripheral::Light::get()->getConf()->darkVal = data.suppData;
-
-            written = snprintf(buffer, size, reply, 1, "Dark Val", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
-        // Clears the light average values. 
-        case CMDS::CLEAR_LIGHT_AVG:
-        Peripheral::Light::get()->clearAverages();
-        written = snprintf(buffer, size, reply, 1, "Lgt Avg Clear", 0, 
-                data.idNum);
-
-        break;
-
-        // Sets the spectral integration time. This is composed of both the 
-        // ATIME and ASTEP. This will be passed as an integer with two 
-        // sub-integers. The ATIME is a uint8_t and will be in the LSB.
-        // The ASTEP is a uint16_t, and will fills bytes 1 and 2. From there
-        // Range checks will occur and the values will be set.
+        // Sets the spectral integration time which is composed of both the 
+        // ATIME and ASTEP. Below is the 32 bit bitwise breakdown.
+        // 0000 0000   SSSS SSSS   SSSS SSSS   TTTT TTTT
+        // S = ASTEP, 16 bit integer.
+        // T = ATIME, 8 bit integer.
         case CMDS::SET_SPEC_INTEGRATION_TIME: {
         uint8_t ATIME = data.suppData & 0xFF; // Extract the ATIME.
         uint16_t ASTEP = (data.suppData & 0xFFFF00) >> 8; // Extract the ASTEP.
@@ -964,15 +607,48 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
+        // Clears the averages for the temphum, and the light. Soil averages are
+        // not captured considering their relatively slow change. Below is
+        // the 8-bit breakdown, there are no bitwise operations.
+        // 0000 TTTT
+        // T = type of average to clear. 0 is temp/hum, 1 is light, 2 is both.
+        case CMDS::CLEAR_AVERAGES: {
+        uint8_t type = data.suppData;
+        bool clearAll = (type == 2);
+
+        // Check range
+        bool typeRange = SOCKHAND::inRange(0, 2, type);
+
+        if (!typeRange) {
+            written = snprintf(buffer, size, reply, 0, "Clr Avg Range bust", 
+                0, data.idNum);
+            break; // Break if range error
+        }
+
+        // Clear averages. If type is passed as two, manipulate data to delete
+        // all.
+        if (clearAll) type = 0;
+        if (type == 0) Peripheral::TempHum::get()->clearAverages();
+        if (clearAll) type = 1;
+        if (type == 1) Peripheral::Light::get()->clearAverages();
+        
+        written = snprintf(buffer, size, reply, 1, "Avg Clear", 0, 
+            data.idNum);
+        }
+
+        break;
+
         // // Sets the second past midnight that the daily report is set to send.
         // // IF value 99999 is passed, it will shut the timer down until reset
         // // with a proper integer.
         case CMDS::SEND_REPORT_SET_TIME:
 
         // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {}
+        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {
+            break; // break and block
+        }
 
-        else if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, 
+        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, 
             TIMER_OFF)) {
 
             written = snprintf(buffer, size, reply, 0, "Report timer bust", 0, 
@@ -1211,6 +887,7 @@ void SOCKHAND::attachRelayTH(uint8_t relayNum,
     }
 }
 
+// Same as temphum relay.
 void SOCKHAND::attachRelayLT(uint8_t relayNum, 
     Peripheral::RelayConfigLight* conf, const char* caller) {
 
