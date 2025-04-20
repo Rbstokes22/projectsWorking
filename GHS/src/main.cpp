@@ -1,14 +1,5 @@
 // CURRENT NOTES: 
 
-// Required testing:
-// SET_LIGHT, CLEAR_AVERAGES
-
-// Once complete with testing, move back to client. First thing, ensure that 
-// the new commands are all compatiable. These are more managable to be built
-// into the server, to give live replies, and then the client bitwise. See 
-// test.js for the encoding for the client, it is relatively simple and should
-// be able to be built into existing commands.
-
 // COMPLETE:
 // photoresistor trends.
 // AGAIN, ASTEP, and ATIME built in both driver and peripheral. 
@@ -18,6 +9,8 @@
 // Tested SET_TEMPHUM, works as advertised.
 // Tested SET_SOIL, works as advertised.
 // Tested RELAY_TIMER, works as advertised after some ID issues.
+// Tested SET_LIGHT, works as advertised.
+// Tested CLEAR_AVERAGES, works as advertised.
 
 // On client.
 
@@ -43,7 +36,7 @@
 
 // Polling in the averages for the SHT and AS7341 is a size_t variable. This
 // leaves 136 years of polling, No polling should be quicker than 1 poll per
-// second.
+// second to achieve this.
 
 
 

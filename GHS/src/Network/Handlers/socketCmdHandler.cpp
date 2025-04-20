@@ -455,8 +455,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         // If good, extract data.
-        uint8_t num = data.suppData >> 20 & 0b1111;
-        uint8_t cond = data.suppData >> 16 & 0b1111;
+        uint8_t num = (data.suppData >> 20) & 0b1111;
+        uint8_t cond = (data.suppData >> 16) & 0b1111;
         uint16_t val = data.suppData & 0xFFFF;
 
         // Alert conditions which will be populated by the condition value,
@@ -515,6 +515,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, dark) :
                 SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, photo);
 
+            // Sets to true if type is dark to bypass checks.
             bool condRange = (type == 0) ? true : SOCKHAND::inRange(0, 2, cond);
 
             if (!valRange || !condRange) {
@@ -533,7 +534,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 written = snprintf(buffer, size, reply, 1, "Dark Val", 
                     dark, data.idNum);
 
-            } else { // Indicates photo value.
+            } else { // Indicates photo value. Type = 1.
 
                 conf->condition = RECOND[cond];
                 conf->tripVal = (cond == 2) ? 0 : photo;
@@ -551,7 +552,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // T = ATIME, 8 bit integer.
         case CMDS::SET_SPEC_INTEGRATION_TIME: {
         uint8_t ATIME = data.suppData & 0xFF; // Extract the ATIME.
-        uint16_t ASTEP = (data.suppData & 0xFFFF00) >> 8; // Extract the ASTEP.
+        uint16_t ASTEP = (data.suppData  >> 8) & 0xFFFF; // Extract the ASTEP.
 
         if (!SOCKHAND::inRange(0, 255, ATIME) || 
             !SOCKHAND::inRange(0, 65534, ASTEP)) {
