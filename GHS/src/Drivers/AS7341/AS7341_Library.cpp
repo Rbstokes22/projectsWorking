@@ -178,6 +178,12 @@ bool AS7341basic::init(uint8_t address) {
     const uint8_t expVal{10};
     uint8_t actualVal{0};
 
+    // The following enabling commands below are to ensure that the correct
+    // registers and functionalities are being enabled and set, and also that
+    // the future registers have the capability of being set. In methods within
+    // this class, there is redundancy of disabling and re-enabling, on top of
+    // this.
+
     actualVal += this->power(PWR::OFF); // Clear register before config
     actualVal += this->power(PWR::ON); // Powers on device.
     vTaskDelay(pdMS_TO_TICKS(10)); // Delay of > 200 micros req by datasheet.
@@ -191,6 +197,7 @@ bool AS7341basic::init(uint8_t address) {
     // Write SMUX configuration from RAM to SMUX chain.
     actualVal += this->configSMUX(SMUX_CONF::WRITE);
     actualVal += this->enableLED(LED_CONF::ENABLE);
+    // actualVal += this->enableFlicker(FLICKER_CONF::ENABLE);
     actualVal += this->enableSMUX(SMUX::ENABLE);
     actualVal += this->enableWait(WAIT::ENABLE);
     actualVal += this->enableSpectrum(SPECTRUM::ENABLE);

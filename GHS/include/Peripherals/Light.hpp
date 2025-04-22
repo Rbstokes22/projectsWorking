@@ -118,8 +118,8 @@ class Light {
 
     public:
     static Light* get(LightParams* parameter = nullptr);
-    bool readSpectrum(); // read as7341
-    bool readPhoto(); // read photoresistor
+    bool readSpectrum(); // read as7341 spectral.
+    bool readPhoto(); // read photoresistor.
     AS7341_DRVR::COLOR* getSpectrum();
     int getPhoto();
     Flag::FlagReg* getFlags();

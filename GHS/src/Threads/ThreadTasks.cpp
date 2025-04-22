@@ -98,7 +98,7 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
     while (true) {
 
         lt->readSpectrum(); // Reads spectrum values
-
+    
         // Checks bounds for photo resistor upon successful read.
         if (lt->readPhoto()) lt->checkBounds();
 

@@ -379,7 +379,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         uint8_t sensor = (data.suppData >> 25) & 0b1;
         uint8_t controlType = (data.suppData >> 24) & 0b1;
         uint8_t condition = (data.suppData >> 16) & 0b11;
-        uint16_t value = data.suppData & 0xFFFF;
+        int16_t value = data.suppData & 0xFFFF; // Allows negative for temp.
         Peripheral::TH_TRIP_CONFIG* conf = nullptr; // Will be set later.
         
         // Alert conditions which will be populated by the condition value,

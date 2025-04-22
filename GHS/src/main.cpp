@@ -1,5 +1,36 @@
 // CURRENT NOTES: 
 
+// Run elaborative test on the AS7341. First test the integration time. It is 
+// currently set to 50 with an ASTEP of 599, and ATIME of 29. Adjust it to 50
+// two more times by altering both values, and see if the results are about the
+// same. If yes, it shows that integration time is the final factor and it does
+// not matter if the ASTEP or ATIME is the adjusted value. 
+
+// Next reset to default and see if the counts are proportional to the inverse
+// square law. Decrease the distance by 2, to the source, and see if the counts
+// quadrouple, If not, Use different values to establish a pattern.
+
+// Next set the integration time to 25, 50, 75, and 100. Choose 3 values and 
+// see how the results correspond with the change in integration time. When
+// doubling, do the counts double, say from 25 to 50? If they go n % from 25 to
+// 50, do they go up by the same percentage from 50 to 75? Maybe they go up the
+// same percentage from 50 to 100, so it could be a quadratic and non-linear.
+
+// Mess with the gain as well, and see how that might affect the counts, does
+// doubling the gain also double the counts? What is the relationship?
+
+// The goal is to try to tie PPFD to the counts. If I can establish a pattern,
+// then I can create a PPFD which can be manually entered and correspond to 
+// 50ms 256x gain. The settings might not even matter. If I get 1000 umol and
+// a clear count of 5000, on default, If my clear count follows the ISL, PPFD
+// can be connected to that. If adjustments are made to where the clear count is 
+// 7000 because of higher int time, How can that new value be tied to PPFD? PPFD
+// would remain the same, but would it be computed by some proportionality 
+// variable? Thinking must be done before implementation.
+
+// Ensure that the save settings includes the spectral adjustment data.
+
+
 // COMPLETE:
 // photoresistor trends.
 // AGAIN, ASTEP, and ATIME built in both driver and peripheral. 
@@ -37,6 +68,12 @@
 // Polling in the averages for the SHT and AS7341 is a size_t variable. This
 // leaves 136 years of polling, No polling should be quicker than 1 poll per
 // second to achieve this.
+
+// Ran tests on integration time for the AS7341. Suspected that increasing the
+// int time by n, would also yield proportional counts. I wanted to calibrate
+// PPFD to this value, and scale it accordingly so that the user could always
+// estimate the ppfd depending on counts that were adjusted to the default
+// level. This could still be fesible, run additional tests.
 
 
 

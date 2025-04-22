@@ -9,6 +9,12 @@
 // Datasheet
 // https://cdn.sparkfun.com/assets/0/8/e/2/3/AS7341_DS000504_3-00.pdf
 
+// ATTENTION: Does not include flicker. Built it and it did not work as 
+// advertised and is restricted to 100 and 120 hz, which is great for AC freq.
+// Most light sources now use switching power supplies, which will have freq
+// beyond the scope of the sensor. Tested Adafruit, and theirs was also 
+// inadequate for the scope of this project. Tried and omitted.
+
 namespace AS7341_DRVR {
 
 #define AS7341_TIMEOUT 500 // 500 millis default timeout
@@ -29,7 +35,8 @@ enum class REG : uint8_t {
     CH2_LWR = 0x99, CH2_UPR = 0x9A,
     CH3_LWR = 0x9B, CH3_UPR = 0x9C,
     CH4_LWR = 0x9D, CH4_UPR = 0x9E,
-    CH5_LWR = 0x9F, CH5_UPR = 0xA0
+    CH5_LWR = 0x9F, CH5_UPR = 0xA0,
+    FD = 0xDB
 }; 
 
 // Defines lower and upper addr for channels
@@ -69,6 +76,9 @@ enum class SMUX_CONF : uint8_t {READ = 1, WRITE};
 
 // Enables or Disables the LED.
 enum class LED_CONF : uint8_t {ENABLE, DISABLE};
+
+// Enables or Disables the Flicker Detection
+enum class FLICKER_CONF : uint8_t {ENABLE, DISABLE};
 
 // ASTEP 0 - 65534. (Recommended 599)
 // ATIME 0 - 255. (Recommended 29)
