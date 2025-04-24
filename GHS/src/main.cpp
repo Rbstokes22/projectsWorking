@@ -1,5 +1,11 @@
 // CURRENT NOTES: 
 
+// TO DO:
+// Test save light to ensure integration setting changes.
+
+// Run testing below when there is a developed client side that makes 
+// switching easier.
+
 // Run elaborative test on the AS7341. First test the integration time. It is 
 // currently set to 50 with an ASTEP of 599, and ATIME of 29. Adjust it to 50
 // two more times by altering both values, and see if the results are about the
@@ -27,9 +33,6 @@
 // 7000 because of higher int time, How can that new value be tied to PPFD? PPFD
 // would remain the same, but would it be computed by some proportionality 
 // variable? Thinking must be done before implementation.
-
-// Ensure that the save settings includes the spectral adjustment data.
-
 
 // COMPLETE:
 // photoresistor trends.

@@ -8,6 +8,7 @@
 #include "Peripherals/Relay.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Peripherals/Alert.hpp"
+#include "Peripherals/Light.hpp"
 
 // NVS carriers are in the master struct. These carriers are responsible to
 // communicate with the NVS, so current data is copied to these structs, and
@@ -62,6 +63,9 @@ struct configSaveReLight { // Relay config photoresistor.
     Peripheral::RECOND relayCond; // Relay condition.
     uint16_t relayTripVal; // Relay trip value.
     uint16_t darkVal; // Dark value for light duration computation.
+    AS7341_DRVR::AGAIN AGAIN; // AGAIN values for the spec sensor.
+    uint8_t ATIME; // ATIME values for the spec sensor.
+    uint16_t ASTEP; // ASTEP values for the spec sensor.
 }; // x1
 
 // Composite class consisting of structs for individual device.

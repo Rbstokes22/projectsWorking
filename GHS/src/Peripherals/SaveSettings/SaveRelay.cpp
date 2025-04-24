@@ -97,9 +97,9 @@ bool settingSaver::loadRelayTimers() {
             (offTime != RELAY_TIMER_OFF);
 
         if (proceed) { // If good, set on and off times, err hand in funcs.
-            this->relays[reNum].timerSet(true, onTime);
-            this->relays[reNum].timerSet(false, offTime);
+            this->relays[reNum].timerSet(onTime, offTime);
         }
+        
         return true; // No false returns, helps increment counts.
     };
 

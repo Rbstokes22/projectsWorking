@@ -17,23 +17,27 @@ namespace NVS {
 // struct, and then writes to NVS if settings have changed since last save.
 // Returns true if NVS matches expected value, and false if not.
 bool settingSaver::saveLight() {
-    this->expected = 4; // Expected comparison values,
+    this->expected = 7; // Expected comparison values,
     this->total = 0; // Accumulation of trues, zero out.
 
     Peripheral::RelayConfigLight* lt = Peripheral::Light::get()->getConf();
+    Peripheral::Spec_Conf* spec = Peripheral::Light::get()->getSpecConf();
 
-    if (lt == nullptr) {
+    if (lt == nullptr || spec == nullptr) {
         snprintf(this->log, sizeof(this->log), "%s light is nullptr", 
             this->tag);
 
         this->sendErr(this->log);
         return false;
     }
-
+    // 7 expected
     this->total += this->compare(this->master.light.relayNum, lt->num);
     this->total += this->compare(this->master.light.relayCond, lt->condition);
     this->total += this->compare(this->master.light.relayTripVal, lt->tripVal);
     this->total += this->compare(this->master.light.darkVal, lt->darkVal);
+    this->total += this->compare(this->master.light.ASTEP, spec->ASTEP);
+    this->total += this->compare(this->master.light.ATIME, spec->ATIME);
+    this->total += this->compare(this->master.light.AGAIN, spec->AGAIN);
 
     if (this->total != this->expected) { // Changes detected, write to NVS.
 
@@ -61,7 +65,7 @@ bool settingSaver::saveLight() {
 // setting data over to the light current configuration structs.
 bool settingSaver::loadLight() {
    
-    Peripheral::RelayConfigLight* lt = Peripheral::Light::get()->getConf();
+    Peripheral::Light* lt = Peripheral::Light::get();
 
     if (lt == nullptr) {
         snprintf(this->log, sizeof(this->log), "%s light is nullptr", 
@@ -70,6 +74,8 @@ bool settingSaver::loadLight() {
         this->sendErr(this->log);
         return false;
     }
+
+    Peripheral::RelayConfigLight* conf = lt->getConf(); // Set config ptr.
 
     // Read the light struct and copy data into master light.
     this->err = this->nvs.read(LIGHT_KEY, &this->master.light, 
@@ -90,21 +96,33 @@ bool settingSaver::loadLight() {
 
     // If relay condition != NONE, copy settings over and reattach relay.
     if (this->master.light.relayCond != Peripheral::RECOND::NONE) {
-        lt->condition = this->master.light.relayCond;
-        lt->tripVal = this->master.light.relayTripVal;
+        conf->condition = this->master.light.relayCond;
+        conf->tripVal = this->master.light.relayTripVal;
 
         if (this->master.light.relayNum < TOTAL_RELAYS &&
             this->master.light.relayNum != LIGHT_NO_RELAY) {
 
-                Comms::SOCKHAND::attachRelayLT(this->master.light.relayNum, lt, 
-                    "light");
+            Comms::SOCKHAND::attachRelayLT(this->master.light.relayNum, conf, 
+                "light");
         }
     }
 
     // Copy dark val settings.
-    lt->darkVal = this->master.light.darkVal;
+    conf->darkVal = this->master.light.darkVal;
 
-    return true;
+    // Copy the integration and spectral settings.
+    bool ATIME = lt->setATIME(this->master.light.ATIME);
+    bool ASTEP = lt->setASTEP(this->master.light.ASTEP);
+    bool AGAIN = lt->setAGAIN(this->master.light.AGAIN);
+
+    if (ATIME && ASTEP && AGAIN) return true;
+
+    // If any data is bad, log.
+    snprintf(this->log, sizeof(this->log), "ATIME = %d, ASTEP = %d, AGAIN = %d",
+        ATIME, ASTEP, AGAIN);
+
+    this->sendErr(this->log);
+    return false;
 }
     
 }

@@ -27,7 +27,7 @@ Light::Light(LightParams &params) :
         memset(&this->trends, 0, sizeof(this->trends));
 
         // Set the AGAIN, ASTEP, and ATIME configuration variables by reading
-        // the current values witten to the AS7341.
+        // the current values witten to the AS7341 upon init.
         bool dataSafe = false;
         uint16_t data = this->params.as7341.getAGAIN_RAW(dataSafe);
         this->specConf.AGAIN = dataSafe ? static_cast<AS7341_DRVR::AGAIN>(data) 
