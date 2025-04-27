@@ -9,6 +9,8 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Common/FlagReg.hpp"
 #include "Peripherals/saveSettings.hpp"
+#include "Network/Handlers/socketHandler.hpp"
+#include "Network/NetCreds.hpp"
 
 namespace Peripheral {
 
@@ -314,18 +316,19 @@ void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, ALT_LOG_METHOD);
 }
 
-// Requires 8-char API key, 10 Digit Phone, message and caller. Generates a POST 
-// request in JSON format and sends to the server. Ensure that the server
-// responds with "OK" or "FAIL" depending on the success. If "OK", returns
-// true, if anything else, returns false.
-bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg,
-    const char* caller) {
+// Requires message and caller. Generates a POSt request in JSON format and
+// sends to the server. Ensure that the server responds with "OK" or "FAIL"
+// depending on success. If "OK" returns true, returns false if not "OK".
+bool Alert::sendAlert(const char* msg, const char* caller) {
+
+    NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
+    if (sms == nullptr) return false; // block to prevent use.
 
     // Creates JSON from passed arguments and sets write length for headers.
     char jsonData[ALT_JSON_DATA_SIZE] = {0}; // Should be plenty large.
     int written = snprintf(jsonData, sizeof(jsonData), 
         "{\"APIkey\":\"%s\",\"phone\":\"%s\",\"msg\":\"%s\"}",
-        APIkey, phone, msg);
+        sms->APIkey, sms->phone, msg);
 
     // Ensures that the appropriate amount of data is written.
     if (written < 0 || written > ALT_JSON_DATA_SIZE) return false;
@@ -343,11 +346,18 @@ bool Alert::sendAlert(const char* APIkey, const char* phone, const char* msg,
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
 
-    const char* jsonPrep = "{\"report\":%s}";
-    const size_t adjustedSize = strlen(jsonPrep) + REP_JSON_DATA_SIZE;
+    NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
+    if (sms == nullptr) return false; // block to prevent use.
+
+    const char* jsonPrep = 
+        "{\"APIkey\":\"%s\",\"phone\":\"%s\",\"report\":%s}";
+
+    const size_t adjustedSize = strlen(jsonPrep) + SKT_BUF_SIZE;
+
     // Create JSON from passed arguments and set the write length for headers.
     char jsonData[adjustedSize] = {0}; 
-    int written = snprintf(jsonData, adjustedSize, jsonPrep, JSONmsg);
+    int written = snprintf(jsonData, adjustedSize, jsonPrep, sms->APIkey,
+        sms->phone, JSONmsg);
 
     // Ensure that the appropriate amount of data is written.
     if (written < 0 || written > adjustedSize) return false;

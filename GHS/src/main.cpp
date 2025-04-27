@@ -1,6 +1,30 @@
 // CURRENT NOTES: 
 
 // TO DO:
+
+// Test report. Report attempts to send on the hour now to the server. The 
+// timer set is for clearing averages only. This also need to be tested.
+// The report will send the entire JSON socket buffer data to the server to be 
+// uploaded into a database. This has read only functionality now, but I might
+// incorporate an write functionality in the future, that will be a doozy to
+// update everything. Might need some sort of encoding technique that could
+// send only user changes and not everything, but in some sort of bitwise format
+// combined with JSON. So the JSON could have for example:
+// {"reTmr": [32, 32]} // where bits 28-31 indicate the relay number
+// and on the receiving side, this, it would take the JSON data, and figure out
+// the corresponding socket commands and use SOCKHAND::compileData, which 
+// returns and does nothing, but can execute socket commands. We would just
+// use a useless buffer to meet the requirements, and pass the command data
+// like we would a socket. It shouldnt be too difficult. This would allow the 
+// client to make some adjustments, and the adjustments would be sent to the
+// device on the next report, so instead of responding "OK" to the report, it
+// would send the json and bitwise, which would then be routed and handled 
+// appropriately, allowing the client to see the updates on the following 
+// report. This is the best way to manage it since its a polled report. See how
+// feasible this will be. If this isnt bad, incorporate before finishing the
+// client page. This obviously cant be tested until actual server is built, but
+// using a PWA, it shouldnt be too difficult to incorporate something like this.
+
 // Test save light to ensure integration setting changes.
 
 // Run testing below when there is a developed client side that makes 
@@ -78,7 +102,15 @@
 // estimate the ppfd depending on counts that were adjusted to the default
 // level. This could still be fesible, run additional tests.
 
-
+// Scrapped the report sending time, it will auto on the hour, and will allow
+// the ability to modify settings, which will occur at the next hour. Data based
+// on the smallest linode with 25 GB storage and 1 TB transfer per month.
+// We assume each get will return 2 KB data to the client. Limit client to 24
+// checks per day for 48 KB of data. This is accumulative to 1460 KB per month
+// or 730 checks per month. Each client will get 3 KB to hold their sensor
+// data, as well as API key and other data, so roughly 1 KB for that. The 
+// limiting factor is the 1 TB transfer, which will support roughly 723K clients
+// @ 2.25 GB of storage. 
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

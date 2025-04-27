@@ -72,7 +72,7 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed. Sends tag because the alert takes care of 
         // logging. No logging required.
-        conf.toggle = !alt->sendAlert(sms->APIkey, sms->phone, msg, Soil::tag);
+        conf.toggle = !alt->sendAlert(msg, Soil::tag);
 
         // Increment or clear depending on success. 
         conf.attempts = conf.toggle ? conf.attempts + 1 : 0;

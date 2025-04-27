@@ -6,12 +6,13 @@
 #include "Peripherals/Soil.hpp"
 #include "Peripherals/Light.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/Handlers/socketHandler.hpp"
 
 // No mutex required, Accessed from a single thread
 
 namespace Peripheral {
 
-Report::Report() : tag("(REPORT)") ,timer{TIMER_OFF, false} {
+Report::Report() : tag("(REPORT)"), clrTimeSet(MAX_SET_TIME) {
 
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);
@@ -87,31 +88,17 @@ void Report::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, REPORT_LOG_METHOD);
 }
 
-// Requires the seconds past midnight to send message. If 99999 is passed,
-// the service will be disabled. Only values of 0 - 86340 can be passed which
-// is from midnight to 23:59:00. This allows appropriate padding to attempt 
-// if beginning attempts are unsuccessful.
+// Requires the seconds past midnight to clear the averages. If the value 
+// exceeds 86340, or 23:59:00, it will be set to that default time. 
 void Report::setTimer(uint32_t seconds) {
 
-    // Filter to ensure that the passed seconds is within the constraints
-    // of 0 to 86340 (seconds per day - 60).
-    if (seconds == TIMER_OFF || seconds >= MAX_SET_TIME) {
-        this->timer.isSet = false; // Nulls out settings
-        this->timer.timeSet = TIMER_OFF;
+    // Filter to ensure that MAX set time is not exceeded.
+    this->clrTimeSet = (seconds >= MAX_SET_TIME) ? MAX_SET_TIME : seconds;
 
-        snprintf(this->log, sizeof(this->log), "%s Timer off", this->tag);
-        this->sendErr(this->log, Messaging::Levels::INFO);
-        return; // Block
-    } 
-
-    // If OK, sets the appropriate seconds and registers that the time
-    // is set. 
-    this->timer.timeSet = seconds;
-    this->timer.isSet = true;
-
-    snprintf(this->log, sizeof(this->log), "%s timer set to %lu seconds",
-        this->tag, seconds);
-
+    snprintf(this->log, sizeof(this->log), 
+        "%s Average clear timer set to %lu seconds", this->tag, 
+        this->clrTimeSet);
+    
     this->sendErr(this->log, Messaging::Levels::INFO);
 }
 
@@ -123,91 +110,65 @@ void Report::setTimer(uint32_t seconds) {
 // class that will be sent to the client. Also handles secondary control of
 // logging a new day in the 10 secs before midnight.
 void Report::manageTimer() { 
-    
-    // System time, raw format gives you seconds past midnight. Max Time is
-    // the top of the range from the start of the time set. If the time is set
-    // at 22:30:00, the maxTime would be 22:30:20 if the ATTEMPT_TIME_RANGE
-    // is set to 20.
-    uint32_t sysTime = Clock::DateTime::get()->getTime()->raw;
-    uint32_t maxTime = this->timer.timeSet + ATTEMPT_TIME_RANGE;
 
+    Clock::TIME* dtg = Clock::DateTime::get()->getTime();
+    uint8_t hour = dtg->hour;
+    static uint8_t lastHour = hour; // Set static upon init.
     static uint8_t attempts = 0; // Sending attempts
-    bool sent = false; // Is message sent
-    static bool toggle = true; // Used to send/clear a single time
-    static bool dailyLogToggle = true; // Sends daily log at midnight.
 
-    // If the range exceeds the total seconds per day - 10, ot 86390, will 
-    // default to 86390 to ensure success.
-    if (maxTime >= MAX_TOTAL_SET_TIME) maxTime = MAX_TOTAL_SET_TIME;
+    // Raw systime gives the seconds past midnight from 0 - 86399.
+    uint32_t sysTime = dtg->raw;
 
-    // MANIPULATOR. Will manipulate time setting to ensure that all averages
-    // are cleared at 23:59 each day if not specified. A report will not be
-    // sent, but typically clearing is when the report is complete.
-    if (!this->timer.isSet) {
-        this->timer.timeSet = MAX_SET_TIME;
+    // clear toggle, day toggle.
+    static bool clrT = true, dayT = true;
+
+    bool inRange = (sysTime >= this->clrTimeSet) && 
+        (sysTime <= (this->clrTimeSet + REPORT_TIME_PADDING));
+
+    // Clear all timer
+    if (clrT && inRange) { // Not cleared, systime is in range.
+        clrT = false;
+        this->clearAll();
+
+    } else if (!clrT && !inRange) { // Has cleared and systime is out of range.
+        clrT = true; // Reset
     }
 
-    // If the system time is within the range of the time set and the max,
-    // Attempt to send.
-    if ((sysTime >= this->timer.timeSet) && (sysTime <= maxTime) && toggle) {
+    // daily log timer. Logs between 23:59:55 and midnight.
+    inRange = (sysTime >= 86390) && (sysTime <= 86400);
 
-        dailyLogToggle = true; // Reset toggle allowing single NEW DAY log entry
-
-        // If no time is set for averages, will clear at least once per day
-        // at 23:59PM. This will only run this specific part and not attempt
-        // to send to server.
-        if (!this->timer.isSet) {
-            this->clearAll();
-            attempts = 0;
-            toggle = false;
-            this->timer.timeSet = TIMER_OFF;
-            return; // block the rest of the code from running.
-        }
-
-        char JSONrep[REP_JSON_DATA_SIZE] = {0}; // init JSON report for SMS
-
-        // Compile all average data into JSON, and send it to the Alerts class
-        // to be sent to the server for SMS processing. Block if error.
-        if (!compileAll(JSONrep, sizeof(JSONrep))) return; // Block
-
-        sent = Alert::get()->sendReport(JSONrep);
-
-        // Once sent, toggle is set to false to prevent code from re-running,
-        // as well as everything is reset.
-        if (sent) {
-            attempts = 0; 
-            toggle = false;
-            this->clearAll();
-            } else {attempts++;} // Incremenet attempt if not sent.
-
-        // Block another attempt if maxed out by setting toggle to false. This
-        // will be reset when the system time exceed the max time. That is
-        // the reason that the report time is capped at 23:59:00, to allow for
-        // this resetting.
-        if (attempts >= SEND_ATTEMPTS) toggle = false;
-
-    // Resets after alloted time expired. 10 Second working window in worst
-    // case scenario. Timing is crucial to capture since the sysTime will 
-    // reset to 0 at midnight, which will not clear until a 24 hour period.
-    } else if (sysTime > maxTime) { // Indicates last 10 seconds of the day.
-        attempts = 0;
-        toggle = true; // Reset toggle to clear/send report.
-    }
-
-    // Waits until the system time is the last 10 seconds before midnight, and
-    // logs a new day entry.
-    if (sysTime > MAX_TOTAL_SET_TIME && dailyLogToggle) {
+    if (dayT && inRange) { // Not logged yet and in range.
+        dayT = false;
         snprintf(this->log, sizeof(this->log), "%s NEW DAY", this->tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             this->log, Messaging::Method::SRL_OLED_LOG);
 
-        dailyLogToggle = false;
+    } else if (!dayT && !inRange) { // logged, and no longer in range.
+        dayT = true; // Reset.
+    }
+
+    // Send report at hour change, will also trigger at first calibration 
+    // assuming it is not between midnight and 0100.
+    if (hour != lastHour) {
+
+        // Attempt to send report via alert class.
+        bool sent = Alert::get()->sendReport(Comms::SOCKHAND::getMasterBuf());
+
+        // Set the attempts to 0 if successful, or increment if failed.
+        attempts = (sent) ? 0 : (attempts + 1);
+
+        // Set the last hour to the current hour if successful.
+        lastHour = (sent) ? hour : lastHour;
+
+        // Blocks another attempt if maxed out for the remaining hour by 
+        // pretending it was successful.
+        if (attempts >= SEND_ATTEMPTS) {
+            lastHour = hour; 
+            attempts = 0;
+        }
     }
 }
 
-// Gets the time data to send back to the client to show status.
-TimerData* Report::getTimeData() {
-    return &this->timer;
-}
-
+// gets the current set time and returns.
+uint32_t Report::getTime() {return this->clrTimeSet;}
 }

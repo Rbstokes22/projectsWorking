@@ -9,6 +9,7 @@
 namespace Comms {
 
 // Static Setup
+char SOCKHAND::masterBuf[SKT_BUF_SIZE]{0}; // Used for report sending.
 const char* SOCKHAND::tag("(SOCKHAND)");
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
@@ -280,5 +281,8 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     return ESP_OK;
 }
+
+// Returns the master buffer.
+char* SOCKHAND::getMasterBuf() {return SOCKHAND::masterBuf;}
 
 }

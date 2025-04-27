@@ -53,6 +53,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         case CMDS::GET_ALL: {
         
         writeLog = false; // Commonly used command, do not want to log.
+        static bool copyBuf = true; // Copies working to master buffer.
 
         // Commonly used pointers in the scope of GET_ALL. Declared them here
         // to avoid using verbose commands.
@@ -99,7 +100,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
         "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,\"darkVal\":%u,"
         "\"atime\":%u,\"astep\":%u,\"again\":%u,"
-        "\"repTimeEn\":%d,\"repSendTime\":%lu}",
+        "\"avgClrTime\":%lu}",
         FIRMWARE_VERSION, 
         data.idNum,
         Messaging::MsgLogHandler::get()->newLogAvail(),
@@ -185,9 +186,19 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         light->getSpecConf()->ATIME,
         light->getSpecConf()->ASTEP,
         static_cast<uint8_t>(light->getSpecConf()->AGAIN),
-        Peripheral::Report::get()->getTimeData()->isSet,
-        Peripheral::Report::get()->getTimeData()->timeSet
+        Peripheral::Report::get()->getTime()
         );
+
+        // Copies the working buffer to the master buffer at the end of each
+        // hour. This allows the master buffer to be sent to a server for 
+        // client preview.
+        if (dtg->minute >= 59 && dtg->second >= 50 && copyBuf) {
+            memcpy(SOCKHAND::masterBuf, buffer, SKT_BUF_SIZE);
+            copyBuf = false;
+
+        } else if (!copyBuf && dtg->minute < 59) {
+            copyBuf = true;
+        }
         }
         break;
 
@@ -443,7 +454,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // Sets the soil alert conditions and trip values using bitwise 
         // operations. Below is the 32-bit bitwise breakdown.
-        // 0000 0000   SSSS CCCC   VVVV VVVV   VVVV VVVV
+        // 0000 0000   SSSS 00CC   VVVV VVVV   VVVV VVVV
         // S = soil sensor num. 0 is 1, 3 is 4.
         // C = alert condition. 0 = less than, 1 = gtr than, 2 = none.
         // V = 16 bit integer value. Max is 4095, which is 12 bits.
@@ -456,7 +467,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         // If good, extract data.
         uint8_t num = (data.suppData >> 20) & 0b1111;
-        uint8_t cond = (data.suppData >> 16) & 0b1111;
+        uint8_t cond = (data.suppData >> 16) & 0b11;
         uint16_t val = data.suppData & 0xFFFF;
 
         // Alert conditions which will be populated by the condition value,
@@ -639,26 +650,19 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // // Sets the second past midnight that the daily report is set to send.
-        // // IF value 99999 is passed, it will shut the timer down until reset
-        // // with a proper integer.
-        case CMDS::SEND_REPORT_SET_TIME:
+        // Sets the second past midnight that the averages will be cleared. 
+        // Defaults to 23:59:00 or 86340.
+        case CMDS::CLEAR_AVG_SET_TIME:
 
-        // Prevents WAP mode from running station only features.
-        if (!SOCKHAND::checkSTA(written, buffer, size, reply, data.idNum)) {
-            break; // break and block
-        }
+        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData)) {
 
-        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData, 
-            TIMER_OFF)) {
-
-            written = snprintf(buffer, size, reply, 0, "Report timer bust", 0, 
+            written = snprintf(buffer, size, reply, 0, "Avg Clr timer bust", 0, 
                 data.idNum);
         } else {
             Peripheral::Report::get()->setTimer(data.suppData);
 
-            written = snprintf(buffer, size, reply, 1, "Report Time set", 
-            data.suppData, data.idNum);
+            written = snprintf(buffer, size, reply, 1, "Avg Clr Time set", 
+                data.suppData, data.idNum);
         }
 
         break;
