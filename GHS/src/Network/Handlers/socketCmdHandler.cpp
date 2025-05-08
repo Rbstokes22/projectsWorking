@@ -193,7 +193,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // hour. This allows the master buffer to be sent to a server for 
         // client preview.
         if (dtg->minute >= 59 && dtg->second >= 50 && copyBuf) {
-            memcpy(SOCKHAND::masterBuf, buffer, SKT_BUF_SIZE);
+            memcpy(SOCKHAND::reportBuf, buffer, sizeof(SOCKHAND::reportBuf));
             copyBuf = false;
 
         } else if (!copyBuf && dtg->minute < 59) {
@@ -576,7 +576,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             Peripheral::Light* lt = Peripheral::Light::get();
 
             if (lt->setASTEP(ASTEP)) {
-                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay required per test.
+                // vTaskDelay(pdMS_TO_TICKS(20)); // Uncomment if future err
 
                 if (lt->setATIME(ATIME)) {
                     written = snprintf(buffer, size, reply, 1, "Lgt Integ Set", 

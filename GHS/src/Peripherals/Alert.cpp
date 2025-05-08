@@ -33,10 +33,10 @@ Alert* Alert::get() {
     return &instance;
 }
 
-// Requires the json message to send to the server. Configures the the certs,
-// headers, and post field, and then executes the message. Returns true upon a
-// successful send, and false of unsuccessful attempt.
-bool Alert::prepMsg(const char* jsonData) {
+// Requires the JSON message and if it is a report, to send to server. Configs
+// the certs, headers, and post field. Then executes the messages. Returns true
+// upon successful sending, and false if not.
+bool Alert::prepMsg(const char* jsonData, bool isRep) {
 
     esp_err_t err;
     char url[WEB_URL_SIZE] = WEBURL; // URL stored in config.h
@@ -79,20 +79,20 @@ bool Alert::prepMsg(const char* jsonData) {
     }
 
     // Upon successful prep, execute message.
-    return this->executeMsg(jsonData);
+    return this->executeMsg(jsonData, isRep);
 }
 
-// Requires the client, and json data. Opens the connection, writes json data
-// to the server, reads response, and closes. The anticipated response of 
+// Requires the client, json data, and if report. Opens the connection, writes
+// data to the server, reads response, and closes. The anticipated response of 
 // the server is "OK" to indicate success, or "FAIL". Returns true if 
 // response is "OK", and false if anything other than "OK";
-bool Alert::executeMsg(const char* jsonData) {
+bool Alert::executeMsg(const char* jsonData, bool isRep) {
     char response[MSG_RESPONSE_SIZE]{0}; // Expects OK or FAIL.
 
     // Ensure when establishing connection, include the payload size here
     // for the following write function, this establishes content length.
     if (!this->openClient(jsonData)) return false; // Err handling in func.
-    if (!this->executeWrite(jsonData)) return false; // Err handling in func.
+    if (!this->executeWrite(jsonData, isRep)) return false; // Err hand in func.
     if (!this->executeRead(response, sizeof(response))) return false; 
     this->cleanup(); // Final cleanup.
 
@@ -108,12 +108,16 @@ bool Alert::executeMsg(const char* jsonData) {
     return false;
 }
 
-bool Alert::executeWrite(const char* jsonData) {
+// Requires the json data, and if report. Executes the write to the client.
+// Returns true if successful, and false if not.
+bool Alert::executeWrite(const char* jsonData, bool isRep) {
     // Writes the json data to the http connection.
     int written = esp_http_client_write(this->client, jsonData, 
         strlen(jsonData));
 
-    if (written >= ALT_JSON_DATA_SIZE) { // Sends, but logs exceeding length.
+    size_t maxSize = isRep ? REP_JSON_DATA_SIZE : ALT_JSON_DATA_SIZE;
+
+    if (written >= maxSize) { // Sends, but logs exceeding length.
         snprintf(this->log, sizeof(this->log), 
             "%s write size %d exceeds max %d", this->tag, written, 
             ALT_JSON_DATA_SIZE);
@@ -346,26 +350,29 @@ bool Alert::sendAlert(const char* msg, const char* caller) {
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
 
+    printf("MSG: %s\n", JSONmsg);
+
     NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
     if (sms == nullptr) return false; // block to prevent use.
 
     const char* jsonPrep = 
         "{\"APIkey\":\"%s\",\"phone\":\"%s\",\"report\":%s}";
 
-    const size_t adjustedSize = strlen(jsonPrep) + SKT_BUF_SIZE;
+    // !!!Had stack overflow issues creating a local variable. Created a report
+    // class var to omit the requirement for upping the stack size upon init.
 
     // Create JSON from passed arguments and set the write length for headers.
-    char jsonData[adjustedSize] = {0}; 
-    int written = snprintf(jsonData, adjustedSize, jsonPrep, sms->APIkey,
-        sms->phone, JSONmsg);
+    // char jsonData[adjustedSize] = {0}; // Large, causes impact on routineTask.
+    int written = snprintf(this->report, sizeof(this->report), jsonPrep, 
+        sms->APIkey, sms->phone, JSONmsg);
 
     // Ensure that the appropriate amount of data is written.
-    if (written < 0 || written > adjustedSize) return false;
+    if (written < 0 || written > sizeof(this->report)) return false;
 
     snprintf(this->log, sizeof(this->log), "%s sending report", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);
 
-    return this->prepMsg(jsonData);
+    return this->prepMsg(this->report, true);
 }
     
 }

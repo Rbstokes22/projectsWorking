@@ -59,7 +59,7 @@ class argPool {
 
 class SOCKHAND : public MASTERHAND {
     private:
-    static char masterBuf[SKT_BUF_SIZE]; // Used for report sending.
+    static char reportBuf[SKT_BUF_SIZE]; // Used for report sending in Alert.
     static const char* tag;
     static Peripheral::Relay* Relays; // Pointer to relays, init from main.cpp
     static bool isInit; // Shows if the handler is initialized.
@@ -88,7 +88,7 @@ class SOCKHAND : public MASTERHAND {
     static void attachRelayLT(uint8_t relayNum,
         Peripheral::RelayConfigLight* conf, const char* caller);
 
-    static char* getMasterBuf();
+    static char* getReportBuf();
 };
 
 }

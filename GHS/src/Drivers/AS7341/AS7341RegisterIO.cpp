@@ -46,12 +46,15 @@ bool AS7341basic::setBank(REG reg) {
         lastAddr = addr;
     } 
 
+    vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
+
     if (err != ESP_OK) {
 
         snprintf(this->log, sizeof(this->log), "%s Register bank err. %s", 
             this->tag, esp_err_to_name(err));
         
         this->sendErr(this->log);
+        
         return false;
     } 
 
@@ -67,6 +70,7 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
 
         uint8_t buffer[2] = {addr, val};
         err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
+        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
 
         if (err != ESP_OK) {
 
@@ -105,6 +109,8 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
             writeBuf, sizeof(writeBuf),
             readBuf, sizeof(readBuf), AS7341_TIMEOUT
         );
+
+        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
 
         if (err != ESP_OK) { // Bad read
 

@@ -22,6 +22,7 @@ namespace AS7341_DRVR {
 #define AS7341_MAX 65535 // full 16 bit int
 #define AS7341_WAIT 1000 // milliseconds timeout.
 #define AS7341_LOG_METH Messaging::Method::SRL_LOG
+#define AS7341_I2C_DELAY 10 // Delay between I2C register writes.
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {

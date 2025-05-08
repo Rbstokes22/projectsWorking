@@ -43,8 +43,8 @@ bool AS7341basic::configSMUX(SMUX_CONF config, bool verbose) {
         total += this->validateWrite(REG::SMUX_CONFIG, init, verbose);
         SMUX_INIT = true;
     }
-
-    vTaskDelay(pdMS_TO_TICKS(10)); // Short delay between sends.
+    // Removed a delay here, incorporated into read/write register. If future
+    // err, place back here for 10 ms.
 
     if (dataSafe) total += this->validateWrite(REG::SMUX_CONFIG, conf, verbose);
 

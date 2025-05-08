@@ -118,8 +118,8 @@ bool settingSaver::loadLight() {
     if (ATIME && ASTEP && AGAIN) return true;
 
     // If any data is bad, log.
-    snprintf(this->log, sizeof(this->log), "ATIME = %d, ASTEP = %d, AGAIN = %d",
-        ATIME, ASTEP, AGAIN);
+    snprintf(this->log, sizeof(this->log), 
+        "Loaded: ATIME = %d, ASTEP = %d, AGAIN = %d", ATIME, ASTEP, AGAIN);
 
     this->sendErr(this->log);
     return false;

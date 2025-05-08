@@ -1,5 +1,7 @@
 #include "Threads/ThreadTasks.hpp"
 #include "Threads/Threads.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "Threads/ThreadParameters.hpp"
 #include "Config/config.hpp"
 #include "Drivers/SHT_Library.hpp"
@@ -16,6 +18,23 @@
 #include "Peripherals/saveSettings.hpp"
 
 namespace ThreadTask {
+
+// requires the tag and high water mark. Each thread routinely calls this to
+// ensure that its high water mark is not approaching zero. If LTE to the 
+// minimum, a critical log entry will occur.
+void highWaterMark(const char* tag, UBaseType_t HWM) {
+
+    // printf("HWM for %s is %u words\n", tag, HWM); // Uncomment for testing.
+
+    if (HWM <= HWM_MIN_WORDS) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "%s Thread High Water Mark @ %u words", 
+            tag, HWM);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+            msg, Messaging::Method::SRL_LOG);
+    }
+}
 
 // Requires the netThreadParams pointer. Responsible for running
 // thread dedicated to the network management.
@@ -37,6 +56,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
 
+        highWaterMark("Network", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -64,6 +84,7 @@ void SHTTask(void* parameter) {
     while (true) {
         // Only check bounds upon successful read.
         if (th->read()) th->checkBounds(); 
+        highWaterMark("TempHum", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -102,6 +123,7 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
         // Checks bounds for photo resistor upon successful read.
         if (lt->readPhoto()) lt->checkBounds();
 
+        highWaterMark("Light", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -143,6 +165,7 @@ void soilTask(void* parameter) { // Soil sensors
         // bounds only if read is good, this does not due to iteration.
         soil->readAll();
         soil->checkBounds();
+        highWaterMark("Soil", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }
@@ -172,10 +195,10 @@ void routineTask(void* parameter) {
     while (true) {
         // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
-            params->relays[i].manageTimer(); // Acquires first control ID
+            params->relays[i].manageTimer(); 
         }
 
-        // Manage the timer of the daily report. If a timer is not enable,
+        // Manage the timer of the daily report. If a timer is not enabled,
         // will clear averages at 23:59:50 each day.
         Peripheral::Report::get()->manageTimer();
 
@@ -189,6 +212,7 @@ void routineTask(void* parameter) {
             count = 0; // Reset count.
         }
 
+        highWaterMark("Routine", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
 }

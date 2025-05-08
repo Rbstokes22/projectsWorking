@@ -152,7 +152,7 @@ void Report::manageTimer() {
     if (hour != lastHour) {
 
         // Attempt to send report via alert class.
-        bool sent = Alert::get()->sendReport(Comms::SOCKHAND::getMasterBuf());
+        bool sent = Alert::get()->sendReport(Comms::SOCKHAND::getReportBuf());
 
         // Set the attempts to 0 if successful, or increment if failed.
         attempts = (sent) ? 0 : (attempts + 1);
