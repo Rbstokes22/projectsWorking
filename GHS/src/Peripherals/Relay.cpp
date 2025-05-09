@@ -102,11 +102,11 @@ const char* Relay::createTag(uint8_t ReNum) {
     return this->tag;
 }
 
-// Requires gpio pin number, and the relay number.
+// Requires gpio pin number, and the relay number. Default timer days to ALL.
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
 
     pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clientQty(0),
-    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, false},
+    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, 0b01111111, false},
     mtx(this->createTag(ReNum)) {
 
         memset(this->clients, static_cast<uint8_t>(IDSTATE::AVAILABLE), 
@@ -314,26 +314,50 @@ bool Relay::timerSet(uint32_t onSeconds, uint32_t offSeconds) {
     return true;
 }
 
+// Requires the bitwise uint8_t storage variable. Sets the days the timer is
+// to be enabled, monday = 0, sunday = 6. They will be stored in bits 0 - 6,
+// with bit 6 being sunday, and bit 0 being monday. Returns true.
+bool Relay::timerSetDays(uint8_t bitwise) {
+    Threads::MutexLock(this->mtx);
+    this->timer.days = bitwise; // No err checking needed, either good or not.
+    return true;
+}
+
 // Requires no params. This manages any set relay timers and will both
 // turn them on and off during their set times.
 void Relay::manageTimer() {
     Threads::MutexLock(this->mtx);
 
     if (this->timer.isReady) {
-        Clock::DateTime* time = Clock::DateTime::get();
+        Clock::TIME* tm = Clock::DateTime::get()->getTime();
 
         // Logis applies to see if the timer runs through midnight.
         bool runsThruMid = (this->timer.offTime < this->timer.onTime);
-        uint32_t curTime = time->getTime()->raw; // current time
 
-        // Checks the current time with the set on and off times. If conditions
-        // are met, timer will turn on or off. The mutex is unlocked before
-        // calling on and off. This is to prevent those functions from trying
-        // to aquire a lock and it is already locked. It is because the on and
-        // off functions can be called outside of this manage timer function.
+        uint32_t curTime = tm->raw; // current time
+        uint8_t day = tm->day; // Current day.
+
+        // Run bitwise checks to see if the timer is expected to be used today.
+        // Works by using the bitwise storage of active days, and shifting by
+        // the current day. EXAMPLE:
+        // days = 0b01001010 means on Sun, Thurs, and Tues.
+        // Using day, mon = 0, sun = 6. If today is monday, it will not shift
+        // and & 0b1, which will be 0, indicating monday is an off day. On Tues,
+        // it will shift 1, and & 0b1, which will be true, meaning run today.
+        bool runToday = (this->timer.days >> day) & 0b1;
+
+        // Checks the current time and ensures it is within the correct range.
+        // Also checks that it is scheduled to run today. 
+        // WARNING: If timer runs through midnight, and the following day is 
+        // not selected, the timer will shutoff at midnight.
+        // If conditions are met, timer will turn on or off. The mutex is 
+        // unlocked before on and off calls, to prevent those functions from
+        // trying to aquired a locked lock. The design is because an and off 
+        // functiosn can be called publically outside of the timer function.
         if (runsThruMid) {
-            if (curTime >= this->timer.onTime || 
-                curTime <= this->timer.offTime) {
+            if ((curTime >= this->timer.onTime || 
+                curTime <= this->timer.offTime) && runToday) {
+
                 this->mtx.unlock(); 
                 this->on(this->timerID);
             } else {
@@ -342,7 +366,10 @@ void Relay::manageTimer() {
             }
 
         } else {
-            if (curTime >= timer.onTime && curTime <= timer.offTime) {
+
+            if (curTime >= timer.onTime && curTime <= timer.offTime && 
+                runToday) {
+
                 this->mtx.unlock();
                 this->on(this->timerID);
             } else {

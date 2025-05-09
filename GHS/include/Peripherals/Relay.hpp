@@ -38,6 +38,7 @@ enum class IDSTATE : uint8_t {
 struct Timer {
     uint32_t onTime; // time to turn relay on, seconds past midnight.
     uint32_t offTime; // time to turn relay off, secons past midnight.
+    uint8_t days; // Days that the timer will be enabled. Stored as bitwise.
     bool isReady; // bot on and off times have been set and are not equal.
 };
 
@@ -71,6 +72,7 @@ class Relay {
     bool removeID(uint8_t ID);
     RESTATE getState();
     bool timerSet(uint32_t onSeconds, uint32_t offSeconds);
+    bool timerSetDays(uint8_t bitwise);
     void manageTimer();
     Timer* getTimer();
 };

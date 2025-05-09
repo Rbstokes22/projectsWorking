@@ -28,11 +28,14 @@ void DateTime::adjustTime() {
     uint32_t timeSinceCal = this->seconds() - this->calibratedAt;
     uint32_t currentTime = timeSinceCal + this->timeCalibrated;
 
-    // Total whole days that has been running since calibrated.
-    uint16_t days = currentTime / this->secPerDay;
+    // Total whole days that has been running since calibrated. Max 65535
+    uint16_t days = currentTime / SEC_PER_DAY;
 
     // Computes offset which will yield a value between 0 - 86400.
-    this->time.raw = currentTime - (days * this->secPerDay);
+    this->time.raw = currentTime - (days * SEC_PER_DAY);
+
+    // Computes day current day. 0 = monday, 6 = sunday. 
+    this->time.day = (this->dayCalibrated + days) % 7; 
 
     // calibrates the current time 
     this->setHHMMSS(this->time.raw);
@@ -42,14 +45,14 @@ void DateTime::adjustTime() {
 void DateTime::setHHMMSS(uint32_t seconds) {
 
     this->time.hour = seconds / 3600;
-    this->time.minute = (seconds - (this->time.hour * 3600)) / 60;
-    this->time.second = 
-        seconds - (this->time.hour * 3600) - (this->time.minute * 60);
+    this->time.minute = (seconds % 3600) / 60;
+    this->time.second = seconds % 60;
 }
 
 DateTime::DateTime() : 
     
-    time{0, 0, 0, 0}, timeCalibrated(0), calibratedAt(0), calibrated(false) {}
+    time{0, 0, 0, 0, 0}, timeCalibrated(0), dayCalibrated(0), calibratedAt(0), 
+    calibrated(false) {}
 
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {
@@ -64,10 +67,12 @@ DateTime* DateTime::get() {
 
 // Requires an int of the seconds past midnight. Calibrates the hhmmss,
 // and sets baseline for future computations.
-void DateTime::calibrate(int secsPastMid) {
+void DateTime::calibrate(int secsPastMid, uint8_t day) {
     this->time.raw = static_cast<uint32_t>(secsPastMid);
     this->setHHMMSS(secsPastMid);
     this->timeCalibrated = secsPastMid; // Time this was calibrated
+    this->dayCalibrated = day;
+    this->time.day = day; // Set day once calibrated.
     this->calibrated = true;
     this->calibratedAt = this->seconds(); // calibrated at this sys runtime
 }

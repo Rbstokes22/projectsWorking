@@ -71,7 +71,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // client. Ensure client uses same JSON and same commands.
         written = snprintf(buffer, size,  
         "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
-        "\"sysTime\":%lu,\"hhmmss\":\"%d:%d:%d\",\"timeCalib\":%d,"
+        "\"sysTime\":%lu,\"hhmmss\":\"%d:%d:%d\",\"day\":%u,\"timeCalib\":%d,"
         "\"re0\":%d,\"re0TimerEn\":%d,\"re0TimerOn\":%zu,\"re0TimerOff\":%zu,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
@@ -104,7 +104,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         FIRMWARE_VERSION, 
         data.idNum,
         Messaging::MsgLogHandler::get()->newLogAvail(),
-        dtg->raw, dtg->hour, dtg->minute, dtg->second,
+        dtg->raw, dtg->hour, dtg->minute, dtg->second, dtg->day,
         Clock::DateTime::get()->isCalibrated(),
         static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
         re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
@@ -200,23 +200,35 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             copyBuf = true;
         }
         }
+
         break;
 
-        // Calibrates the system time. There are 86400 seconds per day, and
-        // the client will use this command and pass the current seconds past
-        // midnight. The system time will then be set to the client time. This
-        // is to ensure that error accumulation doesnt occur, and that time
-        // dependent functions can run.
-        case CMDS::CALIBRATE_TIME: 
-        if (!SOCKHAND::inRange(0, 86399, data.suppData)) {
-            written = snprintf(buffer, size, reply, 0, 
-                "Time out of range", data.suppData, data.idNum);
-        } else {
-            Clock::DateTime::get()->calibrate(data.suppData);
-            written = snprintf(buffer, size, reply, 1, 
-                "Time calibrated to", data.suppData, data.idNum);
+        // Calibrates the system time and day. There are 86400 sec per day, and 
+        // the client will use this comamnd and pass the current seconds past
+        // midnight and the day number of the week with monday = 0. This will
+        // allow all time dependent functions to run as perscribed to real time.
+        // Below is the 32-bit bitwise breakdown.
+        // 0000 0000   0000 DDDT   TTTT TTTT   TTTT TTTT
+        // D = day of the week, Monday is day 0, Sunday is day 6.
+        // T = time in seconds, 17-bits max 131071, day is 86400.
+        case CMDS::CALIBRATE_TIME: {
+        uint8_t day = (data.suppData >> 17) & 0b111; // 3 bits,
+        uint32_t time = data.suppData & 0x1FFFF; // 17 bits
+
+        bool dayRange = SOCKHAND::inRange(0, 6, day);
+        bool timeRange = SOCKHAND::inRange(0, 86399, time);
+
+        if (!dayRange || !timeRange) {
+            written = snprintf(buffer, size, reply, 0, "Time/date out of range", 
+                0, data.idNum);
+            break; // Break and block if range error.
         }
-        
+
+        Clock::DateTime::get()->calibrate(time, day);
+        written = snprintf(buffer, size, reply, 1, 
+            "Day/Time calibrated", time, data.idNum);
+        }
+
         break;
 
         // If a new log entry is available, in the GET_ALL socket command,
@@ -311,6 +323,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         if (!reRange || !startRange || !durRange) {
             written = snprintf(buffer, size, reply, 0, "Re Tmr Range bust", 
                 0, data.idNum);
+
             break; // Break and block if range error.
         }
 
@@ -327,6 +340,38 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         break;
+
+        // Sets the days of the week that are applicable to the relay timer.
+        // Below is the 12-bit bitwise breakdown. 
+        // 0000 RRRR 0SDD DDDM
+        // R = relay number. Below bitwise ops do not occur HERE.
+        // D = day of week. Placeholder.
+        // S = Sunday, bit 6.
+        // M = Monday, bit 0.
+        case CMDS::RELAY_TIMER_DAY: {
+        uint8_t reNum = (data.suppData >> 8) & 0xF;
+        uint8_t days = data.suppData & 0b01111111;
+
+        bool reRange = SOCKHAND::inRange(0, 3, reNum);
+        bool dayRange = SOCKHAND::inRange(0, 127, days);
+
+        if (!reRange || !dayRange) {
+            written = snprintf(buffer, size, reply, 0, "Re Tmr Day Range bust", 
+                0, data.idNum);
+
+            break; // Break and block if range error.
+        }
+
+        // Set the days to the relay.
+        if (!SOCKHAND::Relays[reNum].timerSetDays(days)) { 
+            written = snprintf(buffer, size, reply, 0, "Re Tmr days not set", 
+                0, data.idNum);
+
+        } else {
+            written = snprintf(buffer, size, reply, 1, "Re Tmr days set", reNum, 
+                data.idNum);
+        }
+        }
 
         // Attaches a single relay to a peripheral device using bitwise 
         // operations. Below is the 8-bit bitwise breakdown.
@@ -347,6 +392,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         if (!devRange || !reRange) {
             written = snprintf(buffer, size, reply, 0, "Re Att Range bust", 
                 0, data.idNum);
+
             break; // Break and block if range error
         }
 
@@ -363,12 +409,14 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             SOCKHAND::attachRelayTH(reNum, th->getHumConf(), "Hum");
             written = snprintf(buffer, size, reply, 1, "Hum Relay att", 
                 reNum, data.idNum);
+
             break;
 
             case 2: // Light
             SOCKHAND::attachRelayLT(reNum, lt->getConf(), "light");
             written = snprintf(buffer, size, reply, 1, "Light Relay att", 
                 reNum, data.idNum);
+
             break;
 
             default:;
@@ -416,6 +464,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         if (!condRange || !valRange) {
             written = snprintf(buffer, size, reply, 0, "TH Range bust", 
                 0, data.idNum);
+
             break; // Break if range error
         }
        
@@ -487,6 +536,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         if (!numRange || !condRange || !valRange) {
             written = snprintf(buffer, size, reply, 0, "Soil Range bust", 
                 num, data.idNum);
+
             break; // break and block if range err.
         }
 
@@ -512,46 +562,47 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // D = dark value, 12 bits, max 4095.
         // P = photo value, 12 bits, max 4095.
         case CMDS::SET_LIGHT: {
-            uint8_t type = (data.suppData >> 28) & 0b1;
-            uint8_t cond = (data.suppData >> 24) & 0b11;
-            uint16_t dark = (data.suppData >> 12) & 0x0FFF;
-            uint16_t photo = data.suppData & 0x0FFF;
+        uint8_t type = (data.suppData >> 28) & 0b1;
+        uint8_t cond = (data.suppData >> 24) & 0b11;
+        uint16_t dark = (data.suppData >> 12) & 0x0FFF;
+        uint16_t photo = data.suppData & 0x0FFF;
 
-            // Relay conditions, work just like alert condition above.
-            const Peripheral::RECOND RECOND[] = {Peripheral::RECOND::LESS_THAN,
-                Peripheral::RECOND::GTR_THAN, Peripheral::RECOND::NONE};
+        // Relay conditions, work just like alert condition above.
+        const Peripheral::RECOND RECOND[] = {Peripheral::RECOND::LESS_THAN,
+            Peripheral::RECOND::GTR_THAN, Peripheral::RECOND::NONE};
 
-            // Sets the ranges depending on the type.
-            bool valRange = (type == 0) ? // Indicates dark val
-                SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, dark) :
-                SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, photo);
+        // Sets the ranges depending on the type.
+        bool valRange = (type == 0) ? // Indicates dark val
+            SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, dark) :
+            SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, photo);
 
-            // Sets to true if type is dark to bypass checks.
-            bool condRange = (type == 0) ? true : SOCKHAND::inRange(0, 2, cond);
+        // Sets to true if type is dark to bypass checks.
+        bool condRange = (type == 0) ? true : SOCKHAND::inRange(0, 2, cond);
 
-            if (!valRange || !condRange) {
-                written = snprintf(buffer, size, reply, 0, "Light Range bust", 
-                    0, data.idNum);
-                break; // Break if range error
-            }
+        if (!valRange || !condRange) {
+            written = snprintf(buffer, size, reply, 0, "Light Range bust", 
+                0, data.idNum);
 
-            // Checks are good, go ahead an make the setting change.
-            Peripheral::RelayConfigLight* conf = 
-                Peripheral::Light::get()->getConf();
+            break; // Break if range error
+        }
 
-            if (type == 0) { // Indicates dark value
+        // Checks are good, go ahead an make the setting change.
+        Peripheral::RelayConfigLight* conf = 
+            Peripheral::Light::get()->getConf();
 
-                conf->darkVal = dark;
-                written = snprintf(buffer, size, reply, 1, "Dark Val", 
-                    dark, data.idNum);
+        if (type == 0) { // Indicates dark value
 
-            } else { // Indicates photo value. Type = 1.
+            conf->darkVal = dark;
+            written = snprintf(buffer, size, reply, 1, "Dark Val", 
+                dark, data.idNum);
 
-                conf->condition = RECOND[cond];
-                conf->tripVal = (cond == 2) ? 0 : photo;
-                written = snprintf(buffer, size, reply, 1, "Photo Relay Set", 
-                    conf->tripVal, data.idNum);
-            }
+        } else { // Indicates photo value. Type = 1.
+
+            conf->condition = RECOND[cond];
+            conf->tripVal = (cond == 2) ? 0 : photo;
+            written = snprintf(buffer, size, reply, 1, "Photo Relay Set", 
+                conf->tripVal, data.idNum);
+        }
         }
 
         break;
@@ -634,6 +685,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         if (!typeRange) {
             written = snprintf(buffer, size, reply, 0, "Clr Avg Range bust", 
                 0, data.idNum);
+
             break; // Break if range error
         }
 

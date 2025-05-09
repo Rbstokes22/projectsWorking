@@ -2,6 +2,11 @@
 
 // TO DO:
 
+// Run checks on the timer day setting. Built all CPP code, just need to run
+// checks. Test relay 0, and adjust days to match. Also ensure that if the
+// following day is not selected, the timer does go off at midnight. Once complete
+// build the client side to incorporate this.
+
 // Test report. Report attempts to send on the hour now to the server. The 
 // timer set is for clearing averages only. This also need to be tested.
 // The report will send the entire JSON socket buffer data to the server to be 
