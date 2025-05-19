@@ -26,16 +26,26 @@ bool settingSaver::saveRelayTimers() {
         return false;
     }
 
-    this->expected = 2; // Expected true values per relay.
+    this->expected = 3; // Expected true values per relay.
 
     // Iterate relays and compare values with master config values.
     auto checkVals = [this](uint8_t relayNum){
         this->total = 0; // Accumulation of true values, zero out.
-        this->total += this->compare(this->master.relays[relayNum].onTime,
-            this->relays[relayNum].getTimer()->onTime);
+        Peripheral::Timer* tmr = this->relays[relayNum].getTimer();
+        configSaveReTimer mst = this->master.relays[relayNum];
 
-        this->total += this->compare(this->master.relays[relayNum].offTime,
-            this->relays[relayNum].getTimer()->offTime);
+        if (tmr == nullptr) {
+            snprintf(this->log, sizeof(this->log), "%s relay %u is nullptr",
+                this->tag, relayNum);
+
+            this->sendErr(this->log);
+            return false;
+        }
+
+        // Run comparisons and accumulate total.
+        this->total += this->compare(mst.onTime, tmr->onTime);
+        this->total += this->compare(mst.offTime, tmr->offTime);
+        this->total += this->compare(mst.days, tmr->days);
 
         if (this->total != this->expected) { // Changes, rewrite to NVS.
 
@@ -90,6 +100,7 @@ bool settingSaver::loadRelayTimers() {
     auto copy = [this](uint8_t reNum){
         uint32_t onTime = this->master.relays[reNum].onTime;
         uint32_t offTime = this->master.relays[reNum].offTime;
+        uint8_t days = this->master.relays[reNum].days;
 
         // Sets proceed to true if conditions are met meaning that the last
         // state of the relay is legit.
@@ -98,6 +109,10 @@ bool settingSaver::loadRelayTimers() {
 
         if (proceed) { // If good, set on and off times, err hand in funcs.
             this->relays[reNum].timerSet(onTime, offTime);
+            
+            // Ensure days are appropriate bitwise meaning max = 0b01111111
+            // for each day of the week.
+            if (days < 0b10000000) this->relays[reNum].timerSetDays(days);
         }
         
         return true; // No false returns, helps increment counts.

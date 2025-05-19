@@ -59,10 +59,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // to avoid using verbose commands.
         Clock::TIME* dtg = Clock::DateTime::get()->getTime();
         Peripheral::TempHum* th = Peripheral::TempHum::get();
-        Peripheral::Timer* re1Timer = SOCKHAND::Relays[0].getTimer();
-        Peripheral::Timer* re2Timer = SOCKHAND::Relays[1].getTimer();
-        Peripheral::Timer* re3Timer = SOCKHAND::Relays[2].getTimer();
-        Peripheral::Timer* re4Timer = SOCKHAND::Relays[3].getTimer();
+        Peripheral::Timer* re0Timer = SOCKHAND::Relays[0].getTimer();
+        Peripheral::Timer* re1Timer = SOCKHAND::Relays[1].getTimer();
+        Peripheral::Timer* re2Timer = SOCKHAND::Relays[2].getTimer();
+        Peripheral::Timer* re3Timer = SOCKHAND::Relays[3].getTimer();
         Peripheral::Soil* soil = Peripheral::Soil::get();
         Peripheral::Light* light = Peripheral::Light::get();
         
@@ -76,6 +76,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
         "\"re3\":%d,\"re3TimerEn\":%d,\"re3TimerOn\":%zu,\"re3TimerOff\":%zu,"
+        "\"re0Days\":%u,\"re1Days\":%u,\"re2Days\":%u,\"re3Days\":%u,"
         "\"temp\":%.2f,\"tempRe\":%d,\"tempReCond\":%u,\"tempReVal\":%d,"
         "\"tempAltCond\":%u,\"tempAltVal\":%d,"
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
@@ -107,13 +108,14 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         dtg->raw, dtg->hour, dtg->minute, dtg->second, dtg->day,
         Clock::DateTime::get()->isCalibrated(),
         static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
-        re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
+        re0Timer->isReady, (size_t)re0Timer->onTime, (size_t)re0Timer->offTime,
         static_cast<uint8_t>(SOCKHAND::Relays[1].getState()),
-        re2Timer->isReady, (size_t)re2Timer->onTime, (size_t)re2Timer->offTime,
+        re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
         static_cast<uint8_t>(SOCKHAND::Relays[2].getState()),
-        re3Timer->isReady, (size_t)re3Timer->onTime, (size_t)re3Timer->offTime,
+        re2Timer->isReady, (size_t)re2Timer->onTime, (size_t)re2Timer->offTime,
         static_cast<uint8_t>(SOCKHAND::Relays[3].getState()),
-        re4Timer->isReady, (size_t)re4Timer->onTime, (size_t)re4Timer->offTime,
+        re3Timer->isReady, (size_t)re3Timer->onTime, (size_t)re3Timer->offTime,
+        re0Timer->days, re1Timer->days, re2Timer->days, re3Timer->days,
         th->getTemp(),
         th->getTempConf()->relay.num,
         static_cast<uint8_t>(th->getTempConf()->relay.condition),
@@ -372,6 +374,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
                 data.idNum);
         }
         }
+
+        break;
 
         // Attaches a single relay to a peripheral device using bitwise 
         // operations. Below is the 8-bit bitwise breakdown.

@@ -106,7 +106,7 @@ const char* Relay::createTag(uint8_t ReNum) {
 Relay::Relay(gpio_num_t pin, uint8_t ReNum) : 
 
     pin(pin), ReNum(ReNum), relayState(RESTATE::OFF), clientQty(0),
-    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, 0b01111111, false},
+    timer{RELAY_TIMER_OFF, RELAY_TIMER_OFF, RELAY_DAYS, false},
     mtx(this->createTag(ReNum)) {
 
         memset(this->clients, static_cast<uint8_t>(IDSTATE::AVAILABLE), 

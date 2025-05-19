@@ -16,7 +16,7 @@
 // and populated into these structs, and then the values are copied over to 
 // the current settings. NOTE: When saving data, if the current values equal
 // the struct values, the NVS will not be written. This prevents attempts to 
-// re-write the same values to NVS and acts as a first layer gate. Each sensor
+// re-write the same values to NVS and acts as a first-layer gate. Each sensor
 // has its own key with its own values.
 
 namespace NVS {
@@ -43,6 +43,7 @@ namespace NVS {
 struct configSaveReTimer { // Relay Timer configurations.
     uint32_t onTime; // When relay is set to turn on.
     uint32_t offTime; // When relay is set to turn off.
+    uint8_t days; // Days when the relay will be used.
 }; // x4
 
 struct configSaveReAltTH { // Relay & Alt config Temp Hum.
@@ -109,7 +110,7 @@ class settingSaver { // Singleton
     bool compare(T& curVal, const T& newVal) {
         if (curVal != newVal) {
             curVal = newVal;
-            return false; // Indicates a rewrite must occur
+            return false; // Signals a rewrite must occur
         }
         return true; // Values are equal
     }

@@ -91,8 +91,11 @@ bool settingSaver::loadSoil() {
         // to the current soil config.
         if (this->master.soil[sensorNum].cond != Peripheral::ALTCOND::NONE) {
             so->condition = this->master.soil[sensorNum].cond;
-            so->tripVal = this->master.soil[sensorNum].tripVal;
+
+            int tripVal = this->master.soil[sensorNum].tripVal;
+            so->tripVal = tripVal ? tripVal : 0; // Default to 0 if non-exist.
         }
+        
         return true; // Used to incremement counts of success.
     };
 

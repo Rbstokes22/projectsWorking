@@ -44,7 +44,10 @@ extern char confLog[50]; // Reusable log for config src.
 #define LOCAL_IP "http://192.168" // All that is required
 extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 
-// AS7341 (default values by datasheet are 599, 29, 0)
+// AS7341 (default values by datasheet are 599, 29, 0). NOTE! AGAIN not included
+// due to default setting of x256. Both ATIME and ASTEP default values are not
+// acceptable, which is why they are included and changed. Recommend not 
+// changing, and if changed, ensure the init procedures are updated.
 #define AS7341_ASTEP 599 // Range from 0 - 65534. Rec 599 per datasheet.
 #define AS7341_ATIME 29 // Range from 0 - 255. Rec 29 per datasheet.
 #define AS7341_WTIME 0

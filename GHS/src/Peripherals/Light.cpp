@@ -28,7 +28,9 @@ Light::Light(LightParams &params) :
 
         // Set the AGAIN, ASTEP, and ATIME configuration variables by reading
         // the current values witten to the AS7341 upon init.
-        bool dataSafe = false;
+        bool dataSafe = false; // Ensures data integrity.
+
+        // AGAIN will be default to 9, or x256. 
         uint16_t data = this->params.as7341.getAGAIN_RAW(dataSafe);
         this->specConf.AGAIN = dataSafe ? static_cast<AS7341_DRVR::AGAIN>(data) 
             : AS7341_DRVR::AGAIN::X256;

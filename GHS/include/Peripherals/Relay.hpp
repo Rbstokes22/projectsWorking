@@ -11,6 +11,7 @@ namespace Peripheral {
 // Specifies the max amount of devices that can control single relay.
 #define RELAY_IDS 10 
 #define RELAY_TIMER_OFF 99999 // VAL means off
+#define RELAY_DAYS 0b00000000 // Default no days set for timer.
 #define RELAY_TAG_SIZE 16 
 #define RELAY_BAD_ID 255 // ID set with the number will not be usable.
 #define RELAY_ID_STATES 4 // ID states in class enum

@@ -56,7 +56,7 @@ enum class PWR : uint8_t {OFF, ON};
 enum class LED : uint8_t {OFF, ON};
 
 // Analog Gain allows you to set the spectral sensitivity 
-// dynamically. Default set at X256.
+// dynamically. Default set at X256 (9).
 enum class AGAIN : uint8_t {
     X_HALF, X1, X2, X4, X8, X16, X32, X64, X128, X256, X512
 };
@@ -81,10 +81,11 @@ enum class LED_CONF : uint8_t {ENABLE, DISABLE};
 // Enables or Disables the Flicker Detection
 enum class FLICKER_CONF : uint8_t {ENABLE, DISABLE};
 
-// ASTEP 0 - 65534. (Recommended 599)
-// ATIME 0 - 255. (Recommended 29)
+// ASTEP 0 - 65534. (Recommended 599, default 999)
+// ATIME 0 - 255. (Recommended 29, default 0)
 // WTIME 0 - 255. (Recommended 0)
 // Integration time is (ATIME + 1) * (ASTEP + 1) * 2.78µs. @ recmd = 50 ms.
+// NOTE: Default settings of 999 and 0 will yield 2.78 ms integ time.
 struct CONFIG {
     uint16_t ASTEP;
     uint8_t ATIME;

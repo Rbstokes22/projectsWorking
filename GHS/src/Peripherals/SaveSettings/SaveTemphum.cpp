@@ -96,9 +96,12 @@ bool settingSaver::loadTH() {
         // the relays.
         if (from.relayCond != Peripheral::RECOND::NONE) { 
 
-            to->relay.condition = from.relayCond;
-            to->relay.tripVal = from.relayTripVal;
+            to->relay.condition = from.relayCond; // Copy since exists.
 
+            // Default to 0 if non-exist.
+            to->relay.tripVal = from.relayTripVal ? from.relayTripVal : 0;
+
+            // Attach relay if the number is within bounds and was saved.
             if (from.relayNum < TOTAL_RELAYS && 
                 from.relayNum != TEMP_HUM_NO_RELAY) {
 
@@ -109,8 +112,8 @@ bool settingSaver::loadTH() {
         // If the read alert condition was set, copy data over.
         if (from.altCond != Peripheral::ALTCOND::NONE) { 
 
-            to->alt.condition = from.altCond;
-            to->alt.tripVal = from.altTripVal;
+            to->alt.condition = from.altCond; // Copy since exists
+            to->alt.tripVal = from.altTripVal ? from.altTripVal : 0; // SAA
         }
 
         return true;
@@ -152,7 +155,7 @@ bool settingSaver::loadTH() {
     // to the temperature configuration.
     if (load(this->master.temp, TEMP_KEY)) {
         th = Peripheral::TempHum::get()->getTempConf();
-        if (copy(th, this->master.temp, "temp")) counts++; // Incremement if true.
+        if (copy(th, this->master.temp, "temp")) counts++; // Inc++ if true.
     }
 
     // If successful NVS load into master config humidity, copy those values to
