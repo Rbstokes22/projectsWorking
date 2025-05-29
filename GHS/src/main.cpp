@@ -2,6 +2,9 @@
 
 // TO DO:
 
+// Test that the relay energizes if previously energized but force off is rmvd.
+// Test relay qty and manual.
+
 // Save setting features updated to include days as well as ensuring default
 // values are loaded. Test when testing report.
 

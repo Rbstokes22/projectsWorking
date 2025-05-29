@@ -221,6 +221,20 @@ void Relay::removeForce() {
     snprintf(Relay::log, sizeof(Relay::log), "%s force off rmvd", this->tag);
     this->sendErr(Relay::log, Messaging::Levels::INFO);
     this->relayState = RESTATE::FORCE_REMOVED;
+
+    // Check client quantity when removing force, if there are IDs still 
+    // attached to the relay, re-energize with first device.
+    if (this->clientQty > 0) {
+        uint8_t firstOn = 255; // indicates that there are 0 with state ON.
+        for (int i = 0; i < RELAY_IDS; i++) {
+            if (clients[i] == IDSTATE::ON) {
+                firstOn = i;
+                break;
+            }
+        }
+
+        if (firstOn != 255) this->on(firstOn); // Sends first ID to re-energize.
+    }
 }
 
 // Requires caller string, that will be assigned to returned ID. Iterates
@@ -272,6 +286,25 @@ bool Relay::removeID(uint8_t ID) {
 RESTATE Relay::getState() {
     Threads::MutexLock(this->mtx);
     return this->relayState;
+}
+
+// Return the current client quantity.
+uint8_t Relay::getQty() {
+    Threads::MutexLock(this->mtx);
+    return this->clientQty;
+}
+
+// Checks if the relay is being energized manually. Returns true if yes.
+bool Relay::isManual() {
+    Threads::MutexLock(this->mtx);
+    
+    for (int i = 0; i < RELAY_IDS; i++) {
+        char caller[10] = {0}; // Just interested in the first 9 chars
+        strncpy(caller, this->clientStr[i], sizeof(caller) - 1);
+        if (strcmp(caller, "SKTHANDRE") == 0) return true;
+    }
+
+    return false;
 }
 
 // Requires the on and off seconds between 0 and 86399. If 99999 is passed for 

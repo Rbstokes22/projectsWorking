@@ -65,7 +65,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         Peripheral::Timer* re3Timer = SOCKHAND::Relays[3].getTimer();
         Peripheral::Soil* soil = Peripheral::Soil::get();
         Peripheral::Light* light = Peripheral::Light::get();
-        
+
         // Primary JSON response object. Populates every setting and value that
         // is critical to the operation of this device, and returns it to the
         // client. Ensure client uses same JSON and same commands.
@@ -77,6 +77,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"re2\":%d,\"re2TimerEn\":%d,\"re2TimerOn\":%zu,\"re2TimerOff\":%zu,"
         "\"re3\":%d,\"re3TimerEn\":%d,\"re3TimerOn\":%zu,\"re3TimerOff\":%zu,"
         "\"re0Days\":%u,\"re1Days\":%u,\"re2Days\":%u,\"re3Days\":%u,"
+        "\"re0Qty\":%u,\"re1Qty\":%u,\"re2Qty\":%u,\"re3Qty\":%u,"
+        "\"re0Man\":%u,\"re1Man\":%u,\"re2Man\":%u,\"re3Man\":%u,"
         "\"temp\":%.2f,\"tempRe\":%d,\"tempReCond\":%u,\"tempReVal\":%d,"
         "\"tempAltCond\":%u,\"tempAltVal\":%d,"
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
@@ -116,6 +118,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         static_cast<uint8_t>(SOCKHAND::Relays[3].getState()),
         re3Timer->isReady, (size_t)re3Timer->onTime, (size_t)re3Timer->offTime,
         re0Timer->days, re1Timer->days, re2Timer->days, re3Timer->days,
+        SOCKHAND::Relays[0].getQty(), SOCKHAND::Relays[1].getQty(),
+        SOCKHAND::Relays[2].getQty(), SOCKHAND::Relays[3].getQty(),
+        SOCKHAND::Relays[0].isManual(), SOCKHAND::Relays[1].isManual(),
+        SOCKHAND::Relays[2].isManual(), SOCKHAND::Relays[3].isManual(),
         th->getTemp(),
         th->getTempConf()->relay.num,
         static_cast<uint8_t>(th->getTempConf()->relay.condition),
@@ -270,11 +276,11 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         // Register all 4 relays upon first call. Put into array for mapping.
-        static uint8_t IDR1 = SOCKHAND::Relays[0].getID("SKHANDRE1");
-        static uint8_t IDR2 = SOCKHAND::Relays[1].getID("SKHANDRE2");
-        static uint8_t IDR3 = SOCKHAND::Relays[2].getID("SKHANDRE3");
-        static uint8_t IDR4 = SOCKHAND::Relays[3].getID("SKHANDRE4");
-        static uint8_t IDS[] = {IDR1, IDR2, IDR3, IDR4};
+        static uint8_t IDR0 = SOCKHAND::Relays[0].getID(RELAY_MAN_0_TAG);
+        static uint8_t IDR1 = SOCKHAND::Relays[1].getID(RELAY_MAN_1_TAG);
+        static uint8_t IDR2 = SOCKHAND::Relays[2].getID(RELAY_MAN_2_TAG);
+        static uint8_t IDR3 = SOCKHAND::Relays[3].getID(RELAY_MAN_3_TAG);
+        static uint8_t IDS[] = {IDR0, IDR1, IDR2, IDR3};
 
         // Use the renum to make the correct call.
         switch (cmd) {

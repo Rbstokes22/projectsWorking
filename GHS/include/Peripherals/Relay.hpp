@@ -18,6 +18,14 @@ namespace Peripheral {
 #define RELAY_ID_CALLER_LEN 16 // Chars allowable to caller.
 #define RELAY_LOG_METHOD Messaging::Method::SRL_LOG
 
+// Tags used for manual control. Will be used to send the client information if
+// the relay is manually energized.
+#define RELAY_MAN_0_TAG "SKTHANDRE0"
+#define RELAY_MAN_1_TAG "SKTHANDRE1"
+#define RELAY_MAN_2_TAG "SKTHANDRE2"
+#define RELAY_MAN_3_TAG "SKTHANDRE3"
+
+
 enum class RECOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Relay condition
 
 // Relay phsyical state. Different from ID state, only one of these exist.
@@ -48,7 +56,7 @@ class Relay {
     char tag[RELAY_TAG_SIZE]; // Changes on relay number
     static char log[LOG_MAX_ENTRY]; // Shared between several objects.
     static const char* IDSTATEMap[RELAY_ID_STATES];
-    uint8_t timerID;
+    uint8_t timerID; // Used exclusively for the relay timer.
     gpio_num_t pin; // Relay pin
     uint8_t ReNum; // Relay num, used as an ID. Not currently used thru program.
     RESTATE relayState; // Current relay state, 
@@ -72,6 +80,8 @@ class Relay {
     uint8_t getID(const char* caller);
     bool removeID(uint8_t ID);
     RESTATE getState();
+    uint8_t getQty();
+    bool isManual();
     bool timerSet(uint32_t onSeconds, uint32_t offSeconds);
     bool timerSetDays(uint8_t bitwise);
     void manageTimer();
