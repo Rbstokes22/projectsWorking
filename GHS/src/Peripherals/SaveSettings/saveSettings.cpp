@@ -44,19 +44,26 @@ settingSaver* settingSaver::get() {
 // No params. Attempts an NVS save for all the peripheral settings. Returns
 // true if all items saved, and false if not.
 bool settingSaver::save() { 
+
     // Even though NVS has the functionality, manage all savings here and 
     // only write what is intended to change. All logic within these calls.
-    return this->saveTH() && this->saveRelayTimers() && this->saveSoil() &&
-    this->saveLight();
+    // Separated to ensure all functions are executed.
+    bool TH = this->saveTH(); bool LT = this->saveLight();
+    bool RE = this->saveRelayTimers(); bool SO = this->saveSoil();
+
+    return TH && LT && RE && SO;
 }
 
 // No params. Attempts an NVS read/load for all the peripheral settings. 
 // Returns true if all settings loaded, and false if not.
 bool settingSaver::load() {
+
     // Load will load the settings from NVS, and copy them over to the
-    // classes.
-    return this->loadTH() && this->loadLight() && this->loadRelayTimers() &&
-        this->loadSoil();
+    // classes. Separated to ensure all functions are executed.
+    bool TH = this->loadTH(); bool LT = this->loadLight();
+    bool RE = this->loadRelayTimers(); bool SO = this->loadSoil();
+
+    return TH && LT && RE && SO;
 }
 
 // Requires relay array to be passed. Array must be global or static to ensure

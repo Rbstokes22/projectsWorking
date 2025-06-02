@@ -2,6 +2,15 @@
 
 // TO DO:
 
+// For analog read, develop a range for display change. Such as delta 10 will
+// make permanent changes.
+
+// Having issues with temperature relay turning on and off. Used relay 0 and
+// set temp gtr than. Needs troubleshooting. I think this is because of the
+// of the client fluctuating between 0 and 255 again, which is implying some
+// sort of issue with the client quantity change. Turns off as soon as it is
+// turned on. Trying using weasel to troubleshoot to ensure its not the client.
+
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
 
@@ -122,6 +131,9 @@
 // data, as well as API key and other data, so roughly 1 KB for that. The 
 // limiting factor is the 1 TB transfer, which will support roughly 723K clients
 // @ 2.25 GB of storage. 
+
+// Was having issues with relay settings saving over and over causing a rewrite
+// but the problem has been fixed. Continue watching.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

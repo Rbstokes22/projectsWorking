@@ -119,11 +119,13 @@ bool settingSaver::loadLight() {
 
     // Check the values for the saved integration settings to ensure default
     // setting if non-exist. System sets to default vals upon init. If saved
-    // value is not 0 or the default setting, will set here.
+    // value is not 0 or the default setting, will set here. Set to true 
+    // assuming all values are good, upon a set function, will adjust to false
+    // if bad.
 
-    bool ATIME = false, ASTEP = false, AGAIN = false;
+    bool ATIME = true, ASTEP = true, AGAIN = true;
 
-    tempVal = this->master.light.ATIME;
+    tempVal = this->master.light.ATIME; 
 
     if (tempVal > 0 && tempVal != AS7341_ATIME) ATIME = lt->setATIME(tempVal);
     
@@ -136,14 +138,18 @@ bool settingSaver::loadLight() {
     // Checks agains default value only, which the sensor is always init to.
     if (again != AS7341_DRVR::AGAIN::X256) lt->setAGAIN(again);
 
-    // Log the load status.
-    snprintf(this->log, sizeof(this->log), 
-        "%s Int load stat ATIME(%d), ASTEP(%d), AGAIN(%d)", this->tag, 
-        ATIME, ASTEP, AGAIN);
+    if (ATIME && ASTEP && AGAIN) {
+        return true;
 
-    this->sendErr(this->log);
-    
-    return (ATIME && ASTEP && AGAIN);
+    } else {
+        // Log the load status.
+        snprintf(this->log, sizeof(this->log), 
+            "%s Int load stat ATIME(%d), ASTEP(%d), AGAIN(%d)", this->tag, 
+            ATIME, ASTEP, AGAIN);
+
+        this->sendErr(this->log);
+        return false;
+    }
 }
     
 }

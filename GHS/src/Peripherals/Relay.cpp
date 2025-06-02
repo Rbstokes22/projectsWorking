@@ -14,6 +14,10 @@
 
 namespace Peripheral {
 
+// ATTENTION: Relay flow.
+// INIT: relay inits to off state, clients ID state init to available.
+// 
+
 // Static log 
 char Relay::log[LOG_MAX_ENTRY]{0};
 const char* Relay::IDSTATEMap[RELAY_ID_STATES] = {
@@ -46,7 +50,7 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
     }
     
     // Returns true if the new state matches the previous state.
-    if (clients[ID] == newState) return true; 
+    if (clients[ID] == newState) return true; // clients[ID] = prev state.
 
     // Filters requests to ensure that the ID is currently attached to the 
     // relay. If not, there is only one way this will pass, and that is if
@@ -74,16 +78,16 @@ bool Relay::changeIDState(uint8_t ID, IDSTATE newState) {
 
     this->sendErr(Relay::log, Messaging::Levels::INFO);
 
-    clients[ID] = newState; // Set after log.
+    // Qty is limited to amount of clients actively energizing relay. Managed
+    // everytime the state toggles between on and off. Qty must = 0 in order
+    // for the relay to shut off, to prevent an off call with an active user.
+    if (clients[ID] == IDSTATE::OFF && newState == IDSTATE::ON) {
+        this->clientQty++; 
+    } else if (clients[ID] == IDSTATE::ON && newState == IDSTATE::OFF) {
+        this->clientQty--;
+    }
 
-    // Client quantity is limited to the amount of clients actively
-    // energizing the relay. This is managed everytime the state toggles
-    // between on and off. Client quantity will have to equal 0 in order
-    // for relay to shut off, meaning there are no active clients
-    // currently energizing it.
-    if (newState == IDSTATE::ON) {clientQty++;}
-    else if (newState == IDSTATE::OFF) {clientQty--;}
-
+    clients[ID] = newState; // Set after log and client quantity change.
     return true;
 }
 
@@ -297,7 +301,7 @@ uint8_t Relay::getQty() {
 // Checks if the relay is being energized manually. Returns true if yes.
 bool Relay::isManual() {
     Threads::MutexLock(this->mtx);
-    
+
     for (int i = 0; i < RELAY_IDS; i++) {
         char caller[10] = {0}; // Just interested in the first 9 chars
         strncpy(caller, this->clientStr[i], sizeof(caller) - 1);

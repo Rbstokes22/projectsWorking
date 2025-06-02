@@ -24,10 +24,10 @@ namespace NVS {
 #define NVS_NAMESPACE_SAVE "settings" // 14 char max
 #define SAVESETTING_ERR_METHOD Messaging::Method::SRL_LOG
 
-// NVS keys (14 char max) used to save each peripheral setting.
+// NVS keys (12 char max) used to save each peripheral setting.
 #define TEMP_KEY "tempSave"
 #define HUM_KEY "humSave"
-#define SOIL1_KEY "soil1Save"
+#define SOIL1_KEY "soil1Save" // Names can either start from 0 or 1.
 #define SOIL2_KEY "soil2Save"
 #define SOIL3_KEY "soil3Save"
 #define SOIL4_KEY "soil4Save"
@@ -108,10 +108,12 @@ class settingSaver { // Singleton
     // a rewrite is necessary.
     template <typename T>
     bool compare(T& curVal, const T& newVal) {
+    
         if (curVal != newVal) {
-            curVal = newVal;
+            curVal = newVal; // Copy new value to running value if !=.
             return false; // Signals a rewrite must occur
         }
+
         return true; // Values are equal
     }
 
