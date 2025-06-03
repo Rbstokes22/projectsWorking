@@ -146,10 +146,10 @@ void soilTask(void* parameter) { // Soil sensors
     
     // Channels of the ADC to read.
     static adc_channel_t channels[SOIL_SENSORS] = {
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL0)],
         CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL1)],
         CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL2)],
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)],
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL4)]
+        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)]
     };
 
     // Single soil parameter structure that include 4 channels.

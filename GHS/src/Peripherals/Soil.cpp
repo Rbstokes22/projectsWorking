@@ -147,6 +147,11 @@ void Soil::readAll() {
             this->params.handle, this->params.channels[i], &this->data[i].val
             );
 
+        // Essentially math.floor to represents all values within the range of
+        // the analog noise. If NOISE is set to 20, this means that all values 
+        // from 1500 to 1519 are represented.
+        this->data[i].val -= (this->data[i].val % SOIL_NOISE);
+
         // Sets the proper values based on read success.
         if (err == ESP_OK) {
             this->data[i].noDispErr = true;

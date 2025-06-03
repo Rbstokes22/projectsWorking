@@ -38,10 +38,10 @@ void setupDigitalPins() {
         {DPIN::WAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
         {DPIN::STA, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
         {DPIN::defWAP, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::RE0, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE1, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE2, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE4, GPIO_MODE_OUTPUT, GPIO_FLOATING}
+        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING}
     };
 
     // Configures and sets the pins.
@@ -99,7 +99,7 @@ void setupAnalogPins(adc_oneshot_unit_handle_t &unit) {
 
     // All analog pins indexes that coresond to ADC channels.
     APIN pins[AnalogPinQty] = {
-        APIN::SOIL1, APIN::SOIL2, APIN::SOIL3, APIN::SOIL4, APIN::PHOTO
+        APIN::SOIL0, APIN::SOIL1, APIN::SOIL2, APIN::SOIL3, APIN::PHOTO
         };
 
     // Configure the ADC channel

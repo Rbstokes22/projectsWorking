@@ -95,8 +95,8 @@ namespace CONF_PINS {
     extern gpio_num_t pinMapD[DigitalPinQty]; // Digital pin map.
 
     // Used with pinMaps above.
-    enum class DPIN : uint8_t {WAP, STA, defWAP, RE1, RE2, RE3, RE4};
-    enum class APIN : uint8_t {SOIL1, SOIL2, SOIL3, SOIL4, PHOTO};
+    enum class DPIN : uint8_t {WAP, STA, defWAP, RE0, RE1, RE2, RE3};
+    enum class APIN : uint8_t {SOIL0, SOIL1, SOIL2, SOIL3, PHOTO};
 }
 
 // NetConfig, does not include the CONF in the namespace due to this.

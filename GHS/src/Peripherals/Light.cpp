@@ -112,9 +112,10 @@ void Light::computeTrends() {
         // Set size the size of the memmoves, these will be standard. Used nir
         // to fit on one line only, but they are all 16 bit values.
         size_t size = sizeof(this->trends.nir) - sizeof(this->trends.nir[0]);
-        size_t clrTot = 11;
+        const size_t clrTot = 11; // Color total.
 
         // Array of colors to be iterated over to populate trends at hour chg.
+        // Used pointer due to size.
         uint16_t* clrTrends[clrTot] = {this->trends.clear, this->trends.violet,
             this->trends.indigo, this->trends.blue, this->trends.cyan,
             this->trends.green, this->trends.yellow, this->trends.orange,
@@ -132,8 +133,8 @@ void Light::computeTrends() {
         // Iterate arrays. Move block from (idx 0 to n-1), to (idx 1 to n).
         // Opens idx 0 which is populated by the current readings.
         for (int i = 0; i < clrTot; i++) {
-            memmove(&clrTrends[i][1], &clrTrends[i], size);
-            clrTrends[i][0] = readings[i];
+            memmove(&clrTrends[i][1], &clrTrends[i][0], size); // Moves vals.
+            clrTrends[i][0] = readings[i]; // Sets the current reading.
         }
 
         lastHour = hour; // Update time for next change.
@@ -325,6 +326,11 @@ bool Light::readPhoto() {
     // class variable.
     err = adc_oneshot_read(this->params.handle, this->params.channel,
         &this->photoVal);
+
+    // Essentially math.floor to represents all values within the range of the
+    // analog noise. If NOISE is set to 20, This means that all values from 1500
+    // to 1519 are represented by 1500.
+    this->photoVal -= (this->photoVal % PHOTO_NOISE);
 
     // Upon sucess, changes the flags to true indicating no error.
     if (err == ESP_OK) {

@@ -350,8 +350,6 @@ bool Alert::sendAlert(const char* msg, const char* caller) {
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
 
-    printf("MSG: %s\n", JSONmsg);
-
     NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
     if (sms == nullptr) return false; // block to prevent use.
 

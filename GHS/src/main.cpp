@@ -2,14 +2,15 @@
 
 // TO DO:
 
-// For analog read, develop a range for display change. Such as delta 10 will
-// make permanent changes.
-
 // Having issues with temperature relay turning on and off. Used relay 0 and
 // set temp gtr than. Needs troubleshooting. I think this is because of the
 // of the client fluctuating between 0 and 255 again, which is implying some
 // sort of issue with the client quantity change. Turns off as soon as it is
 // turned on. Trying using weasel to troubleshoot to ensure its not the client.
+// UPDATE: Tested, the problem still persists. I think there could be an issue in 
+// the changeIDstate with the incrementing and decrementing. Quantities should
+// only change when going from off to on, or vice versa. This seems to be a 
+// problem since I can click off several times and the value decreases.
 
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
@@ -185,10 +186,10 @@ AS7341_DRVR::CONFIG lightConf(AS7341_ASTEP, AS7341_ATIME, AS7341_WTIME);
 AS7341_DRVR::AS7341basic light(lightConf);
 
 Peripheral::Relay relays[TOTAL_RELAYS] = { // Passes to socket handler
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE0)], 0},
     {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE1)], 1},
     {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE2)], 2},
-    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE3)], 3},
-    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE4)], 4}
+    {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE3)], 3}
 };
 
 // THREADS

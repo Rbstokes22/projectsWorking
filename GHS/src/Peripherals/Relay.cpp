@@ -362,7 +362,7 @@ bool Relay::timerSetDays(uint8_t bitwise) {
 
 // Requires no params. This manages any set relay timers and will both
 // turn them on and off during their set times.
-void Relay::manageTimer() {
+void Relay::manageTimer() { 
     Threads::MutexLock(this->mtx);
 
     if (this->timer.isReady) {

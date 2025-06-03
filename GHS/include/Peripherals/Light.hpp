@@ -19,6 +19,7 @@ namespace Peripheral {
 #define LIGHT_ERR_CT_MAX 3 // Error counts to show error on display
 #define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
 #define PHOTO_MAX 4094 // 12 bit max - 1, set for error purposes.
+#define PHOTO_NOISE 20 // Used to filter noise from the analog read.
 #define LIGHT_NO_RELAY 255 // Used to show no relay attached.
 #define LIGHT_LOG_METHOD Messaging::Method::SRL_LOG
 #define LIGHT_TAG "(LIGHT)"
