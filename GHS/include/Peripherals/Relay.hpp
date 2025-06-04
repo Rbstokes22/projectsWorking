@@ -13,9 +13,9 @@ namespace Peripheral {
 #define RELAY_TIMER_OFF 99999 // VAL means off
 #define RELAY_DAYS 0b00000000 // Default no days set for timer.
 #define RELAY_TAG_SIZE 16 
-#define RELAY_BAD_ID 255 // ID set with the number will not be usable.
+#define RELAY_NO_ID 255 // ID set with the number will not be usable.
 #define RELAY_ID_STATES 4 // ID states in class enum
-#define RELAY_ID_CALLER_LEN 16 // Chars allowable to caller.
+#define RELAY_ID_CALLER_LEN 16 // Chars allowable to caller tag.
 #define RELAY_LOG_METHOD Messaging::Method::SRL_LOG
 
 // Tags used for manual control. Will be used to send the client information if
