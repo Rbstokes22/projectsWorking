@@ -146,31 +146,33 @@ bool Relay::on(uint8_t ID) {
 
     if (frcOff || badID) return false; // Block use if true.
 
-    // Turns on only if previously off or force removed.
-    if (this->relayState != RESTATE::ON) { // force off is blocked above.
+    IDSTATE prev = clients[ID]; // Previous ID state.
+    bool IDstate = this->changeIDState(ID, IDSTATE::ON); // Change state to on.
 
-        if (gpio_set_level(this->pin, 1) != ESP_OK) {
+    // Off position, but the first client will have been acquired @ turn on.
+    if (this->relayState != RESTATE::ON && this->clientQty == 1) { 
+
+        if (gpio_set_level(this->pin, 1) != ESP_OK) { // Unable to set. 
 
             snprintf(Relay::log, sizeof(Relay::log), 
                 "%s ID %u [%s] unable to turn on", this->tag, ID, 
                 this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
+
+            this->changeIDState(ID, prev); // If error, return to previous state
             return false;
         }
 
-        // Successful changed GPIO state. Log and change relay state.
+        // Able to set, change relay/ID state and log.
         this->relayState = RESTATE::ON;
         snprintf(Relay::log, sizeof(Relay::log), "%s ID %u [%s] energized", 
             this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
+    } 
 
-        // Change ID state Return true if successfully change, false if not.
-        return this->changeIDState(ID, IDSTATE::ON);
-    }
-
-    return false; // Default return if it did not work as advertised.
+    return IDstate;
 }
 
 // Requires controller ID. Deletes the ID from the client registration. Signals
@@ -184,9 +186,17 @@ bool Relay::off(uint8_t ID) {
 
     if (badID) return false; // Block, ID invalid.
 
-    // Turns off only if not previously off and client quantity is 0. This will
-    // prevent a relay turn off if being energized by another client. 
-    if (this->relayState != RESTATE::OFF && clientQty == 0) {
+    // Relinquish control over ID automatically regardless of relay state. This
+    // is fine here because the client is "washing their hands" and no longer
+    // desires control, and will decrement the client qty by 1.
+    IDSTATE prev = clients[ID]; // Previous ID state.
+    bool IDstate = this->changeIDState(ID, IDSTATE::OFF);
+
+    // Turns off iff not previously off and client quantity is 1. 1 is because
+    // it shows there is 1 remaining client, which will have their ID state 
+    // changed to off upon success. Prevents relay from being de-energized by
+    // any client, except the last client.
+    if (this->relayState != RESTATE::OFF && clientQty == 0) { // relay on.
      
         if (gpio_set_level(this->pin, 0) != ESP_OK) {
             snprintf(Relay::log, sizeof(Relay::log), 
@@ -194,6 +204,9 @@ bool Relay::off(uint8_t ID) {
                 this->clientStr[ID]);
             
             this->sendErr(Relay::log, Messaging::Levels::CRITICAL);
+
+            // If error, change ID state back to previous state.
+            this->changeIDState(ID, prev);
             return false; // did not change level.
         }
 
@@ -203,16 +216,9 @@ bool Relay::off(uint8_t ID) {
             this->tag, ID, this->clientStr[ID]);
 
         this->sendErr(Relay::log, Messaging::Levels::INFO);
-        return this->changeIDState(ID, IDSTATE::OFF); // Change upon success.
+    } 
 
-    } else if (this->relayState != RESTATE::OFF && clientQty > 0) {
-
-        // This will only change the ID state but will not turn off the relay,
-        // instead relinquishing the using client of control.
-        return this->changeIDState(ID, IDSTATE::OFF);
-    }
-
-    return false; // Default return if did not work as advertised.
+    return IDstate; 
 }
 
 // Require no parameters. Forces the relay to turn off despite any current
@@ -229,6 +235,7 @@ void Relay::forceOff() { // No ID req, since it is global to the relay.
         return; // Block.
     }
 
+    // Upon success, change state to forced off.
     this->relayState = RESTATE::FORCED_OFF; // inhibit "on" activity
     snprintf(Relay::log, sizeof(Relay::log), "%s forced off",this->tag);
     this->sendErr(Relay::log, Messaging::Levels::INFO);
