@@ -27,11 +27,8 @@ class NetSTA : public NetMain {
     char pass[static_cast<int>(IDXSIZE::PASS)]; // station network password
     static char IPADDR[static_cast<int>(IDXSIZE::IPADDR)]; // station net IP
     wifi_ret_t configure() override;
-    static void IPEvent( // used to get IP addr
-        void* arg, 
-        esp_event_base_t event, 
-        int32_t eventID, 
-        void* eventData);
+    static void IPEvent(void* arg, esp_event_base_t event, int32_t eventID, 
+        void* eventData); // Used to get IP address.
 
     public:
     NetSTA(const char* mdnsName);

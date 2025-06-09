@@ -19,7 +19,7 @@ adc_channel_t pinMapA[AnalogPinQty]{
 
 gpio_num_t pinMapD[DigitalPinQty]{
     GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_4, GPIO_NUM_27, 
-    GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33
+    GPIO_NUM_26, GPIO_NUM_25, GPIO_NUM_33, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5
 }; 
 
 adc_oneshot_unit_handle_t adc_unit; // Analog Digital Converter handle
@@ -41,7 +41,10 @@ void setupDigitalPins() {
         {DPIN::RE0, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE1, GPIO_MODE_OUTPUT, GPIO_FLOATING},
         {DPIN::RE2, GPIO_MODE_OUTPUT, GPIO_FLOATING},
-        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING}
+        {DPIN::RE3, GPIO_MODE_OUTPUT, GPIO_FLOATING},
+        {DPIN::MD0, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::MD1, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY},
+        {DPIN::MD2, GPIO_MODE_INPUT, GPIO_PULLUP_ONLY}
     };
 
     // Configures and sets the pins.

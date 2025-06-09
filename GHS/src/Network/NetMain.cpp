@@ -4,6 +4,7 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "UI/MsgLogHandler.hpp"
+#include "driver/gpio.h"
 #include <cstddef>
 #include "string.h"
 #include "mdns.h"
@@ -160,6 +161,33 @@ wifi_ret_t NetMain::init_wifi() {
 // Steps 2 and 3 are with the subclasses. Creates a multicast DNS that is 
 // discoverable instead of relying on ip. 
 wifi_ret_t NetMain::mDNS() { 
+
+    // Run a check of the GPIO pins 19, 18, and 5 for binary representation for
+    // the instance that several devices are ran on a single network. Allows
+    // MDNS to read greenhouse.local to greenhouse7.local, giving 8 options.
+    // Used the not operator, to negate the input pullup. LOW signals selection.
+    uint8_t b0 = !gpio_get_level( // bit-0 LSB
+        CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::MD0)]);
+
+    uint8_t b1 = !gpio_get_level( // bit-1
+        CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::MD1)]);
+
+    uint8_t b2 = !gpio_get_level( // bit-2
+        CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::MD2)]);
+
+    uint8_t mdnsVal = b0; mdnsVal |= (b1 << 1); mdnsVal |= (b2 << 2);
+
+    if (mdnsVal > 0 && mdnsVal < 8) { // Indicates mdns change. Appends num val.
+
+        // MDNS is set to 16 chars, using greenhouse, this leaves plenty of
+        // padding to append a number string to that, especially single digit.
+        char temp[strlen(this->mdnsName) + 2]; 
+        snprintf(temp, sizeof(temp), "%s%u", this->mdnsName, mdnsVal);
+
+        if (strlen(temp) <= sizeof(this->mdnsName) - 1) { // null char
+            snprintf(this->mdnsName, sizeof(this->mdnsName), "%s", temp);
+        }
+    }
 
     // inits the mdns.
     if (!NetMain::flags.getFlag(NETFLAGS::mdnsInit)) {

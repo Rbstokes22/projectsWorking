@@ -86,7 +86,7 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 // GPIO configuration.
 namespace CONF_PINS {
     #define AnalogPinQty 5
-    #define DigitalPinQty 7
+    #define DigitalPinQty 10
 
     extern adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
     void setupDigitalPins();
@@ -94,8 +94,13 @@ namespace CONF_PINS {
     extern adc_channel_t pinMapA[AnalogPinQty]; // Analog pin map.
     extern gpio_num_t pinMapD[DigitalPinQty]; // Digital pin map.
 
-    // Used with pinMaps above.
-    enum class DPIN : uint8_t {WAP, STA, defWAP, RE0, RE1, RE2, RE3};
+    // Used with pinMaps above. MD or mode 0, 1, and 2 are for the mdns. Uses
+    // 3-bit operations and used for multiple devices. MD pins are pulled high,
+    // and when low, reps the binary value with MD0 being bit 0. Allows for
+    // mdns name to be greenhouse.local to greenhouse7.local.
+    enum class DPIN : uint8_t {WAP, STA, defWAP, RE0, RE1, RE2, RE3, 
+        MD0, MD1, MD2};
+
     enum class APIN : uint8_t {SOIL0, SOIL1, SOIL2, SOIL3, PHOTO};
 }
 
@@ -113,7 +118,7 @@ enum class IDXSIZE { // Network Index Sizes.
     APIKEY = 9, // 8 chars exactly
     NETCREDKEYQTY = 5,
     IPADDR = 16, // 7-15 chars
-    MDNS = 11, // 1-10 chars 
+    MDNS = 16, // 1-63 chars.
 };
 
 // Used in netCreds.cpp and WAPSetupHandler.cpp, used in NVS

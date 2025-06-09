@@ -13,7 +13,7 @@
 namespace Comms {
 
 #define SKT_BUF_SIZE 2048 // Large to accomodate the get all call
-#define SKT_MAX_RESP_ARGS 5 // Max response arguments
+#define SKT_MAX_RESP_ARGS 5 // Max response arguments / clients at once.
 #define SKT_REPLY_SIZE 128 // Basic replies
 #define SKT_RANGE_EXC -999 // Default range value for exceptions.
 

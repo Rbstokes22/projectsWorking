@@ -2,6 +2,11 @@
 
 // TO DO:
 
+// Implement a feature to check for mdns name before assignment. This is going
+// to be hardware gpio pin based. There will be 3 pins, 0 = greenhouse.local,
+// and then just a 3 bit number so a total of 8 devices. When assigning the
+// MDNS, this will be checked.
+
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
 
@@ -125,6 +130,9 @@
 
 // Was having issues with relay settings saving over and over causing a rewrite
 // but the problem has been fixed. Continue watching.
+
+// In manual, include the MDNS 3-pin logic that allows you to have values
+// greenhouse.local to greenhouse7.local.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

@@ -32,10 +32,7 @@ wifi_ret_t NetSTA::configure() {
 // event handler, which is required to to be able to display the ip address
 // that you are connected to, and only that. All parameter requirements are
 // inclusively passed.
-void NetSTA::IPEvent(
-    void* arg, 
-    esp_event_base_t eventBase, 
-    int32_t eventID, 
+void NetSTA::IPEvent(void* arg, esp_event_base_t eventBase, int32_t eventID, 
     void* eventData) {
 
     // Exists exclusively to display IP address on the OLED.
