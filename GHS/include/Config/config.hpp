@@ -16,7 +16,7 @@ extern char confLog[50]; // Reusable log for config src.
 // Network connection and broadcasting information
 #define AP_SSID "GreenHouse"
 #define MDNS_NAME "greenhouse"
-#define MDNS_ACTUAL "http://greenhouse.local" // Used for whitelist
+#define MDNS_ACTUAL "http://greenhouse" // Used for whitelist
 #define AP_DEF_PASS "12345678"
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.

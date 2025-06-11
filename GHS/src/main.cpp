@@ -2,13 +2,17 @@
 
 // TO DO:
 
-// Implement a feature to check for mdns name before assignment. This is going
-// to be hardware gpio pin based. There will be 3 pins, 0 = greenhouse.local,
-// and then just a 3 bit number so a total of 8 devices. When assigning the
-// MDNS, this will be checked.
+// Save settings not working exactly. When relay days were adjusted, the 
+// saving relay settings kept logging, but they werent saved. When restarted,
+// the ESP has timer disabled. Troubleshoot all save settings to ensure they 
+// are actually being saved as required before moving on.
 
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
+
+// Test MDNS change. Tested good for changing from 0 to 7, but noticed when
+// flipped to wap setup, the mdns said greenhouse.local instead of 
+// greenhouse2.local, for example. Check into this.
 
 // Save setting features updated to include days as well as ensuring default
 // values are loaded. Test when testing report.

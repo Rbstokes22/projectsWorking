@@ -408,7 +408,7 @@ void Relay::manageTimer() {
         // and & 0b1, which will be 0, indicating monday is an off day. On Tues,
         // it will shift 1, and & 0b1, which will be true, meaning run today.
         bool runToday = (this->timer.days >> day) & 0b1;
-
+        
         // Checks the current time and ensures it is within the correct range.
         // Also checks that it is scheduled to run today. 
         // WARNING: If timer runs through midnight, and the following day is 
@@ -428,7 +428,7 @@ void Relay::manageTimer() {
                 this->off(this->timerID);
             }
 
-        } else {
+        } else { // Does not run through midnight.
 
             if (curTime >= timer.onTime && curTime <= timer.offTime && 
                 runToday) {
