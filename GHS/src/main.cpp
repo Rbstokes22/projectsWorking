@@ -2,11 +2,6 @@
 
 // TO DO:
 
-// Save settings not working exactly. When relay days were adjusted, the 
-// saving relay settings kept logging, but they werent saved. When restarted,
-// the ESP has timer disabled. Troubleshoot all save settings to ensure they 
-// are actually being saved as required before moving on.
-
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
 
