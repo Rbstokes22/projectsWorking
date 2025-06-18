@@ -44,6 +44,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             "NET task fail", Messaging::Method::SRL_LOG);
         return;
+
     } else {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             "NET task running", Messaging::Method::SRL_LOG);
@@ -55,6 +56,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     while (true) {
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
+        params->netManager.scan();
 
         highWaterMark("Network", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
@@ -188,7 +190,7 @@ void routineTask(void* parameter) {
 
     // Converts delay in milliseconds to required counts to match the 
     // autosave frequency requirement. 5000ms and frequency of 60 seconds will
-    // yield 12.
+    // yield 12. Once count = 12, it will autosave.
     const float autoSaveCts = roundf((1000.0f * AUTO_SAVE_FRQ) / params->delay);
     static size_t count = 0;
 

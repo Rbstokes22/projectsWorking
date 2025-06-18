@@ -9,9 +9,6 @@
 // flipped to wap setup, the mdns said greenhouse.local instead of 
 // greenhouse2.local, for example. Check into this.
 
-// Save setting features updated to include days as well as ensuring default
-// values are loaded. Test when testing report.
-
 // Run checks on the timer day setting. just need to run
 // checks. Test relay 0, and adjust days to match. Also ensure that if the
 // following day is not selected, the timer does go off at midnight. Once complete

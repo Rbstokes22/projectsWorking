@@ -41,6 +41,7 @@ class NetSTA : public NetMain {
     const char* getSSID() const override;
     bool isActive() override;
     void getDetails(STAdetails &details);
+    wifi_sta_config_t* getConf();
 };
 
 }

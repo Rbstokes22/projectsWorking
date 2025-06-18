@@ -102,10 +102,6 @@ bool settingSaver::loadRelayTimers() {
         uint32_t offTime = this->master.relays[reNum].offTime;
         uint8_t days = this->master.relays[reNum].days;
 
-        if (reNum == 0) {
-            printf("ON %lu, OFF %lu, DAYS %u\n", onTime, offTime, days);
-        }
-
         // Sets proceed to true if conditions are met meaning that the last
         // state of the relay is legit.
         bool proceed = (onTime != offTime) && (onTime != RELAY_TIMER_OFF) &&

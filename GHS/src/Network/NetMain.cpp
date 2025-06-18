@@ -288,9 +288,7 @@ float NetMain::getHeapSize(HEAP_SIZE type) {
 }
 
 // Used in web sockets to check the server for active ws clients.
-httpd_handle_t NetMain::getServer() {
-    return this->server;
-}
+httpd_handle_t NetMain::getServer() {return this->server;}
 
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to ERROR, ignoreRepeat default to false.

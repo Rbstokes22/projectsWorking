@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "Peripherals/saveSettings.hpp" // Used for destruction fail reset
+#include "Common/Timing.hpp"
 
 namespace Comms {
 
@@ -219,7 +220,7 @@ void NetManager::reconnect(NetMain &mode, uint8_t &attempt) {
             this->log, Messaging::Method::SRL);
     }
 
-    startServer(mode);
+    this->startServer(mode);
     attempt++;
 
     if (attempt >= NET_ATTEMPTS_RECON) {
@@ -278,13 +279,114 @@ void NetManager::sendErr(const char* msg, Messaging::Levels lvl,
         ignoreRepeat);
 }
 
-// Constructor. Takes station, wap, and OLED references.
-NetManager::NetManager(
-    NetSTA &station, 
-    NetWAP &wap, 
-    UI::Display &OLED) :
+// Requires no params. Designed for mesh networks with multiple APs. Scans the
+// Network for for all devices that match the same SSID, captures the BSSID for
+// the AP with the strongest RSSI and attempts a connection to that. Will only
+// run a scan every n number of minutes define in header. Returns SCAN_OK_UPD,
+// SCAN_OK_NOT_UPD, SCAN_NOT_REQ, SCAN_ERR, and SCAN_AWAITING.
+scan_ret_t NetManager::scan() { // Station only.
 
-    tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED), isWifiInit(false) {
+    // If good data, set and check times.
+    Clock::DateTime* dtg = Clock::DateTime::get(); 
+    
+    if (dtg == nullptr) return scan_ret_t::SCAN_ERR; // Block 
+ 
+    const uint32_t time = dtg->seconds(); // Get current run time in sec.
+    static uint32_t nextCheck = time + 1; // Allows first scan before setting.
+
+    if (time < nextCheck) return scan_ret_t::SCAN_AWAITING;
+
+    nextCheck = time + (60 * NET_SCAN_MIN_WAIT); // Reset next check time.
+
+    // Ready to check RSSI and scan if needed.
+    wifi_ap_record_t sta_info; // Station info to be populated.
+    esp_err_t err = esp_wifi_sta_get_ap_info(&sta_info);
+
+    // Get current RSSI
+    if (err != ESP_OK) {
+        snprintf(this->log, sizeof(this->log), "%s Scan APINFO Err", this->tag);
+        this->sendErr(this->log, Messaging::Levels::ERROR);
+        return scan_ret_t::SCAN_ERR;
+    }
+
+    if (sta_info.rssi < NET_STA_RSSI_MIN) { // Scan network if below min.
+        uint16_t apQty = NET_MAX_AP_SCAN;
+        wifi_ap_record_t apList[NET_MAX_AP_SCAN]; 
+        const uint8_t bssidSize = sizeof(apList[0].bssid);
+        uint8_t bestBSSID[bssidSize];
+        bool bssidUpdated = false; // Triggers reconnect if set to true.
+        int8_t lastRSSI = -100; // This will be used to store strongest RSSI.
+      
+        err = esp_wifi_scan_start(NULL, true); // Blocking function 2-4 sec.
+
+        if (err != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s Scan Start Err", 
+                this->tag);
+
+            this->sendErr(this->log, Messaging::Levels::ERROR);
+            return scan_ret_t::SCAN_ERR;
+        }
+
+        err = esp_wifi_scan_get_ap_records(&apQty, apList);
+
+        if (err != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s Scan AP Record Err", 
+                this->tag);
+
+            this->sendErr(this->log, Messaging::Levels::ERROR);
+            return scan_ret_t::SCAN_ERR;
+        }
+        
+        // Everything is good, iterate to pull the strongest SSID AP on the LAN.
+        for (int i = 0; i < apQty; i++) {
+            const size_t ssidSize = strlen(this->station.getSSID()) + 1; 
+            if (memcmp(apList[i].ssid, this->station.getSSID(), 
+                ssidSize) == 0) {
+
+                // Shows match with current connected SSID. The +5 is arbitrary
+                // and prevents constant changes if the numbers are within
+                bool chk1 = apList[i].rssi >= 
+                    (sta_info.rssi + NET_SCAN_HYSTERESIS);
+
+                bool chk2 = apList[i].rssi > lastRSSI;
+                bool chk3 = apList[i].rssi > NET_STA_RSSI_MIN;
+                
+                if (chk1 && chk2 && chk3) { // Copy best bssid if good.
+                    lastRSSI = apList[i].rssi;
+                    memcpy(bestBSSID, apList[i].bssid, bssidSize);
+                    bssidUpdated = true; // Signals a config update.
+                }
+            }
+        }
+
+        // Found a stronger connection, will destroy current connection and
+        // connect to stronger network.
+        if (bssidUpdated) { // Will reconfigure and destroy connection.
+            this->handleDestruction(this->station);
+            memcpy(this->station.getConf()->bssid, bestBSSID, bssidSize);
+            this->station.getConf()->bssid_set = true; // True allows use.
+
+            snprintf(this->log, sizeof(this->log), 
+                "%s connecting to better AP with RSSI %d dBm", this->tag, 
+                lastRSSI);
+
+            this->sendErr(this->log);
+
+            return scan_ret_t::SCAN_OK_UPD; // Update happened.
+
+        } else { 
+
+            return scan_ret_t::SCAN_OK_NOT_UPD; // Current strongest signal.
+        }
+    }
+
+    return scan_ret_t::SCAN_NOT_REQ; // Signals scan within bounds. 
+}
+
+// Constructor. Takes station, wap, and OLED references.
+NetManager::NetManager(NetSTA &station, NetWAP &wap, UI::Display &OLED) :
+
+    tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED) {
 
         memset(this->log, 0, sizeof(this->log));
         snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);

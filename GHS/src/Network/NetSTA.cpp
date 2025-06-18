@@ -10,6 +10,7 @@
 #include "esp_netif.h"
 #include "mdns.h"
 #include <cstddef>
+#include "Common/Timing.hpp"
 
 namespace Comms {
 
@@ -108,7 +109,6 @@ wifi_ret_t NetSTA::start_wifi() {
 
     // Handles configuration of the wifi settings.
     if (!NetMain::flags.getFlag(NETFLAGS::wifiConfigSet)) {
-        
         esp_err_t wifi_cfg = esp_wifi_set_config(WIFI_IF_STA, 
                 &this->wifi_config);
 
@@ -351,14 +351,10 @@ void NetSTA::setSSID(const char* ssid) {
 
 // Requires no parameters. This is pure virtual/abstract and required for 
 // the WAP subclass only. Returns password.
-const char* NetSTA::getPass(bool defaultPass) const {
-    return this->pass;
-}
+const char* NetSTA::getPass(bool defaultPass) const {return this->pass;}
 
 // Requires no parameters. Returns ssid.
-const char* NetSTA::getSSID() const {
-    return this->ssid;
-}
+const char* NetSTA::getSSID() const {return this->ssid;}
 
 // Requires no parameters. Iterates all station flags. If all are set to true,
 // returns true iff station info is populated. Returns false otherwise.
@@ -408,8 +404,7 @@ bool NetSTA::isActive() {
             this->getLogToggle()->discon = true; // Reset if previously false.
         }
 
-        return true;
-        
+        return true; // Block, returns true showing active connection.
     } 
     
     // Run this block if not connected
@@ -458,6 +453,10 @@ void NetSTA::getDetails(STAdetails &details) {
 
     // REMAINING HEAP SIZE. Change if using different units.
     sprintf(details.heap, "%.2f KB", this->getHeapSize(HEAP_SIZE::KB));
+}
+
+wifi_sta_config_t* NetSTA::getConf() {
+    return &this->wifi_config.sta;
 }
 
 }
