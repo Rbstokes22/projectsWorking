@@ -47,6 +47,8 @@ class OTAHAND : public MASTERHAND {
     static bool cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag, 
         size_t attempt = 0);
 
+    static bool STAcheck(httpd_req_t* req);
+
     public:
     static bool init(OTA::OTAhandler &ota);
     static esp_err_t updateLAN(httpd_req_t* req);

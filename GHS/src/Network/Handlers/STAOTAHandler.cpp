@@ -465,6 +465,27 @@ bool OTAHAND::cleanup(esp_http_client_handle_t &client, Flag::FlagReg &flag,
     return (close == ESP_OK && cleanup == ESP_OK); // Typically a success.
 }
 
+// Requires request ptr. Runs a station check. Returns true if connected to 
+// station, and false if not while alsosending http response.
+bool OTAHAND::STAcheck(httpd_req_t* req) {
+    if (NetMain::getNetType() != NetMode::STA) {
+
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+            "%s FW chk must be STA mode", OTAHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+
+        // Always send string, since this is a blocking function.
+        // wap version lets client know in WAP mode.
+        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MHAND_OTA_JSON_WAP), 
+            OTAHAND::tag, "STAchk");
+
+        return false; 
+    }
+
+    return true; // Indicates connected to STA mode.
+}
+
 // Reuires the ref/addr to the OTA handler object. Once init, ota will have
 // functionality. Returns true if init, and false if not.
 bool OTAHAND::init(OTA::OTAhandler &ota) {
@@ -500,9 +521,6 @@ bool OTAHAND::init(OTA::OTAhandler &ota) {
 // via responses.
 esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
 
-    // Block code, OK required. Err handling within function.
-    if (!OTAHAND::initCheck(req)) return ESP_OK; 
-
     // struct that holds both firmware and signature URLs. memsets upon init.
     OTA::URL LANurl; 
   
@@ -522,6 +540,10 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
 
         return ESP_OK; // Block
     }
+
+    // Block code, OK required. Err handling within function.
+    if (!OTAHAND::initCheck(req)) return ESP_OK; 
+    if (!OTAHAND::STAcheck(req)) return ESP_OK; // Ensure STA conn.
 
     // Check to make sure not nullptr. Should never happen.
     if (OTAHAND::OTA != nullptr) { // Redundancy. Split to handle err resp.
@@ -581,9 +603,6 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
 // OTA, and returns ESP_OK regardless of integrity.
 esp_err_t OTAHAND::update(httpd_req_t* req) {
 
-    // Block code, OK required. Err handling within function.
-    if (!OTAHAND::initCheck(req)) return ESP_OK; 
-
     // struct that holds both firmware and signature URLs. memsets upon init.
     OTA::URL WEBurl; 
 
@@ -603,6 +622,10 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
 
         return ESP_OK; // Block
     }
+
+    // Block code, OK required. Err handling within function.
+    if (!OTAHAND::initCheck(req)) return ESP_OK; 
+    if (!OTAHAND::STAcheck(req)) return ESP_OK; // Ensure STA conn.
 
     if (OTAHAND::OTA != nullptr) { // Redundancy. Split to handle err response.
 
@@ -649,9 +672,6 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
 // ESP_OK after accepting request.
 esp_err_t OTAHAND::rollback(httpd_req_t* req) {
 
-    // Block code, OK required. Err handling within function.
-    if (!OTAHAND::initCheck(req)) return ESP_OK; 
-
     esp_err_t set = httpd_resp_set_type(req, MHAND_RESP_TYPE_JSON);
 
     if (set != ESP_OK) {
@@ -668,6 +688,9 @@ esp_err_t OTAHAND::rollback(httpd_req_t* req) {
 
         return ESP_OK; // Block
     }
+
+    // Block code, OK required. Err handling within function.
+    if (!OTAHAND::initCheck(req)) return ESP_OK;
 
     if (OTAHAND::OTA != nullptr) { // Checks, but should never fail.
 
@@ -708,9 +731,6 @@ esp_err_t OTAHAND::rollback(httpd_req_t* req) {
 // Returns ESP_OK or ESP_FAIL.
 esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
 
-    // Block code, OK required. Err handling within function.
-    if (!OTAHAND::initCheck(req)) return ESP_OK; 
-
     esp_err_t set = httpd_resp_set_type(req, MHAND_RESP_TYPE_JSON); 
 
     if (set != ESP_OK) {
@@ -728,21 +748,9 @@ esp_err_t OTAHAND::checkNew(httpd_req_t* req) { // Handler for new FW version.
         return ESP_OK; // Block
     }
 
-    // Ensures that this is in station mode, to prevent checks while in WAP mode
-    if (NetMain::getNetType() != NetMode::STA) {
-
-        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
-            "%s FW chk must be STA mode", OTAHAND::tag);
-
-        MASTERHAND::sendErr(MASTERHAND::log);
-
-        // Always send string, since this is a blocking function.
-        // wap version lets client know in WAP mode.
-        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MHAND_OTA_JSON_WAP), 
-            OTAHAND::tag, "chkNew");
-
-        return ESP_OK; // required by uri reg. BLOCK.
-    }
+    // Block code, OK required. Err handling within function.
+    if (!OTAHAND::initCheck(req)) return ESP_OK; 
+    if (!OTAHAND::STAcheck(req)) return ESP_OK; // Ensure STA conn.
 
     // If all is good, continue below.
 

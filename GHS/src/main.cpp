@@ -2,6 +2,11 @@
 
 // TO DO:
 
+// Ensure reports and alerts, or pretty much anything reaching out is disabled
+// when not in STA mode. Disabled alerts and reports, as well as public methods
+// in the OTA update class. There should be no other functions that reach out
+// on the net besides those that talk to the server and have been disabled.
+
 // Test that the relay energizes if previously energized but force off is rmvd.
 // Test relay qty and manual.
 

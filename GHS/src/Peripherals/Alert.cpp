@@ -11,6 +11,7 @@
 #include "Peripherals/saveSettings.hpp"
 #include "Network/Handlers/socketHandler.hpp"
 #include "Network/NetCreds.hpp"
+#include "Network/NetMain.hpp"
 
 namespace Peripheral {
 
@@ -325,6 +326,9 @@ void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
 // depending on success. If "OK" returns true, returns false if not "OK".
 bool Alert::sendAlert(const char* msg, const char* caller) {
 
+    // Block if not STA mode.
+    if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false; 
+
     NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
     if (sms == nullptr) return false; // block to prevent use.
 
@@ -349,6 +353,9 @@ bool Alert::sendAlert(const char* msg, const char* caller) {
 // as tempCAvg. Ensure that server response with "OK" or "FAIL" depending on 
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
+
+    // Block if not STA mode.
+    if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false;
 
     NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq(); 
     if (sms == nullptr) return false; // block to prevent use.

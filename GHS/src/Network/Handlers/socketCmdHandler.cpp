@@ -25,10 +25,7 @@
 // the program, When being used, it will be divided by 100 to achieve the 
 // correct float value.
 
-// ATTENTION: Most of these are direct with command/data/id format. The 
-// exceptions to the cut and dry programming, besides temperatures measured 
-// above, are the integration time. Since there are multiple values, these
-// are passed together and encoded using bitwise operations.
+// ATTENTION: Most commands use bitwise, read comments for format.
 
 namespace Comms {
 
@@ -70,7 +67,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // is critical to the operation of this device, and returns it to the
         // client. Ensure client uses same JSON and same commands.
         written = snprintf(buffer, size,  
-        "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,"
+        "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,\"netMode\":%u,"
         "\"sysTime\":%lu,\"hhmmss\":\"%d:%d:%d\",\"day\":%u,\"timeCalib\":%d,"
         "\"re0\":%d,\"re0TimerEn\":%d,\"re0TimerOn\":%zu,\"re0TimerOff\":%zu,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
@@ -107,6 +104,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         FIRMWARE_VERSION, 
         data.idNum,
         Messaging::MsgLogHandler::get()->newLogAvail(),
+        static_cast<uint8_t>(NetMain::getNetType()),
         dtg->raw, dtg->hour, dtg->minute, dtg->second, dtg->day,
         Clock::DateTime::get()->isCalibrated(),
         static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
