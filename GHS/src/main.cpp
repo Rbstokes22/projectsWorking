@@ -2,6 +2,9 @@
 
 // TO DO:
 
+// Stack overflow in task routineThread has been detected, prob increase size
+// and check for high water marks. Keep on lookout for this and troubleshoot.
+
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
 // in the OTA update class. There should be no other functions that reach out
