@@ -83,6 +83,8 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 // Temp/hum and light trend hours
 #define TREND_HOURS 12 // Takes 12 hours on the hour of trend data.
 
+#define STACK_OVERFLOW_RESTART_SECONDS 10 // Restarts after n seconds
+
 // GPIO configuration.
 namespace CONF_PINS {
     #define AnalogPinQty 5

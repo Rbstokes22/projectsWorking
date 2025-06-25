@@ -196,7 +196,6 @@ bool WSHAND::respondJSON(httpd_req_t* req, char* writtenKey) {
     // Destruction flag. To use this function, must be in WAP Setup mode.
     // If WAP password is changed, will be set to true, causing restart.
     bool markForDest{false};
-    uint8_t respType = 0; // Response type set by the string comparisons.
     char respStr[60]{0}; // Response string, size will suffice.
 
     // If the WAPpass is changed, this will trigger a destruction and 

@@ -8,7 +8,7 @@ namespace Comms {
 // Single page. Will be replaced by actual HTML when built.
 esp_err_t WAPIndexHandler(httpd_req_t *req) {
     httpd_resp_set_type(req, MHAND_RESP_TYPE_TEXTHTML);
-    httpd_resp_send(req, "WAP MAIN PAGE", strlen("WAP MAIN PAGE"));
+    httpd_resp_send(req, MAINpage, strlen(MAINpage));
     return ESP_OK;
 }
 

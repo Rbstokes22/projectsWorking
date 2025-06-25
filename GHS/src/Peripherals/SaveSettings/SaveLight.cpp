@@ -43,7 +43,7 @@ bool settingSaver::saveLight() {
 
     if (this->total != this->expected) { // Changes detected, write to NVS.
 
-        this->err = nvs.write(LIGHT_KEY, &this->master.light, 
+        this->err = this->nvs.write(LIGHT_KEY, &this->master.light, 
             sizeof(this->master.light));
 
         vTaskDelay(pdMS_TO_TICKS(NVS_SETTING_DELAY)); // brief delay

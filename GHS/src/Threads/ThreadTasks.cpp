@@ -71,6 +71,7 @@ void SHTTask(void* parameter) {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             "SHT task fail", Messaging::Method::SRL_LOG);
         return;
+        
     } else {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             "SHT task running", Messaging::Method::SRL_LOG);

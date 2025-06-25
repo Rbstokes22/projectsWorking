@@ -730,8 +730,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // When called, the device will save all configuration settings to the
         // NVS and restart the system.
         case CMDS::SAVE_AND_RESTART:
-        NVS::settingSaver::get()->save();
-        esp_restart();
+        NVS::settingSaver::get()->saveAndRestart();
         break;
 
         default:

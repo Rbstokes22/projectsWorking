@@ -5,7 +5,7 @@
 
 namespace ThreadTask {
 
-#define HWM_MIN_WORDS 100 // High water mark minimum words.
+#define HWM_MIN_WORDS 500 // High water mark minimum words. 
 
 // These fall into the configuration required to create a thread. These funcs
 // are passed, requiring a void* param. A thread parameter struct is created

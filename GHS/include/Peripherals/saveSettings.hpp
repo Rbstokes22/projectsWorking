@@ -37,8 +37,12 @@ namespace NVS {
 #define RELAY3_KEY "relay3Save"
 #define RELAY4_KEY "relay4Save"
 #define SETTINGS_TAG "(SETTINGS)"
+#define LOG_TAIL_KEY "lastlog" // Used to save/load the last log entrie.
+#define RESTART_TIME_KEY "restartTm" // Used to save/load last restart time.
 
 #define NVS_SETTING_DELAY 20 // millis to delay between NVS read/write calls.
+#define LOG_TAIL_SIZE 256 // Ensure the NVS write does not exceed this size.
+#define RESTART_TIME_SIZE 64 // Used with NVS to log last time restarted.
 
 struct configSaveReTimer { // Relay Timer configurations.
     uint32_t onTime; // When relay is set to turn on.
@@ -84,6 +88,8 @@ class settingSaver { // Singleton
     const char* soilKeys[SOIL_SENSORS]; // All soil sensor NVS keys.
     const char* tag; // Used in logging.
     char log[LOG_MAX_ENTRY]; // Used to log/print entries.
+    char logTail[LOG_TAIL_SIZE]; // Used to nvs write/read the last log entries.
+    char restartTime[RESTART_TIME_SIZE]; // Logs last restart time.
     nvs_ret_t err; // Error of nvs read/write returns.
     NVSctrl nvs; // NVS controller
     configSaveMaster master; // Master with all sub-structs
@@ -121,6 +127,7 @@ class settingSaver { // Singleton
     static settingSaver* get();
     bool save();
     bool load();
+    void saveAndRestart();
     void initRelays(Peripheral::Relay* relayArray);
 };
 

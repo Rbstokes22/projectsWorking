@@ -2,8 +2,13 @@
 
 // TO DO:
 
-// Stack overflow in task routineThread has been detected, prob increase size
-// and check for high water marks. Keep on lookout for this and troubleshoot.
+// Stack overflow caused restart with routine thread and net thread, check water mark
+// and keep on lookout as well as troubleshoot. Increase size to start, plenty
+// of RAM available. Check water marks before adjusting size just to see the 
+// culprit.
+
+// CRITICAL CALLS RELAY0 MTX lock not released. I see this several times but not
+// too often with working after that. Not sure the cause.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
@@ -171,6 +176,7 @@
 
 extern "C" {
     void app_main();
+    void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
 }
 
 // GLOBALS 
@@ -297,5 +303,31 @@ void app_main() {
     // the last saved data.
     NVS::settingSaver::get()->initRelays(relays);
     NVS::settingSaver::get()->load(); 
+}
+
+// Used if stack overflow is detected. Will save and restart while logging
+// the previous entries to the NVS to be loaded upon restart.
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *taskName) {
+
+    char log[128]{0};
+    snprintf(log, sizeof(log), "Stack Overflow detected in task %s", taskName);
+    
+
+    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
+        log, Messaging::Method::SRL_OLED_LOG);
+
+    taskDISABLE_INTERRUPTS(); // disable interrupts to prevent further proc.
+    static uint8_t count = 0;
+
+    while (true) { // Handle business here, then execute a save and restart.
+
+        printf("Shutting down in %u\n", count);
+
+        if (count++ >= STACK_OVERFLOW_RESTART_SECONDS) {
+            NVS::settingSaver::get()->saveAndRestart(); 
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1s delay.
+    }
 }
 

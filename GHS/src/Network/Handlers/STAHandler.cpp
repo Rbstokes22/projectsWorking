@@ -12,7 +12,7 @@ namespace Comms {
 // Serves the station index page.
 esp_err_t STAIndexHandler(httpd_req_t* req) {
     httpd_resp_set_type(req, MHAND_RESP_TYPE_TEXTHTML);
-    httpd_resp_send(req, STApage, strlen(STApage));
+    httpd_resp_send(req, MAINpage, strlen(MAINpage));
     return ESP_OK;
 }
 

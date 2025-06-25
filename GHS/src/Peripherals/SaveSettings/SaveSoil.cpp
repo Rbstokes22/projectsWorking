@@ -42,7 +42,7 @@ bool settingSaver::saveSoil() {
 
         if (this->total != this->expected) { // Changes, rewrite to NVS.
 
-            this->err = nvs.write(this->soilKeys[sensorNum], 
+            this->err = this->nvs.write(this->soilKeys[sensorNum], 
                 &this->master.soil[sensorNum], 
                 sizeof(this->master.soil[sensorNum]));
 
