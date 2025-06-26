@@ -322,7 +322,19 @@ const char MAINpage[] = R"rawliteral(
             width: 33px;
         }
         .marker.selected {background: rgb(255, 166, 0);}
-        .reSel {border: 5px solid black};
+        .reSel {border: 5px solid black;}
+        .jrnlText {
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: none; /* Allow vertical resizing */
+            width: 100%;
+            min-height: 300px !important;
+            box-sizing: border-box;
+            background-color: rgb(187, 255, 142);
+        }
     </style>
 </head>
 <body onload="loadPage()">
@@ -342,7 +354,13 @@ const char MAINpage[] = R"rawliteral(
         <div id="re1Con" class="subCon"></div>
         <div id="re2Con" class="subCon"></div>
         <div id="re3Con" class="subCon"></div>
+        <div id="jrnl" class="subCon con">
+            <button id="jrnlBut" class="span4 subConItem" 
+            style="text-align: center;" onclick="openJrnl()">Open Journal/Notes
+            </button>
+        </div>
     </div> <!-- contains all periph containers-->
+    
     <button id="SR" class="logFWbut" onclick="saveReset()">Save & Reset</button>
     <div id="log"></div>
 
@@ -2446,6 +2464,34 @@ const char MAINpage[] = R"rawliteral(
             }
 
         }, FW_CHECK_INTV);
+    }
+
+    // Opens the journal and notes section allowing the user to keep data about
+    // the growing progress.
+    let openJrnl = () => {
+        const jrnlBut = document.getElementById("jrnlBut");
+        const jrnlDisp = document.getElementById("jrnl");
+        
+        if (jrnlBut.isOpen) { // Currently open
+            const entry = document.getElementById("jrnlEntry");
+            jrnlBut.isOpen = false;
+            jrnlBut.innerText = "Open Journal/Notes";
+            localStorage.setItem("JRNL", entry.value);
+            entry.remove();
+            
+        } else { // Currently closed.
+            jrnlBut.isOpen = true;
+            jrnlBut.innerText = "Close Journal/Notes";
+            const entry = document.createElement("textarea");
+            entry.classList.add("span4", "subConItem", "jrnlText");
+            entry.id = "jrnlEntry";
+            jrnlDisp.appendChild(entry);
+
+            const textEntry = localStorage.getItem("JRNL");
+            const dtg = new Date().toLocaleString();
+
+            entry.value = textEntry ? textEntry : `Journal/Notes Opened ${dtg}`;
+        }
     }
 
     // START CONTAINER OBJECTS. ================================================
