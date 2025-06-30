@@ -29,18 +29,36 @@ Mutex::Mutex(const char* tag) :
 bool Mutex::lock() {
     if (!init) return false; // Prevents mutex noise before mutex is init.
 
+    static uint8_t count = 0; // Used for retries.
+
     // Attempts to lock the mutex and delays for LOCK_DELAY amount of millis
     // allowing non-permanent-blocking code. Once acquired, changes the 
     // isLocked bool to true.
     if (xSemaphoreTake(this->xMutex, pdMS_TO_TICKS(LOCK_DELAY)) == pdTRUE) {
         this->isLocked.store(true); // Update this for lock release below.
+        count = 0; // Keep at 0.
         return true;
 
     } else {
-        snprintf(this->log, sizeof(this->log), "%s MTX not locked", this->tag);
+
+        // Check if count is under the repeat qty. If yes, log and attempt a
+        // repeat.
+        if (count < MTX_REPEAT) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s MTX not locked. Retry # %u", this->tag, count);
+            count++; // Increment by 1 to reach max attempts.
+            this->lock(); // Run again until locked or max attempts reached.
+
+        } else {
+            snprintf(this->log, sizeof(this->log), 
+                "%s MTX not locked after %u attempts", this->tag, MTX_REPEAT);
+
+            count = 0; // Reset to 0 after n amount of attempts.
+        }
+
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             this->log, Messaging::Method::SRL_LOG);
-        
+
         return false;
     }
 }
@@ -51,17 +69,32 @@ bool Mutex::lock() {
 bool Mutex::unlock() {
     if (!init) return false; // Prevents mutex noise before init.
 
+    static uint8_t count = 0; // Used for retries.
+
     // Will check to see if unlocked, if unlocked, returns true, if locked,
     // proceeds to unlock and returns true once done.
     if (!this->isLocked.load()) return true; 
 
     if (xSemaphoreGive(this->xMutex) == pdTRUE) {
         this->isLocked.store(false);
+        count = 0; // Keep at 0 if good.
         return true;
 
     } else {
-        snprintf(this->log, sizeof(this->log), "%s MTX lock not released", 
-            this->tag);
+
+        if (count < MTX_REPEAT) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s MTX lock not released. Retry # %u", this->tag, count);
+            count++; // Inc by 1 to reach max attempts.
+            this->unlock(); // Attempt unlock again until max attempts reached.
+
+        } else {
+            snprintf(this->log, sizeof(this->log), 
+                "%s MTX lock not released after %u attempts", this->tag, 
+                MTX_REPEAT);
+
+            count = 0; // Reset counts if max attempts reached.
+        }
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             this->log, Messaging::Method::SRL_LOG);

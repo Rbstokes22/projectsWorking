@@ -21,6 +21,13 @@ extern char confLog[50]; // Reusable log for config src.
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
 
+// Threads (Multiply words by 32-bits or 4 bytes to get size)
+#define NET_WORDS 4608 // Increased by 512 due to high water mark issues.
+#define SHT_WORDS 4096
+#define AS7341_WORDS 4096
+#define SOIL_WORDS 4096
+#define ROUTINE_WORDS 4096
+
 // OLED displays
 #define OLED_COMPANY_NAME "SSTech 2024"
 #define OLED_DEVICE_NAME "Mumsy's Greenhouse"
@@ -70,12 +77,13 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 #define TOTAL_RELAYS 4 
 #define TOTAL_THREADS 4  
 
-// Sample/polling frequencies in ms that each thread is executed.
+// Sample/polling frequencies in ms that each thread is executed. If any of
+// these change, ensure to change the hearbeat checks on threadTasks.hpp.
 #define NET_FRQ 1000
 #define SHT_FRQ 1000
 #define AS7341_FRQ 2000
 #define SOIL_FRQ 1000
-#define ROUTINE_FRQ 1000 // Keep 1000 due to OLED messages.
+#define ROUTINE_FRQ 1000 // Keep 1000 due to OLED messages and hearbeat.
 
 // Autosave frequency in seconds, once per n seconds.
 #define AUTO_SAVE_FRQ 60

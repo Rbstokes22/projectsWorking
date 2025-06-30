@@ -2,13 +2,13 @@
 
 // TO DO:
 
-// Stack overflow caused restart with routine thread and net thread, check water mark
-// and keep on lookout as well as troubleshoot. Increase size to start, plenty
-// of RAM available. Check water marks before adjusting size just to see the 
-// culprit.
+// Continue checking on the MTX not released, wrote function to retry, unable to
+// test of course.
 
-// CRITICAL CALLS RELAY0 MTX lock not released. I see this several times but not
-// too often with working after that. Not sure the cause.
+// Wrote a heartbeat class. Register this class within functions to ensure that
+// its activity is detectable to help with troubleshooting. Can start basic within
+// each task, and set the reset time to something like delay + 1, or something
+// larger than delay.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
@@ -215,6 +215,8 @@ Threads::soilThreadParams soilParams(SOIL_FRQ, CONF_PINS::adc_unit); // Soil
 Threads::Thread soilThread("soilThread");
 
 // Routine thread such as randomly monitoring and managing sensor states.
+// Must be called at a 1 Hz frequency to ensure proper management throughout 
+// the program.
 Threads::routineThreadParams routineParams(ROUTINE_FRQ, relays, TOTAL_RELAYS);
 Threads::Thread routineThread("routineThread");
 
@@ -293,11 +295,15 @@ void app_main() {
     // Start threads, and init periph. Must occur before loading settings
     // due to initialized periph params before calling the get(), to prevent
     // nullptr return.
-    netThread.initThread(ThreadTask::netTask, 4096, &netParams, 2);
-    SHTThread.initThread(ThreadTask::SHTTask, 4096, &SHTParams, 1); 
-    AS7341Thread.initThread(ThreadTask::AS7341Task, 4096, &AS7341Params, 3);
-    soilThread.initThread(ThreadTask::soilTask, 4096, &soilParams, 3);
-    routineThread.initThread(ThreadTask::routineTask, 4096, &routineParams, 3);
+    netThread.initThread(ThreadTask::netTask, NET_WORDS, &netParams, 2);
+    SHTThread.initThread(ThreadTask::SHTTask, SHT_WORDS, &SHTParams, 1); 
+    soilThread.initThread(ThreadTask::soilTask, SOIL_WORDS, &soilParams, 3);
+
+    AS7341Thread.initThread(ThreadTask::AS7341Task, AS7341_WORDS, 
+        &AS7341Params, 3);
+
+    routineThread.initThread(ThreadTask::routineTask, ROUTINE_WORDS, 
+        &routineParams, 3);
 
     // Sends pointer of relay array to initRelays method, and then loads all
     // the last saved data.

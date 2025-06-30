@@ -16,6 +16,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "math.h"
 #include "Peripherals/saveSettings.hpp"
+#include "Common/heartbeat.hpp"
 
 namespace ThreadTask {
 
@@ -32,7 +33,7 @@ void highWaterMark(const char* tag, UBaseType_t HWM) {
             tag, HWM);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
-            msg, Messaging::Method::SRL_LOG);
+            msg, Messaging::Method::SRL_LOG, true, false);
     }
 }
 
@@ -53,10 +54,16 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     Threads::netThreadParams* params = 
         static_cast<Threads::netThreadParams*>(parameter);
 
+    // Register task with heartbeat.
+    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("NET", HB_DELAY);
+
     while (true) {
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
         params->netManager.scan();
+
+        // Check in to reset heart beat expiration.
+        heartbeat::Heartbeat::get()->rogerUp(HBID, NET_HEARTBEAT);
 
         highWaterMark("Network", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
@@ -84,9 +91,16 @@ void SHTTask(void* parameter) {
     Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
+    // Register task with heartbeat.
+    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("TEMPHUM", HB_DELAY);
+
     while (true) {
         // Only check bounds upon successful read.
         if (th->read()) th->checkBounds(); 
+
+        // Check in to reset heart beat expiration.
+        heartbeat::Heartbeat::get()->rogerUp(HBID, TEMPHUM_HEARTBEAT);
+
         highWaterMark("TempHum", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
@@ -119,12 +133,18 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
 
     Peripheral::Light* lt = Peripheral::Light::get(&ltParams);
 
+     // Register task with heartbeat.
+    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("LIGHT", HB_DELAY);
+
     while (true) {
 
         lt->readSpectrum(); // Reads spectrum values
     
         // Checks bounds for photo resistor upon successful read.
         if (lt->readPhoto()) lt->checkBounds();
+
+        // Check in to reset heart beat expiration.
+        heartbeat::Heartbeat::get()->rogerUp(HBID, LIGHT_HEARTBEAT);
 
         highWaterMark("Light", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
@@ -161,6 +181,9 @@ void soilTask(void* parameter) { // Soil sensors
     // Init here to get a singleton class.
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
 
+     // Register task with heartbeat.
+    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("SOIL", HB_DELAY);
+
     while (true) {
         // Will read all, and then check bounds. Flags are incorporated
         // into the soil readings data, which will prevent action from
@@ -168,6 +191,10 @@ void soilTask(void* parameter) { // Soil sensors
         // bounds only if read is good, this does not due to iteration.
         soil->readAll();
         soil->checkBounds();
+
+        // Check in to reset heart beat expiration.
+        heartbeat::Heartbeat::get()->rogerUp(HBID, SOIL_HEARTBEAT);
+
         highWaterMark("Soil", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
     }
@@ -195,6 +222,9 @@ void routineTask(void* parameter) {
     const float autoSaveCts = roundf((1000.0f * AUTO_SAVE_FRQ) / params->delay);
     static size_t count = 0;
 
+     // Register task with heartbeat.
+    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("ROUTINE", HB_DELAY);
+
     while (true) {
         // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
@@ -214,6 +244,12 @@ void routineTask(void* parameter) {
             NVS::settingSaver::get()->save();
             count = 0; // Reset count.
         }
+
+        // Check in to reset heart beat expiration.
+        heartbeat::Heartbeat::get()->rogerUp(HBID, ROUTINE_HEATBEAT);
+
+        // Call at a 1 hz frequency to properly employ.
+        heartbeat::Heartbeat::get()->manage();
 
         highWaterMark("Routine", uxTaskGetStackHighWaterMark(NULL));
         vTaskDelay(pdMS_TO_TICKS(params->delay));
