@@ -60,7 +60,10 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     while (true) {
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
-        params->netManager.scan();
+
+        // Pass heartbeat ID to scan because if a low RSSI is detected, it will
+        // block the network and scan
+        params->netManager.scan(HBID, NET_SCAN_HEARTBEAT);
 
         // Check in to reset heart beat expiration.
         heartbeat::Heartbeat::get()->rogerUp(HBID, NET_HEARTBEAT);

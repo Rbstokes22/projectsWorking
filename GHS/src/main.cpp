@@ -2,13 +2,10 @@
 
 // TO DO:
 
-// Continue checking on the MTX not released, wrote function to retry, unable to
-// test of course.
-
-// Wrote a heartbeat class. Register this class within functions to ensure that
-// its activity is detectable to help with troubleshooting. Can start basic within
-// each task, and set the reset time to something like delay + 1, or something
-// larger than delay.
+// Write config and build ADC into routine params just as a test. Once good, 
+// incorporate into soil, and the do another with the photo. or cut a 
+// soil and add light, or figure soemthing out. First test for working before 
+// building.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods

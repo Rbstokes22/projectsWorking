@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "Peripherals/saveSettings.hpp" // Used for destruction fail reset
 #include "Common/Timing.hpp"
+#include "Common/heartbeat.hpp"
 
 namespace Comms {
 
@@ -284,7 +285,7 @@ void NetManager::sendErr(const char* msg, Messaging::Levels lvl,
 // the AP with the strongest RSSI and attempts a connection to that. Will only
 // run a scan every n number of minutes define in header. Returns SCAN_OK_UPD,
 // SCAN_OK_NOT_UPD, SCAN_NOT_REQ, SCAN_ERR, and SCAN_AWAITING.
-scan_ret_t NetManager::scan() { // Station only.
+scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t resetSec) { // STA only
 
     // If good data, set and check times.
     Clock::DateTime* dtg = Clock::DateTime::get(); 
@@ -316,7 +317,12 @@ scan_ret_t NetManager::scan() { // Station only.
         uint8_t bestBSSID[bssidSize];
         bool bssidUpdated = false; // Triggers reconnect if set to true.
         int8_t lastRSSI = -100; // This will be used to store strongest RSSI.
-      
+
+        // Before the scan starts, feed the heartbeat timer to prevent
+        // restart.
+        heartbeat::Heartbeat::get()->rogerUp(heartbeatID, resetSec);
+
+
         err = esp_wifi_scan_start(NULL, true); // Blocking function 2-4 sec.
 
         if (err != ESP_OK) {

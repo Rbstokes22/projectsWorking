@@ -565,24 +565,20 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // the dark value which begins the duration of light, and the relay 
         // trip values. Below is the 32-bit bitwise breakdown.
         // 000T 00CC   DDDD DDDD   DDDD PPPP   PPPP PPPP
+        // 0000 0000   000T 00CC   VVVV VVVV   VVVV VVVV
         // T = type, 0 for dark, 1 for photo.
         // C = condition. 0 = less than, 1 = gtr than, 2 = none.
-        // D = dark value, 12 bits, max 4095.
-        // P = photo value, 12 bits, max 4095.
+        // V = value, 16 bits, max 65535.
         case CMDS::SET_LIGHT: {
-        uint8_t type = (data.suppData >> 28) & 0b1;
-        uint8_t cond = (data.suppData >> 24) & 0b11;
-        uint16_t dark = (data.suppData >> 12) & 0x0FFF;
-        uint16_t photo = data.suppData & 0x0FFF;
+        uint8_t type = (data.suppData >> 20) & 0b1;
+        uint8_t cond = (data.suppData >> 16) & 0b11;
+        uint16_t value = data.suppData & 0xFFFF;
 
         // Relay conditions, work just like alert condition above.
         const Peripheral::RECOND RECOND[] = {Peripheral::RECOND::LESS_THAN,
             Peripheral::RECOND::GTR_THAN, Peripheral::RECOND::NONE};
 
-        // Sets the ranges depending on the type.
-        bool valRange = (type == 0) ? // Indicates dark val
-            SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, dark) :
-            SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, photo);
+        bool valRange = SOCKHAND::inRange(PHOTO_MIN, PHOTO_MAX, value);
 
         // Sets to true if type is dark to bypass checks.
         bool condRange = (type == 0) ? true : SOCKHAND::inRange(0, 2, cond);
@@ -600,14 +596,14 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         if (type == 0) { // Indicates dark value
 
-            conf->darkVal = dark;
+            conf->darkVal = value;
             written = snprintf(buffer, size, reply, 1, "Dark Val", 
-                dark, data.idNum);
+                value, data.idNum);
 
         } else { // Indicates photo value. Type = 1.
 
             conf->condition = RECOND[cond];
-            conf->tripVal = (cond == 2) ? 0 : photo;
+            conf->tripVal = (cond == 2) ? 0 : value;
             written = snprintf(buffer, size, reply, 1, "Photo Relay Set", 
                 conf->tripVal, data.idNum);
         }

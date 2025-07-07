@@ -17,6 +17,7 @@ namespace Comms {
 #define NET_SCAN_MIN_WAIT 10 // Scans every n minutes
 #define NET_STA_RSSI_MIN -50 // value in dBm to attempt reconnect.
 #define NET_SCAN_HYSTERESIS 5 // Difference to signal reconnect to new AP.
+#define NET_SCAN_HEARTBEAT 7 // Seconds passed to heartbeat before blocking scan
 
 enum class scan_ret_t : uint8_t {
     SCAN_OK_UPD, // Scan OK, found better connection, updated.
@@ -46,7 +47,7 @@ class NetManager {
     public:
     NetManager(NetSTA &station, NetWAP &wap,  UI::Display &OLED);
     void handleNet();
-    scan_ret_t scan();
+    scan_ret_t scan(uint8_t heartbeatID, uint8_t resetSec);
 };
 
 }
