@@ -1,23 +1,22 @@
 #ifndef SOIL_HPP
 #define SOIL_HPP
 
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 #include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Drivers/ADC.hpp"
 
 namespace Peripheral {
 
 #define SOIL_SENSORS 4 // total soil sensors
 #define SOIL_HYSTERESIS 20 // padding for reset value
-#define SOIL_NOISE 20 // Used to prevent noise in the analog read.
+#define SOIL_NOISE 10 // Used to prevent noise in the analog read.
 #define SOIL_ERR_MAX 3 // Max Error counts before display shows error.
 #define SOIL_CONSECUTIVE_CTS 5 // consecutive counts before sending alert.
 #define SOIL_ALT_MSG_SIZE 64 // Alert message size
 #define SOIL_ALT_MSG_ATT 3 // Attempts to send an alert
 #define SOIL_MIN 1 // 0, but cant set lower. 12 bit value.
-#define SOIL_MAX 4094 // 4095, but cant set higher.
+#define SOIL_MAX 32766 // int 16 max - 1, due to unable to set abv max.
 #define SOIL_LOG_METHOD Messaging::Method::SRL_LOG
 #define SOIL_TAG "(SOIL)"
 
@@ -38,14 +37,13 @@ struct AlertConfigSo {
 
 // All soil parameters required for init.
 struct SoilParams {
-    adc_oneshot_unit_handle_t handle; // ADC handle
-    adc_channel_t* channels; // ADC channels.
+    ADC_DRVR::ADC &soil; // Soil ADC.
 };
 
 // Packet for capturing the read value, and if the data is good to use or there
 // is an immeidate or diplay level error.
 struct SoilReadings {
-    int val; // Read value
+    int16_t val; // Read value
     bool noDispErr; // Used for display after consecutive errors
     bool noErr; // Used immediately to prevent errors, shows datasafe.
     size_t errCt; // error count.

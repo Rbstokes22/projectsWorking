@@ -3,6 +3,7 @@
 
 #include "UI/MsgLogHandler.hpp"
 #include "I2C/I2C.hpp"
+#include "Config/config.hpp"
 
 // Date sheet
 // https://download.mikroe.com/documents/datasheets/ADS1115%20Datasheet.pdf
@@ -22,6 +23,7 @@ namespace ADC_DRVR {
 #define ADC_TAG "(ADC)"
 #define ADC_I2C_TIMEOUT 1000 // time in millis the i2c will timeout.
 #define ADC_BAD_VAL -1 // Indicated bad value. Expect only positve values.
+#define ADC_CONV_WAIT_MS 20 // Delay to wait for conversion.
 
 // All enum classes correspond with the datasheet register val
 enum class REG : uint8_t {
@@ -52,21 +54,20 @@ class ADC {
     private:
     const char* tag;
     char log[LOG_MAX_ENTRY];
-    bool isInit;
-    CONF pkt;
+    bool isInit; // Used to prevent double initiation of i2c resources.
+    CONF pkt; // Configuration packet.
     i2c_master_dev_handle_t i2cHandle; // I2C handle to register device.
-    void config(uint8_t pinNum, bool refresh);
-    int16_t getVal(uint8_t pinNum);
+    bool config(uint8_t pinNum, bool refreshConf);
+    int16_t getVal();
+    bool isConverting(); // Check conversion status.
     void sendErr(const char* msg, 
             Messaging::Levels lvl = Messaging::Levels::ERROR);
 
     public:
     ADC();
     void init(uint8_t i2cAddr, CONF &pkt);
-    void read(uint8_t pin = 4, int* readPkt, bool refresh = false);
+    void read(int16_t &readVar, uint8_t pin, bool refreshConf = false);
     CONF* getConf();
-
-    
 };
 
 }

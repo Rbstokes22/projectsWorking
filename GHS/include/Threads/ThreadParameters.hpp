@@ -7,8 +7,8 @@
 #include "Network/NetManager.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp"
 #include "Drivers/SHT_Library.hpp"
-#include "esp_adc/adc_oneshot.h"
 #include "Peripherals/Relay.hpp"
+#include "Drivers/ADC.hpp"
 
 // All parameters that need to be passed to the thread will be in a struct.
 // This allows us to pass all of the required params as the single parameter
@@ -33,17 +33,17 @@ struct SHTThreadParams {
 struct AS7341ThreadParams {
     uint32_t delay;
     AS7341_DRVR::AS7341basic &light;
-    adc_oneshot_unit_handle_t &adc_unit;
+    ADC_DRVR::ADC &photo;
 
     AS7341ThreadParams(uint32_t delay, AS7341_DRVR::AS7341basic &light,
-        adc_oneshot_unit_handle_t &adc_unit);
+        ADC_DRVR::ADC &photo);
 };
 
 struct soilThreadParams {
     uint32_t delay;
-    adc_oneshot_unit_handle_t &adc_unit;
+    ADC_DRVR::ADC &soil;
 
-    soilThreadParams(uint32_t delay, adc_oneshot_unit_handle_t &adc_unit);
+    soilThreadParams(uint32_t delay, ADC_DRVR::ADC &soil);
 };
 
 struct routineThreadParams {

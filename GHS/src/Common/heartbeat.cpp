@@ -10,6 +10,8 @@ uint8_t Heartbeat::blockNum = 0;
 
 Heartbeat::Heartbeat(const char* tag) : tag(tag) {
 
+    memset(this->callers, 0, sizeof(this->callers));
+
     snprintf(this->log, sizeof(this->log), "%s ob created", this->tag);
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
         this->log, Messaging::Method::SRL_LOG);
@@ -19,8 +21,8 @@ Heartbeat::Heartbeat(const char* tag) : tag(tag) {
 // caller name assigned to the ID. Currently logs the unresponsiveness and 
 // restarts if unresponsive.
 void Heartbeat::alert(uint8_t ID) {
-    snprintf(this->log, sizeof(this->log), "%s ID %u unresponsive", 
-        this->tag, ID);
+    snprintf(this->log, sizeof(this->log), "%s ID %u Caller %s unresponsive", 
+        this->tag, ID, this->callers[ID]);
 
     // Log tail entry, which will be visible upon a save and restart.
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
@@ -43,7 +45,9 @@ Heartbeat* Heartbeat::get() {
 // Requires the caller ID and the init value. The init value will set the array
 // block to this value during the init process due to delays in order to 
 // prevent unwanted behavior by the alert funciton. Returns the position in the
-// uint8_t array that is assigned to the caller.
+// uint8_t array that is assigned to the caller. WARNING: Caller must be 15
+// chars or less, with the 16th char being the null terminator. Caller will be
+// truncated if in violation.
 uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
     if (blockNum < HEARTBEAT_CLIENTS_MAX) {
 
@@ -55,6 +59,9 @@ uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
          this->log, Messaging::Method::SRL_LOG);
 
         this->rogerUp(blockNum, initVal); // Sets the init val.
+
+        snprintf(this->callers[blockNum], HEARTBEAT_CALLER_CHAR_LEN, "%s", 
+            caller); // Copy caller to later reference if needed.
         
         return blockNum++; // Increment after return.
 

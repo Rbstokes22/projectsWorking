@@ -2,13 +2,12 @@
 #define LIGHT_HPP
 
 #include "Drivers/AS7341/AS7341_Library.hpp"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Common/FlagReg.hpp"
 #include "Config/config.hpp"
+#include "Drivers/ADC.hpp"
 
 namespace Peripheral {
 
@@ -18,16 +17,15 @@ namespace Peripheral {
 #define LIGHT_HYSTERESIS 10 // Padding for photoresistor.
 #define LIGHT_ERR_CT_MAX 3 // Error counts to show error on display
 #define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
-#define PHOTO_MAX 65534 // 16 bit max - 1, set for error purposes.
-#define PHOTO_NOISE 20 // Used to filter noise from the analog read.
+#define PHOTO_MAX 32766 // int16 max - 1, set for error purposes.
+#define PHOTO_NOISE 5 // Used to filter noise from the analog read.
 #define LIGHT_NO_RELAY 255 // Used to show no relay attached.
 #define LIGHT_LOG_METHOD Messaging::Method::SRL_LOG
 #define LIGHT_TAG "(LIGHT)"
 #define LIGHT_FLAG_TAG "(LIGHTFlag)"
 
 struct LightParams {
-    adc_oneshot_unit_handle_t handle; // analog-digital conv handle
-    adc_channel_t channel; // Channel for photoresistor
+    ADC_DRVR::ADC &photo;
     AS7341_DRVR::AS7341basic &as7341; // AS7341 driver reference.
 };
 
@@ -104,7 +102,7 @@ class Light {
     Light_Averages averages; 
     RelayConfigLight conf;
     uint32_t lightDuration;
-    int photoVal;
+    int16_t photoVal;
     static Threads::Mutex mtx;
     LightParams &params;
     Light(LightParams &params); 

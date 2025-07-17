@@ -86,6 +86,8 @@ bool Mutex::unlock() {
             snprintf(this->log, sizeof(this->log), 
                 "%s MTX lock not released. Retry # %u", this->tag, count);
             count++; // Inc by 1 to reach max attempts.
+
+            // NOTE: Recursion should not cause any heartbeat issues.
             this->unlock(); // Attempt unlock again until max attempts reached.
 
         } else {

@@ -3,8 +3,6 @@
 
 #include <cstdint>
 #include "driver/gpio.h"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 
 #define CONFTAG "(CONFIG)"
 extern char confLog[50]; // Reusable log for config src.
@@ -63,6 +61,8 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 #define OLED_ADDR 0x3C
 #define AS7341_ADDR 0x39
 #define SHT_ADDR 0x44
+#define ADC1_ADDR 0x48 // Bridged to ground (SOIL SENSORS)
+#define ADC2_ADDR 0x49 // Bridged to VDD (PhotoResistor)
 
 // Developer mode, This affects certain things like NGROK server headers.
 #define DEVmode true // When set to false, production mode.
@@ -95,13 +95,9 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 
 // GPIO configuration.
 namespace CONF_PINS {
-    #define AnalogPinQty 5
     #define DigitalPinQty 10
 
-    extern adc_oneshot_unit_handle_t adc_unit; // Used for the ADC channels.
     void setupDigitalPins();
-    void setupAnalogPins(adc_oneshot_unit_handle_t &unit);
-    extern adc_channel_t pinMapA[AnalogPinQty]; // Analog pin map.
     extern gpio_num_t pinMapD[DigitalPinQty]; // Digital pin map.
 
     // Used with pinMaps above. MD or mode 0, 1, and 2 are for the mdns. Uses
@@ -111,7 +107,9 @@ namespace CONF_PINS {
     enum class DPIN : uint8_t {WAP, STA, defWAP, RE0, RE1, RE2, RE3, 
         MD0, MD1, MD2};
 
-    enum class APIN : uint8_t {SOIL0, SOIL1, SOIL2, SOIL3, PHOTO};
+    // For the ADC, enum pos will be the pin num on the ADS1115
+    enum class ADC1 : uint8_t {SOIL0, SOIL1, SOIL2, SOIL3}; // 4 max
+    enum class ADC2 : uint8_t {PHOTO, PH1, PH2, PH3}; // Place holders = PH
 }
 
 // NetConfig, does not include the CONF in the namespace due to this.

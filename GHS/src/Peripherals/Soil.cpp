@@ -1,11 +1,10 @@
 #include "Peripherals/Soil.hpp"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 #include "Peripherals/Alert.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
 #include "Network/NetCreds.hpp"
+#include "Drivers/ADC.hpp"
 
 namespace Peripheral {
 
@@ -141,50 +140,56 @@ AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
 void Soil::readAll() {
     esp_err_t err;
     static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
-    
+
+    // Read each sensor. Can be done with for loop considering arrangement,
+    // enum not necessary here. Reads Each pin, and updates the data.
     for (int i = 0; i < SOIL_SENSORS; i++) {
-        err = adc_oneshot_read(
-            this->params.handle, this->params.channels[i], &this->data[i].val
-            );
 
-        // Essentially math.floor to represents all values within the range of
-        // the analog noise. If NOISE is set to 20, this means that all values 
-        // from 1500 to 1519 are represented.
-        this->data[i].val -= (this->data[i].val % SOIL_NOISE);
+        // Read the sensor.
+        this->params.soil.read(this->data[i].val, i);
+        vTaskDelay(pdMS_TO_TICKS(5)); // Very brief delay in loop.
 
-        // Sets the proper values based on read success.
-        if (err == ESP_OK) {
-            this->data[i].noDispErr = true;
-            this->data[i].noErr = true;
-            this->data[i].errCt = 0;
+        // Check data to ensure integrity. Bad val set to -1, since we are not
+        // using differential reads, and single point, this is a magnitude.
+        // Handles all flags and values.
+        if (this->data[i].val == ADC_BAD_VAL) {
+            this->data[i].noErr = false; // Set to false indicating read err.
+            this->data[i].errCt++; // Inc by one.
 
-            if (!logOnce[i]) { // Can only be set by err below.
-                snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d err fixed",
-                    Soil::tag, i);
-
-                Soil::sendErr(Soil::log, Messaging::Levels::INFO);
-                logOnce[i] = true; // Preven re-log, allow err logging.
+            // Signal a display error if counts exceed max.
+            if (this->data[i].errCt > SOIL_ERR_MAX) { 
+                this->data[i].noDispErr = false;
             }
 
-        } else { // Error
+        } else { // Good read.
+            this->data[i].noDispErr = this->data[i].noErr = true; 
+            this->data[i].errCt = 0; // Reset
 
-            this->data[i].noErr = false;
-            this->data[i].errCt++;
+            // Essentially math.floor to represents all values within the range 
+            // of the analog noise. If NOISE is set to 20, this means that all 
+            // values from 1500 to 1519 are represented as 1500.
+            this->data[i].val -= (this->data[i].val % SOIL_NOISE);
+
+            // Log fixing error if triggered by previous err and err is fixed.
+            if (!logOnce[i]) { // Can only be set by err below.
+            snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d err fixed",
+                Soil::tag, i);
+
+            Soil::sendErr(Soil::log, Messaging::Levels::INFO);
+            logOnce[i] = true; // Preven re-log, allow err logging.
+            }
         }
 
-        // Sets the display flag to true if error count is below max.
-        this->data[i].noDispErr = (this->data[i].errCt < SOIL_ERR_MAX);
-
-        // If error, log once until reset by no error. Must preceed the fixed
-        // err msg.
+        // If display error, meaning several consecutive bad reads, log sensor
+        // issue indicating problem.
         if (!this->data[i].noDispErr && logOnce[i]) {
             snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d read err",
                 Soil::tag, i);
 
             Soil::sendErr(Soil::log);
-            logOnce[i] = false; // Prevents re-log, allows fixed error log.
+            logOnce[i] = false; // Prevents re-log, allows fixed error log only.
         }
-    }
+    }  
 }   
 
 // Requires the sensor number you are trying to read. Returns pointer to the

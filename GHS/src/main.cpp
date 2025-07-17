@@ -2,10 +2,10 @@
 
 // TO DO:
 
-// Write config and build ADC into routine params just as a test. Once good, 
-// incorporate into soil, and the do another with the photo. or cut a 
-// soil and add light, or figure soemthing out. First test for working before 
-// building.
+// Sensors work as advertised. Ensure that maxes on the client and server
+// side have the analog reads capped at 32767.
+
+//////
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
@@ -170,6 +170,7 @@
 #include "Drivers/AS7341/AS7341_Library.hpp" 
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/saveSettings.hpp"
+#include "Drivers/ADC.hpp"
 
 extern "C" {
     void app_main();
@@ -185,8 +186,24 @@ Comms::NetSTA station(MDNS_NAME);
 Comms::NetWAP wap(AP_SSID, AP_DEF_PASS, MDNS_NAME);
 Comms::NetManager netManager(station, wap, OLED);
 
-// PERIPHERALS
-SHT_DRVR::SHT sht; // Temp hum driver 
+// PERIPHERALS AND DRIVERS
+SHT_DRVR::SHT sht; // Temp hum driver no config.
+
+ADC_DRVR::CONF ADCsoilConf { // Soil ADC configuration.
+    3.3, 
+    ADC_DRVR::FSR::V4_096, 
+    ADC_DRVR::DATA_RATE::SPS128
+};
+
+ADC_DRVR::CONF ADClightConf { // Photoresistor ADC conf.
+    3.3,
+    ADC_DRVR::FSR::V4_096,
+    ADC_DRVR::DATA_RATE::SPS128
+};
+
+ADC_DRVR::ADC soil; // Soil ADC, uses i2c.
+ADC_DRVR::ADC photo; // Photoresistor on A0, all other pins blank. i2c.
+
 AS7341_DRVR::CONFIG lightConf(AS7341_ASTEP, AS7341_ATIME, AS7341_WTIME);
 AS7341_DRVR::AS7341basic light(lightConf);
 
@@ -204,11 +221,10 @@ Threads::Thread netThread("NetThread"); // DO NOT SUSPEND
 Threads::SHTThreadParams SHTParams(SHT_FRQ, sht);  // Temp and Humidity
 Threads::Thread SHTThread("SHTThread");
 
-Threads::AS7341ThreadParams AS7341Params(AS7341_FRQ, light, 
-    CONF_PINS::adc_unit); // light
+Threads::AS7341ThreadParams AS7341Params(AS7341_FRQ, light, photo); // light
 Threads::Thread AS7341Thread("AS7341Thread");
 
-Threads::soilThreadParams soilParams(SOIL_FRQ, CONF_PINS::adc_unit); // Soil 
+Threads::soilThreadParams soilParams(SOIL_FRQ, soil); // Soil 
 Threads::Thread soilThread("soilThread");
 
 // Routine thread such as randomly monitoring and managing sensor states.
@@ -233,15 +249,17 @@ void app_main() {
     };
 
     CONF_PINS::setupDigitalPins(); // Config.hpp
-    CONF_PINS::setupAnalogPins(CONF_PINS::adc_unit); // Config.hpp
 
     // Init I2C at frequency 100 khz.
     Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::STD);
 
-    // Init OLED, AS7341 light sensor, and sht temp/hum sensor.
+    // Init OLED, AS7341 light sensor, sht temp/hum sensor, and ADCs. Init
+    // before starting thread tasks.
     OLED.init(OLED_ADDR);
     light.init(AS7341_ADDR);
     sht.init(SHT_ADDR); 
+    soil.init(ADC1_ADDR, ADCsoilConf);
+    photo.init(ADC2_ADDR, ADClightConf);
 
     // Init credential singleton with global parameters above
     // which will also init the NVS.

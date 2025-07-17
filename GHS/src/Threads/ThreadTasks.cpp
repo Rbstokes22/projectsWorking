@@ -6,8 +6,6 @@
 #include "Config/config.hpp"
 #include "Drivers/SHT_Library.hpp"
 #include "driver/gpio.h"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
@@ -17,6 +15,7 @@
 #include "math.h"
 #include "Peripherals/saveSettings.hpp"
 #include "Common/heartbeat.hpp"
+#include "Drivers/ADC.hpp"
 
 namespace ThreadTask {
 
@@ -125,14 +124,8 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
     Threads::AS7341ThreadParams* params = 
         static_cast<Threads::AS7341ThreadParams*>(parameter);
 
-    // set channel to the photoresistor pin
-    static adc_channel_t channel = 
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::PHOTO)];
-
     // Init here using parameters passed within the thread.
-    Peripheral::LightParams ltParams = {
-        params->adc_unit, channel, params->light
-        };
+    Peripheral::LightParams ltParams = {params->photo, params->light};
 
     Peripheral::Light* lt = Peripheral::Light::get(&ltParams);
 
@@ -162,6 +155,7 @@ void soilTask(void* parameter) { // Soil sensors
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             "SOIL task fail", Messaging::Method::SRL_LOG);
         return;
+
     } else {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             "SOIL task running", Messaging::Method::SRL_LOG);
@@ -170,16 +164,16 @@ void soilTask(void* parameter) { // Soil sensors
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
     
-    // Channels of the ADC to read.
-    static adc_channel_t channels[SOIL_SENSORS] = {
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL0)],
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL1)],
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL2)],
-        CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)]
-    };
+    // Channels of the ADC to read. !!! DEL
+    // static adc_channel_t channels[SOIL_SENSORS] = {
+    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL0)],
+    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL1)],
+    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL2)],
+    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)]
+    // };
 
-    // Single soil parameter structure that include 4 channels.
-    Peripheral::SoilParams soilParams = {params->adc_unit, channels};
+    // Single soil parameter structure that include ADC1 driver.
+    Peripheral::SoilParams soilParams = {params->soil};
 
     // Init here to get a singleton class.
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);

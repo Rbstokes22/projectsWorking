@@ -1,13 +1,12 @@
 #include "Peripherals/Light.hpp"
 #include "Drivers/AS7341/AS7341_Library.hpp"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_continuous.h"
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Common/Timing.hpp"
 #include "string.h" 
 #include "Common/FlagReg.hpp"
+#include "Drivers/ADC.hpp"
 
 namespace Peripheral {
 
@@ -322,19 +321,23 @@ bool Light::readPhoto() {
     static size_t errCt{0};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
-    // Reads the analog value of the photoresistor and stores value to
-    // class variable.
-    err = adc_oneshot_read(this->params.handle, this->params.channel,
-        &this->photoVal);
+    // Read the analog value from the ADC
+    this->params.photo.read(this->photoVal, 
+        static_cast<uint8_t>(CONF_PINS::ADC2::PHOTO));
 
-    // Essentially math.floor to represents all values within the range of the
-    // analog noise. If NOISE is set to 20, This means that all values from 1500
-    // to 1519 are represented by 1500.
-    this->photoVal -= (this->photoVal % PHOTO_NOISE);
+    // Check value to ensure integrity. Bad val set to -1, since we are using
+    // single point mode, there are no negative values, as opp to differential.
+    if (this->photoVal == ADC_BAD_VAL) {
+        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
+        errCt++; // Increment error count.
 
-    // Upon sucess, changes the flags to true indicating no error.
-    if (err == ESP_OK) {
-        this->computeAverages(false); // compute avg upon success.
+    } else {
+    
+        // Adjust photo value by reducing noise. If noise is set to 10, this
+        // means that all values from 1500 to 1509 are rep by 1500.
+        this->photoVal -= (this->photoVal % PHOTO_NOISE);
+
+        this->computeAverages(false); // Comp average, false = not spectral.
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR);
         errCt = 0; // zero out
@@ -347,11 +350,6 @@ bool Light::readPhoto() {
             Light::sendErr(Light::log, Messaging::Levels::INFO);
             logOnce = true; // Prevent re-log, allow err logging.
         }
-
-    } else {
-
-        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
-        errCt++; // Increment error count.
     }
 
     // Sets display to true if the error ct is less than max.

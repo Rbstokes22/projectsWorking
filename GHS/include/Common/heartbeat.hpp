@@ -13,6 +13,7 @@ namespace heartbeat {
 #define HEARTBEAT_TAG "(Heartbeat)"
 #define HEARTBEAT_CLIENTS_MAX 32 // Max number of clients, do not exceed 255.
 #define HEARTBEAT_CLIENTS_FULL 255;
+#define HEARTBEAT_CALLER_CHAR_LEN 16 // 16 chars max including null term.
 
 class Heartbeat {
     private:
@@ -20,6 +21,7 @@ class Heartbeat {
     static uint8_t blockNum; 
     char log[LOG_MAX_ENTRY];
     uint8_t reg[HEARTBEAT_CLIENTS_MAX]; 
+    char callers[HEARTBEAT_CLIENTS_MAX][16];
     static Threads::Mutex mtx; // mutex
     Heartbeat(const char* tag);
     Heartbeat(const Heartbeat&) = delete; // Prevent copying.

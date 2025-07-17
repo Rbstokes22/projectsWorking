@@ -514,7 +514,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // 0000 0000   SSSS 00CC   VVVV VVVV   VVVV VVVV
         // S = soil sensor num. 0 is 1, 3 is 4.
         // C = alert condition. 0 = less than, 1 = gtr than, 2 = none.
-        // V = 16 bit integer value. Max is 4095, which is 12 bits.
+        // V = 16 bit integer value. Max is 32767 per datasheet.
         case CMDS::SET_SOIL: {
         
         // Ensure you are conncted to the station mode for alert features.
@@ -564,7 +564,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Sets the light conditions and trip values for the relay. Light has
         // the dark value which begins the duration of light, and the relay 
         // trip values. Below is the 32-bit bitwise breakdown.
-        // 000T 00CC   DDDD DDDD   DDDD PPPP   PPPP PPPP
         // 0000 0000   000T 00CC   VVVV VVVV   VVVV VVVV
         // T = type, 0 for dark, 1 for photo.
         // C = condition. 0 = less than, 1 = gtr than, 2 = none.
