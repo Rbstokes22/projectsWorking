@@ -2,10 +2,7 @@
 
 // TO DO:
 
-// Sensors work as advertised. Ensure that maxes on the client and server
-// side have the analog reads capped at 32767.
-
-//////
+// Working trends for soil sensors. Complete, need to test.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods

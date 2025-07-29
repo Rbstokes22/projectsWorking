@@ -69,7 +69,7 @@ struct Light_Trends { // Prevous n hours of light values, on the hour.
     uint16_t orange[TREND_HOURS];
     uint16_t red[TREND_HOURS];
     uint16_t nir[TREND_HOURS];
-    uint16_t photo[TREND_HOURS];
+    int16_t photo[TREND_HOURS];
 };
 
 struct Light_Averages {

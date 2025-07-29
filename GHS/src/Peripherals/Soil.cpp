@@ -5,6 +5,7 @@
 #include "string.h"
 #include "Network/NetCreds.hpp"
 #include "Drivers/ADC.hpp"
+#include "Common/Timing.hpp"
 
 namespace Peripheral {
 
@@ -25,6 +26,7 @@ Soil::Soil(SoilParams &params) :
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 4, 0}
     }, params(params) {
 
+        memset(this->trends, 0, sizeof(this->trends)); // Clear all trend data.
         snprintf(Soil::log, sizeof(Soil::log), "%s Ob created", Soil::tag);
         Soil::sendErr(Soil::log, Messaging::Levels::INFO);
     }
@@ -101,6 +103,37 @@ void Soil::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, SOIL_LOG_METHOD);
 }
 
+// Requires no params. Gets the current hour. When the hour switches, hours
+// 0 to n - 1 will be captured and moved to position 1 to n, position 0 will
+// have the new value written into it after the move. 
+void Soil::computeTrends(uint8_t indexNum) {
+
+    // Get current hour. Set static last hour equal to. This should init at
+    // 0, 0.
+    uint8_t hour = Clock::DateTime::get()->getTime()->hour;
+    static uint8_t lastHour = hour; 
+
+    static bool firstCal = false; // Used to handle init calibration.
+
+    if (!firstCal) { // Once calibrated, zeros out trends for accuracy.
+        if (Clock::DateTime::get()->isCalibrated()) {
+            firstCal = true; // Block from running again.
+            memset(&this->trends, 0, sizeof(this->trends)); // Clear all.
+        }
+    }
+
+    if (hour != lastHour) { // Change detected.
+
+        // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.
+        memmove(&this->trends[indexNum][1], this->trends[indexNum], 
+            sizeof(this->trends[indexNum]) - sizeof(this->trends[0][0]));
+
+        this->trends[indexNum][0] = this->data[indexNum].val; // Current
+
+        lastHour = hour; // Update time for next change.
+    }
+}
+
 // Requires SoilParms* parameter.
 // Default setting = nullptr. Must be init with a non nullptr to create the 
 // instance, and will return a pointer to the instance upon proper completion.
@@ -138,7 +171,7 @@ AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
 
 // Reads all soil sensors and stores the data in the data variable.
 void Soil::readAll() {
-    esp_err_t err;
+
     static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
 
     // Read each sensor. Can be done with for loop considering arrangement,
@@ -164,11 +197,12 @@ void Soil::readAll() {
         } else { // Good read.
             this->data[i].noDispErr = this->data[i].noErr = true; 
             this->data[i].errCt = 0; // Reset
-
+            
             // Essentially math.floor to represents all values within the range 
             // of the analog noise. If NOISE is set to 20, this means that all 
             // values from 1500 to 1519 are represented as 1500.
             this->data[i].val -= (this->data[i].val % SOIL_NOISE);
+            this->computeTrends(i); // Compute trends for soil sensor.
 
             // Log fixing error if triggered by previous err and err is fixed.
             if (!logOnce[i]) { // Can only be set by err below.
@@ -279,6 +313,9 @@ void Soil::checkBounds() {
         }
     }
 }
+
+// Requires no params. Returns all trends for the sensor/index number.
+int16_t* Soil::getTrends(uint8_t indexNum) {return this->trends[indexNum];}
 
 // Used for testing. Comment out when done.
 // void Soil::test(int val, int sensorIdx) {

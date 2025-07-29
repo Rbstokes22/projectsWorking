@@ -75,9 +75,8 @@ class SOCKHAND : public MASTERHAND {
         const char* reply, const char* idNum);
     
     static bool initCheck(httpd_req_t* req);
-    static void THtrend(float* arr, char* buf, size_t bufSize, int iter); 
-    static void lightTrend(uint16_t* arr, char* buf, size_t bufSize, 
-        int iter);
+    static void Trends(void* arr, char type, char*buf, size_t bufSize, 
+        int iter); 
     
     public:
     static bool init(Peripheral::Relay* relays);

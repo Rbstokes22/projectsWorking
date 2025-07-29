@@ -54,6 +54,7 @@ class Soil {
     static const char* tag;
     static char log[LOG_MAX_ENTRY];
     SoilReadings data[SOIL_SENSORS];
+    int16_t trends[SOIL_SENSORS][TREND_HOURS]; // Trends of each soil sensor.
     static Threads::Mutex mtx;
     AlertConfigSo conf[SOIL_SENSORS];
     SoilParams &params;
@@ -65,6 +66,8 @@ class Soil {
 
     static void sendErr(const char* msg, Messaging::Levels lvl =
         Messaging::Levels::ERROR);
+
+    void computeTrends(uint8_t indexNum);
     
     public:
     // set to nullptr to reduce arguments when calling after init.
@@ -73,6 +76,7 @@ class Soil {
     void readAll();
     SoilReadings* getReadings(uint8_t indexNum);
     void checkBounds();
+    int16_t* getTrends(uint8_t indexNum);
     // void test(int val, int sensorIdx); // Comment out for production
 };
 

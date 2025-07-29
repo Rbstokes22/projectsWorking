@@ -742,20 +742,17 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         } else { 
 
             writeLog = false; // Prevent large log of data
+            int iter = data.suppData; // Iterations or hours to compute.
+
             Peripheral::TH_Trends* th = Peripheral::TempHum::get()->getTrends();
 
-            Peripheral::Light_Trends* lt = 
-                Peripheral::Light::get()->getTrends();
-
-            int iter = data.suppData; // Iterations or hours to compute.
-            
            // Create all float buffers to populate data into.
             char tempBuf[SKT_REPLY_SIZE]{0};
             char humBuf[SKT_REPLY_SIZE]{0};
 
             // Populate buffers above with requested data.
-            SOCKHAND::THtrend(th->temp, tempBuf, SKT_REPLY_SIZE, iter);
-            SOCKHAND::THtrend(th->hum, humBuf, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(th->temp, 'f', tempBuf, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(th->hum, 'f', humBuf, SKT_REPLY_SIZE, iter);
 
             // Create all unit16_t buffers to populate data into.
             char ltClr[SKT_REPLY_SIZE]{0}; char ltVio[SKT_REPLY_SIZE]{0}; 
@@ -767,26 +764,50 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             char ltPho[SKT_REPLY_SIZE]{0}; // Photoresistor
 
             // Populate buffers above with requested data.
-            SOCKHAND::lightTrend(lt->clear, ltClr, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->violet, ltVio, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->indigo, ltInd, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->blue, ltBlu, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->cyan, ltCya, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->green, ltGre, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->yellow, ltYel, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->orange, ltOra, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->red, ltRed, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->nir, ltNir, SKT_REPLY_SIZE, iter);
-            SOCKHAND::lightTrend(lt->photo, ltPho, SKT_REPLY_SIZE, iter);
+            Peripheral::Light_Trends* lt = 
+                Peripheral::Light::get()->getTrends();
+
+            SOCKHAND::Trends(lt->clear, 'u', ltClr, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->violet, 'u', ltVio, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->indigo, 'u', ltInd, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->blue, 'u', ltBlu, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->cyan, 'u', ltCya, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->green, 'u', ltGre, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->yellow, 'u', ltYel, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->orange, 'u', ltOra, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->red, 'u', ltRed, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->nir, 'u', ltNir, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt->photo, 'i', ltPho, SKT_REPLY_SIZE, iter);
+
+            // Create all int16_t buffers to populate soil data into.
+            char soil0[SKT_REPLY_SIZE]{0};
+            char soil1[SKT_REPLY_SIZE]{0};
+            char soil2[SKT_REPLY_SIZE]{0};
+            char soil3[SKT_REPLY_SIZE]{0};
+
+            // Populate buffers above with requested data.
+            int16_t* soilX = Peripheral::Soil::get()->getTrends(0);
+            SOCKHAND::Trends(soilX, 'i', soil0, SKT_REPLY_SIZE, iter);
+
+            soilX = Peripheral::Soil::get()->getTrends(1);
+            SOCKHAND::Trends(soilX, 'i', soil1, SKT_REPLY_SIZE, iter);
+
+            soilX = Peripheral::Soil::get()->getTrends(2);
+            SOCKHAND::Trends(soilX, 'i', soil2, SKT_REPLY_SIZE, iter);
+
+            soilX = Peripheral::Soil::get()->getTrends(3);
+            SOCKHAND::Trends(soilX, 'i', soil3, SKT_REPLY_SIZE, iter);
 
             // Write JSON data back to client.
             written = snprintf(buffer, size, 
             "{\"id\":\"%s\",\"temp\":[%s],\"hum\":[%s],"
             "\"clear\":[%s],\"violet\":[%s],\"indigo\":[%s],\"blue\":[%s],"
             "\"cyan\":[%s],\"green\":[%s],\"yellow\":[%s],\"orange\":[%s],"
-            "\"red\":[%s],\"nir\":[%s],\"photo\":[%s]}",
+            "\"red\":[%s],\"nir\":[%s],\"photo\":[%s],"
+            "\"soil0\"[%s],\"soil1\"[%s],\"soil2\"[%s],\"soil3\"[%s]}",
             data.idNum, tempBuf, humBuf, ltClr, ltVio, ltInd, ltBlu, ltCya,
-            ltGre, ltYel, ltOra, ltRed, ltNir, ltPho);
+            ltGre, ltYel, ltOra, ltRed, ltNir, ltPho, soil0, soil1, soil2,
+            soil3);
         }
 
         break;
@@ -846,10 +867,13 @@ bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size,
     return true; // is station mode.
 }
 
-// Requires float pointer to array, char buffer, the buffersize, and number
-// of iterations, typically 1 to 12. Populates a json array, with the requested
-// values to be replied back to the socket client.
-void SOCKHAND::THtrend(float *arr, char* buf, size_t bufSize, int iter) {
+// Requires a void pointer of type float, uint16_t or int16_t, as well as its
+// type 'f', 'u', or 'i'. Also the char buffer, buffer size, and number of 
+// iterations is required, typically 1 to 12. Casts the void pointer to the 
+// appropritae type, and populates a JSON array with the requested value to
+// send back to the client.
+void SOCKHAND::Trends(void* arr, char type, char* buf, size_t bufSize, 
+    int iter) {
 
     if (arr == nullptr || buf == nullptr) {
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
@@ -861,43 +885,55 @@ void SOCKHAND::THtrend(float *arr, char* buf, size_t bufSize, int iter) {
 
     char miniBuf[32]{0}; // Used as a temporary buffer for creation.
 
-    for (int i = 0; i < iter; i++) {
-        if (i == (iter - 1)) { // Changes last index to remove comma.
-            snprintf(miniBuf, sizeof(miniBuf), "%0.1f", arr[i]);
-        } else {
-            snprintf(miniBuf, sizeof(miniBuf), "%0.1f, ", arr[i]);
+    // Cast change depending on type of array passed.
+    switch (type) {
+        case 'f': // Float, pertains to temperature and humidity values.
+        float* a = static_cast<float*>(arr);
+
+        for (int i = 0; i < iter; i++) {
+            if (i == (iter - 1)) { // Changes last index to remove comma.
+                snprintf(miniBuf, sizeof(miniBuf), "%0.1f", a[i]);
+            } else {
+                snprintf(miniBuf, sizeof(miniBuf), "%0.1f, ", a[i]);
+            }
+
+            size_t remaining = bufSize - strlen(buf) - 1; // Null term.
+            strncat(buf, miniBuf, remaining); // Add new entry.
         }
 
-        size_t remaining = bufSize - strlen(buf) - 1; // Null term.
-        strncat(buf, miniBuf, remaining); // Add new entry.
-    }
-}
+        break;
 
-// Requires uint16_t pointer to array, char buffer, the buffersize, and number
-// of iterations, typically 1 to 12. Populates a json array, with the requested
-// values to be replied back to the socket client.
-void SOCKHAND::lightTrend(uint16_t* arr, char* buf, size_t bufSize, 
-    int iter) {
+        case 'u': // uint16_t applies to spectral light.
+        uint16_t* a = static_cast<uint16_t*>(arr);
 
-    if (arr == nullptr || buf == nullptr) {
-        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
-            "%s nullptr passed", SOCKHAND::tag);
+        for (int i = 0; i < iter; i++) {
+            if (i == (iter - 1)) { // Changes last index to remove comma.
+                snprintf(miniBuf, sizeof(miniBuf), "%u", a[i]);
+            } else {
+                snprintf(miniBuf, sizeof(miniBuf), "%u, ", a[i]);
+            }
 
-        MASTERHAND::sendErr(MASTERHAND::log);
-        return; // Block
-    }
+            size_t remaining = bufSize - strlen(buf) - 1; // Null term.
+            strncat(buf, miniBuf, remaining); // Add new entry.
+        }
+        
+        break;
 
-    char miniBuf[32]{0}; // Used as a temp buffer for creation.
+        case 'i': // int16_t applies to ADC sensors, light and soil.
+        int16_t* a = static_cast<int16_t*>(arr);
 
-    for (int i = 0; i < iter; i++) {
-        if (i == (iter - 1)) { // Changes last index to remove comma
-            snprintf(miniBuf, sizeof(miniBuf), "%u", arr[i]);
-        } else {
-            snprintf(miniBuf, sizeof(miniBuf), "%u, ", arr[i]);
+        for (int i = 0; i < iter; i++) {
+            if (i == (iter - 1)) { // Changes last index to remove comma.
+                snprintf(miniBuf, sizeof(miniBuf), "%d", a[i]);
+            } else {
+                snprintf(miniBuf, sizeof(miniBuf), "%d, ", a[i]);
+            }
+
+            size_t remaining = bufSize - strlen(buf) - 1; // Null term.
+            strncat(buf, miniBuf, remaining); // Add new entry.
         }
 
-        size_t remaining = bufSize - strlen(buf) - 1; // null term
-        strncat(buf, miniBuf, remaining);
+        break;
     }
 }
 

@@ -375,6 +375,7 @@ const char MAINpage[] = R"rawliteral(
     // temperature, this could cause problems.
 
     let MODE = 0; // 0 and 1 are AP mode, 2 is STA mode. Will be modified.
+    const Devmode = true; // true allows socket access when not served by esp.
 
     // Network and Sockets
     const re = /(https?):\/\/([a-zA-Z0-9.-]+(:\d+)?)/; // Regex
@@ -383,9 +384,9 @@ const char MAINpage[] = R"rawliteral(
     const URLbody = URLdata[2]; // main url
     const OTAURL = `${URLprotocol}://${URLbody}/OTACheck`; 
     const logURL = `${URLprotocol}://${URLbody}/getLog`;
-    // const webSktURL = `ws://${URLbody}/ws`;
-    const webSktURL = `ws://greenhouse.local/ws`;
     const TITLE = ["MysteryGraph Greenhouse AP", "MysteryGraph Greenhouse STA"];
+    const webSktURL = Devmode ? `ws://greenhouse.local/ws` : 
+        `ws://${URLbody}/ws`;
 
     // Key names are colors that correspond with the JSON socket data. arr[0]
     // is the wavelength, arr[1] is the display bar color, and arr[2] is the 
@@ -409,7 +410,7 @@ const char MAINpage[] = R"rawliteral(
 
     // Other
     const maxID = 255; // Used to reset ID num to 0 when this value is reached.
-    const logDelim = ';';
+    const logDelim = ';'; // Delimiter used in logging from the server.
     const RE_OFF = 255; // Signals relay is not attached.
     let isCelcius = false;
     const sensUpBg = ["BGdown", "BGup"]; // Sensor up/down class names.
@@ -417,7 +418,8 @@ const char MAINpage[] = R"rawliteral(
     let specDisplay = 'C'; // 'C'urrent, 'A'verages, 'P'rev Averages.
     const DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     let reDays = [0, 0, 0, 0]; // Relay day tracker for socket send only.
-    const IGNORE = 'P';
+    const IGNORE = 'P'; // Ignore or pass. Assigned to object to pass them.
+    const ADC_MAX = 32767; // Analog to Digital Converter Max.
 
     // All commands from socketHandler.hpp. These must correspond with the
     // enum. Will be used to return the index num, which will be the cmd.
@@ -713,9 +715,9 @@ const char MAINpage[] = R"rawliteral(
                     break;
 
                     case "light": 
-                    output |= (1 << 28); // 1 for photoresistor
-                    output |= ((cond & 0b11) << 24);
-                    output |= (val & 0x0FFF); // Max is 4095
+                    output |= (1 << 20); // 1 for photoresistor
+                    output |= ((cond & 0b11) << 16);
+                    output |= (val & 0xFFFF); // Max is 65535
                     break;
                 }
 
@@ -803,7 +805,7 @@ const char MAINpage[] = R"rawliteral(
 
             if (QC(val, ranges.darkSet, `${name}DarkSet`)) {
                 const ID = getID(defResp, {"darkVal": val}, obj.callBack);
-                let output = val & 0x00FFF000; // Nothing else req.
+                let output = val & 0xFFFF; // No other requirements besides val.
                 socket.send(`${cmd}/${output}/${ID}`);
             }
             }
@@ -1456,6 +1458,7 @@ const char MAINpage[] = R"rawliteral(
                 // Integration time is computed as per the AS7341 datasheet.
                 const intTime = (ASTEP + 1) * (ATIME + 1) * 0.00278;
 
+                // display the integration time in the display window.
                 DISP.innerText = `Integration Time: ${intTime.toFixed(1)} ms`;
                 DISP.classList.add("selected");
             }
@@ -1477,7 +1480,7 @@ const char MAINpage[] = R"rawliteral(
             // On focus, adds an adjustment bar.
             const adj = document.getElementById(`${parent}Adj`);
             adj.innerHTML = `<input id="${parent}AdjBar" type="range" ` + 
-                `class="span4" width="300px min="${min}" max="${max}" ` +
+                `class="span4" min="${min}" max="${max}" ` +
                 `step="${step}">`;
             
             const AdjBar = document.getElementById(`${parent}AdjBar`);
@@ -1850,7 +1853,7 @@ const char MAINpage[] = R"rawliteral(
             const valRO = document.getElementById(IDs[0]); // main
             const altRO = document.getElementById(IDs[2]); // alert display
 
-            intensityBar(IDs[1], val, 4095, "blue", "black");
+            intensityBar(IDs[1], val, ADC_MAX, "blue", "black");
             valRO.innerText = `${name.slice(0, 4)} #${name[4]}: ${val}`;
 
             altRO.innerText = MODE === 2 ? 
@@ -1906,9 +1909,9 @@ const char MAINpage[] = R"rawliteral(
             const durRO = document.getElementById(IDs[3]); // duraiton info
             const darkRO = document.getElementById(IDs[4]) // dark info
             const barWidth = intensityBar.offsetWidth; // inten bar width
-            const pxStop = Number(data[0]) / 4095 * Number(barWidth);
+            const pxStop = Number(data[0]) / ADC_MAX * Number(barWidth);
 
-            intensityBar(IDs[1], val, 4095, "yellow", "black");
+            intensityBar(IDs[1], val, ADC_MAX, "yellow", "black");
            
             valRO.innerText = `${name}: ${val} | Avg: ${avg.toFixed(1)}` +
                 ` | Prev Avg: ${avgPrev.toFixed(1)}`;
@@ -2531,7 +2534,7 @@ const char MAINpage[] = R"rawliteral(
             new cmdBuild("SET_SOIL", handleSoil), null, null, null, null,
             {
                 "altCond": new rangeBuild(0, 2, 1),
-                "altSet": new rangeBuild(1, 4094, 1)
+                "altSet": new rangeBuild(1, ADC_MAX - 1, 1)
             }, true, true
         );
 
@@ -2549,8 +2552,8 @@ const char MAINpage[] = R"rawliteral(
         new cmdBuild("SET_LIGHT", handlePhoto), null, null, null,
         {
             "re": new rangeBuild(0, 4, 1), "reCond": new rangeBuild(0, 2, 1),
-            "reSet": new rangeBuild(1, 4094, 1), 
-            "darkSet": new rangeBuild(1, 4094, 1), 
+            "reSet": new rangeBuild(1, ADC_MAX - 1, 1), 
+            "darkSet": new rangeBuild(1, ADC_MAX - 1, 1), 
         }, true, true
     );
 

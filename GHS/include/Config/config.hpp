@@ -28,7 +28,7 @@ extern char confLog[50]; // Reusable log for config src.
 
 // OLED displays
 #define OLED_COMPANY_NAME "SSTech 2024"
-#define OLED_DEVICE_NAME "Mumsy's Greenhouse"
+#define OLED_DEVICE_NAME "Castiel's Greenhouse"
 
 // Web Paths
 #define ALERT_PATH "/Alerts"
@@ -43,7 +43,7 @@ extern char confLog[50]; // Reusable log for config src.
 
 // Uncomment whichever WEBURL you are using
 // #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
-#define WEBURL "http://shadyside.local:8080"
+#define WEBURL "http://mysterygraph.local:8080"
 
 // White list domains used in STAOTAHandler.cpp
 #define LOCAL_IP "http://192.168" // All that is required
