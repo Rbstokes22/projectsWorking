@@ -118,7 +118,8 @@ void Light::computeTrends() {
         uint16_t* clrTrends[clrTot] = {this->trends.clear, this->trends.violet,
             this->trends.indigo, this->trends.blue, this->trends.cyan,
             this->trends.green, this->trends.yellow, this->trends.orange,
-            this->trends.red, this->trends.nir, this->trends.photo};
+            this->trends.red, this->trends.nir, 
+            reinterpret_cast<uint16_t*>(this->trends.photo)};
 
         // Coresponding current values to the color trends above. Max for 
         // photoval is 4095, no negative exp, uint16_t cast is harmless.

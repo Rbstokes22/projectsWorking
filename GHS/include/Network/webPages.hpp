@@ -338,7 +338,7 @@ const char MAINpage[] = R"rawliteral(
     </style>
 </head>
 <body onload="loadPage()">
-    <p id="title">MysteryGraph Greenhouse Loading</p>
+    <p id="title">Castiel's Greenhouse Loading</p>
     <div id="otaUpd"></div>
     <div id="container">
         <div id="mainCon" class="subCon"></div>
@@ -368,6 +368,14 @@ const char MAINpage[] = R"rawliteral(
 
     <script>
 
+    // TO DO: Make ADC values percentages for light and soil. Ensure that
+    // trends match the percentage, vs the raw values. Maybe this can be a
+    // thing for the spec as well, vs raw data.
+
+    // Currently done with all light and soil. Working on trends. On esp now,
+    // to include soil trends for each sensor. Once done, work trends to include
+    // percentages vs counts, as well as appendix units such as % or F/C.
+
     // ATTENTION: Logic throughout contains certain name specific methods using
     // naming. So if anything is modified, check all dependencies. i.e. relay
     // checks include if (name.includes("re")), you would want to ensure that
@@ -375,7 +383,7 @@ const char MAINpage[] = R"rawliteral(
     // temperature, this could cause problems.
 
     let MODE = 0; // 0 and 1 are AP mode, 2 is STA mode. Will be modified.
-    const Devmode = true; // true allows socket access when not served by esp.
+    const Devmode = false; // true allows socket access when not served by esp.
 
     // Network and Sockets
     const re = /(https?):\/\/([a-zA-Z0-9.-]+(:\d+)?)/; // Regex
@@ -384,7 +392,7 @@ const char MAINpage[] = R"rawliteral(
     const URLbody = URLdata[2]; // main url
     const OTAURL = `${URLprotocol}://${URLbody}/OTACheck`; 
     const logURL = `${URLprotocol}://${URLbody}/getLog`;
-    const TITLE = ["MysteryGraph Greenhouse AP", "MysteryGraph Greenhouse STA"];
+    const TITLE = ["Castiel's Greenhouse AP", "Castiel's Greenhouse STA"];
     const webSktURL = Devmode ? `ws://greenhouse.local/ws` : 
         `ws://${URLbody}/ws`;
 
@@ -420,6 +428,8 @@ const char MAINpage[] = R"rawliteral(
     let reDays = [0, 0, 0, 0]; // Relay day tracker for socket send only.
     const IGNORE = 'P'; // Ignore or pass. Assigned to object to pass them.
     const ADC_MAX = 32767; // Analog to Digital Converter Max.
+    const ADC_STEPS = 1000; // Allows from 0.0 to 100.0% stepping in the tenths.
+    const SPEC_MAX = 65535; // 16-bit spectral display.
 
     // All commands from socketHandler.hpp. These must correspond with the
     // enum. Will be used to return the index num, which will be the cmd.
@@ -502,7 +512,8 @@ const char MAINpage[] = R"rawliteral(
     // the client to change settings. All params from re to reTimer are 
     // commands that use action buttons. This is a cookie-cutter build method.
     let buildCon = (name, re, reSet, altSet, darkSet, integ, gain, 
-        reTimer, ranges, includeLabel = false, includeStat = false) => {
+        reTimer, ranges, includeLabel = false, includeStat = false, 
+        isADC = false) => {
         
         let RO = {}, INP = {}; // Read only and Input objects.
 
@@ -522,6 +533,7 @@ const char MAINpage[] = R"rawliteral(
         if (integ) buildConIntegrationSet(integ, name, ranges, RO, INP);
         if (gain) buildConGainSet(gain, name, ranges, RO, INP);
         if (reTimer) buildConRelayTimerSet(reTimer, name, ranges, RO, INP);
+        parent.isADC = isADC ? true : false; // If ADC is used for values.
 
         // Once all selection have been built, build expand button and
         // adjustment bar.
@@ -618,7 +630,8 @@ const char MAINpage[] = R"rawliteral(
                 }
             });
 
-        } else if (name.includes("soil") || name.includes("light")) { // soil/lt
+        // Exclusive to light and soil with intensity bar use and ADC.
+        } else if (name.includes("soil") || name.includes("light")) { 
             RO[name] = new RObuild("div", "0", ["subConItem", "span4"]); // main
 
             // Used to show visual intensity bar.
@@ -695,6 +708,10 @@ const char MAINpage[] = R"rawliteral(
                 name === "temp");
 
             if (QC1 && QC2) {
+
+                // If light value, convert percentage input to int16_t output.
+                val = (name === "light") ? ADCConv(false, val) : val;
+
                 const ID = getID(defResp, 
                     {[`${name}ReCond`]: cond, [`${name}ReVal`]: val}, 
                     obj.callBack);
@@ -758,6 +775,10 @@ const char MAINpage[] = R"rawliteral(
                 name === "temp");
 
             if (QC1 && QC2) {
+
+                // If soil value, convert percentage input to int16_t output.
+                val = (name.includes("soil")) ? ADCConv(false, val) : val;
+
                 const ID = getID(defResp, 
                     {[`${name}AltCond`]: cond, [`${name}AltVal`]: val}, 
                     obj.callBack);
@@ -801,9 +822,10 @@ const char MAINpage[] = R"rawliteral(
             () => {
 
             const cmd = convert(obj.cmd); // returns number value.
-            const val = makeNum(`${name}DarkSet`);
+            let val = makeNum(`${name}DarkSet`); // Get percentage first
 
             if (QC(val, ranges.darkSet, `${name}DarkSet`)) {
+                val = ADCConv(false, val); // Adjust from % to int16_t.
                 const ID = getID(defResp, {"darkVal": val}, obj.callBack);
                 let output = val & 0xFFFF; // No other requirements besides val.
                 socket.send(`${cmd}/${output}/${ID}`);
@@ -986,8 +1008,8 @@ const char MAINpage[] = R"rawliteral(
         // information based on color selected or moused over.
         let updDisp = (color, ele) => {
             disp.innerText = 
-                `${color.toUpperCase()} | ${ele.value}/65535 counts | ` +
-                `${(ele.value/655.35).toFixed(2)}%`;
+                `${color.toUpperCase()} | ${ele.value}/${SPEC_MAX} counts | ` +
+                `${(ele.value * 100 / SPEC_MAX).toFixed(2)}%`;
         }
 
         // Iterate each color, using the COLORS object to build a graphical 
@@ -1135,17 +1157,19 @@ const char MAINpage[] = R"rawliteral(
             // Upon expand, if relay, include special day select buttons
             // appended before hh mm settings or any other input settings. This
             // exists due to special non-cookie cutter circumstances.
-            if (container.parentID.includes("re")) {
+            if (ID.includes("re")) {
                 const days = expandRelayDays(container); // day selection.
                 append(days);
             }
+
+            const isADC = document.getElementById(ID).isADC; // Uses ADC
 
             // Iterate each input element, building the label, input element,
             // button, and hidden input... if required.
             Object.keys(inp).forEach(ele => {
                 const data = inp[ele];
-                const label = expandLabel(ele, data); // Null if no label.
-                const exInp = expandInput(ele, data, container.parentID);
+                const label = expandLabel(ele, data, isADC); // Null if no label.
+                const exInp = expandInput(ele, data, ID, isADC);
                 const but = data.incBut ? expandButton(ele, data) : null;
 
                 // Build hidden carrier input if range map attached. This 
@@ -1197,7 +1221,7 @@ const char MAINpage[] = R"rawliteral(
             button.classList.remove("blinkerMild");
 
             // Special rules to default the display to a set string.
-            if (container.parentID === "specCon") { 
+            if (ID === "specCon") { 
                 const integ = document.getElementById("spec");
                 integ.innerText = "Spectral Info Display";
                 integ.classList.remove("selected");
@@ -1277,11 +1301,16 @@ const char MAINpage[] = R"rawliteral(
 
     // Builds the input labels for each input requiring the input ID, and its
     // associated data.
-    let expandLabel = (inpID, data) => {
+    let expandLabel = (inpID, data, isADC = false) => {
         if (!data.label) return null; // Prevents label if not set.
+
         const label = document.createElement("div");
         label.style.gridColumn = "1 / 3"; // Span 2 if regular inp
-        label.innerText = data.label; 
+
+        // appends % if ADC is used to show percentage vs raw value.
+        label.innerText = (isADC && data.label.includes("value")) ? 
+            `${data.label} %` : data.label;
+
         label.style.alignContent = "center"; // Keep inline with input boxes.
         label.id = `${inpID}Lab`;
         return label;
@@ -1292,10 +1321,13 @@ const char MAINpage[] = R"rawliteral(
     // the input into display only, and a hidden input will be built and 
     // populated with a numerical value. If no map is sent, serves as both an
     // input and display.
-    let expandInput = (inpID, data, contID) => {
+    let expandInput = (inpID, data, contID, isADC = false) => {
         const ele = document.createElement(data.eleType);
         ele.id = inpID; 
-        let val = allData[data.dataPtr]; // set upon init
+
+        // If ADC is being used, display percentage values vs raw data.
+        let val = (isADC && data.label.includes("value")) ? 
+            ADCConv(true, allData[data.dataPtr]) : allData[data.dataPtr];
 
         // No pointer/key to the JSON key/val data. Handles special cases 
         // with no data pointer. This is a special manipulator that changes val.
@@ -1854,7 +1886,8 @@ const char MAINpage[] = R"rawliteral(
             const altRO = document.getElementById(IDs[2]); // alert display
 
             intensityBar(IDs[1], val, ADC_MAX, "blue", "black");
-            valRO.innerText = `${name.slice(0, 4)} #${name[4]}: ${val}`;
+            valRO.innerText = `${name.slice(0, 4)} #${name[4]}: ` +
+                `${ADCConv(true, val)}%`;
 
             altRO.innerText = MODE === 2 ? 
                 `Alert set to ${reAltCond(altCon, altVal)}` : 
@@ -1913,14 +1946,15 @@ const char MAINpage[] = R"rawliteral(
 
             intensityBar(IDs[1], val, ADC_MAX, "yellow", "black");
            
-            valRO.innerText = `${name}: ${val} | Avg: ${avg.toFixed(1)}` +
-                ` | Prev Avg: ${avgPrev.toFixed(1)}`;
+            valRO.innerText = `${name}%: ${ADCConv(true, val)} | ` + 
+                `Avg: ${ADCConv(true, Math.round(avg))} | ` +
+                `Prev Avg: ${ADCConv(true, Math.round(avgPrev))}`;
 
-            reRO.innerText = `Plug: ${relayNum(re)} set to` +
-                ` ${reAltCond(reCon, reVal)}`;
+            reRO.innerText = `Plug: ${relayNum(re)} set to ` +
+                `${reAltCond(reCon, reVal, true)}`;
 
             durRO.innerText = `Light duration: ${timeStr(dur)}`;
-            darkRO.innerText = `Dark val set to ${dark}`;
+            darkRO.innerText = `Dark val set to ${ADCConv(true, dark)}%`;
 
             sensUpBg.forEach(cls => stat.classList.remove(cls)); // rmv all
             stat.classList.add(sensUpBg[allData["SHTUp"]]);
@@ -1989,7 +2023,7 @@ const char MAINpage[] = R"rawliteral(
             // the others.
             if (color === maxClr || color === "clear") { // d
                 document.getElementById(color).innerText = 
-                    `${(counts[color] / 655.35).toFixed(2)}% of Max`;
+                    `${(counts[color] / 655.35).toFixed(2)}%`;
             } else { // Remove text from rest.
                 document.getElementById(color).innerText = "";
             }
@@ -2146,7 +2180,7 @@ const char MAINpage[] = R"rawliteral(
             return response.text(); // If no err, proceed.
         })
         .then(text => { // Now in text form.
-            // if (text.length <= 0) throw new Error("No Log Data"); // UNCOMMENT AFTER TESTING !!!!!!!!!!!!!!!!!
+            if (text.length <= 0 && !Devmode) throw new Error("No Log Data"); 
             log = text.split(logDelim); // Split by delim into array.
             button.classList.add("good"); // Shows new log.
         
@@ -2183,6 +2217,25 @@ const char MAINpage[] = R"rawliteral(
         if (!isSocketOpen()) return; // Block
         qty = (qty < 1 || qty > 12) ? 6 : qty; // Ensure within bounds, def set.
         socket.send(`${convert("GET_TRENDS")}/${qty}/${getID(setTrends)}`); 
+    }
+
+    // Requires bool from int to percent, and the value. Computes the perc
+    // to int_16t value, or the int16_t to percentage from the analog to 
+    // digital converter.
+    let ADCConv = (toPerc, val) => {
+        // Represents 32767 divided up into n steps.
+        const steps = ADC_MAX / ADC_STEPS; // Converts to 32.767 @ 1000 steps
+
+        // If going from integer to percent, mult steps by 10 to return a % val
+        // that allows the percentage to be put into larger steps EX: 327.67  
+        // that gives granularity to the tenth spot, or thousandth spot if 
+        // decimal. EX: 45.<1>% or 0.45<1>.
+        if (toPerc) return Number((val / (steps * 10)).toFixed(1));
+
+        // Not to percent, percent to int. Ran tests on floor and no problems
+        // occured when going from percent to int back to percent.
+        const reduction = val * 10; // Put percentage into usable step qty.
+        return Math.floor(reduction * steps); // Ret % such as 45.1.
     }
 
     // requires the intensity bar ID, the current value, the max value, the
@@ -2321,11 +2374,22 @@ const char MAINpage[] = R"rawliteral(
         parent.innerText = ""; // Clear out before populating.
         const mainLab = document.createElement("div"); // main label.
         mainLab.classList.add("span4");
-        mainLab.innerHTML = `<b><- - - Newer --- Older - - -></b><br>` +
-            `Spectral data is out of 65535`;
+        mainLab.innerHTML = `<b><- - - Newer --- Older - - -></b><br>`;
         mainLab.style.textAlign = "center";
         parent.appendChild(mainLab);
 
+        // ATTENTION !!!
+        // Rules for data manipulation to includes units or percentages. Sent
+        // by JSON from esp. If keys change, this must be updated as well.
+        // Used for display purposes only in iteration below.
+        const tempHumRULE = ["temp", "hum"]; // C/F, %
+
+        // 15-bit value.
+        const ADCRULE = ["photo", "soil_0", "soil_1", "soil_2", "soil_3"]; 
+        const specRULE = ["blue", "clear", "cyan", "green", "indigo", "nir", 
+            "orange", "red", "violet", "yellow"]; // 16-bit value
+
+        // Iter JSON to display readings of sensor trends.
         Object.keys(data).forEach(key => {
             if (key === "id") return; // Skip AKA continue. Omit this kv pair.
             const lab = document.createElement("div");
@@ -2339,7 +2403,22 @@ const char MAINpage[] = R"rawliteral(
 
             let str = "";
             data[key].forEach((val, idx)=> { // Iterate and concat values.
-                str += `[${val}] , `;
+
+                // Check rule JSON by key to convert and/or use % and units.
+                if (tempHumRULE.includes(key)) {
+                    if (key === "temp" && isCelcius) str += `[${val}C] , `;
+                    else if (key === "temp" && !isCelcius) str += 
+                        `[${((val * 1.8) + 32).toFixed(2)}F] , `;
+                    else if (key === "hum") str += `[${val}%] , `;
+
+                } else if (ADCRULE.includes(key)) {
+                    str += `[${ADCConv(true, val)}%] , `;
+
+                } else if (specRULE.includes(key)) {
+                    const newV = ((val * 100) / SPEC_MAX).toFixed(2);
+                    str += `[${newV}%] , `;
+                    console.log(`SPEC ${key}`);
+                }
             });
 
             str = str.slice(0, str.length - 3); // Removes comma and whitespace.
@@ -2356,10 +2435,14 @@ const char MAINpage[] = R"rawliteral(
     // Relay number is used to display the appropriate value to input, which is
     // a number or NONE. Display purposes only.
     let relayNum = (val) => val === RE_OFF ? "NONE" : Number(val);
-    let reAltCond = (cond, val) => { // Used for RO display for cont w/ relays.
+
+    // Used for RO display. Default is ADC is set to false, set to true to 
+    // display ADC as a percentage vs int.
+    let reAltCond = (cond, val, isADC = false) => { // Used for RO display
         const textConv = ["<", ">", "NONE"];
         if (cond == 2) return textConv[cond];
-        return `${textConv[cond]} ${val.toFixed(1)}`;
+        if (isADC) return `${textConv[cond]} ${ADCConv(true, val)}%`;
+        return `${textConv[cond]} ${val.toFixed(1)}`; // Non ADC value.
     }
 
     // Pings the server to see if new firmware is available. If the server 
@@ -2534,8 +2617,8 @@ const char MAINpage[] = R"rawliteral(
             new cmdBuild("SET_SOIL", handleSoil), null, null, null, null,
             {
                 "altCond": new rangeBuild(0, 2, 1),
-                "altSet": new rangeBuild(1, ADC_MAX - 1, 1)
-            }, true, true
+                "altSet": new rangeBuild(0.1, 99.9, 0.1)
+            }, true, true, true
         );
 
         return soilCon;
@@ -2552,9 +2635,9 @@ const char MAINpage[] = R"rawliteral(
         new cmdBuild("SET_LIGHT", handlePhoto), null, null, null,
         {
             "re": new rangeBuild(0, 4, 1), "reCond": new rangeBuild(0, 2, 1),
-            "reSet": new rangeBuild(1, ADC_MAX - 1, 1), 
-            "darkSet": new rangeBuild(1, ADC_MAX - 1, 1), 
-        }, true, true
+            "reSet": new rangeBuild(0.1, 99.9, 0.1), 
+            "darkSet": new rangeBuild(0.1, 99.9, 0.1), 
+        }, true, true, true
     );
 
     const specCon = buildCon("spec", null, null, null, null, 

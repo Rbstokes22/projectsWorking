@@ -804,7 +804,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             "\"clear\":[%s],\"violet\":[%s],\"indigo\":[%s],\"blue\":[%s],"
             "\"cyan\":[%s],\"green\":[%s],\"yellow\":[%s],\"orange\":[%s],"
             "\"red\":[%s],\"nir\":[%s],\"photo\":[%s],"
-            "\"soil0\"[%s],\"soil1\"[%s],\"soil2\"[%s],\"soil3\"[%s]}",
+            "\"soil_0\":[%s],\"soil_1\":[%s],\"soil_2\":[%s],\"soil_3\":[%s]}",
             data.idNum, tempBuf, humBuf, ltClr, ltVio, ltInd, ltBlu, ltCya,
             ltGre, ltYel, ltOra, ltRed, ltNir, ltPho, soil0, soil1, soil2,
             soil3);
@@ -887,7 +887,7 @@ void SOCKHAND::Trends(void* arr, char type, char* buf, size_t bufSize,
 
     // Cast change depending on type of array passed.
     switch (type) {
-        case 'f': // Float, pertains to temperature and humidity values.
+        case 'f': { // Float, pertains to temperature and humidity values.
         float* a = static_cast<float*>(arr);
 
         for (int i = 0; i < iter; i++) {
@@ -900,10 +900,11 @@ void SOCKHAND::Trends(void* arr, char type, char* buf, size_t bufSize,
             size_t remaining = bufSize - strlen(buf) - 1; // Null term.
             strncat(buf, miniBuf, remaining); // Add new entry.
         }
+        }
 
         break;
 
-        case 'u': // uint16_t applies to spectral light.
+        case 'u': { // uint16_t applies to spectral light.
         uint16_t* a = static_cast<uint16_t*>(arr);
 
         for (int i = 0; i < iter; i++) {
@@ -916,10 +917,11 @@ void SOCKHAND::Trends(void* arr, char type, char* buf, size_t bufSize,
             size_t remaining = bufSize - strlen(buf) - 1; // Null term.
             strncat(buf, miniBuf, remaining); // Add new entry.
         }
+        }       
         
         break;
 
-        case 'i': // int16_t applies to ADC sensors, light and soil.
+        case 'i': { // int16_t applies to ADC sensors, light and soil.
         int16_t* a = static_cast<int16_t*>(arr);
 
         for (int i = 0; i < iter; i++) {
@@ -932,8 +934,11 @@ void SOCKHAND::Trends(void* arr, char type, char* buf, size_t bufSize,
             size_t remaining = bufSize - strlen(buf) - 1; // Null term.
             strncat(buf, miniBuf, remaining); // Add new entry.
         }
+        }
 
         break;
+
+        default: break;
     }
 }
 
