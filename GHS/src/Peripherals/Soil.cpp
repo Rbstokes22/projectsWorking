@@ -111,18 +111,21 @@ void Soil::computeTrends(uint8_t indexNum) {
     // Get current hour. Set static last hour equal to. This should init at
     // 0, 0.
     uint8_t hour = Clock::DateTime::get()->getTime()->hour;
-    static uint8_t lastHour = hour; 
+
+    // Init current hour for each soil index number. This is to allow hour
+    // change detection for each sensor.
+    static uint8_t lastHours[SOIL_SENSORS] = {hour, hour, hour, hour};
 
     static bool firstCal = false; // Used to handle init calibration.
 
-    if (!firstCal) { // Once calibrated, zeros out trends for accuracy.
+    if (!firstCal) { // Once calibrated, zeros out all trends for accuracy.
         if (Clock::DateTime::get()->isCalibrated()) {
             firstCal = true; // Block from running again.
             memset(&this->trends, 0, sizeof(this->trends)); // Clear all.
         }
     }
 
-    if (hour != lastHour) { // Change detected.
+    if (hour != lastHours[indexNum]) { // Change detected.
 
         // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.
         memmove(&this->trends[indexNum][1], this->trends[indexNum], 
@@ -130,7 +133,7 @@ void Soil::computeTrends(uint8_t indexNum) {
 
         this->trends[indexNum][0] = this->data[indexNum].val; // Current
 
-        lastHour = hour; // Update time for next change.
+        lastHours[indexNum] = hour; // Update time for next change.
     }
 }
 
@@ -195,6 +198,7 @@ void Soil::readAll() {
             }
 
         } else { // Good read.
+
             this->data[i].noDispErr = this->data[i].noErr = true; 
             this->data[i].errCt = 0; // Reset
             

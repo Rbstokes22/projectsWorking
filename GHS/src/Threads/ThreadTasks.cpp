@@ -23,11 +23,10 @@ namespace ThreadTask {
 // ensure that its high water mark is not approaching zero. If LTE to the 
 // minimum, a critical log entry will occur.
 void highWaterMark(const char* tag, UBaseType_t HWM) {
-
-    // printf("HWM for %s is %u words\n", tag, HWM); // Uncomment for testing.
+    static char msg[128];
 
     if (HWM <= HWM_MIN_WORDS) {
-        char msg[128];
+        
         snprintf(msg, sizeof(msg), "%s Thread High Water Mark @ %u words", 
             tag, HWM);
 
@@ -164,14 +163,6 @@ void soilTask(void* parameter) { // Soil sensors
     Threads::soilThreadParams* params = 
         static_cast<Threads::soilThreadParams*>(parameter);
     
-    // Channels of the ADC to read. !!! DEL
-    // static adc_channel_t channels[SOIL_SENSORS] = {
-    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL0)],
-    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL1)],
-    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL2)],
-    //     CONF_PINS::pinMapA[static_cast<uint8_t>(CONF_PINS::APIN::SOIL3)]
-    // };
-
     // Single soil parameter structure that include ADC1 driver.
     Peripheral::SoilParams soilParams = {params->soil};
 

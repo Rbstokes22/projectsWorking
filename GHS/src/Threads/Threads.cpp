@@ -13,19 +13,26 @@ Thread::Thread(const char* tag) :
 // Requires the task function, the stacksize in words (4 bytes = 1 word 32-bit),
 // the parameters being passed to the function, and the priority. Creates a
 // thread and returns true if successful, and false if not.
-bool Thread::initThread(void (*taskFunc)(void*), uint16_t stackSize, 
-    void* parameters, UBaseType_t priority) {
+bool Thread::initThread(void (*taskFunc)(void*), uint32_t stackSize, 
+    void* parameters, UBaseType_t priority, StackType_t* stackBuffer,
+    StaticTask_t &TCB) {
 
-    // Attempt to create a thread. Returns pdPASS if successful.
-    BaseType_t taskCreate = xTaskCreate(taskFunc, this->tag, stackSize, 
-        parameters, priority, &this->taskHandle);
+    // Before creating task, pre-color ot 0xAA if manual highwater marks are
+    // required for future troubleshooting.
+    memset(stackBuffer, 0xAA, stackSize); // in bytes
 
-    if (taskCreate == pdPASS) { // Success
+    // Create static task to allow stack allocated task stack, vs heap alloc.
+    TaskHandle_t handle = xTaskCreateStatic(taskFunc, this->tag, stackSize, 
+        parameters, priority, stackBuffer, &TCB);
+
+    if (handle != NULL) { // Success
+
         snprintf(this->log, sizeof(this->log), 
             "Task handle (%s) created @ addr: %p", this->tag, this->taskHandle);
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             this->log, THREAD_LOG_METHOD);
+
         return true;
 
     } else { // Failure.

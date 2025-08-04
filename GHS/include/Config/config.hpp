@@ -19,12 +19,14 @@ extern char confLog[50]; // Reusable log for config src.
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
 
-// Threads (Multiply words by 32-bits or 4 bytes to get size)
-#define NET_WORDS 4608 // Increased by 512 due to high water mark issues.
-#define SHT_WORDS 4096
-#define AS7341_WORDS 4096
-#define SOIL_WORDS 4096
-#define ROUTINE_WORDS 4096
+// Threads. The following values are in bytes. The documentation defines 
+// StackType_t as 1 byte, as opposed to 4 bytes, which would explain a word 
+// if used properly.
+#define NET_STACK 8096 // Increased due to high water mark issues and overflow.
+#define SHT_STACK 4096
+#define AS7341_STACK 4096
+#define SOIL_STACK 4096
+#define ROUTINE_STACK 4096
 
 // OLED displays
 #define OLED_COMPANY_NAME "SSTech 2024"

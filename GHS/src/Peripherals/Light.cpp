@@ -318,7 +318,6 @@ bool Light::readSpectrum() {
 // stores it to the class variable. Returns true upon a successful read, and
 // false if not.
 bool Light::readPhoto() {
-    esp_err_t err;
     static size_t errCt{0};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 

@@ -8,13 +8,14 @@ namespace Serial {
 
 #define I2C_LOG_METHOD Messaging::Method::SRL_LOG
 
-enum class I2C_FREQ : uint32_t {STD = 100000, FAST = 400000};
+// Frequencies for I2C. Additional values can be used.
+enum class I2C_FREQ : uint32_t {STD = 100000, FAST = 400000, SLOW = 50000};
 
 class I2C {
     private:
     const char* tag;
     char log[LOG_MAX_ENTRY];
-    I2C_FREQ freq; // Frequency, STA 100kHz, FAST 400kHz.
+    I2C_FREQ freq; // Frequency, STA 100kHz, FAST 400kHz, SLOW 50kHz.
     i2c_master_bus_handle_t busHandle; // i2c bus handle
     bool isInit; // Is initialized.
     I2C();

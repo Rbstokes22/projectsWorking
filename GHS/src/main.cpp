@@ -1,6 +1,52 @@
 // CURRENT NOTES: 
 
+// Last trace
+// Guru Meditation Error: Core  0 panic'ed (Interrupt wdt timeout on CPU0). 
+
+// Core  0 register dump:
+// PC      : 0x4008b040  PS      : 0x00060234  A0      : 0x8008bee4  A1      : 0x3ffc9380  
+// A2      : 0x3ffafda4  A3      : 0x3ffca4f4  A4      : 0x00000000  A5      : 0x00060223  
+// A6      : 0x002b3b5d  A7      : 0x0000cdcd  A8      : 0x3ffca4f4  A9      : 0x00000017  
+// A10     : 0x00000017  A11     : 0x000000fd  A12     : 0x3ffc07c0  A13     : 0x00060223  
+// A14     : 0x00000000  A15     : 0x0000cdcd  SAR     : 0x0000001a  EXCCAUSE: 0x00000005  
+// EXCVADDR: 0x00000000  LBEG    : 0x400014fd  LEND    : 0x4000150d  LCOUNT  : 0xfffffffd  
+
+
+// Backtrace: 0x4008b03d:0x3ffc9380 0x4008bee1:0x3ffc93a0 0x4008a44c:0x3ffc93c0 0x400df429:0x3ffc9400 0x400df571:0x3ffc9420 0x400d36bd:0x3ffc9440 0x400dffc6:0x3ffc9470 0x400e06b2:0x3ffc9490 0x4008be8f:0x3ffc9530 0x4008ad08:0x3ffc9550 0x4008acba:0x3ffca538 |<-CORRUPTED
+
+
+// Core  1 register dump:
+// PC      : 0x4008868c  PS      : 0x00060034  A0      : 0x8008d318  A1      : 0x3ffb3070  
+// A2      : 0x3ffb0f20  A3      : 0xffffffff  A4      : 0x7c7a800e  A5      : 0x00060023  
+// A6      : 0xb33fffff  A7      : 0x0000abab  A8      : 0x8008aa98  A9      : 0x3ffb3050  
+// A10     : 0x3ffb0f20  A11     : 0xb33fffff  A12     : 0x0000abab  A13     : 0x3ffcd970  
+// A14     : 0x3ffbda04  A15     : 0x3ffbd97c  SAR     : 0x00000000  EXCCAUSE: 0x00000005  
+// EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+// Backtrace: 0x40088689:0x3ffb3070 0x4008d315:0x3ffb30a0 0x4008afa9:0x3ffb30c0 0x4008acd9:0x3ffb30e0 0x40087ad6:0x3ffb30f0 0x40088787:0x3ffc7df0 0x400fcbfa:0x3ffc7e10 0x4008b689:0x3ffc7e30 0x4008a83d:0x3ffc7e50
+
+
+
+
+// ELF file SHA256: 2efae7ca5
+
+// Rebooting...
+// ets Jun  8 2016 00:22:57
+
+// rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+
+
+
 // TO DO:
+
+// Move to xtaskcreat static instead.
+
+// TS THE CONSTANT RESTARTS. see above.
+
+// ALSO CHECK THE SOIL_1 TO 3, I SEE THAT IS GETS CAPTURED AT 0%, UNLIKE SOIL 0
+// @ 75%, WHICH IS THE CURRENT READING. THE OTHER SENSORS READ AT 17.8% WHICH IS
+// ODD.
 
 // Working trends for soil sensors. Complete, need to test.
 
@@ -233,11 +279,22 @@ Threads::Thread routineThread("routineThread");
 Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &AS7341Thread, 
     &soilThread, &routineThread};
 
+// Allocate the thread stacks globally to avoid heap allocation. These will be
+// the stack memory exclusive to the thread.
+static StackType_t netStack[NET_STACK]; // Will init to 0xAA as with the rest.
+static StackType_t shtStack[SHT_STACK];
+static StackType_t as7341Stack[AS7341_STACK];
+static StackType_t soilStack[SOIL_STACK];
+static StackType_t routineStack[ROUTINE_STACK];
+
+// Create Task Control Blocks (TCB) for each thread stack.
+static StaticTask_t netTCB, shtTCB, as7341TCB, soilTCB, routineTCB;
+
 // OTA 
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
-void app_main() {
-    // Add OLED to msglogerr handler
+void app_main() { 
+   
     Messaging::MsgLogHandler::get()->addOLED(OLED);
 
     char log[30] = {0}; // Used for logging, size accomodates all msging.
@@ -247,8 +304,8 @@ void app_main() {
 
     CONF_PINS::setupDigitalPins(); // Config.hpp
 
-    // Init I2C at frequency 100 khz.
-    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::STD);
+    // Init I2C at frequency 50 khz. INIT before building any devices.
+    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::SLOW);
 
     // Init OLED, AS7341 light sensor, sht temp/hum sensor, and ADCs. Init
     // before starting thread tasks.
@@ -307,15 +364,20 @@ void app_main() {
     // Start threads, and init periph. Must occur before loading settings
     // due to initialized periph params before calling the get(), to prevent
     // nullptr return.
-    netThread.initThread(ThreadTask::netTask, NET_WORDS, &netParams, 2);
-    SHTThread.initThread(ThreadTask::SHTTask, SHT_WORDS, &SHTParams, 1); 
-    soilThread.initThread(ThreadTask::soilTask, SOIL_WORDS, &soilParams, 3);
+    netThread.initThread(ThreadTask::netTask, NET_STACK, &netParams, 2,
+        netStack, netTCB);
 
-    AS7341Thread.initThread(ThreadTask::AS7341Task, AS7341_WORDS, 
-        &AS7341Params, 3);
+    SHTThread.initThread(ThreadTask::SHTTask, SHT_STACK, &SHTParams, 1,
+        shtStack, shtTCB);
 
-    routineThread.initThread(ThreadTask::routineTask, ROUTINE_WORDS, 
-        &routineParams, 3);
+    soilThread.initThread(ThreadTask::soilTask, SOIL_STACK, &soilParams, 3,
+        soilStack, soilTCB);
+
+    AS7341Thread.initThread(ThreadTask::AS7341Task, AS7341_STACK, 
+        &AS7341Params, 3, as7341Stack, as7341TCB);
+
+    routineThread.initThread(ThreadTask::routineTask, ROUTINE_STACK, 
+        &routineParams, 3, routineStack, routineTCB);
 
     // Sends pointer of relay array to initRelays method, and then loads all
     // the last saved data.
@@ -327,13 +389,10 @@ void app_main() {
 // the previous entries to the NVS to be loaded upon restart.
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *taskName) {
 
-    char log[128]{0};
-    snprintf(log, sizeof(log), "Stack Overflow detected in task %s", taskName);
+    // Hard code this in, do not use msglogerr due to complications of already
+    // existing stack overflow.
+    printf(">>>STACK OVERFLOW IN TASK: %s\n", taskName);
     
-
-    Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
-        log, Messaging::Method::SRL_OLED_LOG);
-
     taskDISABLE_INTERRUPTS(); // disable interrupts to prevent further proc.
     static uint8_t count = 0;
 

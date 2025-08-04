@@ -15,7 +15,7 @@ namespace Comms {
 #define NET_DESTROY_FAIL_FORCE_RESET true // Forces reset if destruction fails.
 #define NET_MAX_AP_SCAN 20 // How many access points will be detectable.
 #define NET_SCAN_MIN_WAIT 10 // Scans every n minutes
-#define NET_STA_RSSI_MIN -50 // value in dBm to attempt reconnect.
+#define NET_STA_RSSI_MIN -70 // value in dBm to attempt reconnect.
 #define NET_SCAN_HYSTERESIS 5 // Difference to signal reconnect to new AP.
 #define NET_SCAN_HEARTBEAT 7 // Seconds passed to heartbeat before blocking scan
 

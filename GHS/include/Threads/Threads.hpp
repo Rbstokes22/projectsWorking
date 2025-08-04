@@ -19,6 +19,10 @@ namespace Threads {
 // everything happens in order. Within a thread, there is concurrancy, which is
 // why there is a requirement for its own stack space.
 
+// ATTENTION: Words are considered as 1 byte for some reason on this device.
+// High water mark is still measured in words (4 bytes), but the initial alloc
+// must be done with bytes.
+
 class Thread {
     private:
     TaskHandle_t taskHandle;
@@ -29,9 +33,12 @@ class Thread {
     Thread(const char* tag);
     bool initThread(
         void (*taskFunc)(void*), // task function
-        uint16_t stackSize, // stack size in words. 4 bytes = word in 32-bit
+        uint32_t stackSize, // stack size in bytes, see ATTN above.
         void* parameters, // task input parameters
-        UBaseType_t priority); // priority of task
+        UBaseType_t priority, // Priority of task
+        StackType_t* stackBuffer, // Must be a static or global allocation
+        StaticTask_t &TCB // Task control block, must be static or global.
+    ); // priority of task
     bool suspendTask();
     bool resumeTask();
     ~Thread();

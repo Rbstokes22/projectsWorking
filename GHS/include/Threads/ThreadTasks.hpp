@@ -5,7 +5,7 @@
 
 namespace ThreadTask {
 
-#define HWM_MIN_WORDS 500 // High water mark minimum words. 
+#define HWM_MIN_WORDS 512 // High water mark minimum words. 
 
 // Heartbeats are the seconds that will trigger an alert and reset if task
 // does not check in with the heartbeat class. Must be a unit8_t > 0. Recommend

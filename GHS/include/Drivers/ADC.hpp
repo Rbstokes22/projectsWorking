@@ -22,7 +22,7 @@ namespace ADC_DRVR {
 #define ADC_LOG_METHOD Messaging::Method::SRL_LOG // Default logging method.
 #define ADC_TAG "(ADC)"
 #define ADC_I2C_TIMEOUT 1000 // time in millis the i2c will timeout.
-#define ADC_BAD_VAL -1 // Indicated bad value. Expect only positve values.
+#define ADC_BAD_VAL INT16_MIN // Indicated bad value. Expect only pos vals.
 #define ADC_CONV_WAIT_MS 20 // Delay to wait for conversion.
 
 // All enum classes correspond with the datasheet register val
