@@ -4,7 +4,7 @@
 #include "driver/gpio.h"
 #include "UI/MsgLogHandler.hpp"
 
-char confLog[50]{0}; // Reusable log. 50 should be plenty big.
+char confLog[128]{0}; // Reusable log. 128 should be plenty big.
 const char* whiteListDomains[3] = {WEBURL, LOCAL_IP, MDNS_ACTUAL};
 
 // PINS
@@ -50,8 +50,8 @@ void setupDigitalPins() {
         if (err != ESP_OK) { // Handle error indicating dig pin problem.
             snprintf(confLog, sizeof(confLog),"%s DPin %d err", CONFTAG, i);
             Messaging::MsgLogHandler::get()->handle(
-                Messaging::Levels::CRITICAL,
-                confLog, Messaging::Method::SRL_LOG
+                Messaging::Levels::CRITICAL, confLog, 
+                Messaging::Method::SRL_LOG
             );
         }
 
@@ -67,6 +67,17 @@ void setupDigitalPins() {
                 Messaging::Levels::CRITICAL,
                 confLog, Messaging::Method::SRL_LOG
             );
+            }
+
+        } else { // ALL outputs are relays, if this changes, change code.
+
+            // Sets pin to low to ensure relay does not energize during init.
+            if (gpio_set_level(pinNum, 0) != ESP_OK) {
+                snprintf(confLog, sizeof(confLog),"%s Relay Init err", CONFTAG);
+                Messaging::MsgLogHandler::get()->handle(
+                    Messaging::Levels::CRITICAL,
+                    confLog, Messaging::Method::SRL_LOG
+                );
             }
         }
     };

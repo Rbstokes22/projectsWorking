@@ -116,15 +116,6 @@ void Soil::computeTrends(uint8_t indexNum) {
     // change detection for each sensor.
     static uint8_t lastHours[SOIL_SENSORS] = {hour, hour, hour, hour};
 
-    static bool firstCal = false; // Used to handle init calibration.
-
-    if (!firstCal) { // Once calibrated, zeros out all trends for accuracy.
-        if (Clock::DateTime::get()->isCalibrated()) {
-            firstCal = true; // Block from running again.
-            memset(&this->trends, 0, sizeof(this->trends)); // Clear all.
-        }
-    }
-
     if (hour != lastHours[indexNum]) { // Change detected.
 
         // Move (idx 0 to n-1) to (idx 1 to n). Opens idx 0 for new val.

@@ -26,7 +26,6 @@ class Mutex {
     const char* tag;
     char log[MTX_LOG_SIZE];
     SemaphoreHandle_t xMutex;
-    std::atomic<bool> isLocked; // This is explicity checked for thread safety
     bool init; // Prevents noise from use before mutex is properly init.
 
     public:

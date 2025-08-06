@@ -10,9 +10,16 @@ namespace Threads {
 // ATTENTION. Removed all logging from lock and unlock functions due to 
 // recursion affect stack frame and haste.
 
+// ATTENTION. Use recursive semaphore to prevent issues with lock and unlock 
+// task ownership. If manual implementation is desired, use xSemaphoreTake and
+// give, but track ownership by emplacing a successful semaphore take with
+// this->owner = xTaskGetCurrentTaskHandle(), and before giving the mutex
+// back ensure that owner == xTaskGetCurrentTaskHandle, and if so, release
+// mutex and set ownder to nullptr.
+
 Mutex::Mutex(const char* tag) : 
 
-    tag(tag), xMutex{xSemaphoreCreateMutex()}, isLocked(false), init(true) {
+    tag(tag), xMutex{xSemaphoreCreateRecursiveMutex()}, init(true) {
 
     if (this->xMutex == NULL) { // Handles uncreated Mutex.
         snprintf(this->log, sizeof(this->log), "%s MTX not created", this->tag);
@@ -20,6 +27,7 @@ Mutex::Mutex(const char* tag) :
             this->log, Messaging::Method::SRL_LOG);
 
     } else {
+
         snprintf(this->log, sizeof(this->log), "%s MTX created", this->tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             this->log, Messaging::Method::SRL_LOG);
@@ -32,24 +40,23 @@ Mutex::Mutex(const char* tag) :
 bool Mutex::lock() {
     if (!init) return false; // Prevents mutex noise before mutex is init.
 
+    // Attempt to take the semaphore recursively.
+    BaseType_t semph = xSemaphoreTakeRecursive(this->xMutex, 
+        pdMS_TO_TICKS(LOCK_DELAY));
+
+
     // Attempts to lock the mutex and delays for LOCK_DELAY amount of millis
     // allowing non-permanent-blocking code. Once acquired, changes the 
     // isLocked bool to true.
-    if (xSemaphoreTake(this->xMutex, pdMS_TO_TICKS(LOCK_DELAY)) == pdTRUE) {
-        this->isLocked.store(true); // Update this for lock release below.
-        return true;
-
-    } else {
+    if (semph == pdTRUE) {return true;}
+    else {
 
         // Attempt repeats to try to lock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
+            semph = xSemaphoreTakeRecursive(this->xMutex, 
+                pdMS_TO_TICKS(LOCK_DELAY));
 
-            if (xSemaphoreTake(this->xMutex, pdMS_TO_TICKS(LOCK_DELAY)) == 
-                pdTRUE) {
-
-                this->isLocked.store(true); 
-                return true;
-            } 
+            if (semph == pdTRUE) {return true;}
         }
 
         return false;
@@ -62,24 +69,18 @@ bool Mutex::lock() {
 bool Mutex::unlock() {
     if (!init) return false; // Prevents mutex noise before init.
 
-    // Will check to see if unlocked, if unlocked, returns true, if locked,
-    // proceeds to unlock and returns true once done.
-    if (!this->isLocked.load()) return true; 
+    // Attempt to give semaphore recursively.
+    BaseType_t semph = xSemaphoreGiveRecursive(this->xMutex);
 
-    if (xSemaphoreGive(this->xMutex) == pdTRUE) {
-        this->isLocked.store(false);
-        return true;
-
-    } else {
+    if (semph == pdTRUE) {return true;} 
+    else {
 
         // Attempt repeats to try to lock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
 
-            if (xSemaphoreGive(this->xMutex) == pdTRUE) {
-                this->isLocked.store(false); 
-            } 
+            semph = xSemaphoreGiveRecursive(this->xMutex);
 
-            return true;
+            if (semph == pdTRUE) {return true;}
         }
 
         return false;

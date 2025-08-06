@@ -37,7 +37,8 @@ class Thread {
         void* parameters, // task input parameters
         UBaseType_t priority, // Priority of task
         StackType_t* stackBuffer, // Must be a static or global allocation
-        StaticTask_t &TCB // Task control block, must be static or global.
+        StaticTask_t &TCB, // Task control block, must be static or global.
+        uint8_t taskCore // Core to pin task to, 0 = PRO, 1 = APP.
     ); // priority of task
     bool suspendTask();
     bool resumeTask();

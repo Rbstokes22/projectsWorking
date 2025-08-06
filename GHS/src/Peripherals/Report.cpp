@@ -7,12 +7,15 @@
 #include "Peripherals/Light.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "Network/Handlers/socketHandler.hpp"
+#include "Threads/Mutex.hpp"
 
 // No mutex required, Accessed from a single thread
 
 namespace Peripheral {
 
-Report::Report() : tag("(REPORT)"), clrTimeSet(MAX_SET_TIME) {
+Threads::Mutex Report::mtx(REPORT_TAG);
+
+Report::Report() : tag(REPORT_TAG), clrTimeSet(MAX_SET_TIME) {
 
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);
@@ -20,6 +23,7 @@ Report::Report() : tag("(REPORT)"), clrTimeSet(MAX_SET_TIME) {
 
 // Returns pointer to that static instance.
 Report* Report::get() {
+    Threads::MutexLock(Report::mtx);
     static Report instance;
     return &instance; 
 }

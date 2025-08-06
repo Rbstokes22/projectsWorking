@@ -152,6 +152,7 @@ bool Relay::on(uint8_t ID) {
     // Off position, but the first client will have been acquired @ turn on.
     if (this->relayState != RESTATE::ON && this->clientQty == 1) { 
 
+        // Relay is active low, setting to 1 activates relay.
         if (gpio_set_level(this->pin, 1) != ESP_OK) { // Unable to set. 
 
             snprintf(Relay::log, sizeof(Relay::log), 
@@ -198,6 +199,7 @@ bool Relay::off(uint8_t ID) {
     // any client, except the last client.
     if (this->relayState != RESTATE::OFF && clientQty == 0) { // relay on.
      
+        // Relay is active low, setting to low turns off.
         if (gpio_set_level(this->pin, 0) != ESP_OK) {
             snprintf(Relay::log, sizeof(Relay::log), 
                 "%s ID %u [%s] unable to turn off", this->tag, ID, 
@@ -389,7 +391,9 @@ bool Relay::timerSetDays(uint8_t bitwise) {
 // Requires no params. This manages any set relay timers and will both
 // turn them on and off during their set times.
 void Relay::manageTimer() { 
-    Threads::MutexLock(this->mtx);
+    
+    // ATTENTION: Mutex locking not required for this. Used only by the Routine
+    // Task, and the clock functionality is already RAII mutex protected.
 
     if (this->timer.isReady) {
         Clock::TIME* tm = Clock::DateTime::get()->getTime();
@@ -420,11 +424,8 @@ void Relay::manageTimer() {
         if (runsThruMid) {
             if ((curTime >= this->timer.onTime || 
                 curTime <= this->timer.offTime) && runToday) {
-
-                this->mtx.unlock(); 
                 this->on(this->timerID);
             } else {
-                this->mtx.unlock();
                 this->off(this->timerID);
             }
 
@@ -432,17 +433,14 @@ void Relay::manageTimer() {
 
             if (curTime >= timer.onTime && curTime <= timer.offTime && 
                 runToday) {
-
-                this->mtx.unlock();
                 this->on(this->timerID);
             } else {
-                this->mtx.unlock();
+
                 this->off(this->timerID);
             }
         }
 
     } else { // Captures if a timer is shut off with an energized relay.
-        this->mtx.unlock();
         this->off(this->timerID);
     }
 }

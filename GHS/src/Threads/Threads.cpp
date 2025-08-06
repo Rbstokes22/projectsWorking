@@ -10,20 +10,22 @@ Thread::Thread(const char* tag) :
 
     taskHandle{NULL}, tag(tag) {}
 
-// Requires the task function, the stacksize in words (4 bytes = 1 word 32-bit),
-// the parameters being passed to the function, and the priority. Creates a
-// thread and returns true if successful, and false if not.
+// Requires the task function, the stack size in bytes, the params being passed
+// to the fucntion, priority, stack buffer, Task Control Block, and the core to
+// in the task to with 0 being for PRO and 1 being for APP. Returns true if 
+// properly init.
 bool Thread::initThread(void (*taskFunc)(void*), uint32_t stackSize, 
     void* parameters, UBaseType_t priority, StackType_t* stackBuffer,
-    StaticTask_t &TCB) {
+    StaticTask_t &TCB, uint8_t taskCore) {
 
     // Before creating task, pre-color ot 0xAA if manual highwater marks are
     // required for future troubleshooting.
     memset(stackBuffer, 0xAA, stackSize); // in bytes
 
     // Create static task to allow stack allocated task stack, vs heap alloc.
-    TaskHandle_t handle = xTaskCreateStatic(taskFunc, this->tag, stackSize, 
-        parameters, priority, stackBuffer, &TCB);
+    TaskHandle_t handle = xTaskCreateStaticPinnedToCore(taskFunc, this->tag, 
+        stackSize, parameters, priority, stackBuffer, &TCB, 
+        static_cast<BaseType_t>(taskCore));
 
     if (handle != NULL) { // Success
 

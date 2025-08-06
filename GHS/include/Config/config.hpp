@@ -5,7 +5,7 @@
 #include "driver/gpio.h"
 
 #define CONFTAG "(CONFIG)"
-extern char confLog[50]; // Reusable log for config src.
+extern char confLog[128]; // Reusable log for config src.
 
 // bypass firmware validation when starting and OTA updates. Set to true 
 // during development phase.
@@ -105,7 +105,9 @@ namespace CONF_PINS {
     // Used with pinMaps above. MD or mode 0, 1, and 2 are for the mdns. Uses
     // 3-bit operations and used for multiple devices. MD pins are pulled high,
     // and when low, reps the binary value with MD0 being bit 0. Allows for
-    // mdns name to be greenhouse.local to greenhouse7.local.
+    // mdns name to be greenhouse.local to greenhouse7.local. // NOTE: Relay
+    // pins are going to be set low to power active low relays to avoid the
+    // use of BJT.
     enum class DPIN : uint8_t {WAP, STA, defWAP, RE0, RE1, RE2, RE3, 
         MD0, MD1, MD2};
 
