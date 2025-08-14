@@ -254,13 +254,13 @@ static StaticTask_t netTCB, shtTCB, as7341TCB, soilTCB, routineTCB;
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
 void app_main() { 
-   
+
     Messaging::MsgLogHandler::get()->addOLED(OLED);
 
     char log[30] = {0}; // Used for logging, size accomodates all msging.
     Messaging::Levels msgType[] = { // Used for mounting and init, with log.
         Messaging::Levels::CRITICAL, Messaging::Levels::INFO
-    };
+    }; 
 
     CONF_PINS::setupDigitalPins(); // Config.hpp
 

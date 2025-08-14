@@ -12,6 +12,9 @@
 
 namespace Comms {
 
+// ATTENTION: Large socket buffers in the pool are declared statically, so
+// the will not be part of the thread task stack.
+
 #define SKT_BUF_SIZE 2048 // Large to accomodate the get all call
 #define SKT_MAX_RESP_ARGS 5 // Max response arguments / clients at once.
 #define SKT_REPLY_SIZE 128 // Basic replies

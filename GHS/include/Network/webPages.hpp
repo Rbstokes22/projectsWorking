@@ -362,9 +362,9 @@ const char MAINpage[] = R"rawliteral(
     </div> <!-- contains all periph containers-->
     
     <button id="SR" class="logFWbut" onclick="saveReset()">Save & Reset</button>
-    <div id="log"></div>
-
+    
     <button id="logBut" class="logFWbut" onclick="openLog()">Open Log</button>
+    <div id="log"></div>
 
     <script>
 
@@ -2181,7 +2181,9 @@ const char MAINpage[] = R"rawliteral(
         })
         .then(text => { // Now in text form.
             if (text.length <= 0 && !Devmode) throw new Error("No Log Data"); 
-            log = text.split(logDelim); // Split by delim into array.
+
+            // Split by delim into array and reverse for current first.
+            log = text.split(logDelim).reverse(); 
             button.classList.add("good"); // Shows new log.
         
             // Is a receipt only, Allows server to remove flag.
