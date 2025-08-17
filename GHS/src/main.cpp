@@ -1,14 +1,7 @@
 // TO DO:
 
-// Move to xtaskcreat static instead.
-
-// TS THE CONSTANT RESTARTS. see above.
-
-// ALSO CHECK THE SOIL_1 TO 3, I SEE THAT IS GETS CAPTURED AT 0%, UNLIKE SOIL 0
-// @ 75%, WHICH IS THE CURRENT READING. THE OTHER SENSORS READ AT 17.8% WHICH IS
-// ODD.
-
-// Working trends for soil sensors. Complete, need to test.
+// Updates to the alerts for sensors being down. Havent been tested at this 
+// point and need to test. I dont predict there will be any issues with this.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods

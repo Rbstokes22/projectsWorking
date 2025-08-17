@@ -19,12 +19,32 @@ namespace Peripheral {
 #define ALT_TAG "(ALERT)"
 #define ALT_FLAG_TAG "(ALTflag)"
 
+// Alert sensors data. Counts that will trigger a DOWN status alert, and an
+// UP status alert.
+#define SENS_DOWN_CT 50 // sends sensor DOWN.
+#define SENS_UP_CT 10 // sends sensor UP.
+#define SENS_SEND_RETRIES 3 // Attempt to send alert.
+
 // 2048 from socket handler buffer size. Cannot include sockethandler due to 
 // circular dependencies. 
 #define ALT_REPORT_SIZE 2048 + 256 // Should be enough to accomodate the report.
 
 enum class ALTCOND : uint8_t {LESS_THAN, GTR_THAN, NONE}; // Alert condition.
 enum ALTFLAGS : uint8_t {INIT, OPEN};
+
+// Used as toggle to prevent several alerts from being sent when cond are met.
+enum LAST_SENT : uint8_t {DOWN, UP, NONE};
+
+// Sensor down package is used with sendSensorAlert(); It will be a static 
+// record keeper to ensure that both broken and fixed alerts are properly 
+// managed for each sensor.
+struct SensDownPkg {
+    char sensor[32]; // Sensor name.
+    bool status; // Is sensor in violation of exceeding count.
+    bool prevStatus; // Was the sensor in violation of exceeding count.
+    size_t counts; // Consecutive count capture.
+    LAST_SENT lastAlt; // Last alert that was sent.
+};
 
 class Alert {
     private:
@@ -53,6 +73,7 @@ class Alert {
     static Alert* get();
     bool sendAlert(const char* msg, const char* caller);
     bool sendReport(const char* JSONmsg);
+    bool monitorSens(SensDownPkg &pkg, size_t errCt);
 };
 
 }

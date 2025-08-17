@@ -168,6 +168,16 @@ void Soil::readAll() {
 
     static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
 
+    // Used to handle alerts for the sensor being down/impacted long term.
+    static SensDownPkg pkg[SOIL_SENSORS] = {
+        "(SOIL0)", true, true, 0, LAST_SENT::UP,
+        "(SOIL1)", true, true, 0, LAST_SENT::UP,
+        "(SOIL2)", true, true, 0, LAST_SENT::UP,
+        "(SOIL3)", true, true, 0, LAST_SENT::UP,
+    };
+
+    Alert* alt = Alert::get();
+
     // Read each sensor. Can be done with for loop considering arrangement,
     // enum not necessary here. Reads Each pin, and updates the data.
     for (int i = 0; i < SOIL_SENSORS; i++) {
@@ -208,6 +218,8 @@ void Soil::readAll() {
             logOnce[i] = true; // Preven re-log, allow err logging.
             }
         }
+
+        alt->monitorSens(pkg[i], this->data[i].errCt);
 
         // If display error, meaning several consecutive bad reads, log sensor
         // issue indicating problem.

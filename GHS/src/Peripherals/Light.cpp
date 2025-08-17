@@ -3,6 +3,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Peripherals/Alert.hpp" // Used only for sensor alerts.
 #include "Common/Timing.hpp"
 #include "string.h" 
 #include "Common/FlagReg.hpp"
@@ -252,6 +253,11 @@ bool Light::readSpectrum() {
     bool read{false};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
+    // Used to handle alerts for the sensor being down/impacted long term.
+    static SensDownPkg pkg = {"(SPEC)", true, true, 0, LAST_SENT::UP};
+
+    Alert* alt = Alert::get();
+
     // Upon success, updates the averages and changes the flags to true.
     // If not, will change the noErr flag to false indicating an immediate
     // error, which means the data is garbale. Upon a pre-set consecutive
@@ -283,6 +289,8 @@ bool Light::readSpectrum() {
         errCt++; // inc count by 1.
     }
 
+    alt->monitorSens(pkg, errCt);
+
     // Sets the diplay to true if the error count is less than max allowed.
     // If exceeded the display will be set to false telling client of error.
     // This is to filter bad reads from constantly alerting client.
@@ -311,6 +319,11 @@ bool Light::readSpectrum() {
 bool Light::readPhoto() {
     static size_t errCt{0};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
+
+    // Used to handle alerts for the sensor being down/impacted long term.
+    static SensDownPkg pkg = {"(PHOTO)", true, true, 0, LAST_SENT::UP};
+
+    Alert* alt = Alert::get();
 
     // Read the analog value from the ADC
     this->params.photo.read(this->photoVal, 
@@ -342,6 +355,8 @@ bool Light::readPhoto() {
             logOnce = true; // Prevent re-log, allow err logging.
         }
     }
+
+    alt->monitorSens(pkg, errCt);
 
     // Sets display to true if the error ct is less than max.
     if (errCt < LIGHT_ERR_CT_MAX) {

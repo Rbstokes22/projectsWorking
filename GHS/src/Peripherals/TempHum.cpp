@@ -86,19 +86,6 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
     if (alertOn) {
         if (!conf.toggle) return; // avoids repeated alerts.
 
-        NVS::SMSreq* sms = NVS::Creds::get()->getSMSReq();
-
-        // Returned val is nullptr if API key and/or phone
-        // do not meet the criteria.
-        if (sms == nullptr) { 
-            snprintf(TempHum::log, sizeof(TempHum::log), 
-                "%s sms unable to send, missing API key and/or phone", 
-                TempHum::tag);
-
-            TempHum::sendErr(TempHum::log);
-            return; // block.
-        }
-
         char msg[TEMP_HUM_ALT_MSG_SIZE] = {0}; // message to send to server
         Alert* alt = Alert::get(); 
 
@@ -107,8 +94,8 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
         // write the message to the msg array, in preparation to send to
         // the server.
         snprintf(msg, sizeof(msg), 
-                "Alert: Temp at %0.2fC/%0.2fF, Humidity at %0.2f%%",
-                this->data.tempC, this->data.tempF, this->data.hum);
+            "Alert: Temp at %0.2fC/%0.2fF, Humidity at %0.2f%%",
+            this->data.tempC, this->data.tempF, this->data.hum);
 
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed.
@@ -336,6 +323,11 @@ bool TempHum::read() {
     SHT_DRVR::SHT_RET read;
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
+    // Used to handle alerts for the sensor being down/impacted long term.
+    static SensDownPkg pkg = {"(TEMPHUM)", true, true, 0, LAST_SENT::UP};
+
+    Alert* alt = Alert::get();
+
     // boolean return. SHT driver reads data and populates the SHT_VALS
     // struct carrier.
     read = this->params.sht.readAll(SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, 
@@ -365,6 +357,9 @@ bool TempHum::read() {
         this->flags.releaseFlag(THFLAGS::NO_ERR);
         errCt++; // inc count by one.
     }
+
+    // Handle sensor checks and alerts if sensor is broken or fixed.
+    alt->monitorSens(pkg, errCt);
 
     // Sets the display to true if the error count is less than maxed allowed.
     // If exceeded, the display will be set to false alerting client of error.
