@@ -328,10 +328,12 @@ bool TempHum::read() {
 
     Alert* alt = Alert::get();
 
+    SHT_DRVR::SHT_VALS tempVal;
+
     // boolean return. SHT driver reads data and populates the SHT_VALS
     // struct carrier.
     read = this->params.sht.readAll(SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, 
-        this->data);
+        tempVal);
 
     // upon success, updates averages/trends and changes both flags to true.
     // If unsuccessful, will change the noErr flag to false indicating an
@@ -339,6 +341,7 @@ bool TempHum::read() {
     // consecutive error read, display flag is set to false allowing the 
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
+        this->data = tempVal; // Set actual value to temp val if success.
         this->computeAvgs();
         this->computeTrends();
         this->flags.setFlag(THFLAGS::NO_ERR_DISP);
@@ -391,7 +394,7 @@ float TempHum::getHum() {
 
 // Defaults to Celcius. Celcius is the standard for this device, and
 // F is built in but not used, for potential future employment. Returns
-// the temperature in requested value.
+// the temperature in requested value. 
 float TempHum::getTemp(char CorF) { // Cel or Faren
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;

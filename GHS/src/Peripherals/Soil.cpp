@@ -182,14 +182,16 @@ void Soil::readAll() {
     // enum not necessary here. Reads Each pin, and updates the data.
     for (int i = 0; i < SOIL_SENSORS; i++) {
 
+        int16_t tempVal = 0; 
+
         // Read the sensor.
-        this->params.soil.read(this->data[i].val, i);
+        this->params.soil.read(tempVal, i);
         vTaskDelay(pdMS_TO_TICKS(5)); // Very brief delay in loop.
 
         // Check data to ensure integrity. Bad val set to -1, since we are not
         // using differential reads, and single point, this is a magnitude.
         // Handles all flags and values.
-        if (this->data[i].val == ADC_BAD_VAL) {
+        if (tempVal == ADC_BAD_VAL) {
             this->data[i].noErr = false; // Set to false indicating read err.
             this->data[i].errCt++; // Inc by one.
 
@@ -206,7 +208,9 @@ void Soil::readAll() {
             // Essentially math.floor to represents all values within the range 
             // of the analog noise. If NOISE is set to 20, this means that all 
             // values from 1500 to 1519 are represented as 1500.
-            this->data[i].val -= (this->data[i].val % SOIL_NOISE);
+            this->data[i].val = (tempVal > SOIL_NOISE) ? 
+                ((tempVal / SOIL_NOISE) * SOIL_NOISE) : 0;
+
             this->computeTrends(i); // Compute trends for soil sensor.
 
             // Log fixing error if triggered by previous err and err is fixed.

@@ -258,14 +258,17 @@ bool Light::readSpectrum() {
 
     Alert* alt = Alert::get();
 
+    AS7341_DRVR::COLOR tempVal;
+
+    read = this->params.as7341.readAll(tempVal);
+
     // Upon success, updates the averages and changes the flags to true.
     // If not, will change the noErr flag to false indicating an immediate
     // error, which means the data is garbale. Upon a pre-set consecutive
     // error read, display flag is set to false allowing the clients display to
     // show the light reading to be down.
-    read = this->params.as7341.readAll(this->readings);
-
     if (read) { // Show no error flags if true
+        this->readings = tempVal; // Set upon successful read.       
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
         this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR);
         this->computeAverages(true); // Compute avg upon success.
@@ -325,21 +328,24 @@ bool Light::readPhoto() {
 
     Alert* alt = Alert::get();
 
+    int16_t tempVal = 0;
+
     // Read the analog value from the ADC
-    this->params.photo.read(this->photoVal, 
+    this->params.photo.read(tempVal, 
         static_cast<uint8_t>(CONF_PINS::ADC2::PHOTO));
 
     // Check value to ensure integrity. Bad val set to -1, since we are using
     // single point mode, there are no negative values, as opp to differential.
-    if (this->photoVal == ADC_BAD_VAL) {
+    if (tempVal == ADC_BAD_VAL) {
         this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
         errCt++; // Increment error count.
 
     } else {
-    
+
         // Adjust photo value by reducing noise. If noise is set to 10, this
         // means that all values from 1500 to 1509 are rep by 1500.
-        this->photoVal -= (this->photoVal % PHOTO_NOISE);
+        this->photoVal = (tempVal > PHOTO_NOISE) ? 
+            ((tempVal / PHOTO_NOISE) * PHOTO_NOISE) : 0;
 
         this->computeAverages(false); // Comp average, false = not spectral.
         this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);

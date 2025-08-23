@@ -2237,7 +2237,9 @@ const char MAINpage[] = R"rawliteral(
         // Not to percent, percent to int. Ran tests on floor and no problems
         // occured when going from percent to int back to percent.
         const reduction = val * 10; // Put percentage into usable step qty.
-        return Math.floor(reduction * steps); // Ret % such as 45.1.
+        const final = Math.floor(reduction * steps); // % such as 45.1
+
+        return final > 0 ? final : 0; // Ensures 0 is the minimum number.
     }
 
     // requires the intensity bar ID, the current value, the max value, the
