@@ -1,5 +1,5 @@
 #!/bin/bash
-URL="shadyside.local"
+URL="mysterygraph.local"
 PORT="5702"
 pvt_key_path="buildData/keys/private_key.pem"
 pub_key_path="buildData/keys/public_key.pem"
@@ -7,8 +7,8 @@ pvt_key_bits=2048
 primary_sig_path="data/app0firmware.sig"
 secondary_sig_path="data/app1firmware.sig"
 firmware_location=".pio/build/esp32dev/firmware.bin"
-signatureDest="/home/shadyside/Desktop/Programming/testServer/firmware/signature"
-firmwareDest="/home/shadyside/Desktop/Programming/testServer/firmware/firmware"
+signatureDest="/home/mysterygraph/Desktop/Programming/testServer/firmware/signature"
+firmwareDest="/home/mysterygraph/Desktop/Programming/testServer/firmware/firmware"
 
 # Generate keys if they do not exist
 if [ ! -f "${pvt_key_path}" ]; then 
@@ -20,9 +20,6 @@ if [ ! -f "${pub_key_path}" ]; then
     openssl rsa -pubout -in "${pvt_key_path}" -out "${pub_key_path}"
     echo "Public Key Created in buildData/keys. Copy public key into firmwareVal.cpp"
 fi 
-
-# Init conda
-source /home/shadyside/anaconda3/bin/activate
 
 # Compiles the firmware.bin
 if ! pio run; then 
@@ -48,7 +45,7 @@ fi
 # The file is ready to be written to esp32. Generates the signatures and writes
 # them as app0firmware.sig. Generates the crc of the signature and appends
 # it to the file. Copies the data to app1firmware.sig to be uploaded together.
-# The signature will be 256 bytes + 4 bytes for the checksum. Using -sha256 says
+# The signature will be 256 bytes. Using -sha256 says
 # first hash this document using -sha256, and then sign it using that key. The file
 # size will always be the size of the key, in this case a 2048 is 256 bytes. 
 openssl dgst -sha256 -sign "${pvt_key_path}" -out "${primary_sig_path}" "${firmware_location}" 

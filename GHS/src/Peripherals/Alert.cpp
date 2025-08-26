@@ -63,8 +63,18 @@ bool Alert::prepMsg(const char* jsonData, bool isRep) {
 
     // Set the content type to json data. No need to error check, the server
     // is expecting this anyway, despite it being bad etiquette.
-    esp_http_client_set_header(this->client, "Content-Type", 
+    err = esp_http_client_set_header(this->client, "Content-Type", 
         "application/json");
+
+    if (err != ESP_OK) {
+        snprintf(this->log, sizeof(this->log), 
+            "%s failed to set cont type data: %s", this->tag, 
+            esp_err_to_name(err));
+
+        this->sendErr(this->log);
+        this->cleanup();
+        return false;
+    }
 
     // Set the post field to the json data that we are sending to the server.
     err = esp_http_client_set_post_field(this->client, jsonData, 
@@ -101,7 +111,7 @@ bool Alert::executeMsg(const char* jsonData, bool isRep) {
         snprintf(this->log, sizeof(this->log), "%s sent", this->tag);
         this->sendErr(this->log, Messaging::Levels::INFO);
         return true;
-    } 
+    }
 
     // Server did not receive.
     snprintf(this->log, sizeof(this->log), "%s not sent", this->tag);

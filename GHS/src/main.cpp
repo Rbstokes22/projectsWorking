@@ -1,5 +1,12 @@
 // TO DO:
 
+// Fix the firmwareVAl for better security as well, seee GPT ESP best practices.
+// Ask about yesterdays issue of putting fixed size into the document?
+
+// Implement security to protect from LAN drive bys. Both station and AP modes.
+
+
+
 // Updates to the alerts for sensors being down. Havent been tested at this 
 // point and need to test. I dont predict there will be any issues with this.
 

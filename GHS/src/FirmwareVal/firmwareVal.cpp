@@ -2,6 +2,7 @@
 #include "esp_partition.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/pk.h"
+#include "mbedtls/platform_util.h" // Used to zeroize sensitive data.
 #include "string.h"
 #include "esp_ota_ops.h"
 #include "esp_spiffs.h"
@@ -38,12 +39,6 @@ FWVal::FWVal() : tag("(FWVal)") {
 val_ret_t FWVal::validateSig(const esp_partition_t* partition, size_t FWsize, 
     size_t FWSigSize) {
 
-    uint8_t hash[32]{0}; // hash will always be 32 bytes.
-    uint8_t sig[FWSigSize]{0};
-
-    char label[20]{0}; // Gets label name either app0 or app1
-    strncpy(label, partition->label, sizeof(label)); // No chk needed
-
     if (partition == NULL) { // first check, is partition real.
 
         snprintf(this->log, sizeof(this->log), 
@@ -54,6 +49,12 @@ val_ret_t FWVal::validateSig(const esp_partition_t* partition, size_t FWsize,
         return val_ret_t::SIG_FAIL; // Block remaining.
     }
 
+    uint8_t hash[32]{0}; // hash will always be 32 bytes.
+    uint8_t sig[SIG_BUF_SIZE]{0}; // Large, not all space will be used.
+
+    char label[20]{0}; // Gets label name either app0 or app1
+    strncpy(label, partition->label, sizeof(label)); // No chk needed
+
     // If partition, Read the partition and generate the hash.
     if (this->readPartition(partition, hash, FWsize) == 
         val_ret_t::PARTITION_FAIL) {
@@ -61,15 +62,21 @@ val_ret_t FWVal::validateSig(const esp_partition_t* partition, size_t FWsize,
         return val_ret_t::SIG_FAIL; // Logging in function call. Block.
     }
 
-    // Get signature from spiffs.
-    size_t sigLen = this->getSignature(sig, sizeof(sig), label);
+    // Get signature from spiffs. Do not use sizeof, buffer is XL, use the 
+    // passed sig size for accurate data.
+    size_t sigLen = this->getSignature(sig, FWSigSize, label);
 
     if (sigLen != FWSigSize) { // Compare it against the expected size.
         return val_ret_t::SIG_FAIL; // Logging in function call
     } 
 
+    // Pull return from verifySig, zeroize, and return the verify return.
+    val_ret_t verify = verifySig(hash, sig, sigLen);
+    mbedtls_platform_zeroize(hash, sizeof(hash));
+    mbedtls_platform_zeroize(sig, sizeof(sig));
+
     // If all is well, verify signature hash against firmware hash.
-    return verifySig(hash, sig, sigLen);
+    return verify; 
 }
 
 // Requires the partition, hash, and firmware size. Reads the partition and
@@ -167,8 +174,9 @@ val_ret_t FWVal::readPartition(const esp_partition_t* partition, uint8_t* hash,
 size_t FWVal::getSignature(uint8_t* signature, size_t sigSize, 
     const char* label) {
 
+    if (sigSize == 0 || sigSize > SIG_BUF_SIZE) return 0; // guard bad size.
+
     size_t bytesRead{0};
-    uint8_t buffer[sigSize]; 
     char filepath[FW_FILEPATH_SIZE]{0};
 
     // Copy the path into filepath. This is how the spiffs storage is designed.
@@ -191,22 +199,19 @@ size_t FWVal::getSignature(uint8_t* signature, size_t sigSize,
 
     } else { // File is open.
         
-        bytesRead = fread(buffer, 1, sizeof(buffer), f); // Read to buffer
-        
-        // Copies the signature portion of the buffer to the signature, and
-        // the checksum portion to the storedCS value.
-        memcpy(signature, buffer, sigSize); // 256 bytes for the signature
+        // Do not use size of, use the passed sig size. buffer is def to 512.
+        bytesRead = fread(signature, 1, sigSize, f); // Read to buffer
     }
 
-    fclose(f); // Close file when done.
+    if (f) fclose(f); // Close file when done.
 
     return bytesRead; // Signature length, will be 0 if not read.
 }
 
 // Requires pointers to firmware hash array and signature, and signature 
 // length. 
-val_ret_t FWVal::verifySig(const uint8_t* firmwareHash, const uint8_t* signature, 
-    size_t signatureLen) {
+val_ret_t FWVal::verifySig(const uint8_t* firmwareHash, 
+    const uint8_t* signature, size_t signatureLen) { 
 
     mbedtls_pk_context pk; // public key container
     mbedtls_pk_init(&pk);
@@ -221,6 +226,22 @@ val_ret_t FWVal::verifySig(const uint8_t* firmwareHash, const uint8_t* signature
 
         this->sendErr(this->log);
         return val_ret_t::SIG_FAIL;
+    }
+
+    // RSA length sanity check. If non-RSA keys are used, this can be blocked.
+    if (mbedtls_pk_get_type(&pk) == MBEDTLS_PK_RSA) {
+        size_t rsa_len = mbedtls_pk_get_bitlen(&pk) / 8; // 2048/8 = 256
+        
+        if (signatureLen != rsa_len) {
+            snprintf(this->log, sizeof(this->log),
+                "%s Sig len %u != RSA len %u", this->tag, 
+                (unsigned)signatureLen, (unsigned)rsa_len);
+
+            this->sendErr(this->log);
+            mbedtls_pk_free(&pk);
+            
+            return val_ret_t::SIG_FAIL;
+        }
     }
 
     // Verify the signature hash against the firmware hash.
@@ -264,7 +285,7 @@ FWVal* FWVal::get() {
 val_ret_t FWVal::checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
     val_ret_t ret = val_ret_t::INVALID; // Default setting.
 
-    snprintf(this->log, sizeof(log), 
+    snprintf(this->log, sizeof(this->log), 
         "%s Checking partition size %zu with a sig size %zu", this->tag, FWsize, 
         FWSigSize);
 
@@ -290,8 +311,8 @@ val_ret_t FWVal::checkPartition(PART type, size_t FWsize, size_t FWSigSize) {
 
         } else { // If error, return type is already set to INVALID.
 
-            snprintf(this->log, sizeof(this->log), 
-                "%s Partion label: %s = NULL", this->tag, part->label);
+            snprintf(this->log, sizeof(this->log), "%s Partion label = NULL", 
+                this->tag);
 
            this->sendErr(this->log);
         }
