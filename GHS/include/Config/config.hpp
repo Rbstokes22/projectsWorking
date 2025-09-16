@@ -24,7 +24,7 @@ extern char confLog[128]; // Reusable log for config src.
 // if used properly.
 #define NET_STACK 8096 // Increased due to high water mark issues and overflow.
 #define SHT_STACK 4096
-#define AS7341_STACK 4096
+#define LIGHT_STACK 4096
 #define SOIL_STACK 4096
 #define ROUTINE_STACK 4096
 
@@ -83,7 +83,7 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 // these change, ensure to change the hearbeat checks on threadTasks.hpp.
 #define NET_FRQ 1000
 #define SHT_FRQ 1000
-#define AS7341_FRQ 2000
+#define LIGHT_FRQ 3000 // Overruns at 2000 for polling, use 3000 min.
 #define SOIL_FRQ 1000
 #define ROUTINE_FRQ 1000 // Keep 1000 due to OLED messages and hearbeat.
 

@@ -52,10 +52,23 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     Threads::netThreadParams* params = 
         static_cast<Threads::netThreadParams*>(parameter);
 
+    // Convert ms delay to to ticks.
+    const TickType_t period = pdMS_TO_TICKS(params->delay);
+
+    // Init once. This will be updated by the scheduler each time it is passed
+    // as reference to vTaskDelayUntil(&last, period).
+    TickType_t last = xTaskGetTickCount();
+
     // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("NET", HB_DELAY);
 
     while (true) {
+
+        // Tick counts used in loop are exclusively for logging when a task
+        // exceeds its projected delay, since we are trying to maintain an
+        // absolute vs relative delay with the scheduler.
+        TickType_t t_0 = xTaskGetTickCount(); // Run before work.
+
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
 
@@ -67,7 +80,23 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
         heartbeat::Heartbeat::get()->rogerUp(HBID, NET_HEARTBEAT);
 
         highWaterMark("Network", uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
+
+        TickType_t t_f = xTaskGetTickCount(); // Run after work.
+        TickType_t work = t_f - t_0; // work count, final - initial.
+
+        // Log overruns to ensure that works tasks are not exceeding count.
+        if (work > period) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), 
+                "Net overrun: Work (%lu)ms exceeds period (%lu)ms",
+                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                buf, Messaging::Method::SRL_LOG
+            );
+        }
+
+        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
     }
 }
 
@@ -92,10 +121,23 @@ void SHTTask(void* parameter) {
     Peripheral::TempHumParams thParams = {params->SHT};
     Peripheral::TempHum* th = Peripheral::TempHum::get(&thParams);
 
+    // Convert ms delay to to ticks.
+    const TickType_t period = pdMS_TO_TICKS(params->delay);
+
+    // Init once. This will be updated by the scheduler each time it is passed
+    // as reference to vTaskDelayUntil(&last, period).
+    TickType_t last = xTaskGetTickCount();
+
     // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("TEMPHUM", HB_DELAY);
 
     while (true) {
+
+        // Tick counts used in loop are exclusively for logging when a task
+        // exceeds its projected delay, since we are trying to maintain an
+        // absolute vs relative delay with the scheduler.
+        TickType_t t_0 = xTaskGetTickCount(); // Run before work.
+
         // Only check bounds upon successful read.
         if (th->read()) th->checkBounds(); 
 
@@ -103,13 +145,29 @@ void SHTTask(void* parameter) {
         heartbeat::Heartbeat::get()->rogerUp(HBID, TEMPHUM_HEARTBEAT);
 
         highWaterMark("TempHum", uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
+
+        TickType_t t_f = xTaskGetTickCount(); // Run after work.
+        TickType_t work = t_f - t_0; // work count, final - initial.
+
+        // Log overruns to ensure that works tasks are not exceeding count.
+        if (work > period) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), 
+                "SHT overrun: Work (%lu)ms exceeds period (%lu)ms",
+                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                buf, Messaging::Method::SRL_LOG
+            );
+        }
+
+        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
     }
 }
 
 // Requires the AS7341ThreadParams pointer. Responsible for running
 // thread dedicated to the spectral light sensor management.
-void AS7341Task(void* parameter) { // AS7341 & photo Resistor
+void LightTask(void* parameter) { // AS7341 & photo Resistor
 
     if (parameter == nullptr) {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
@@ -120,18 +178,30 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
             "AS7341 task running", Messaging::Method::SRL_LOG);
     }
 
-    Threads::AS7341ThreadParams* params = 
-        static_cast<Threads::AS7341ThreadParams*>(parameter);
+    Threads::LightThreadParams* params = 
+        static_cast<Threads::LightThreadParams*>(parameter);
 
     // Init here using parameters passed within the thread.
     Peripheral::LightParams ltParams = {params->photo, params->light};
 
     Peripheral::Light* lt = Peripheral::Light::get(&ltParams);
 
+    // Convert ms delay to to ticks.
+    const TickType_t period = pdMS_TO_TICKS(params->delay);
+
+    // Init once. This will be updated by the scheduler each time it is passed
+    // as reference to vTaskDelayUntil(&last, period).
+    TickType_t last = xTaskGetTickCount();
+
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("LIGHT", HB_DELAY);
 
     while (true) {
+
+        // Tick counts used in loop are exclusively for logging when a task
+        // exceeds its projected delay, since we are trying to maintain an
+        // absolute vs relative delay with the scheduler.
+        TickType_t t_0 = xTaskGetTickCount(); // Run before work.
 
         lt->readSpectrum(); // Reads spectrum values
     
@@ -142,7 +212,23 @@ void AS7341Task(void* parameter) { // AS7341 & photo Resistor
         heartbeat::Heartbeat::get()->rogerUp(HBID, LIGHT_HEARTBEAT);
 
         highWaterMark("Light", uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
+
+        TickType_t t_f = xTaskGetTickCount(); // Run after work.
+        TickType_t work = t_f - t_0; // work count, final - initial.
+
+        // Log overruns to ensure that works tasks are not exceeding count.
+        if (work > period) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), 
+                "Light overrun: Work (%lu)ms exceeds period (%lu)ms",
+                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                buf, Messaging::Method::SRL_LOG
+            );
+        }
+
+        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
     }
 }
 
@@ -169,10 +255,23 @@ void soilTask(void* parameter) { // Soil sensors
     // Init here to get a singleton class.
     Peripheral::Soil* soil = Peripheral::Soil::get(&soilParams);
 
+    // Convert ms delay to to ticks.
+    const TickType_t period = pdMS_TO_TICKS(params->delay);
+
+    // Init once. This will be updated by the scheduler each time it is passed
+    // as reference to vTaskDelayUntil(&last, period).
+    TickType_t last = xTaskGetTickCount();
+
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("SOIL", HB_DELAY);
 
     while (true) {
+
+        // Tick counts used in loop are exclusively for logging when a task
+        // exceeds its projected delay, since we are trying to maintain an
+        // absolute vs relative delay with the scheduler.
+        TickType_t t_0 = xTaskGetTickCount(); // Run before work.
+
         // Will read all, and then check bounds. Flags are incorporated
         // into the soil readings data, which will prevent action from
         // being taken on a bad read. Unlike temphum, which runs check
@@ -184,7 +283,23 @@ void soilTask(void* parameter) { // Soil sensors
         heartbeat::Heartbeat::get()->rogerUp(HBID, SOIL_HEARTBEAT);
 
         highWaterMark("Soil", uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
+
+        TickType_t t_f = xTaskGetTickCount(); // Run after work.
+        TickType_t work = t_f - t_0; // work count, final - initial.
+
+        // Log overruns to ensure that works tasks are not exceeding count.
+        if (work > period) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), 
+                "Soil overrun: Work (%lu)ms exceeds period (%lu)ms",
+                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                buf, Messaging::Method::SRL_LOG
+            );
+        }
+
+        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
     }
 }
 
@@ -210,10 +325,23 @@ void routineTask(void* parameter) {
     const float autoSaveCts = roundf((1000.0f * AUTO_SAVE_FRQ) / params->delay);
     static size_t count = 0;
 
+    // Convert ms delay to to ticks.
+    const TickType_t period = pdMS_TO_TICKS(params->delay);
+
+    // Init once. This will be updated by the scheduler each time it is passed
+    // as reference to vTaskDelayUntil(&last, period).
+    TickType_t last = xTaskGetTickCount();
+
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("ROUTINE", HB_DELAY);
 
     while (true) {
+
+        // Tick counts used in loop are exclusively for logging when a task
+        // exceeds its projected delay, since we are trying to maintain an
+        // absolute vs relative delay with the scheduler.
+        TickType_t t_0 = xTaskGetTickCount(); // Run before work.
+
         // Iterate each relay and manage its specific timer
         for (size_t i = 0; i < params->relayQty; i++) {
             params->relays[i].manageTimer(); 
@@ -240,7 +368,23 @@ void routineTask(void* parameter) {
         heartbeat::Heartbeat::get()->manage();
 
         highWaterMark("Routine", uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(pdMS_TO_TICKS(params->delay));
+        
+        TickType_t t_f = xTaskGetTickCount(); // Run after work.
+        TickType_t work = t_f - t_0; // work count, final - initial.
+
+        // Log overruns to ensure that works tasks are not exceeding count.
+        if (work > period) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), 
+                "Rtn overrun: Work (%lu)ms exceeds period (%lu)ms",
+                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                buf, Messaging::Method::SRL_LOG
+            );
+        }
+
+        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
     }
 }
 

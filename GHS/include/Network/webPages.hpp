@@ -412,6 +412,7 @@ const char MAINpage[] = R"rawliteral(
     const CHK_OTA_INTV = 86400000; // OTA check run.
     const CLEAR_REQ_INTV = 60000; // Clear exp skt req if non-response.
     const FW_CHECK_INTV = 12 * 60 * 60 * 1000; // Check for new firmware.
+    const TIME_ERROR = 5; // Seconds deviation from time to prompt re-calib.
 
     // Flags 
     let Flags = {SKTconn:false, openLog:true};
@@ -1720,7 +1721,7 @@ const char MAINpage[] = R"rawliteral(
     // real time, sends socket cmd to calibrate to real time.
     let calibrateTime = (seconds) => { // calibrates time if different
         const time = new Date();
-        const padding = 2; // This prevents constant cal w/ rounding err.
+
         let secPastMid = (time.getHours() * 3600) + (time.getMinutes() * 60) 
             + time.getSeconds(); // init with seconds past midnight.
 
@@ -1729,7 +1730,7 @@ const char MAINpage[] = R"rawliteral(
 
         // calibrate clock if esp time out of range. Padding exists to ensure
         // rounding errors do not prompt a re-calibration.
-        if (delta >= padding && secPastMid != 0) { 
+        if (delta >= TIME_ERROR && secPastMid != 0) { 
             if (!isSocketOpen()) return; // Block
             let day = time.getDay();
             day = (day === 0) ? 6 : day - 1; // Ensure day 0 = monday.

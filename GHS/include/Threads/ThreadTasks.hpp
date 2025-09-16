@@ -26,7 +26,7 @@ namespace ThreadTask {
 void highWaterMark(const char* tag, UBaseType_t HWM);
 void netTask(void* parameter);
 void SHTTask(void* parameter);
-void AS7341Task(void* parameter);
+void LightTask(void* parameter);
 void soilTask(void* parameter);
 void routineTask(void* parameter);
 

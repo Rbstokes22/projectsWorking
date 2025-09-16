@@ -30,12 +30,12 @@ struct SHTThreadParams {
     SHTThreadParams(uint32_t delay, SHT_DRVR::SHT &SHT);
 };
 
-struct AS7341ThreadParams {
+struct LightThreadParams {
     uint32_t delay;
     AS7341_DRVR::AS7341basic &light;
     ADC_DRVR::ADC &photo;
 
-    AS7341ThreadParams(uint32_t delay, AS7341_DRVR::AS7341basic &light,
+    LightThreadParams(uint32_t delay, AS7341_DRVR::AS7341basic &light,
         ADC_DRVR::ADC &photo);
 };
 

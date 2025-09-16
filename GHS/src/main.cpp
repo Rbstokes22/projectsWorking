@@ -224,8 +224,8 @@ Threads::Thread netThread("NetThread"); // DO NOT SUSPEND
 Threads::SHTThreadParams SHTParams(SHT_FRQ, sht);  // Temp and Humidity
 Threads::Thread SHTThread("SHTThread");
 
-Threads::AS7341ThreadParams AS7341Params(AS7341_FRQ, light, photo); // light
-Threads::Thread AS7341Thread("AS7341Thread");
+Threads::LightThreadParams LightParams(LIGHT_FRQ, light, photo); // light
+Threads::Thread lightThread("lightThread");
 
 Threads::soilThreadParams soilParams(SOIL_FRQ, soil); // Soil 
 Threads::Thread soilThread("soilThread");
@@ -236,19 +236,19 @@ Threads::Thread soilThread("soilThread");
 Threads::routineThreadParams routineParams(ROUTINE_FRQ, relays, TOTAL_RELAYS);
 Threads::Thread routineThread("routineThread");
 
-Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &AS7341Thread, 
+Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &lightThread, 
     &soilThread, &routineThread};
 
 // Allocate the thread stacks globally to avoid heap allocation. These will be
 // the stack memory exclusive to the thread.
 static StackType_t netStack[NET_STACK]; // Will init to 0xAA as with the rest.
 static StackType_t shtStack[SHT_STACK];
-static StackType_t as7341Stack[AS7341_STACK];
+static StackType_t lightStack[LIGHT_STACK];
 static StackType_t soilStack[SOIL_STACK];
 static StackType_t routineStack[ROUTINE_STACK];
 
 // Create Task Control Blocks (TCB) for each thread stack.
-static StaticTask_t netTCB, shtTCB, as7341TCB, soilTCB, routineTCB;
+static StaticTask_t netTCB, shtTCB, lightTCB, soilTCB, routineTCB;
 
 // OTA 
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
@@ -265,7 +265,7 @@ void app_main() {
     CONF_PINS::setupDigitalPins(); // Config.hpp
 
     // Init I2C at frequency 50 khz. INIT before building any devices.
-    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::SLOW);
+    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::SLOW); 
 
     // Init OLED, AS7341 light sensor, sht temp/hum sensor, and ADCs. Init
     // before starting thread tasks.
@@ -333,8 +333,8 @@ void app_main() {
     soilThread.initThread(ThreadTask::soilTask, SOIL_STACK, &soilParams, 3,
         soilStack, soilTCB, 1);
 
-    AS7341Thread.initThread(ThreadTask::AS7341Task, AS7341_STACK, 
-        &AS7341Params, 3, as7341Stack, as7341TCB, 1);
+    lightThread.initThread(ThreadTask::LightTask, LIGHT_STACK, 
+        &LightParams, 3, lightStack, lightTCB, 1);
 
     routineThread.initThread(ThreadTask::routineTask, ROUTINE_STACK, 
         &routineParams, 3, routineStack, routineTCB, 0);

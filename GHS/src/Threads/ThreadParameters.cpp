@@ -17,7 +17,7 @@ SHTThreadParams::SHTThreadParams(uint32_t delay, SHT_DRVR::SHT &SHT) :
 
     delay(delay), SHT(SHT) {}
 
-AS7341ThreadParams::AS7341ThreadParams(uint32_t delay,
+LightThreadParams::LightThreadParams(uint32_t delay,
      AS7341_DRVR::AS7341basic &light, ADC_DRVR::ADC &photo) :
 
     delay(delay), light(light), photo(photo) {}
