@@ -324,20 +324,20 @@ void app_main() {
     // Start threads, and init periph. Must occur before loading settings
     // due to initialized periph params before calling the get(), to prevent
     // nullptr return.
-    netThread.initThread(ThreadTask::netTask, NET_STACK, &netParams, 2,
+    netThread.initThread(ThreadTask::netTask, NET_STACK, &netParams, 1,
         netStack, netTCB, 0);
 
-    SHTThread.initThread(ThreadTask::SHTTask, SHT_STACK, &SHTParams, 1,
+    SHTThread.initThread(ThreadTask::SHTTask, SHT_STACK, &SHTParams, 2,
         shtStack, shtTCB, 1);
 
-    soilThread.initThread(ThreadTask::soilTask, SOIL_STACK, &soilParams, 3,
+    soilThread.initThread(ThreadTask::soilTask, SOIL_STACK, &soilParams, 4,
         soilStack, soilTCB, 1);
 
     lightThread.initThread(ThreadTask::LightTask, LIGHT_STACK, 
         &LightParams, 3, lightStack, lightTCB, 1);
 
     routineThread.initThread(ThreadTask::routineTask, ROUTINE_STACK, 
-        &routineParams, 3, routineStack, routineTCB, 0);
+        &routineParams, 1, routineStack, routineTCB, 1);
 
     // Sends pointer of relay array to initRelays method, and then loads all
     // the last saved data.
