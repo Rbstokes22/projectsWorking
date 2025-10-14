@@ -14,13 +14,16 @@ namespace heartbeat {
 #define HEARTBEAT_CLIENTS_MAX 32 // Max number of clients, do not exceed 255.
 #define HEARTBEAT_CLIENTS_FULL 255;
 #define HEARTBEAT_CALLER_CHAR_LEN 16 // 16 chars max including null term.
+#define HEARTBEAT_RESET_FAILS 2 // allowable consecutive HB fails before restart
+
 
 class Heartbeat {
     private:
     const char* tag;
     static uint8_t blockNum; 
     char log[LOG_MAX_ENTRY];
-    uint8_t reg[HEARTBEAT_CLIENTS_MAX]; 
+    uint8_t reg[HEARTBEAT_CLIENTS_MAX]; // registry
+    uint8_t failures[HEARTBEAT_CLIENTS_MAX]; // Total failures before restart
     char callers[HEARTBEAT_CLIENTS_MAX][16];
     static Threads::Mutex mtx; // mutex
     Heartbeat(const char* tag);

@@ -19,6 +19,7 @@ namespace Comms {
 #define SKT_MAX_RESP_ARGS 5 // Max response arguments / clients at once.
 #define SKT_REPLY_SIZE 128 // Basic replies
 #define SKT_RANGE_EXC -999 // Default range value for exceptions.
+#define POOL_SIG 0xBEEFFEED // Used to sign argument while active.
 
 // All commands sent by the client. Starts at index 1. When client passes
 // numerical command, it corresponds to this enum, and will execute 
@@ -41,6 +42,7 @@ struct async_resp_arg { // Socket response argument struct.
     int fd; // file descriptior
     uint8_t Buf[SKT_BUF_SIZE]; // Data buffer.
     cmdData data; // Command data.
+    uint32_t signature; // Used only while argument is valid and in use.
 };
 
 class argPool { 

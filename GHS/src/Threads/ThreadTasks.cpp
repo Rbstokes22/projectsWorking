@@ -311,6 +311,7 @@ void routineTask(void* parameter) {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             "RTN task fail", Messaging::Method::SRL_LOG);
         return;
+
     } else {
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
             "RTN task running", Messaging::Method::SRL_LOG);

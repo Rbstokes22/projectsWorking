@@ -34,7 +34,8 @@ async_resp_arg* argPool::getArg() {
         if (!this->inUse[i]) {
             this->inUse[i] = true;
             memset(&this->pool[i], 0, sizeof(this->pool[i]));
-            return &this->pool[i];
+            this->pool[i].signature = POOL_SIG; // Set to indicate active.
+            return &this->pool[i]; 
         }
     }
 
@@ -50,6 +51,7 @@ void argPool::releaseArg(async_resp_arg* arg) {
     for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {
         if (&this->pool[i] == arg) {
             this->inUse[i] = false;
+            this->pool[i].signature = 0; // Reset to zero indiating release
             break;
         }
     }
@@ -85,7 +87,7 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
     arg->data.cmd = static_cast<CMDS>(atoi(cmd)); // Convert str to int
     arg->data.suppData = atoi(supp); // Convert to str to int
     strncpy(arg->data.idNum, id, sizeof(arg->data.idNum)); // Copy id.
-    arg->data.idNum[sizeof(arg->data.idNum)] = '\0'; // ensures null term
+    arg->data.idNum[sizeof(arg->data.idNum) - 1] = '\0'; // ensures null term
     
     return httpd_queue_work(handle, SOCKHAND::ws_async_send, arg);
 }
@@ -97,6 +99,18 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
 void SOCKHAND::ws_async_send(void* arg) {
     httpd_ws_frame_t wsPkt; // web socket packet.
     struct async_resp_arg* respArg = static_cast<async_resp_arg*>(arg);
+
+    // Check for valid signature before proceeding to ensure no lost arguments.
+    if (respArg->signature != POOL_SIG) {
+        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+            "%s resp arg invalid", SOCKHAND::tag);
+
+        MASTERHAND::sendErr(MASTERHAND::log);
+        printf("Sig = %lu\n", respArg->signature);
+        return;
+    }
+
+
     size_t bufSize = sizeof(respArg->Buf);
 
     memset(respArg->Buf, 0, bufSize); // zeros out.

@@ -17,9 +17,10 @@ Heartbeat::Heartbeat(const char* tag) : tag(tag) {
         this->log, Messaging::Method::SRL_LOG);
 }
 
-// Requires ID. Will not show caller, just the ID. Use the log to check the
-// caller name assigned to the ID. Currently logs the unresponsiveness and 
-// restarts if unresponsive.
+// Requires ID. Will not show caller, just the ID. Use the log to 
+// check the caller name assigned to the ID. Currently logs the 
+// unresponsiveness and restarts if unresponsive and directed, and grace period
+// is unmet.
 void Heartbeat::alert(uint8_t ID) {
     snprintf(this->log, sizeof(this->log), "%s ID %u Caller %s unresponsive", 
         this->tag, ID, this->callers[ID]);
@@ -28,7 +29,14 @@ void Heartbeat::alert(uint8_t ID) {
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
         this->log, Messaging::Method::SRL_LOG);
 
-    NVS::settingSaver::get()->saveAndRestart(); // Restart after log.
+    this->failures[ID]++; // Increment upon a failure
+
+    // Restart with consecutive failures. Unless consecutive, will be reset to
+    // 0 upon successful heartbeat check.
+    if (this->failures[ID] >= HEARTBEAT_RESET_FAILS) {
+        NVS::settingSaver::get()->saveAndRestart(); // Restart after log.
+    }
+    
 }
 
 // Singleton class, returns instance pointer of this class.
@@ -62,10 +70,13 @@ uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
 
         snprintf(this->callers[blockNum], HEARTBEAT_CALLER_CHAR_LEN, "%s", 
             caller); // Copy caller to later reference if needed.
+
+        this->failures[blockNum] = 0; // Set to 0 upon assignment.
         
         return blockNum++; // Increment after return.
 
     } else {
+
         snprintf(this->log, sizeof(this->log), "%s Clients full", this->tag);
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
          this->log, Messaging::Method::SRL_LOG);
@@ -77,8 +88,10 @@ uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
 // Requires the chunkID which is the index of the array which holds the reset
 // time. The reset time will be enforced to be from 1 to 255 seconds. When 
 // rogered up, the updated time will be placed into the correct chunk, to be
-// later iterated.
-void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
+// later iterated. ATTENTION. Uses IRAM to ensure that critical check-ins occur
+// despite flash being locked wifi-if it has issues. Previous issues with 
+// heartbeat failure from both routine and net tasks, affected by wifi.
+IRAM_ATTR void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
     if (resetSec == 0) resetSec = 1;
     this->reg[chunkID] = resetSec; 
 }
@@ -98,10 +111,9 @@ void Heartbeat::manage() {
             this->alert(i);
         } else {
             this->reg[i]--; // Decrement by 1.
+            this->failures[i] = 0; // set to 0 based on success.
         }
     }
 }
-
-
 
 }
