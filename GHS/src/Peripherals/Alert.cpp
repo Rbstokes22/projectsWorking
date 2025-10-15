@@ -249,7 +249,7 @@ bool Alert::openClient(const char* jsonData) {
             snprintf(this->log, sizeof(this->log), 
                 "%s connection unable to open", this->tag);
 
-            this->sendErr(this->log);
+            this->sendErr(this->log, Messaging::Levels::WARNING);
             this->cleanup();
             return false;
         }

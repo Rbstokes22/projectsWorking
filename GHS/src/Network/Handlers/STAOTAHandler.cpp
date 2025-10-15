@@ -368,7 +368,7 @@ bool OTAHAND::openClient(esp_http_client_handle_t &client,
             "%s Connection unable to open. %s", OTAHAND::tag, 
             esp_err_to_name(err));
 
-        MASTERHAND::sendErr(MASTERHAND::log);
+        MASTERHAND::sendErr(MASTERHAND::log, Messaging::Levels::WARNING);
         MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MHAND_CON_OPEN_FAIL), 
             OTAHAND::tag, "cliOpen");
 
