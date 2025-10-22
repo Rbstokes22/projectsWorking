@@ -73,6 +73,7 @@ elif [[ "${response}" ==  [bB] ]]; then
     otaURL=$(curl -s http://"${URL}:${PORT}"/IP)
 
     echo "Running http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:${PORT}"
+
     curl "http://greenhouse.local/OTAUpdateLAN?url=http://${otaURL}:${PORT}"
     kill "${serverPID}"
 

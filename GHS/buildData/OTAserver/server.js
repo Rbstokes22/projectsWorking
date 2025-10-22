@@ -3,8 +3,8 @@ const os = require("os");
 
 const app = express();
 
-const FWpath = "/home/shadyside/Desktop/Programming/projects/GHS/.pio/build/esp32dev/firmware.bin";
-const SIGpath = "/home/shadyside/Desktop/Programming/projects/GHS/data/app0firmware.sig";
+const FWpath = "/home/mysterygraph/Desktop/Programming/projects/GHS/.pio/build/esp32dev/firmware.bin";
+const SIGpath = "/home/mysterygraph/Desktop/Programming/projects/GHS/data/app0firmware.sig";
 const PORT = 5702;
 
 let getIP = () => {

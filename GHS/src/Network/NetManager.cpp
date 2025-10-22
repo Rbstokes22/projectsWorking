@@ -280,12 +280,13 @@ void NetManager::sendErr(const char* msg, Messaging::Levels lvl,
         ignoreRepeat);
 }
 
-// Requires no params. Designed for mesh networks with multiple APs. Scans the
-// Network for for all devices that match the same SSID, captures the BSSID for
-// the AP with the strongest RSSI and attempts a connection to that. Will only
-// run a scan every n number of minutes define in header. Returns SCAN_OK_UPD,
-// SCAN_OK_NOT_UPD, SCAN_NOT_REQ, SCAN_ERR, and SCAN_AWAITING.
-scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t resetSec) { // STA only
+// Requires heartbeat ID and extension time in seconds. Designed for mesh nets
+// with multiple APs. Scans the network for all devices that match the same 
+// SSID, captures the bSSID for the AP with the strongest RSSI, and attempts a
+// connection to that AP. WIll only run a scan every n number of minutes 
+// defined in the header. Returns SCAN_OK_UPD, SCAN_OK_NOT_UPD, SCAN_NOT_REQ,
+// and SCAN_AWAITING.
+scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t ext) { // STA only
 
     // If good data, set and check times.
     Clock::DateTime* dtg = Clock::DateTime::get(); 
@@ -318,12 +319,14 @@ scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t resetSec) { // STA only
         bool bssidUpdated = false; // Triggers reconnect if set to true.
         int8_t lastRSSI = -100; // This will be used to store strongest RSSI.
 
-        // Before the scan starts, feed the heartbeat timer to prevent
-        // restart.
-        heartbeat::Heartbeat::get()->rogerUp(heartbeatID, resetSec);
+        // Before the scan starts, Extend the heartbeat to cover the blocking
+        // scan. If this is problematic for other threads, swap to extendAll.
+        heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
+        HB->extend(heartbeatID, ext);
 
+        err = esp_wifi_scan_start(NULL, true); // Blocking 2-4 sec from testing.
 
-        err = esp_wifi_scan_start(NULL, true); // Blocking function 2-4 sec.
+        HB->clearExt(heartbeatID); // Clear extension after scan.
 
         if (err != ESP_OK) {
             snprintf(this->log, sizeof(this->log), "%s Scan Start Err", 

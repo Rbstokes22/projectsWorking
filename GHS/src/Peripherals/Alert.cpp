@@ -12,6 +12,7 @@
 #include "Network/Handlers/socketHandler.hpp"
 #include "Network/NetCreds.hpp"
 #include "Network/NetMain.hpp"
+#include "Common/heartbeat.hpp"
 
 namespace Peripheral {
 
@@ -48,6 +49,7 @@ bool Alert::prepMsg(const char* jsonData, bool isRep) {
         .url = url,
         .cert_pem = NULL,
         .method = HTTP_METHOD_POST,
+        .timeout_ms = WEB_TIMEOUT_MS,
         .skip_cert_common_name_check = DEVmode, // false for production
         .crt_bundle_attach = esp_crt_bundle_attach
     };
@@ -55,7 +57,6 @@ bool Alert::prepMsg(const char* jsonData, bool isRep) {
     // Configure client by initiating client connection. Err hand in func.
     if (!this->initClient()) return false;
 
-    
     if (DEVmode) { // Add message if in development mode, for NGROK only.
         esp_http_client_set_header(this->client, "ngrok-skip-browser-warning", 
             "1");
@@ -243,9 +244,34 @@ bool Alert::initClient() {
 // not.
 bool Alert::openClient(const char* jsonData) {
 
+    // WARNING. This function, when unresolved, will cause the heartbeat to
+    // reset. This will extend all heartbeats by the timeout, in seconds to
+    // prepare for a blocking function, only when needed, like this known case.
+    // This is used exclusively here and will not effect any of the other
+    // hearbeats.
+
     if (!this->flags.getFlag(ALTFLAGS::OPEN)) {
 
-        if (esp_http_client_open(client, strlen(jsonData)) != ESP_OK) {
+        heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
+
+        if (HB == nullptr) {
+            snprintf(this->log, sizeof(this->log), "%s nullptr passed", 
+                this->tag);
+
+            this->sendErr(this->log);
+            return false;
+        }
+
+        // Extend heartbeats as a prepatory measure, by the seconds floored + 1.
+        uint8_t HB_SEC = (WEB_TIMEOUT_MS / 1000) + 1;
+
+        HB->extendAll(HB_SEC); // Add extension before opening.
+
+        esp_err_t open = esp_http_client_open(client, strlen(jsonData));
+
+        HB->clearExtAll(); // Clear extension after blocking.
+
+        if (open != ESP_OK) {
             snprintf(this->log, sizeof(this->log), 
                 "%s connection unable to open", this->tag);
 

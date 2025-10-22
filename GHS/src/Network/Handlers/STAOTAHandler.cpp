@@ -15,6 +15,7 @@
 #include "Network/Handlers/MasterHandler.hpp"
 #include "Common/FlagReg.hpp"
 #include "Peripherals/saveSettings.hpp"
+#include "Common/heartbeat.hpp"
 
 namespace Comms {
 
@@ -140,6 +141,7 @@ cJSON* OTAHAND::receiveJSON(httpd_req_t* req, char* buffer, size_t size) {
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = NULL,
+        .timeout_ms = WEB_TIMEOUT_MS,
         .skip_cert_common_name_check = DEVmode, // false for production
         .crt_bundle_attach = esp_crt_bundle_attach
     };
@@ -351,11 +353,35 @@ bool OTAHAND::initClient(esp_http_client_handle_t &client,
 bool OTAHAND::openClient(esp_http_client_handle_t &client, 
     Flag::FlagReg &flag, httpd_req_t* req) {
 
+    // WARNING. This function, when unresolved, will cause the heartbeat to
+    // reset. This will extend all heartbeats by the timeout, in seconds to
+    // prepare for a blocking function, only when needed, like this known case.
+    // This is used exclusively here and will not effect any of the other
+    // hearbeats.
+
     esp_err_t err = ESP_FAIL; // Default if conditions are not met below.
 
     // Opens the connection if not already open and has been init.
     if (!flag.getFlag(OTAFLAGS::OPEN) && flag.getFlag(OTAFLAGS::INIT)) {
+
+        // As a prepatory measure, extend heartbeat times before opening client.
+        heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
+        if (HB == nullptr) {
+            snprintf(MASTERHAND::log, sizeof(MASTERHAND::log), 
+                "%s nullptr passed", OTAHAND::tag);
+
+            MASTERHAND::sendErr(MASTERHAND::log);
+            return false;
+        }
+
+        // Extend heartbeats as a prepatory measure, by the seconds floored + 1.
+        uint8_t HB_SEC = (WEB_TIMEOUT_MS / 1000) + 1;
+
+        HB->extendAll(HB_SEC); // Extend before potential blocker.
+
         err = esp_http_client_open(client, 0);
+
+        HB->clearExtAll(); // Clear extensions after potential blocker.
     }
  
     if (err == ESP_OK) { // Has been open, set flag.

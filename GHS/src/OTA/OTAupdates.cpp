@@ -18,6 +18,7 @@
 #include "Peripherals/saveSettings.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "Common/heartbeat.hpp"
 
 namespace OTA {
 
@@ -60,6 +61,12 @@ bool OTAhandler::initClient() {
 // successful, and false if not.
 bool OTAhandler::openClient(int64_t &contentLen) {
 
+    // WARNING. This function, when unresolved, will cause the heartbeat to
+    // reset. This will extend all heartbeats by the timeout, in seconds to
+    // prepare for a blocking function, only when needed, like this known case.
+    // This is used exclusively here and will not effect any of the other
+    // hearbeats.
+
     esp_err_t err = ESP_FAIL; // Defaul if below conditions are not met.
 
     if (DEVmode) { // used for development mode only. Set before opening.
@@ -70,7 +77,24 @@ bool OTAhandler::openClient(int64_t &contentLen) {
     if (!this->flags.getFlag(OTAFLAGS::OPEN) && 
         this->flags.getFlag(OTAFLAGS::INIT)) {
 
+        // As a prepatory measure, extend heartbeat times before opening client.
+        heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
+        if (HB == nullptr) {
+            snprintf(this->log, sizeof(this->log), "%s nullptr passed", 
+                this->tag);
+
+            this->sendErr(this->log);
+            return false;
+        }
+
+        // Extend heartbeats as a prepatory measure, by the seconds floored + 1.
+        uint8_t HB_SEC = (WEB_TIMEOUT_MS / 1000) + 1;
+
+        HB->extendAll(HB_SEC); // Extend before potential blocker.
+
         err = esp_http_client_open(this->client, 0); // just open, no write.
+
+        HB->clearExtAll(); // Clear extensions after potential blocker.
     }
 
     if (err == ESP_OK) { // is open, set flag. Carry on
@@ -477,7 +501,6 @@ OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,
 
     }
     
-
 // Requires reference to firmware and signature url, and if the update is 
 // LAN or WEB. This is the entry point for an update. Suspends all threads
 // to be suspending during an update. Returns OTA_OK or OTA_FAIL.
@@ -491,6 +514,8 @@ OTA_RET OTAhandler::update(URL &url, bool isLAN) {
     for (int i = 0; i < this->threadQty; i++) {
         (*this->toSuspend[i]).suspendTask();
     }
+
+    this->config.timeout_ms = WEB_TIMEOUT_MS; // Set config timeout upon update.
 
     if (!isLAN) { // If web, set configuration settings.
         this->config.cert_pem = NULL;

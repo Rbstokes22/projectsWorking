@@ -16,6 +16,7 @@
 #include "Peripherals/saveSettings.hpp"
 #include "Common/heartbeat.hpp"
 #include "Drivers/ADC.hpp"
+#include "Network/NetManager.hpp"
 
 namespace ThreadTask {
 
@@ -72,24 +73,35 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
         // in this portion, check wifi switch for position. 
         params->netManager.handleNet();
 
-        // Pass heartbeat ID to scan because if a low RSSI is detected, it will
-        // block the network and scan
-        params->netManager.scan(HBID, NET_SCAN_HEARTBEAT);
-
         // Check in to reset heart beat expiration.
         heartbeat::Heartbeat::get()->rogerUp(HBID, NET_HEARTBEAT);
+
+        // Scan the network, if scan was performed, adjust scan gain to prevent
+        // overrun error. A heartbeat extension is passed, and it will be 
+        // extended if a scan is required, to prevent unresponsive alert issues.
+        Comms::scan_ret_t scan = 
+            params->netManager.scan(HBID, NET_SCAN_HEARTBEAT_EXT);
+
+        // Used to add to period if delayed by scanning. 4 seconds is hard
+        // coded becaues it was the average scan time. This adds time to the
+        // period to prevent overrun clocking error.
+        TickType_t scanGain = (scan != Comms::scan_ret_t::SCAN_NOT_REQ) ?
+            4000 : 0;
 
         highWaterMark("Network", uxTaskGetStackHighWaterMark(NULL));
 
         TickType_t t_f = xTaskGetTickCount(); // Run after work.
         TickType_t work = t_f - t_0; // work count, final - initial.
 
+        TickType_t adjPeriod = period + scanGain; // Adds either 0 or 4000;
+
         // Log overruns to ensure that works tasks are not exceeding count.
-        if (work > period) {
+        // If long scan was performed, 
+        if (work > (adjPeriod)) {
             char buf[96];
             snprintf(buf, sizeof(buf), 
                 "Net overrun: Work (%lu)ms exceeds period (%lu)ms",
-                (work * portTICK_PERIOD_MS), (period * portTICK_PERIOD_MS));
+                (work * portTICK_PERIOD_MS), (adjPeriod  * portTICK_PERIOD_MS));
 
             Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
                 buf, Messaging::Method::SRL_LOG

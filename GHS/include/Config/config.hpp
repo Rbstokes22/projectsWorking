@@ -40,12 +40,13 @@ extern char confLog[128]; // Reusable log for config src.
 #define OTA_VERSION_PATH "/checkOTA"
 #define LAN_OTA_SIG_PATH "/sigUpdate" 
 #define LAN_OTA_FIRMWARE_PATH "/FWUpdate"
-#define FIRMWARE_SIZE 1200288
+#define FIRMWARE_SIZE 1469392
 #define FIRMWARE_SIG_SIZE 256
 
 // Uncomment whichever WEBURL you are using
 // #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
 #define WEBURL "http://mysterygraph.local:8080"
+#define WEB_TIMEOUT_MS 3000 // timeout when in client mode in milliseconds.
 
 // White list domains used in STAOTAHandler.cpp
 #define LOCAL_IP "http://192.168" // All that is required
