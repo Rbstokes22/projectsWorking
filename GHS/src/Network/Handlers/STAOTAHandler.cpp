@@ -28,7 +28,8 @@ OTA::OTAhandler* OTAHAND::OTA{nullptr};
 // Parses query, and populates the url object firmware and signature URL. 
 // Returns true if successful, and false if not. Will also respond to the 
 // client a failure message if unsuccessful.
-bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
+bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size, 
+    bool isLAN) {
 
     esp_err_t err;
 
@@ -69,22 +70,24 @@ bool OTAHAND::extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size) {
         return false;
     }
 
-    // parse the value of the signature url by getting query key "sigurl"
-    err = httpd_query_key_value(query, "sigurl", urlOb.signature, size); 
-    urlOb.signature[size] = '\0'; // null term despite memset.
+    if (!isLAN) { // Web OTA requires separate signature URL.
+        // parse the value of the signature url by getting query key "sigurl"
+        err = httpd_query_key_value(query, "sigurl", urlOb.signature, size); 
+        urlOb.signature[size] = '\0'; // null term despite memset.
 
-    // Checks the key was found and there is a length. If not, returns false.
-    if (err != ESP_OK || strlen(urlOb.signature) <= 0) {
+        // Checks the key was found and there is a length. If not, ret false.
+        if (err != ESP_OK || strlen(urlOb.signature) <= 0) {
 
-        snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
-            "%s SigURL acquire FAIL", OTAHAND::tag);
+            snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
+                "%s SigURL acquire FAIL", OTAHAND::tag);
 
-        MASTERHAND::sendErr(MASTERHAND::log);
+            MASTERHAND::sendErr(MASTERHAND::log);
 
-        MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
-            OTAHAND::tag, "extrurl");
+            MASTERHAND::sendstrErr(httpd_resp_sendstr(req, MASTERHAND::log), 
+                OTAHAND::tag, "extrurl");
 
-        return false;
+            return false;
+        }
     }
 
     // Ensures the the firmware url is set. If > 0, it checks for a signature.
@@ -575,8 +578,8 @@ esp_err_t OTAHAND::updateLAN(httpd_req_t* req) {
     if (OTAHAND::OTA != nullptr) { // Redundancy. Split to handle err resp.
 
         // Separated from if check above. This func handles errors within.
-        if (extractURL(req, LANurl, URLSIZE)) {
-
+        if (extractURL(req, LANurl, URLSIZE, true)) {
+  
             // Sends the url IP only. This version only produces a firmware URL.
             // Copies the fw url to the sig followed by a concat of the approp
             // endpoints.
@@ -656,7 +659,7 @@ esp_err_t OTAHAND::update(httpd_req_t* req) {
     if (OTAHAND::OTA != nullptr) { // Redundancy. Split to handle err response.
 
         // extractURL handles error responding and logging within.
-        if (extractURL(req, WEBurl, URLSIZE)) { // Good and in whitelist.
+        if (extractURL(req, WEBurl, URLSIZE, false)) { // Good and in whitelist.
 
             if (OTAHAND::OTA->update(WEBurl, false) == OTA::OTA_RET::OTA_OK) {
 

@@ -9,6 +9,7 @@
 #include "Drivers/SHT_Library.hpp"
 #include "Peripherals/Relay.hpp"
 #include "Drivers/ADC.hpp"
+#include "Threads/Threads.hpp"
 
 // All parameters that need to be passed to the thread will be in a struct.
 // This allows us to pass all of the required params as the single parameter

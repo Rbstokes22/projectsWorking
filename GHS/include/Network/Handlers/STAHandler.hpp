@@ -27,7 +27,8 @@ class OTAHAND : public MASTERHAND {
     static const char* tag;
     static bool isInit; // Is handler init
     static OTA::OTAhandler* OTA; // OTA pointer, passed ref in init func.
-    static bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size);
+    static bool extractURL(httpd_req_t* req, OTA::URL &urlOb, size_t size, 
+        bool isLAN);
     static cJSON* receiveJSON(httpd_req_t* req, char* buffer, size_t size);
     static bool processJSON(cJSON* json, httpd_req_t* req, 
         cJSON** version);

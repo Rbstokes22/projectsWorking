@@ -1,7 +1,22 @@
 // ATTENTION. When running serial use minicom -D /dev/ttyUSB0 -b 115200 -8 -o
 // in order to avoid the RTS DTR shutdown when closing serial or switching OS.
 
+// ATTENTION. There will be drift in the thread tasks due to using vTaskDelay.
+// Implemented vTaskDelayUntil to try to have absolute control, but this caused
+// the tasks to keep running in the background due to scheduler issues. Drift
+// is no conconcern since tens of thousands of samples are taken per day. See
+// https://forums.freertos.org/t/vtasksuspend-strange-behavior/10615/7 about
+// the issue.
+
 // TO DO:
+
+// Removed delayUntil, causing several issues by not stopping during OTA update.
+// Fix heart beat, remove extensions add in suspend and resume flags. Ensure
+// the heartbeat registry is atomic, use store() and load() appropriately.
+// Look over the whole heartbeat setup to ensure that it is robust as well. 
+// Also remove IRAM from the heartbeat functions or whereever else it lives,
+// no longer needed.
+
 
 // Updates to the alerts for sensors being down. Havent been tested at this 
 // point and need to test. I dont predict there will be any issues with this.
@@ -213,24 +228,24 @@ Peripheral::Relay relays[TOTAL_RELAYS] = { // Passes to socket handler
     {CONF_PINS::pinMapD[static_cast<uint8_t>(CONF_PINS::DPIN::RE3)], 3}
 };
 
-// THREADS
-Threads::netThreadParams netParams(NET_FRQ, netManager); // Net
+// THREADS. 
 Threads::Thread netThread("NetThread"); // DO NOT SUSPEND
+Threads::netThreadParams netParams(NET_FRQ, netManager); // Net
 
-Threads::SHTThreadParams SHTParams(SHT_FRQ, sht);  // Temp and Humidity
-Threads::Thread SHTThread("SHTThread");
+Threads::Thread SHTThread("SHTThread"); // Temp and Humidity
+Threads::SHTThreadParams SHTParams(SHT_FRQ, sht);  
 
-Threads::LightThreadParams LightParams(LIGHT_FRQ, light, photo); // light
-Threads::Thread lightThread("lightThread");
+Threads::Thread lightThread("lightThread"); // spectral and photosensor
+Threads::LightThreadParams LightParams(LIGHT_FRQ, light, photo); 
 
-Threads::soilThreadParams soilParams(SOIL_FRQ, soil); // Soil 
-Threads::Thread soilThread("soilThread");
+Threads::Thread soilThread("soilThread"); // soil capacitance sensors.
+Threads::soilThreadParams soilParams(SOIL_FRQ, soil); 
 
 // Routine thread such as randomly monitoring and managing sensor states.
 // Must be called at a 1 Hz frequency to ensure proper management throughout 
 // the program.
-Threads::routineThreadParams routineParams(ROUTINE_FRQ, relays, TOTAL_RELAYS);
 Threads::Thread routineThread("routineThread");
+Threads::routineThreadParams routineParams(ROUTINE_FRQ, relays, TOTAL_RELAYS);
 
 Threads::Thread* toSuspend[TOTAL_THREADS] = {&SHTThread, &lightThread, 
     &soilThread, &routineThread};

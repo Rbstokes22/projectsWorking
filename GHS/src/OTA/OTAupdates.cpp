@@ -280,7 +280,7 @@ OTA_RET OTAhandler::processReq(URL &url) {
 // and writing it to the ESP. Returns true if successful, or false if not.
 bool OTAhandler::processSig(URL &url, size_t &SIGSIZE, 
     const esp_partition_t* part) {
-
+    
     // Copy over either app0 or app1 to the partition label. Used to label 
     // appropriate signature to partition.
     char label[sizeof(part->label)]{0}; 
@@ -296,7 +296,7 @@ bool OTAhandler::processSig(URL &url, size_t &SIGSIZE,
     if (!this->openClient(contentLen)) return false;
 
     SIGSIZE = static_cast<size_t>(contentLen); // Convert
-
+   
     // Calls to write the signature. Closes 
     if (writeSignature(url.signature, label) == OTA_RET::SIG_FAIL) { 
         this->cleanup();
@@ -311,7 +311,7 @@ bool OTAhandler::processSig(URL &url, size_t &SIGSIZE,
 // and writing it to the ESP. Returns true if successful, or false if not.
 bool OTAhandler::processFW(URL &url, size_t &FWSIZE, 
     const esp_partition_t* part) {
-
+    
     int64_t contentLen = 0;
 
     // Configure the client using config settings.
@@ -494,11 +494,11 @@ void OTAhandler::sendErr(const char* msg, Messaging::Levels lvl) {
 OTAhandler::OTAhandler(UI::Display &OLED, Comms::NetMain &station,
     Threads::Thread** toSuspend, size_t threadQty) : 
 
+    tag(OTA_TAG),
     flags("(OTAUpdFlag)"), station(station), OLED(OLED), toSuspend(toSuspend), 
     threadQty(threadQty), OTAhandle(0), config{} {
 
     memset(this->buffer, 0, sizeof(this->buffer));
-
     }
     
 // Requires reference to firmware and signature url, and if the update is 

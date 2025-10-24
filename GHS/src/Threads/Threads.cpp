@@ -23,11 +23,15 @@ bool Thread::initThread(void (*taskFunc)(void*), uint32_t stackSize,
     memset(stackBuffer, 0xAA, stackSize); // in bytes
 
     // Create static task to allow stack allocated task stack, vs heap alloc.
-    TaskHandle_t handle = xTaskCreateStaticPinnedToCore(taskFunc, this->tag, 
+    this->taskHandle = xTaskCreateStaticPinnedToCore(taskFunc, this->tag, 
         stackSize, parameters, priority, stackBuffer, &TCB, 
         static_cast<BaseType_t>(taskCore));
 
-    if (handle != NULL) { // Success
+    // Uncomment if you want to not pin to core.
+    // this->taskHandle = xTaskCreateStatic(taskFunc, this->tag, stackSize,
+    //     parameters, priority, stackBuffer, &TCB);
+
+    if (this->taskHandle != NULL) { // Success
 
         snprintf(this->log, sizeof(this->log), 
             "Task handle (%s) created @ addr: %p", this->tag, this->taskHandle);
@@ -53,12 +57,17 @@ bool Thread::initThread(void (*taskFunc)(void*), uint32_t stackSize,
 // Requires no parameters. If thread was properly init, this will suspend
 // the thread. If successful, returns true, if not, returns false.
 bool Thread::suspendTask() { 
-
+   
     if (this->taskHandle != NULL) {
+
         vTaskSuspend(this->taskHandle);
-        snprintf(this->log, sizeof(this->log), "%s suspended", this->tag);
+        
+        snprintf(this->log, sizeof(this->log), "%s @ addr %p suspended", 
+            this->tag, this->taskHandle);
+
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO, 
             this->log, Messaging::Method::SRL_LOG);
+
         return true;
     }
 
@@ -70,10 +79,15 @@ bool Thread::suspendTask() {
 bool Thread::resumeTask() {
 
     if (this->taskHandle != NULL) {
+
         vTaskResume(this->taskHandle);
-        snprintf(this->log, sizeof(this->log), "%s resumed", this->tag);
+        
+        snprintf(this->log, sizeof(this->log), "%s @ addr: %p resumed", 
+            this->tag, this->taskHandle);
+
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO, 
             this->log, Messaging::Method::SRL_LOG);
+
         return true;
     }
 

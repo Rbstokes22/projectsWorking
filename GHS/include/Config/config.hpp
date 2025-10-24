@@ -40,7 +40,7 @@ extern char confLog[128]; // Reusable log for config src.
 #define OTA_VERSION_PATH "/checkOTA"
 #define LAN_OTA_SIG_PATH "/sigUpdate" 
 #define LAN_OTA_FIRMWARE_PATH "/FWUpdate"
-#define FIRMWARE_SIZE 1469392
+#define FIRMWARE_SIZE 1469024
 #define FIRMWARE_SIG_SIZE 256
 
 // Uncomment whichever WEBURL you are using

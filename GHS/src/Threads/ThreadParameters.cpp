@@ -7,6 +7,7 @@
 #include "Drivers/SHT_Library.hpp"
 #include "Peripherals/Relay.hpp"
 #include "Drivers/ADC.hpp"
+#include "Threads/Threads.hpp"
 
 namespace Threads {
 

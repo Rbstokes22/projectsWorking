@@ -56,10 +56,6 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
 
-    // Init once. This will be updated by the scheduler each time it is passed
-    // as reference to vTaskDelayUntil(&last, period).
-    TickType_t last = xTaskGetTickCount();
-
     // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("NET", HB_DELAY);
 
@@ -108,7 +104,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
             );
         }
 
-        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
+        vTaskDelay(period);
     }
 }
 
@@ -135,10 +131,6 @@ void SHTTask(void* parameter) {
 
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
-
-    // Init once. This will be updated by the scheduler each time it is passed
-    // as reference to vTaskDelayUntil(&last, period).
-    TickType_t last = xTaskGetTickCount();
 
     // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("TEMPHUM", HB_DELAY);
@@ -173,7 +165,7 @@ void SHTTask(void* parameter) {
             );
         }
 
-        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
+        vTaskDelay(period);
     }
 }
 
@@ -200,10 +192,6 @@ void LightTask(void* parameter) { // AS7341 & photo Resistor
 
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
-
-    // Init once. This will be updated by the scheduler each time it is passed
-    // as reference to vTaskDelayUntil(&last, period).
-    TickType_t last = xTaskGetTickCount();
 
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("LIGHT", HB_DELAY);
@@ -240,7 +228,7 @@ void LightTask(void* parameter) { // AS7341 & photo Resistor
             );
         }
 
-        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
+        vTaskDelay(period);
     }
 }
 
@@ -269,10 +257,6 @@ void soilTask(void* parameter) { // Soil sensors
 
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
-
-    // Init once. This will be updated by the scheduler each time it is passed
-    // as reference to vTaskDelayUntil(&last, period).
-    TickType_t last = xTaskGetTickCount();
 
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("SOIL", HB_DELAY);
@@ -311,7 +295,7 @@ void soilTask(void* parameter) { // Soil sensors
             );
         }
 
-        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
+        vTaskDelay(period);
     }
 }
 
@@ -340,10 +324,6 @@ void routineTask(void* parameter) {
 
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
-
-    // Init once. This will be updated by the scheduler each time it is passed
-    // as reference to vTaskDelayUntil(&last, period).
-    TickType_t last = xTaskGetTickCount();
 
      // Register task with heartbeat.
     uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("ROUTINE", HB_DELAY);
@@ -397,7 +377,7 @@ void routineTask(void* parameter) {
             );
         }
 
-        vTaskDelayUntil(&last, period); // Sets absolute delay, vs relative.
+        vTaskDelay(period);
     }
 }
 
