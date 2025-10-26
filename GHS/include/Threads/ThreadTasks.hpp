@@ -23,6 +23,8 @@ namespace ThreadTask {
 // are passed, requiring a void* param. A thread parameter struct is created
 // for each, and will be recasted once created to use desired params.
 
+TickType_t delay(TickType_t work, TickType_t period);
+
 void highWaterMark(const char* tag, UBaseType_t HWM);
 void netTask(void* parameter);
 void SHTTask(void* parameter);

@@ -16,7 +16,7 @@ namespace Comms {
 // the will not be part of the thread task stack.
 
 #define SKT_BUF_SIZE 2048 // Large to accomodate the get all call
-#define SKT_MAX_RESP_ARGS 5 // Max response arguments / clients at once.
+#define SKT_MAX_RESP_ARGS 10 // Max response arguments / clients args at once.
 #define SKT_REPLY_SIZE 128 // Basic replies
 #define SKT_RANGE_EXC -999 // Default range value for exceptions.
 #define POOL_SIG 0xBEEFFEED // Used to sign argument while active.
@@ -76,6 +76,7 @@ class SOCKHAND : public MASTERHAND {
     static void compileData(cmdData &data, char* buffer, size_t size);
     static bool inRange(int lower, int upper, int value, 
         int exception = SKT_RANGE_EXC, int multiplier = 1);
+        
     static bool checkSTA(int &written, char* buffer, size_t size, 
         const char* reply, const char* idNum);
     

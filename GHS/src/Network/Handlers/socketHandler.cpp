@@ -78,6 +78,7 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
             "%s Invalid command input format", SOCKHAND::tag);
         
         MASTERHAND::sendErr(MASTERHAND::log);
+        SOCKHAND::pool.releaseArg(arg); // Release arg if error.
         return ESP_FAIL;
     }
 
@@ -107,9 +108,9 @@ void SOCKHAND::ws_async_send(void* arg) {
 
         MASTERHAND::sendErr(MASTERHAND::log);
         printf("Sig = %lu\n", respArg->signature);
+        SOCKHAND::pool.releaseArg(respArg); // Release arg if error.
         return;
     }
-
 
     size_t bufSize = sizeof(respArg->Buf);
 
@@ -228,7 +229,7 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     // HANDSHAKE COMPLETE. Code block above will not run in follow on requests.
     // Gets first open arg from the argPool. 
-    async_resp_arg* arg = SOCKHAND::pool.getArg();
+    async_resp_arg* arg = SOCKHAND::pool.getArg(); 
 
     if (arg == NULL) { // No availabilities
 
@@ -257,7 +258,7 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
             SOCKHAND::tag, esp_err_to_name(ret));
         
         MASTERHAND::sendErr(MASTERHAND::log);
-
+        SOCKHAND::pool.releaseArg(arg); // Release arg if error.
         return ESP_OK; // NOTE 1. BLOCK.
     }
 
@@ -278,6 +279,7 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
                 SOCKHAND::tag, esp_err_to_name(ret));
             
             MASTERHAND::sendErr(MASTERHAND::log);
+            SOCKHAND::pool.releaseArg(arg); // Release arg if error.
             return ESP_OK; // NOTE 1. BLOCK.
         }
 

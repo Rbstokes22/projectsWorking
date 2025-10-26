@@ -322,11 +322,12 @@ scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t ext) { // STA only
         // Before the scan starts, Extend the heartbeat to cover the blocking
         // scan. If this is problematic for other threads, swap to extendAll.
         heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
-        HB->extend(heartbeatID, ext);
+
+        HB->suspendAll("Net Scan"); // suspend before blocking function.
 
         err = esp_wifi_scan_start(NULL, true); // Blocking 2-4 sec from testing.
 
-        HB->clearExt(heartbeatID); // Clear extension after scan.
+        HB->releaseAll(); // release all suspensions.
 
         if (err != ESP_OK) {
             snprintf(this->log, sizeof(this->log), "%s Scan Start Err", 

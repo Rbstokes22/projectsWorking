@@ -377,14 +377,11 @@ bool OTAHAND::openClient(esp_http_client_handle_t &client,
             return false;
         }
 
-        // Extend heartbeats as a prepatory measure, by the seconds floored + 1.
-        uint8_t HB_SEC = (WEB_TIMEOUT_MS / 1000) + 1;
-
-        HB->extendAll(HB_SEC); // Extend before potential blocker.
+        HB->suspendAll("OTA FW check Client Request"); // Prep for block below.
 
         err = esp_http_client_open(client, 0);
 
-        HB->clearExtAll(); // Clear extensions after potential blocker.
+        HB->releaseAll(); // Release block on all
     }
  
     if (err == ESP_OK) { // Has been open, set flag.

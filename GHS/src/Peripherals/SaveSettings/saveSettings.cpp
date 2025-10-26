@@ -44,7 +44,7 @@ settingSaver* settingSaver::get() {
 
 // No params. Attempts an NVS save for all the peripheral settings. Returns
 // true if all items saved, and false if not.
-IRAM_ATTR bool settingSaver::save() { 
+bool settingSaver::save() { 
 
     // Even though NVS has the functionality, manage all savings here and 
     // only write what is intended to change. All logic within these calls.

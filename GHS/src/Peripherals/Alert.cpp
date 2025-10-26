@@ -262,14 +262,11 @@ bool Alert::openClient(const char* jsonData) {
             return false;
         }
 
-        // Extend heartbeats as a prepatory measure, by the seconds floored + 1.
-        uint8_t HB_SEC = (WEB_TIMEOUT_MS / 1000) + 1;
-
-        HB->extendAll(HB_SEC); // Add extension before opening.
+        HB->suspendAll("Alert Client Request"); // Suspend prep for block
 
         esp_err_t open = esp_http_client_open(client, strlen(jsonData));
 
-        HB->clearExtAll(); // Clear extension after blocking.
+        HB->releaseAll(); // Release suspension to all.
 
         if (open != ESP_OK) {
             snprintf(this->log, sizeof(this->log), 

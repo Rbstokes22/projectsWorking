@@ -20,6 +20,29 @@
 
 namespace ThreadTask {
 
+// ATTENTION: Cannot use vTaskDelayUntil, since the scheduler continues to 
+// run all threads, despite being suspended. To solve this we went back to 
+// vTaskDelay, subtracting the work time's remainder from the period, to keep
+// the frequency true to the whole second. For example, if a task overruns its
+// 1 hz frequency at 1300ms, you would use vTaskDelay(period - (1300 % 1000)),
+// which would run the next iteration at 700 ms instead of 1000.
+
+// Requires the ticks used to complete the task work iteration, and the period
+// in ticks. Computes the overrun, and returns delay modification to best 
+// mimic an absolute period for each iteration, as opposed to relative.
+TickType_t delay(TickType_t work, TickType_t period) {
+
+    // Compute the remainder, which is the period of work between each work
+    // iteration. If you have a period of 1500 ticks, and your work took 450
+    // ticks, the remainder will be 450. 450 will be subtracted from 1500 to
+    // set the next delay to 1050 ticks, which is when it should run anyway.
+    // This returns a delay of 1050, which will execute the iteration when the
+    // absolute time is 3000 ticks, instead of 3450, resulting in less drift.
+    TickType_t remainder = work % period;
+    TickType_t delay = (period > remainder) ? (period - remainder) : 0;
+    return delay;
+}
+
 // requires the tag and high water mark. Each thread routinely calls this to
 // ensure that its high water mark is not approaching zero. If LTE to the 
 // minimum, a critical log entry will occur.
@@ -104,7 +127,7 @@ void netTask(void* parameter) { // Runs on 1 second intervals.
             );
         }
 
-        vTaskDelay(period);
+        vTaskDelay(delay(work, period));
     }
 }
 
@@ -165,7 +188,7 @@ void SHTTask(void* parameter) {
             );
         }
 
-        vTaskDelay(period);
+        vTaskDelay(delay(work, period));
     }
 }
 
@@ -228,7 +251,7 @@ void LightTask(void* parameter) { // AS7341 & photo Resistor
             );
         }
 
-        vTaskDelay(period);
+        vTaskDelay(delay(work, period));
     }
 }
 
@@ -295,7 +318,7 @@ void soilTask(void* parameter) { // Soil sensors
             );
         }
 
-        vTaskDelay(period);
+        vTaskDelay(delay(work, period));
     }
 }
 
@@ -377,7 +400,7 @@ void routineTask(void* parameter) {
             );
         }
 
-        vTaskDelay(period);
+        vTaskDelay(delay(work, period));
     }
 }
 

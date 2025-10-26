@@ -6,17 +6,11 @@
 // the tasks to keep running in the background due to scheduler issues. Drift
 // is no conconcern since tens of thousands of samples are taken per day. See
 // https://forums.freertos.org/t/vtasksuspend-strange-behavior/10615/7 about
-// the issue.
+// the issue. I implemented an absolute mimicing function called delay(), which
+// accounts for the work time and next delay, to keep it best in sync with the
+// actual frequency, with some loss in overruns when/if they occur.
 
 // TO DO:
-
-// Removed delayUntil, causing several issues by not stopping during OTA update.
-// Fix heart beat, remove extensions add in suspend and resume flags. Ensure
-// the heartbeat registry is atomic, use store() and load() appropriately.
-// Look over the whole heartbeat setup to ensure that it is robust as well. 
-// Also remove IRAM from the heartbeat functions or whereever else it lives,
-// no longer needed.
-
 
 // Updates to the alerts for sensors being down. Havent been tested at this 
 // point and need to test. I dont predict there will be any issues with this.
