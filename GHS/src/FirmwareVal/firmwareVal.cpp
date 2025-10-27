@@ -16,15 +16,15 @@ namespace Boot {
 // This is generated using buildData/buildKeys.sh. The public key is 
 // copied into here.
 const char* FWVal::pubKey =
-    R"rawliteral(-----BEGIN PUBLIC KEY-----
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8D+FXkYt9VnNbFXYJ1zn
-    0wi4ARgpA7n2aDrJxj44pK77zyPEjkYYrQ2d1uHegHaag4g4NGsGw5HxIo54Uwb7
-    q4T0i0J42FFD34sjwGNOqF56gQiTh5ELrVmuVpYCQOIwUIV5Hs/z+G2pKFVdPpmH
-    DPj81fYnNsd5XLCK1ClWqf5NpPlSm6r8Y6tpU30pjQErkychV6o6HlgWsU3Ut9x5
-    BGy5YrsqVUImN6uct4wMiPewYv1PaSVk3ABOVxQ33barx5rJtOfoyPfvz/zG8348
-    gKIl1ssMaWQvgrJtnDoZWL+1jyatol0pnX9YrY0crbyGWSkDHH+PfOBkoiukVad5
-    5wIDAQAB
-    -----END PUBLIC KEY-----)rawliteral";
+R"rawliteral(-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8D+FXkYt9VnNbFXYJ1zn
+0wi4ARgpA7n2aDrJxj44pK77zyPEjkYYrQ2d1uHegHaag4g4NGsGw5HxIo54Uwb7
+q4T0i0J42FFD34sjwGNOqF56gQiTh5ELrVmuVpYCQOIwUIV5Hs/z+G2pKFVdPpmH
+DPj81fYnNsd5XLCK1ClWqf5NpPlSm6r8Y6tpU30pjQErkychV6o6HlgWsU3Ut9x5
+BGy5YrsqVUImN6uct4wMiPewYv1PaSVk3ABOVxQ33barx5rJtOfoyPfvz/zG8348
+gKIl1ssMaWQvgrJtnDoZWL+1jyatol0pnX9YrY0crbyGWSkDHH+PfOBkoiukVad5
+5wIDAQAB
+-----END PUBLIC KEY-----)rawliteral";
 
 FWVal::FWVal() : tag("(FWVal)") {
 
@@ -215,14 +215,15 @@ val_ret_t FWVal::verifySig(const uint8_t* firmwareHash,
 
     mbedtls_pk_context pk; // public key container
     mbedtls_pk_init(&pk);
+    size_t keyLen = strlen(FWVal::pubKey);
 
     // Load the public key stored as a static char* from this class. Parse
     // the key. If error, log.
     if (mbedtls_pk_parse_public_key(&pk, (const unsigned char*)FWVal::pubKey, 
-        strlen(FWVal::pubKey) + 1) != 0) {
+        keyLen + 1) != 0) {
 
         snprintf(this->log, sizeof(this->log), 
-            "%s Failed to parse public key", this->tag);
+            "%s Failed to parse public key", this->tag); // !!!!!!!!!!!!!!!!!!!!!!! ERR PT
 
         this->sendErr(this->log);
         return val_ret_t::SIG_FAIL;

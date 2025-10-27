@@ -15,7 +15,7 @@ namespace OTA {
 
 #define URLSIZE 128 // Used for url query
 #define OTA_CLEANUP_ATTEMPTS 5 // Attempts to try to close connection
-#define OTA_BUFFER_SIZE 1024 // Used for signature and firmware.
+#define OTA_BUFFER_SIZE 8192 // Used for signature and firmware.
 #define OTA_FILEPATH_SIZE 32 // Used to access spiffs filepath
 #define OTA_LOG_METHOD Messaging::Method::SRL_LOG
 #define OTA_TAG "OTAUPD"

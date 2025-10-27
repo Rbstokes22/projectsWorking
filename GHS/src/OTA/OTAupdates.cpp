@@ -249,7 +249,7 @@ OTA_RET OTAhandler::processReq(URL &url) {
 
     if (err != Boot::val_ret_t::VALID) {
         snprintf(this->log, sizeof(this->log), 
-            "%s FW invalid, next part not set", this->tag);
+            "%s FW invalid, next part not set", this->tag); // !!!!!!!!!!!!!!!!!!! error
 
         this->sendErr(this->log, Messaging::Levels::WARNING);
         this->OLED.printUpdates("Firmware Sig Invalid"); // Blocking
