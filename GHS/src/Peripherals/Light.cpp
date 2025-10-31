@@ -13,11 +13,13 @@ namespace Peripheral {
 
 const char* Light::tag(LIGHT_TAG);
 char Light::log[LOG_MAX_ENTRY]{0};
-Threads::Mutex Light::mtx(LIGHT_FLAG_TAG); // Def of static var
+Threads::Mutex Light::mtx(LIGHT_TAG); // Def of static var
 
-Light::Light(LightParams &params) : 
+LightHealth::LightHealth() : photo(0.0f), spec(0.0f), photoReadErr(false),
+    specReadErr(false) {}
+
+Light::Light(LightParams &params) : health(),
     
-    flags("(Lightflag)"), 
     conf{0, LIGHT_THRESHOLD_DEF, RECOND::NONE, RECOND::NONE, nullptr, 
         LIGHT_NO_RELAY, 0, 0, 0},
 
@@ -196,8 +198,7 @@ void Light::handleRelay(bool relayOn, size_t ct) {
 
     // Run primary checks to ensure that the relay can be utilized. For
     // special checks, include in the switch case.
-    if (this->conf.relay == nullptr || 
-        !this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR) || 
+    if (this->conf.relay == nullptr || this->health.photoReadErr || 
         ct < LIGHT_CONSECUTIVE_CTS) return; // Block
 
     switch (relayOn) {
@@ -249,12 +250,12 @@ Light* Light::get(LightParams* parameter) {
 // Requires no parameters. Uses the AS7341 driver to read all spectral channels.
 // Returns true for a successful read, and false if not.
 bool Light::readSpectrum() {
-    static size_t errCt{0};
+
     bool read{false};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Used to handle alerts for the sensor being down/impacted long term.
-    static SensDownPkg pkg = {"(SPEC)", true, true, 0, LAST_SENT::UP};
+    static SensDownPkg pkg("(SPEC)");
 
     Alert* alt = Alert::get();
 
@@ -268,12 +269,11 @@ bool Light::readSpectrum() {
     // error read, display flag is set to false allowing the clients display to
     // show the light reading to be down.
     if (read) { // Show no error flags if true
-        this->readings = tempVal; // Set upon successful read.       
-        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
-        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR);
+        this->readings = tempVal; // Set upon successful read.   
+        this->health.specReadErr = false;
+        this->health.spec *= HEALTH_EXP_DECAY; // Decay for good read.
         this->computeAverages(true); // Compute avg upon success.
         this->computeTrends();
-        errCt = 0; // resets count.
 
         if (!logOnce) { // Log for first trip only, can only be set with err.
 
@@ -286,45 +286,38 @@ bool Light::readSpectrum() {
         
     } else { // If error, release flag to false.
 
-        // No err handling, Driver handles this, only capture prolonged err
-        // below if the err Ct exceeds count max.
-        this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR);
-        errCt++; // inc count by 1.
+        this->health.specReadErr = true;
+        this->health.spec += HEALTH_ERR_UNIT; // Adds unit per bad read.
     }
 
-    alt->monitorSens(pkg, errCt);
+    alt->monitorSens(pkg, this->health.spec);
 
     // Sets the diplay to true if the error count is less than max allowed.
     // If exceeded the display will be set to false telling client of error.
     // This is to filter bad reads from constantly alerting client.
-    if (errCt < LIGHT_ERR_CT_MAX) {
-        this->flags.setFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
 
-    } else {
+    // Logs if sensor becomes unresponsive.
+    if (this->health.spec > HEALTH_ERR_MAX && logOnce) {
+        snprintf(Light::log, sizeof(Light::log), "%s spec read err", 
+            Light::tag);
 
-        if (logOnce) { // Log for first trip. Must preceed fixed err msg.
-            snprintf(Light::log, sizeof(Light::log), "%s spec read err", 
-                Light::tag);
+        Light::sendErr(Light::log);
 
-            Light::sendErr(Light::log);
-            logOnce = false; // prevents re-log, allows fixed error log.
-        }
-
-        this->flags.releaseFlag(LIGHTFLAGS::SPEC_NO_ERR_DISP);
+        logOnce = false; // prevents re-log, allows fixed error log.
     }
 
-    return this->flags.getFlag(LIGHTFLAGS::SPEC_NO_ERR); // true if data OK
+    return this->health.specReadErr;
 }
 
 // Requires no parameters. Reads the analog reading of the photoresistor and
 // stores it to the class variable. Returns true upon a successful read, and
 // false if not.
 bool Light::readPhoto() {
-    static size_t errCt{0};
+
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Used to handle alerts for the sensor being down/impacted long term.
-    static SensDownPkg pkg = {"(PHOTO)", true, true, 0, LAST_SENT::UP};
+    static SensDownPkg pkg("(PHOTO)");
 
     Alert* alt = Alert::get();
 
@@ -337,8 +330,8 @@ bool Light::readPhoto() {
     // Check value to ensure integrity. Bad val set to -1, since we are using
     // single point mode, there are no negative values, as opp to differential.
     if (tempVal == ADC_BAD_VAL) {
-        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR); // false if err
-        errCt++; // Increment error count.
+        this->health.photo += HEALTH_ERR_UNIT; // Adds unit per bad read.
+        this->health.photoReadErr = true;
 
     } else {
 
@@ -348,9 +341,8 @@ bool Light::readPhoto() {
             ((tempVal / PHOTO_NOISE) * PHOTO_NOISE) : 0;
 
         this->computeAverages(false); // Comp average, false = not spectral.
-        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
-        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR);
-        errCt = 0; // zero out
+        this->health.photo *= HEALTH_EXP_DECAY; // Decays upon good read.
+        this->health.photoReadErr = false;
 
         if (!logOnce) { // Log for first trip only, can only be set with err.
 
@@ -362,26 +354,17 @@ bool Light::readPhoto() {
         }
     }
 
-    alt->monitorSens(pkg, errCt);
+    alt->monitorSens(pkg, this->health.photo);
 
-    // Sets display to true if the error ct is less than max.
-    if (errCt < LIGHT_ERR_CT_MAX) {
-        this->flags.setFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
+    if (this->health.photo > HEALTH_EXP_DECAY && logOnce) {
+        snprintf(Light::log, sizeof(Light::log), "%s photo read err", 
+            Light::tag);
 
-    } else {
-
-        this->flags.releaseFlag(LIGHTFLAGS::PHOTO_NO_ERR_DISP);
-
-        if (logOnce) { // Log for first trip. Must preceed fixed err msg.
-            snprintf(Light::log, sizeof(Light::log), "%s photo read err", 
-                Light::tag);
-
-            Light::sendErr(Light::log);
-            logOnce = false; // prevents re-log, allows fixed error log.
-        }
+        Light::sendErr(Light::log);
+        logOnce = false; // prevents re-log, allows fixed error log.
     }
 
-    return this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR); // true if OK
+    return !this->health.photoReadErr;
 }
 
 // Returns pointer to spectrum data.
@@ -394,17 +377,15 @@ int Light::getPhoto() {
     return this->photoVal; 
 }
 
-// Returns the flags about error status.
-Flag::FlagReg* Light::getFlags() {
-    return &this->flags;
-}
+// Returns the health of the sensor data.
+LightHealth* Light::getHealth() {return &this->health;}
 
 // Requires no parameters. Checks the boundaries of the photoresistor settings.
 // If the read values are outside of the boundaries, the relay is handled
 // appropriately. Returns true if successful, and false if there is an error
 // reading the photoresistor.
 bool Light::checkBounds() { // Acts as a gate to ensure data integ.
-    if (!this->flags.getFlag(LIGHTFLAGS::PHOTO_NO_ERR)) return false;
+    if (this->health.photoReadErr) return false;
 
     // Bounds of the allowable range.
     int lowerBound = this->conf.tripVal - LIGHT_HYSTERESIS;

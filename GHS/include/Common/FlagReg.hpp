@@ -16,6 +16,7 @@ class FlagReg {
     bool getFlag(uint8_t bitIdx);
     void setFlag(uint8_t bitIdx);
     void releaseFlag(uint8_t bitIdx);
+    size_t &getReg();
 };
 
 }

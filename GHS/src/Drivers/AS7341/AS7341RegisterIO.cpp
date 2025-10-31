@@ -34,7 +34,7 @@ bool AS7341basic::setBank(REG reg) {
     // IAW datasheet Pg.53.
     if (addr >= cutoff && lastAddr < cutoff) {
 
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
+        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
         lastAddr = addr; // 00000001
 
     } else if(addr < cutoff && lastAddr >= cutoff) {
@@ -42,7 +42,7 @@ bool AS7341basic::setBank(REG reg) {
         // Register map (pg26) says shift 3, details (pg54) say shift 4. 
         // Does not work with 4, only works with 3. 
         buffer[1] |= (1 << 3); // Sets byte to 0x08 for register below 0x80.
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
+        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
         lastAddr = addr;
     } 
 
@@ -69,7 +69,7 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
     if (this->setBank(reg)) { // Ensure bank is set. Then write to register.
 
         uint8_t buffer[2] = {addr, val};
-        err = i2c_master_transmit(this->i2cHandle, buffer, 2, AS7341_TIMEOUT);
+        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
         vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
 
         if (err != ESP_OK) {
@@ -105,7 +105,7 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
 
         // transmit receive since must write a command to read data.
         err = i2c_master_transmit_receive(
-            this->i2cHandle,
+            this->i2c.handle,
             writeBuf, sizeof(writeBuf),
             readBuf, sizeof(readBuf), AS7341_TIMEOUT
         );

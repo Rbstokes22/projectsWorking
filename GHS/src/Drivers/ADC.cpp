@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "Config/config.hpp"
+#include "Common/FlagReg.hpp"
 
 namespace ADC_DRVR {
 
@@ -57,13 +58,13 @@ bool ADC::config(uint8_t pinNum, bool refreshConf) {
         static_cast<uint8_t>(conf & 0xFF) // LSB
     };
 
-    esp_err_t err = i2c_master_transmit(this->i2cHandle, writeBuf, 
+    esp_err_t err = i2c_master_transmit(this->i2c.handle, writeBuf, 
         sizeof(writeBuf), ADC_I2C_TIMEOUT);
 
     if (err != ESP_OK) {
         snprintf(this->log, sizeof(this->log), "%s writing config", this->tag);
         this->sendErr(this->log);
-        return false;
+        return false; 
     }
 
     return true;
@@ -114,7 +115,7 @@ int16_t ADC::getVal() {
     
     // Request to read 16 bits from the conversion register.
     esp_err_t err = i2c_master_transmit_receive(
-        this->i2cHandle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
+        this->i2c.handle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
         ADC_I2C_TIMEOUT
     );
 
@@ -142,7 +143,7 @@ bool ADC::isConverting() {
     uint8_t readBuf[2] = {0, 0};
 
     esp_err_t err = i2c_master_transmit_receive(
-        this->i2cHandle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
+        this->i2c.handle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
         ADC_I2C_TIMEOUT
     );
 
@@ -165,7 +166,7 @@ void ADC::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, ADC_LOG_METHOD);
 }
 
-ADC::ADC() : tag(ADC_TAG), log(0), isInit(false) {
+ADC::ADC() : tag(ADC_TAG), log(0), initFlag(ADC_TAG) {
 
     memset(&this->pkt, 0, sizeof(this->pkt)); // Clear packet.
 
@@ -174,18 +175,64 @@ ADC::ADC() : tag(ADC_TAG), log(0), isInit(false) {
 }
 
 // Requires the i2c address and confirmation packet. Initializes the ADC and 
-// configures the device. Must occur before reading.
-void ADC::init(uint8_t i2cAddr, CONF &pkt) {
-    if (this->isInit) return; // Block if already init.
-
-    // Init I2C and add device to the service
-    Serial::I2C* i2c = Serial::I2C::get();
-    i2c_device_config_t devCon = i2c->configDev(i2cAddr);
-    this->i2cHandle = i2c->addDev(devCon);
+// configures the device. Must occur before reading. Returns true or false
+// depending on successful addition.
+bool ADC::init(uint8_t i2cAddr, CONF &pkt) {
     
+    bool mainInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(ADC_INIT::INIT));
+
+    if (mainInit) return true; // Prevens re-init.
+
+    bool i2cInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(ADC_INIT::I2C_INIT));
+
+    if (!i2cInit) { // I2C has not been init yet, if init, block code.
+
+        // Init I2C and add device to the service
+        Serial::I2C* i2c = Serial::I2C::get();
+
+        this->i2c.config = i2c->configDev(i2cAddr);
+        bool devAdded = i2c->addDev(this->i2c); // Populates handle.
+
+        // Use retry logic here if failed to add device. This will separate
+        // the i2c init from the device init.
+        if (!devAdded) {
+
+            for (int i = 0; i < I2C_ADDDEV_RETRIES; i++) {
+                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay
+
+                devAdded = i2c->addDev(this->i2c);
+
+                if (devAdded) break;
+            }
+
+            if (!devAdded) {
+                snprintf(this->log, sizeof(this->log), 
+                    "%s Device not added after %d retries", this->tag, 
+                    I2C_ADDDEV_RETRIES);
+
+                this->sendErr(this->log, Messaging::Levels::CRITICAL);
+                return false;
+            }
+        }
+
+        // set blocking flag.
+        this->initFlag.setFlag(static_cast<uint8_t>(ADC_INIT::I2C_INIT));
+    }
+
+    // If I2C has been init, init the remainder of the device
     this->pkt = pkt; // Set the class object pkt upon init.
-    this->isInit = true;
-    this->config(0, true); // Configures the device upon init.
+
+    bool isConfig = this->config(0, true);
+
+    if (isConfig) {
+        // Set blocking flag.
+        this->initFlag.setFlag(static_cast<uint8_t>(ADC_INIT::INIT));
+        return true;
+    }
+
+    return false;
 }
 
 // Requires the reference to the int16 variable that the reading will populate,
@@ -195,7 +242,10 @@ void ADC::init(uint8_t i2cAddr, CONF &pkt) {
 // differential.
 void ADC::read(int16_t &readVar, uint8_t pin, bool refreshConf) {
 
-    if (!this->isInit) { // Ensures the device has been init before reading.
+    bool isInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(ADC_INIT::INIT));
+
+    if (!isInit) { // Ensures the device has been init before reading.
         snprintf(this->log, sizeof(this->log), "%s Not init", this->tag);
         this->sendErr(this->log);
         return; // Block

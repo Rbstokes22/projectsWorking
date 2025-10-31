@@ -413,54 +413,60 @@ bool Alert::sendReport(const char* JSONmsg) {
     return this->prepMsg(this->report, true);
 }
 
-// Requires the sensor down package reference and the current error count.
+// Requires the sensor down package reference and the current health.
 // Updates all values in this section. If counts exceed settings, then either
 // a sensor down or sensor up message will be sent as an alert using 
 // this->sendAlert(). Returns true if working as advertised, or false if not.
-bool Alert::monitorSens(SensDownPkg &pkg, size_t errCt) {
+bool Alert::monitorSens(SensDownPkg &pkg, float health) {
 
     char msg[64]{0}; // 64 bytes is plenty large with some padding.
     bool send = false; // trigger to send message.
     LAST_SENT type = LAST_SENT::NONE;
 
-    // Sets the package status if error detected or not.
-    pkg.status = (errCt > 0) ? false : true;
+    // Set the current status based on current health conditions.
+    pkg.status = (health > HEALTH_ERR_MAX) ? true : false;
 
-    // Indicates change and restarts counts under correct status.
-    if (pkg.status != pkg.prevStatus) pkg.counts = 0; 
+    // A change of status resets the counts to 0 to begin re-accumulation.
+    if (pkg.status != pkg.prevStatus) pkg.counts = 0;
+   
+    pkg.counts++; // Increment count of current status.
 
-    // Will trigger send flag only at the exact required count. This will 
-    // trigger one exact criteria to send. If send fails, count will be reset
-    // to allow follow on attempts. Uses the ENUM to act as a toggle to 
-    // capture >= but only send a single alert message.
-    if (!pkg.status && pkg.counts >= SENS_DOWN_CT && pkg.lastAlt !=    
+    // First check if status is set to error, and has been counted the 
+    // appropriate amount of times, and the last outgoing message was not the
+    // sensor being down.
+    if (pkg.status && pkg.counts >= SENS_DOWN_CT && pkg.lastAlt !=
         LAST_SENT::DOWN) {
 
+        // Change all data to indicate to send a down alert.
         type = LAST_SENT::DOWN;
         snprintf(msg, sizeof(msg), "%s DOWN", pkg.sensor);
         send = true;
 
-    } else if (pkg.status && pkg.counts >= SENS_UP_CT && pkg.lastAlt !=
+    // Otherwise, check if status is set to no error, and has been counted
+    // the appropriate amount of times, and the last outgoing message was not
+    // the sensor being up.
+    } else if (!pkg.status && pkg.counts >= SENS_UP_CT && pkg.lastAlt !=
         LAST_SENT::UP) {
 
         type = LAST_SENT::UP;
         snprintf(msg, sizeof(msg), "%s UP", pkg.sensor);
         send = true;
     }
+ 
+    pkg.prevStatus = pkg.status; // Make equal at functional end.
 
-    pkg.prevStatus = pkg.status; // Make equal at function end.
-
+    // Ensure at least 1 try if retries is somehow polluted in .hpp file.
     const size_t tries = (SENS_SEND_RETRIES > 0) ? SENS_SEND_RETRIES : 1;
 
     if (send) { // If flagged to send, send and return true if successful.
         for (size_t i = 0; i < tries; i++) {
             if (this->sendAlert(msg, ALT_TAG)) {
-                pkg.lastAlt = type;
-                return true;
+                pkg.lastAlt = type; // Set last alert upon success only.
+                return true; // Indiates working properly.
             }
         }
 
-        pkg.counts = 0; // Reset to allow another send if error.
+        pkg.counts = 0; // Reset to allow another send if send error.
         return false; // Indicates no send, which will be logged anyway.
     }
     

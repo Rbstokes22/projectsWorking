@@ -5,14 +5,16 @@
 #include <cstddef>
 #include "I2C/I2C.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 // Datasheet
 // https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf
 
 namespace UI_DRVR {
 
-#define SSD1306_I2C_TIMEOUT 500 // Timeout
+#define SSD1306_I2C_TIMEOUT 100 // Timeout
 #define SSD1306_LOG_METHOD Messaging::Method::SRL_LOG
+#define SSD1306_TAG "(SSD_1306)"
 
 enum class Size { // Size parameters, some specified by datasheet.
     pages = 8,
@@ -38,6 +40,9 @@ enum class TXTCMD {
     START, END
 };
 
+// Used to prevent re-initialization.
+enum class SSD_INIT : uint8_t {INIT, I2C_INIT, MK_TEMP};
+
 struct Dimensions { // Will be used in conjunction with dimIndex[].
     uint8_t width; // Width dimension
     uint8_t height; // Height dimension
@@ -49,17 +54,17 @@ class OLEDbasic {
     private:
     const char* tag;
     char log[LOG_MAX_ENTRY];
+    Flag::FlagReg initFlag;
     uint8_t col, page; // Column and page values
     Dimensions charDim; // Width and height dimension struct
     DIM dimID; // Dimension ID, used with  enum class DIM.
     const size_t colMax, pageMax, cmdSeqLgth, lineLgth; // Max values.
-    i2c_master_dev_handle_t i2cHandle; // i2c handle for dev registration.
+    Serial::I2CPacket i2c; 
     static const uint8_t init_sequence[]; // Init sequence to start device
     static uint8_t charCMD[]; // character commands modified and reused.
-    bool isInit; // Is initialized.
     uint8_t* Worker; // Points to the worker buffer.
     uint8_t* Display; // Points to the display buffer.
-    uint8_t templateBuf[static_cast<int>(Size::bufferSize)]; // Used as temp
+    uint8_t templateBuf[static_cast<int>(Size::bufferSize)]; // Used as template
     uint8_t bufferA[static_cast<int>(Size::bufferSize)]; // Part 1 of dual buf.
     uint8_t bufferB[static_cast<int>(Size::bufferSize)]; // Part 2 of dual buf.
     uint16_t bufferIDX; // Current index of the next buffer entry.

@@ -4,6 +4,7 @@
 #include "I2C/I2C.hpp"
 #include "stdint.h"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 // Datasheet
 // https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf
@@ -21,6 +22,7 @@ namespace SHT_DRVR {
 #define SHT_READ_DELAY 50 // 50 millis, used between request and read.
 #define SHT_STATUS_BYTES 2 // uint16_t / 2 bytes expected
 #define SHT_LOG_METHOD Messaging::Method::SRL_LOG
+#define SHT_TAG "(SHT31)"
 
 // SHT values to include floats for tempF, tempC and hum as well as a bool
 // dataSafe to ensure data is good to use.
@@ -69,15 +71,17 @@ enum class CMD : uint16_t {
     HEATER_NEN = 0x3066, // Disable the heater
     STATUS = 0xF32D, // Read out of status register
     CLEAR_STATUS = 0x3041 // Clear the status register
-
 };
+
+// Used to prevent re-init
+enum class SHT_INIT : uint8_t {I2C_INIT};
 
 class SHT {
     private:
     const char* tag;
     char log[LOG_MAX_ENTRY];
-    i2c_master_dev_handle_t i2cHandle; // I2C handle to register device.
-    bool isInit; // Is class init
+    Serial::I2CPacket i2c;
+    Flag::FlagReg initFlag;
     RWPacket packet; // Read and write packet handling all RW data.
     SHT_RET write();
     SHT_RET read(size_t readSize);
@@ -89,7 +93,7 @@ class SHT {
 
     public:
     SHT();
-    void init(uint8_t address); 
+    bool init(uint8_t address); 
     SHT_RET readAll(START_CMD cmd, SHT_VALS &carrier, 
         int timeout_ms = SHT_READ_TIMEOUT);
         

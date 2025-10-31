@@ -19,6 +19,14 @@ extern char confLog[128]; // Reusable log for config src.
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
 
+// Sensor health information. These are used to monitor the health of all 
+// sensors by accumulating upon error, and decaying upon each non-error.
+// ATTENTION. if the error max is changed, update the station html.
+#define HEALTH_ERR_UNIT 1.0f // Added per error
+#define HEALTH_EXP_DECAY 0.9f // Decays rate upon each non-error.
+#define HEALTH_ERR_MAX 5.0f // Will flag device as problematic when err score
+                            // exceeds  this value.
+
 // Threads. The following values are in bytes. The documentation defines 
 // StackType_t as 1 byte, as opposed to 4 bytes, which would explain a word 
 // if used properly.
@@ -66,6 +74,8 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 #define SHT_ADDR 0x44
 #define ADC1_ADDR 0x48 // Bridged to ground (SOIL SENSORS)
 #define ADC2_ADDR 0x49 // Bridged to VDD (PhotoResistor)
+
+#define I2C_DEF_ADDR 0xFF // Used only as a placeholder until overwritten.
 
 // Developer mode, This affects certain things like NGROK server headers.
 #define DEVmode true // When set to false, production mode.

@@ -10,10 +10,12 @@
 // accounts for the work time and next delay, to keep it best in sync with the
 // actual frequency, with some loss in overruns when/if they occur.
 
+// WARNING. Max I2C clients set to 8. Currently at 5, extend this value on
+// config.hpp if places to exceed 8 in the future.
+
 // TO DO:
 
-// Updates to the alerts for sensors being down. Havent been tested at this 
-// point and need to test. I dont predict there will be any issues with this.
+// Notes on I2C.cpp
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
@@ -270,10 +272,15 @@ void app_main() {
     CONF_PINS::setupDigitalPins(); // Config.hpp
 
     // Init I2C at frequency 50 khz. INIT before building any devices.
-    Serial::I2C::get()->i2c_master_init(Serial::I2C_FREQ::SLOW); 
+    Serial::I2C* i2c = Serial::I2C::get();
+    i2c->i2c_master_init(Serial::I2C_FREQ::SLOW); 
 
-    // Init OLED, AS7341 light sensor, sht temp/hum sensor, and ADCs. Init
-    // before starting thread tasks.
+    // ALL I2C Devices. OLED is not attached directly to the driver and inits
+    // the driver within the Display class. The rest are initialized here since
+    // they are passed directly to the threads. Init before starting any 
+    // thread tasks. 
+    // WARNING. Ensure that each of these clients is captured in the I2C_FLAG
+    // enum on I2C.hpp.
     OLED.init(OLED_ADDR);
     light.init(AS7341_ADDR);
     sht.init(SHT_ADDR); 

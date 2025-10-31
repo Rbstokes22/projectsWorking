@@ -5,6 +5,7 @@
 #include "I2C/I2C.hpp"
 #include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 // Datasheet
 // https://cdn.sparkfun.com/assets/0/8/e/2/3/AS7341_DS000504_3-00.pdf
@@ -23,6 +24,7 @@ namespace AS7341_DRVR {
 #define AS7341_WAIT 1000 // milliseconds timeout.
 #define AS7341_LOG_METH Messaging::Method::SRL_LOG
 #define AS7341_I2C_DELAY 10 // Delay between I2C register writes.
+#define AS7341_TAG "(AS7341)"
 
 // All used register addresses used in the scope of this class.
 enum class REG : uint8_t {
@@ -81,6 +83,9 @@ enum class LED_CONF : uint8_t {ENABLE, DISABLE};
 // Enables or Disables the Flicker Detection
 enum class FLICKER_CONF : uint8_t {ENABLE, DISABLE};
 
+// Used to prevent re-init
+enum class AS7341_INIT : uint8_t {INIT, I2C_INIT};
+
 // ASTEP 0 - 65534. (Recommended 599, default 999)
 // ATIME 0 - 255. (Recommended 29, default 0)
 // WTIME 0 - 255. (Recommended 0)
@@ -115,9 +120,9 @@ class AS7341basic {
     private:
     const char* tag;
     char log[LOG_MAX_ENTRY];
-    i2c_master_dev_handle_t i2cHandle; // handle for i2c init.
+    Serial::I2CPacket i2c;
     CONFIG &conf; // Configuration
-    bool isInit; // Is initialized.
+    Flag::FlagReg initFlag;
     bool specEn;
     bool setBank(REG reg);
     bool writeRegister(REG reg, uint8_t val);
@@ -141,7 +146,6 @@ class AS7341basic {
     public:
     AS7341basic(CONFIG &conf);
     bool init(uint8_t address);
-    bool isDevInit();
     bool setLEDCurrent(LED state, uint16_t mAdriving = 12);
     bool setAGAIN(AGAIN val);
     bool setATIME(uint8_t val);

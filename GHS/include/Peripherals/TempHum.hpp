@@ -14,13 +14,11 @@ namespace Peripheral {
 
 #define TEMP_HUM_HYSTERESIS 2.0f // Padding for reset value
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
-#define TEMP_HUM_ERR_CT_MAX 3 // Error counts to show error on display
 #define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess
 #define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
 #define TEMP_HUM_NO_RELAY 255 // Used to show no relay attached.
 #define TEMP_HUM_LOG_METHOD Messaging::Method::SRL_LOG
 #define TEMP_HUM_TAG "(TEMPHUM)"
-#define TEMP_HUM_FLAG_TAG "(THFlag)"
 
 // Alert configuration. All variables serve as a packet of data assigned to
 // each sensor to allow proper handling and sending to the server. For the
@@ -74,11 +72,6 @@ struct TempHumParams {
     SHT_DRVR::SHT &sht;
 };
 
-enum THFLAGS : uint8_t {
-    NO_ERR, // Used for display after consecutive errors
-    NO_ERR_DISP // Used for immediate error to preven pre-mature relay/alt act
-};
-
 class TempHum {
     private:
     static const char* tag;
@@ -86,7 +79,8 @@ class TempHum {
     SHT_DRVR::SHT_VALS data;
     TH_Averages averages;
     TH_Trends trends;
-    Flag::FlagReg flags;
+    float sensHealth;
+    bool readErr;
     static Threads::Mutex mtx;
     TH_TRIP_CONFIG humConf;
     TH_TRIP_CONFIG tempConf;
@@ -111,7 +105,7 @@ class TempHum {
     TH_TRIP_CONFIG* getHumConf();
     TH_TRIP_CONFIG* getTempConf();
     bool checkBounds();
-    Flag::FlagReg* getFlags();
+    float getHealth();
     TH_Averages* getAverages();
     TH_Trends* getTrends();
     void clearAverages();

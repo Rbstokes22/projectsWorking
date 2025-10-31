@@ -7,6 +7,7 @@
 #include "I2C/I2C.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
+#include "Common/FlagReg.hpp"
 
 namespace UI_DRVR {
 
@@ -118,7 +119,7 @@ void OLEDbasic::sendErr(const char* msg, Messaging::Levels lvl,
 // Defaults to 5x7 char font upon creation.
 OLEDbasic::OLEDbasic() : 
 
-    tag("(SSD1306)"),
+    tag(SSD1306_TAG), initFlag(SSD1306_TAG),
     col{0x00}, page{0x00}, charDim{5, 7}, dimID{DIM::D5x7},
     colMax{static_cast<int>(Size::columns) - 1}, // index 7
     pageMax{static_cast<int>(Size::pages) - 1}, // index 127
@@ -127,7 +128,6 @@ OLEDbasic::OLEDbasic() :
     cmdSeqLgth(sizeof(OLEDbasic::charCMD) - 1), // excludes the 0x40
     lineLgth(static_cast<int>(Size::columns) + 1), // includes 0x40
 
-    isInit(false),
     Worker{this->bufferA}, // sets worker pointer to buffer A
     Display{this->bufferB},
     bufferIDX{0}, isBufferA{true} {
@@ -144,38 +144,86 @@ OLEDbasic::OLEDbasic() :
 // Initializes at def i2c freq. Configures the i2c settings, and adds the i2c 
 // device to the bus, receiving the handle in return.
 bool OLEDbasic::init(uint8_t address) {
-    if (this->isInit) return true; // Prevents from re-init.
 
-    // Init the i2c and add device to the register.
-    Serial::I2C* i2c = Serial::I2C::get();
-    i2c_device_config_t devCon = i2c->configDev(address);
-    this->i2cHandle = i2c->addDev(devCon);
+    bool mainInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(SSD_INIT::INIT));
+
+    if (mainInit) return true; // Prevent re-init.
+
+    bool i2cInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(SSD_INIT::I2C_INIT));
+
+    if (!i2cInit) { // I2C has not been init yet, if init, block code.
+
+        // Init the i2c and add device to the register.
+        Serial::I2C* i2c = Serial::I2C::get();
+        this->i2c.config = i2c->configDev(address);
+        bool devAdded = i2c->addDev(this->i2c);// Populates handle.
+
+        // Use retry logic here if failed to add device.
+        if (!devAdded) {
+
+            for (int i = 0; i < I2C_ADDDEV_RETRIES; i++) {
+                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay
+
+                devAdded = i2c->addDev(this->i2c);
+                if (devAdded) break;
+            }
+
+            if (!devAdded) {
+                snprintf(this->log, sizeof(this->log), 
+                    "%s Device not added after %d retries", this->tag, 
+                    I2C_ADDDEV_RETRIES);
+
+                this->sendErr(this->log, Messaging::Levels::CRITICAL);
+                return false;
+            }
+        }
+
+        // Set blocking flag.
+        this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::I2C_INIT));
+    }
+
+    // If I2C is init, init the remainder of the device.
 
     esp_err_t err = i2c_master_transmit( // Transmit init sequence
-        this->i2cHandle, this->init_sequence,
+        this->i2c.handle, this->init_sequence,
         sizeof(this->init_sequence), SSD1306_I2C_TIMEOUT);
 
-    this->isInit = true;
-    this->reset(true); // Reset, clear, and make template.
-
-    return (err == ESP_OK);
+    // Handle monitor here using err from above.
+    if (err == ESP_OK) {
+        this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::INIT));
+        this->reset(true);
+        return true;
+    }
+    
+    return false;
 }
 
 // Requires no params. Upon init, populates class obect template, that serves
 // as a template buffer that is copied over to the worker buffer on all 
 // subsequential calls. 
 void OLEDbasic::makeTemplate() {
-    static bool isInit = false; // Allows template to be created once to copy.
+
+    // Allows template to be created once to copy.
+    bool isInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(SSD_INIT::MK_TEMP));
 
     // Sequence is written on the interval of the command sequence + the line
     // length, or 136 total. The template is pre-populated to include the 
     // command sequences within certain intervals of the template.
 
-    // Once init, continutes copying the template buffer over to the worker.
+    // Once init, continutes copying the template buffer over to the worker to
+    // be populated. This allows a seamless population of data without worrying
+    // about correct byte spacing for the command sequences.
     if (isInit) {
         memcpy(this->Worker, this->templateBuf, sizeof(this->templateBuf));
         return;
     }
+
+    // ATTENTION:
+    // Everything below is for the initial creation of the template. This is
+    // not executed on each iteration.
 
     // ACTUAL TEMPLATE FORMAT, ONLY CMDSEQ ARE POPULATED WITHIN THE TEMPLATE.
     // R1: <BYTE0-CMDSEQ-BYTE7><BYTE8-CHARS-BYTE135>
@@ -183,7 +231,6 @@ void OLEDbasic::makeTemplate() {
     // ...
     // R8: <BYTE952-CMD_SEQ-BYTE959><BYTE960-CHARS-BYTE1088>
 
-    // Everything below is for the initial creation of the template. 
     uint16_t i = this->lineLgth + this->cmdSeqLgth;
     static const uint8_t col{0};
     static const uint8_t endCol{static_cast<int>(Size::columns) - 1}; // 127
@@ -222,7 +269,9 @@ void OLEDbasic::makeTemplate() {
 
     // Copy template over to worker.
     memcpy(this->Worker, this->templateBuf, sizeof(this->templateBuf));
-    isInit = true; // Change to true to ensure template is created once.
+
+    // Set flag to allow only a single copy of the template to be made.
+    this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::MK_TEMP));
 }
 
 // Resets the working buffer creating a new template, and 
@@ -419,10 +468,8 @@ void OLEDbasic::send() {
     // transmitting the 1088 byte ((129 + 7) * 8) buffer.
     while(i < static_cast<int>(Size::bufferSize)) {
         if (toggle) {
-            err = i2c_master_transmit(
-                this->i2cHandle, &Display[i],
-                this->cmdSeqLgth, SSD1306_I2C_TIMEOUT
-            );
+            err = i2c_master_transmit(this->i2c.handle, &Display[i],
+                this->cmdSeqLgth, SSD1306_I2C_TIMEOUT);
 
             errHandle(err);
 
@@ -430,10 +477,8 @@ void OLEDbasic::send() {
             i += this->cmdSeqLgth;
             
         } else {
-            err = i2c_master_transmit(
-                this->i2cHandle, &Display[i],
-                this->lineLgth, SSD1306_I2C_TIMEOUT
-            );
+            err = i2c_master_transmit(this->i2c.handle, &Display[i],
+                this->lineLgth, SSD1306_I2C_TIMEOUT);
 
             errHandle(err);
 

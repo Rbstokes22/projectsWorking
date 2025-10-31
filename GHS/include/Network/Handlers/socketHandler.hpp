@@ -20,6 +20,8 @@ namespace Comms {
 #define SKT_REPLY_SIZE 128 // Basic replies
 #define SKT_RANGE_EXC -999 // Default range value for exceptions.
 #define POOL_SIG 0xBEEFFEED // Used to sign argument while active.
+#define SKT_TAG "(SOCKHAND)"
+#define POOL_TAG "(ARGPOOL)"
 
 // All commands sent by the client. Starts at index 1. When client passes
 // numerical command, it corresponds to this enum, and will execute 
@@ -34,15 +36,15 @@ enum class CMDS : uint8_t {
 struct cmdData { // Command Data
     CMDS cmd; // uint8_t command.
     int suppData; // Supplementary data included with command.
-    char idNum[20]; // Request ID number sent by client.
+    uint16_t idNum; // Ranges 0 - 255, included uint16_t for padding.
 };
 
 struct async_resp_arg { // Socket response argument struct.
     httpd_handle_t hd; // handle
     int fd; // file descriptior
-    uint8_t Buf[SKT_BUF_SIZE]; // Data buffer.
     cmdData data; // Command data.
     uint32_t signature; // Used only while argument is valid and in use.
+    uint8_t Buf[SKT_BUF_SIZE]; // Data buffer.
 };
 
 class argPool { 
@@ -52,6 +54,7 @@ class argPool {
     private:
     async_resp_arg pool[SKT_MAX_RESP_ARGS]; // Pool of arguemnts
     bool inUse[SKT_MAX_RESP_ARGS]; // flag to show which pool is in use.
+    Threads::Mutex mtx;
 
     public:
     argPool();
@@ -78,7 +81,7 @@ class SOCKHAND : public MASTERHAND {
         int exception = SKT_RANGE_EXC, int multiplier = 1);
         
     static bool checkSTA(int &written, char* buffer, size_t size, 
-        const char* reply, const char* idNum);
+        const char* reply, uint16_t idNum);
     
     static bool initCheck(httpd_req_t* req);
     static void Trends(void* arr, char type, char*buf, size_t bufSize, 

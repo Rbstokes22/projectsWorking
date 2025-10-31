@@ -39,7 +39,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
     // reply is the typical reply to a request, with the exception of the
     // GET_ALL request. Used throughout the function.
     char reply[SKT_REPLY_SIZE] = "{\"status\":%d,\"msg\":\"%s\",\"supp\":%d,"
-    "\"id\":\"%s\"}"; 
+    "\"id\":%u}"; 
 
     // All commands work from here. CMD list is on header doc.
     switch(data.cmd) {
@@ -66,8 +66,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Primary JSON response object. Populates every setting and value that
         // is critical to the operation of this device, and returns it to the
         // client. Ensure client uses same JSON and same commands.
+
         written = snprintf(buffer, size,  
-        "{\"firmv\":\"%s\",\"id\":\"%s\",\"newLog\":%d,\"netMode\":%u,"
+        "{\"firmv\":\"%s\",\"id\":%u,\"newLog\":%d,\"netMode\":%u,"
         "\"sysTime\":%lu,\"hhmmss\":\"%d:%d:%d\",\"day\":%u,\"timeCalib\":%d,"
         "\"re0\":%d,\"re0TimerEn\":%d,\"re0TimerOn\":%zu,\"re0TimerOff\":%zu,"
         "\"re1\":%d,\"re1TimerEn\":%d,\"re1TimerOn\":%zu,\"re1TimerOff\":%zu,"
@@ -80,12 +81,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"tempAltCond\":%u,\"tempAltVal\":%d,"
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
         "\"humAltCond\":%u,\"humAltVal\":%d,"
-        "\"SHTUp\":%d,\"tempAvg\":%0.1f,\"humAvg\":%0.1f,"
+        "\"SHTH\":%.2f,\"tempAvg\":%0.1f,\"humAvg\":%0.1f,"
         "\"tempAvgPrev\":%0.1f,\"humAvgPrev\":%0.1f,"
-        "\"soil0\":%d,\"soil0AltCond\":%u,\"soil0AltVal\":%d,\"soil0Up\":%d,"
-        "\"soil1\":%d,\"soil1AltCond\":%u,\"soil1AltVal\":%d,\"soil1Up\":%d,"
-        "\"soil2\":%d,\"soil2AltCond\":%u,\"soil2AltVal\":%d,\"soil2Up\":%d,"
-        "\"soil3\":%d,\"soil3AltCond\":%u,\"soil3AltVal\":%d,\"soil3Up\":%d,"
+        "\"soil0\":%d,\"soil0AltCond\":%u,\"soil0AltVal\":%d,\"soil0H\":%0.2f,"
+        "\"soil1\":%d,\"soil1AltCond\":%u,\"soil1AltVal\":%d,\"soil1H\":%0.2f,"
+        "\"soil2\":%d,\"soil2AltCond\":%u,\"soil2AltVal\":%d,\"soil2H\":%0.2f,"
+        "\"soil3\":%d,\"soil3AltCond\":%u,\"soil3AltVal\":%d,\"soil3H\":%0.2f,"
         "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,\"green\":%u,"
         "\"yellow\":%u,\"orange\":%u,\"red\":%u,\"nir\":%u,\"clear\":%u,"
         "\"photo\":%d,"
@@ -98,7 +99,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"orangeAvgPrev\":%0.1f,\"redAvgPrev\":%0.1f,\"nirAvgPrev\":%0.1f,"
         "\"clearAvgPrev\":%0.1f,\"photoAvgPrev\":%0.1f,"
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
-        "\"lightDur\":%lu,\"photoUp\":%d,\"specUp\":%d,\"darkVal\":%u,"
+        "\"lightDur\":%lu,\"photoH\":%0.2f,\"specH\":%0.2f,\"darkVal\":%u,"
         "\"atime\":%u,\"astep\":%u,\"again\":%u,"
         "\"avgClrTime\":%lu}",
         FIRMWARE_VERSION, 
@@ -132,23 +133,23 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         th->getHumConf()->relay.tripVal,
         static_cast<uint8_t>(th->getHumConf()->alt.condition),
         th->getHumConf()->alt.tripVal,
-        th->getFlags()->getFlag(Peripheral::THFLAGS::NO_ERR_DISP),
+        th->getHealth(),
         th->getAverages()->temp,
         th->getAverages()->hum,
         th->getAverages()->prevTemp,
         th->getAverages()->prevHum,
         soil->getReadings(0)->val, 
         static_cast<uint8_t>(soil->getConfig(0)->condition),
-        soil->getConfig(0)->tripVal, soil->getReadings(0)->noDispErr,
+        soil->getConfig(0)->tripVal, soil->getReadings(0)->sensHealth,
         soil->getReadings(1)->val, 
         static_cast<uint8_t>(soil->getConfig(1)->condition),
-        soil->getConfig(1)->tripVal, soil->getReadings(1)->noDispErr,
+        soil->getConfig(1)->tripVal, soil->getReadings(1)->sensHealth,
         soil->getReadings(2)->val, 
         static_cast<uint8_t>(soil->getConfig(2)->condition),
-        soil->getConfig(2)->tripVal, soil->getReadings(2)->noDispErr,
+        soil->getConfig(2)->tripVal, soil->getReadings(2)->sensHealth,
         soil->getReadings(3)->val, 
         static_cast<uint8_t>(soil->getConfig(3)->condition),
-        soil->getConfig(3)->tripVal, soil->getReadings(3)->noDispErr,
+        soil->getConfig(3)->tripVal, soil->getReadings(3)->sensHealth,
         light->getSpectrum()->F1_415nm_Violet,
         light->getSpectrum()->F2_445nm_Indigo,
         light->getSpectrum()->F3_480nm_Blue,
@@ -186,8 +187,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         static_cast<uint8_t>(light->getConf()->condition),
         light->getConf()->tripVal,
         light->getDuration(),
-        light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::PHOTO_NO_ERR_DISP),
-        light->getFlags()->getFlag(Peripheral::LIGHTFLAGS::SPEC_NO_ERR_DISP),
+        light->getHealth()->photo,
+        light->getHealth()->spec,
         light->getConf()->darkVal,
         light->getSpecConf()->ATIME,
         light->getSpecConf()->ASTEP,
@@ -800,7 +801,7 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
             // Write JSON data back to client.
             written = snprintf(buffer, size, 
-            "{\"id\":\"%s\",\"temp\":[%s],\"hum\":[%s],"
+            "{\"id\":%u,\"temp\":[%s],\"hum\":[%s],"
             "\"clear\":[%s],\"violet\":[%s],\"indigo\":[%s],\"blue\":[%s],"
             "\"cyan\":[%s],\"green\":[%s],\"yellow\":[%s],\"orange\":[%s],"
             "\"red\":[%s],\"nir\":[%s],\"photo\":[%s],"
@@ -855,7 +856,7 @@ bool SOCKHAND::inRange(int lower, int upper, int value, int exception,
 // certain features are available in that mode. If yes, returns true, if not
 // writes reply, and returns false.
 bool SOCKHAND::checkSTA(int &written, char* buffer, size_t size, 
-    const char* reply, const char* idNum) {
+    const char* reply, uint16_t idNum) {
 
     if (NetMain::getNetType() != NetMode::STA) {
         written = snprintf(buffer, size, reply, 0, "ONLY STA MODE ALLOWED", 

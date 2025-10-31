@@ -15,14 +15,12 @@ namespace Peripheral {
 #define LIGHT_THRESHOLD_DEF 500 // Between 0 and 4095. Sets initial Dark bound.
 #define LIGHT_CONSECUTIVE_CTS 5 // Action isnt taken until count is met.
 #define LIGHT_HYSTERESIS 10 // Padding for photoresistor.
-#define LIGHT_ERR_CT_MAX 3 // Error counts to show error on display
 #define PHOTO_MIN 1 // Really 0, set to 1 for error purposes.
 #define PHOTO_MAX 32766 // int16 max - 1, set for error purposes.
 #define PHOTO_NOISE 5 // Used to filter noise from the analog read, must be > 0.
 #define LIGHT_NO_RELAY 255 // Used to show no relay attached.
 #define LIGHT_LOG_METHOD Messaging::Method::SRL_LOG
 #define LIGHT_TAG "(LIGHT)"
-#define LIGHT_FLAG_TAG "(LIGHTFlag)"
 
 struct LightParams {
     ADC_DRVR::ADC &photo;
@@ -42,13 +40,6 @@ struct RelayConfigLight {
     uint8_t controlID; // ID given by relay to allow this device to control it.
     size_t onCt; // Consecutive on counts to turn relay on.
     size_t offCt; // Consecutive off counts to turn relay off.
-};
-
-enum LIGHTFLAGS : uint8_t {
-    PHOTO_NO_ERR_DISP, // Photoresistor no error displayed to client.
-    PHOTO_NO_ERR, // Photoresistor no err, read ok.
-    SPEC_NO_ERR_DISP, // Spectral no error displayed to client.
-    SPEC_NO_ERR // Spectral no error, read ok.
 };
 
 // Taken from the same structure as the AS7341 driver, in float and simplified
@@ -91,11 +82,19 @@ struct Spec_Conf {
     AS7341_DRVR::AGAIN AGAIN;
 };
 
+struct LightHealth {
+    float photo;
+    float spec;
+    bool photoReadErr;
+    bool specReadErr;
+    LightHealth();
+};
+
 class Light {
     private:
     static const char* tag; // Static req to use in get().
     static char log[LOG_MAX_ENTRY]; // Static req to use in get().
-    Flag::FlagReg flags;
+    LightHealth health;
     AS7341_DRVR::COLOR readings;
     Spec_Conf specConf;
     Light_Trends trends;
@@ -121,7 +120,7 @@ class Light {
     bool readPhoto(); // read photoresistor.
     AS7341_DRVR::COLOR* getSpectrum();
     int getPhoto();
-    Flag::FlagReg* getFlags();
+    LightHealth* getHealth();
     bool checkBounds();
     RelayConfigLight* getConf();
     Spec_Conf* getSpecConf();

@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 namespace SHT_DRVR {
 
@@ -25,7 +26,7 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
 SHT_RET SHT::write() {
 
     esp_err_t err = i2c_master_transmit(
-        this->i2cHandle,
+        this->i2c.handle,
         this->packet.writeBuffer, sizeof(this->packet.writeBuffer), 
         this->packet.timeout
     );
@@ -61,7 +62,7 @@ SHT_RET SHT::read(size_t readSize) {
     // The reading format is specified by pg 11 of the datasheet.
 
     esp_err_t transErr = i2c_master_transmit(
-        this->i2cHandle,
+        this->i2c.handle,
         this->packet.writeBuffer, sizeof(this->packet.writeBuffer),
         this->packet.timeout
     );
@@ -71,7 +72,7 @@ SHT_RET SHT::read(size_t readSize) {
     vTaskDelay(pdMS_TO_TICKS(SHT_READ_DELAY)); 
 
     esp_err_t receiveErr = i2c_master_receive(
-        this->i2cHandle,
+        this->i2c.handle,
         this->packet.readBuffer, readSize,
         this->packet.timeout
     );
@@ -187,7 +188,7 @@ void SHT::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
         ignoreRepeat);
 }
 
-SHT::SHT() : tag("(SHT31)"), isInit(false) {
+SHT::SHT() : tag(SHT_TAG), initFlag(SHT_TAG) {
     
     this->packet.reset(); // Inits RW packet
     snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
@@ -197,15 +198,45 @@ SHT::SHT() : tag("(SHT31)"), isInit(false) {
 // Requires uint8_t address. Configures the I2C and adds the address to the 
 // I2C bus. The default address of the SHT31 is 0x44 which has the AD pin 
 // connected to logic LOW with a pulldown resistor. The address can be changed
-// to 0x45 by connecting the AD pin to logic HIGH per the datasheet pg. 9.
-void SHT::init(uint8_t address) {
-    if (this->isInit) return; // Prevents from being re-init.
+// to 0x45 by connecting the AD pin to logic HIGH per the datasheet pg. 9. 
+// Returns true of false depending on successful init.
+bool SHT::init(uint8_t address) {
+
+    // ATTENTION. Main init not required only I2C in this function.
+    bool i2cInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(SHT_INIT::I2C_INIT));
+
+    if (i2cInit) return true; // Prevents from being re-init.
 
     // Init I2C and add device to service.
     Serial::I2C* i2c = Serial::I2C::get();
-    i2c_device_config_t devCon = i2c->configDev(address);
-    this->i2cHandle = i2c->addDev(devCon);
-    this->isInit = true;
+
+    this->i2c.config = i2c->configDev(address);
+    bool devAdded = i2c->addDev(this->i2c); // Populates handle after addition.
+
+    // Use retry logic here if failed to add device.
+    if (!devAdded) {
+
+        for (int i = 0; i < I2C_ADDDEV_RETRIES; i++) {
+            vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay
+
+            devAdded = i2c->addDev(this->i2c);
+            if (devAdded) break;
+        }
+
+        if (!devAdded) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s Device not added after %d retries", this->tag, 
+                I2C_ADDDEV_RETRIES);
+
+            this->sendErr(this->log, Messaging::Levels::CRITICAL);
+            return false;
+        }
+    }
+
+    // Set flag to prevent re-init by blocking.
+    this->initFlag.setFlag(static_cast<uint8_t>(SHT_INIT::I2C_INIT));
+    return true;
 }
 
 // Requires the start command, and the SHT value carrier. Computes

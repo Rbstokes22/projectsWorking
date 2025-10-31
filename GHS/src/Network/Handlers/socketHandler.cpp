@@ -10,7 +10,7 @@ namespace Comms {
 
 // Static Setup
 char SOCKHAND::reportBuf[SKT_BUF_SIZE]= "{\"status\":\"EMPTY\"}"; 
-const char* SOCKHAND::tag("(SOCKHAND)");
+const char* SOCKHAND::tag(SKT_TAG);
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
 argPool SOCKHAND::pool;
@@ -18,8 +18,10 @@ argPool SOCKHAND::pool;
 // Serves as a pool of resp_arg objects in order to prevent the requirement
 // to dynamically allocate memory and keep everything on the stack. The pool
 // is quite large considering the size of the buffer inside.
-argPool::argPool() : pool() {
-    memset(this->inUse, false, SKT_MAX_RESP_ARGS);
+argPool::argPool() : mtx(POOL_TAG) {
+    
+    // memset the pool to zeroize.
+    memset(this->pool, 0, sizeof(this->pool));
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
         "(ARGPOOL) Ob created", Messaging::Method::SRL_LOG, true);
 }
@@ -28,12 +30,13 @@ argPool::argPool() : pool() {
 // allocation. Returns NULL if no availabilities.
 async_resp_arg* argPool::getArg() {
 
+    Threads::MutexLock(this->mtx); // Lock the mutex.
+
     // Iterate Pool, and if in use is false, changes flag to true, zeros it
     // out, and returns a pointer to the pool.
     for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {
         if (!this->inUse[i]) {
             this->inUse[i] = true;
-            memset(&this->pool[i], 0, sizeof(this->pool[i]));
             this->pool[i].signature = POOL_SIG; // Set to indicate active.
             return &this->pool[i]; 
         }
@@ -46,6 +49,8 @@ async_resp_arg* argPool::getArg() {
 // argument and the pool argument. If a match, changes the inuse flag to false
 // to allow re-allocation.
 void argPool::releaseArg(async_resp_arg* arg) {
+
+    Threads::MutexLock(this->mtx); // Lock the mutex.
 
     // Iterates and changes flag to false if passed arg matches a pool arg.
     for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {
@@ -87,10 +92,9 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
     arg->fd = httpd_req_to_sockfd(req); // fd = file desriptor
     arg->data.cmd = static_cast<CMDS>(atoi(cmd)); // Convert str to int
     arg->data.suppData = atoi(supp); // Convert to str to int
-    strncpy(arg->data.idNum, id, sizeof(arg->data.idNum)); // Copy id.
-    arg->data.idNum[sizeof(arg->data.idNum) - 1] = '\0'; // ensures null term
-    
-    return httpd_queue_work(handle, SOCKHAND::ws_async_send, arg);
+    arg->data.idNum = atoi(id); // Will be between 0 and 255.
+
+    return httpd_queue_work(handle, SOCKHAND::ws_async_send, arg); 
 }
 
 // Requires arg which will be cast to async_resp_arg. Once available, uses
@@ -113,8 +117,9 @@ void SOCKHAND::ws_async_send(void* arg) {
     }
 
     size_t bufSize = sizeof(respArg->Buf);
-
-    memset(respArg->Buf, 0, bufSize); // zeros out.
+ 
+    // ATTENTION. Not required to reset the buffer before compiling data, 
+    // covered in the acquiring of the arg.
 
     // compiles data by executing commands and populating the buffer with the
     // reply. This is the meat and potatoes of fulfilling the request and 

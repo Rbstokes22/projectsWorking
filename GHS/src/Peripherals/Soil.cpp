@@ -15,10 +15,6 @@ Threads::Mutex Soil::mtx(SOIL_TAG); // define instance of mtx
 
 Soil::Soil(SoilParams &params) : 
 
-    data{
-        {0, false, false, 0}, {0, false, false, 0}, {0, false, false, 0}, 
-        {0, false, false, 0}
-    },
     conf{
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 1, 0}, 
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 2, 0}, 
@@ -26,6 +22,7 @@ Soil::Soil(SoilParams &params) :
         {0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 4, 0}
     }, params(params) {
 
+        memset(this->data, 0, sizeof(this->data));
         memset(this->trends, 0, sizeof(this->trends)); // Clear all trend data.
         snprintf(Soil::log, sizeof(Soil::log), "%s Ob created", Soil::tag);
         Soil::sendErr(Soil::log, Messaging::Levels::INFO);
@@ -38,7 +35,7 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
     
     // Acts as a gate to ensure that all of this criteria is met before
     // altering alerts.
-    if (!data.noErr || ct < SOIL_CONSECUTIVE_CTS || 
+    if (data.readErr || ct < SOIL_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) return;
 
     // Check to see if the alert is being called to send. If yes, ensures that
@@ -170,10 +167,8 @@ void Soil::readAll() {
 
     // Used to handle alerts for the sensor being down/impacted long term.
     static SensDownPkg pkg[SOIL_SENSORS] = {
-        "(SOIL0)", true, true, 0, LAST_SENT::UP,
-        "(SOIL1)", true, true, 0, LAST_SENT::UP,
-        "(SOIL2)", true, true, 0, LAST_SENT::UP,
-        "(SOIL3)", true, true, 0, LAST_SENT::UP,
+        SensDownPkg("(SOIL0)"), SensDownPkg("(SOIL1)"),
+        SensDownPkg("(SOIL2)"), SensDownPkg("(SOIL3)")
     };
 
     Alert* alt = Alert::get();
@@ -192,18 +187,13 @@ void Soil::readAll() {
         // using differential reads, and single point, this is a magnitude.
         // Handles all flags and values.
         if (tempVal == ADC_BAD_VAL) {
-            this->data[i].noErr = false; // Set to false indicating read err.
-            this->data[i].errCt++; // Inc by one.
-
-            // Signal a display error if counts exceed max.
-            if (this->data[i].errCt > SOIL_ERR_MAX) { 
-                this->data[i].noDispErr = false;
-            }
+            this->data[i].sensHealth += HEALTH_ERR_UNIT; // Adds unit for err.
+            this->data[i].readErr = true;
 
         } else { // Good read.
 
-            this->data[i].noDispErr = this->data[i].noErr = true; 
-            this->data[i].errCt = 0; // Reset
+            this->data[i].sensHealth *= HEALTH_EXP_DECAY; // Decay for no err.
+            this->data[i].readErr = false;
             
             // Essentially math.floor to represents all values within the range 
             // of the analog noise. If NOISE is set to 20, this means that all 
@@ -215,6 +205,7 @@ void Soil::readAll() {
 
             // Log fixing error if triggered by previous err and err is fixed.
             if (!logOnce[i]) { // Can only be set by err below.
+
             snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d err fixed",
                 Soil::tag, i);
 
@@ -223,11 +214,10 @@ void Soil::readAll() {
             }
         }
 
-        alt->monitorSens(pkg[i], this->data[i].errCt);
+        alt->monitorSens(pkg[i], this->data[i].sensHealth);
 
-        // If display error, meaning several consecutive bad reads, log sensor
-        // issue indicating problem.
-        if (!this->data[i].noDispErr && logOnce[i]) {
+        // If several consecutive bad reads, log sensor issue.
+        if (this->data[i].sensHealth > HEALTH_ERR_MAX && logOnce[i]) {
             snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d read err",
                 Soil::tag, i);
 
@@ -265,7 +255,7 @@ void Soil::checkBounds() {
         // Skips checks if the data is bad. This is done in iteration, unlike
         // temphum.cpp. This is due to having several sensors data in this 
         // singleton class, which is why this is not a bool function either.
-        if (!this->data[i].noErr) continue; 
+        if (this->data[i].readErr) continue; 
         
         int lowerBound = this->conf[i].tripVal - SOIL_HYSTERESIS;
         int upperBound = this->conf[i].tripVal + SOIL_HYSTERESIS;

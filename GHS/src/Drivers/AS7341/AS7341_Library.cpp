@@ -8,6 +8,7 @@
 #include "esp_timer.h"
 #include "rom/ets_sys.h"
 #include "UI/MsgLogHandler.hpp"
+#include "Common/FlagReg.hpp"
 
 namespace AS7341_DRVR {
 
@@ -157,7 +158,7 @@ void AS7341basic::sendErr(const char* msg, Messaging::Levels lvl,
 
 AS7341basic::AS7341basic(CONFIG &conf) : 
 
-    tag("(AS7341)"), conf(conf), isInit(false), specEn(false) {
+    tag(AS7341_TAG), conf(conf), initFlag(AS7341_TAG), specEn(false) {
 
         snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
         this->sendErr(this->log, Messaging::Levels::INFO, true);
@@ -167,11 +168,45 @@ AS7341basic::AS7341basic(CONFIG &conf) :
 // and writes to the device all configuration settings. Returns true 
 // if successful or false if not.
 bool AS7341basic::init(uint8_t address) {
-    if (this->isInit) return true; // Prevents from being re-init.
 
-    Serial::I2C* i2c = Serial::I2C::get();
-    i2c_device_config_t devCon = i2c->configDev(address);
-    this->i2cHandle = i2c->addDev(devCon);
+    bool mainInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(AS7341_INIT::INIT));
+
+    if (mainInit) return true; // Prevents from being re-init.
+
+    bool i2cInit = this->initFlag.getFlag(
+        static_cast<uint8_t>(AS7341_INIT::I2C_INIT));
+
+    if (!i2cInit) { // I2C has not been init yet, if init, block code.
+        Serial::I2C* i2c = Serial::I2C::get();
+
+        this->i2c.config = i2c->configDev(address);
+        bool devAdded = i2c->addDev(this->i2c); // Populates handle.
+
+        // Use retry logic here if failed to add device.
+        if (!devAdded) {
+
+            for (int i = 0; i < I2C_ADDDEV_RETRIES; i++) {
+                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay
+
+                devAdded = i2c->addDev(this->i2c);
+                if (devAdded) break;
+            }
+
+            if (!devAdded) {
+                snprintf(this->log, sizeof(this->log), 
+                    "%s Device not added after %d retries", this->tag, 
+                    I2C_ADDDEV_RETRIES);
+
+                this->sendErr(this->log, Messaging::Levels::CRITICAL);
+                return false;
+            }
+        }
+
+        this->initFlag.setFlag(static_cast<uint8_t>(AS7341_INIT::I2C_INIT));
+    }
+
+    // If i2C has been init, init the remainder of the device.
 
     // Compares at the end, expected validations vs actual validations.
     // If equal, sets isInit to true;
@@ -203,12 +238,14 @@ bool AS7341basic::init(uint8_t address) {
     actualVal += this->enableSpectrum(SPECTRUM::ENABLE);
     
     this->setLEDCurrent(LED::OFF); // Ensure LED is off
-    this->isInit = (actualVal == expVal);
-    return this->isInit;
-}
 
-// Returns if the devices has been properly initialized.
-bool AS7341basic::isDevInit() {return this->isInit;}
+    if (actualVal == expVal) { // Indicates proper init
+        this->initFlag.setFlag(static_cast<uint8_t>(AS7341_INIT::INIT));
+        return true;
+    }
+
+    return false;
+}
 
 // Requires the channel to be read, dataSafe bool, and delay Enable bool.
 // the delayEn is set to false by default. If a channel read is performed

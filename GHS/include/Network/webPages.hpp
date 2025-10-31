@@ -302,8 +302,20 @@ const char MAINpage[] = R"rawliteral(
             color: white;
         }
 
-        .good, .BGup {background-color: rgb(0, 133, 0);}
-        .BGdown {background-color: yellow;}
+        .good {background-color: rgb(0, 133, 0);}
+      
+        .BGHealthy {
+            background-color: rgb(0, 133, 0);
+            color: white;
+        }
+        .BGFailing {
+            background-color: yellow;
+            color: black;
+        }
+        .BGBad {
+            background-color: rgb(196, 0, 0);
+            color: white;
+        }
         
         .dark {background-color: black; color: yellow; border-color: yellow;}
         .light {background-color: yellow; color: black; border-color: black;}
@@ -383,7 +395,7 @@ const char MAINpage[] = R"rawliteral(
     // temperature, this could cause problems.
 
     let MODE = 0; // 0 and 1 are AP mode, 2 is STA mode. Will be modified.
-    const Devmode = false; // true allows socket access when not served by esp.
+    const Devmode = true; // true allows socket access when not served by esp.
 
     // Network and Sockets
     const re = /(https?):\/\/([a-zA-Z0-9.-]+(:\d+)?)/; // Regex
@@ -422,8 +434,8 @@ const char MAINpage[] = R"rawliteral(
     const logDelim = ';'; // Delimiter used in logging from the server.
     const RE_OFF = 255; // Signals relay is not attached.
     let isCelcius = false;
-    const sensUpBg = ["BGdown", "BGup"]; // Sensor up/down class names.
-    const sensUpTxt = ["SENSOR DOWN", "SENSOR UP"];
+    const sensHlthErr = 5.0; // Must equal value in config.hpp HEALTH_ERR_MAX
+    const sensHlthBg = ["BGHealthy", "BGFailing", "BGBad"];
     let specDisplay = 'C'; // 'C'urrent, 'A'verages, 'P'rev Averages.
     const DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     let reDays = [0, 0, 0, 0]; // Relay day tracker for socket send only.
@@ -1721,7 +1733,7 @@ const char MAINpage[] = R"rawliteral(
     // real time, sends socket cmd to calibrate to real time.
     let calibrateTime = (seconds) => { // calibrates time if different
         const time = new Date();
-
+        
         let secPastMid = (time.getHours() * 3600) + (time.getMinutes() * 60) 
             + time.getSeconds(); // init with seconds past midnight.
 
@@ -1820,10 +1832,20 @@ const char MAINpage[] = R"rawliteral(
                 `Alert set to ${reAltCond(altCon, altVal)}` : 
                 "Alert Disabled in AP Mode";
 
-            sensUpBg.forEach(cls => stat.classList.remove(cls)); // rmv all
-            stat.classList.add(sensUpBg[allData["SHTUp"]]);
-            stat.innerText = sensUpTxt[allData["SHTUp"]];
-            
+            const health = Number(allData["SHTH"]);
+            stat.innerText = 
+                `Health: ${(sensHlthErr - health).toFixed(2)} / ${sensHlthErr}`;
+
+            sensHlthBg.forEach(cls => stat.classList.remove(cls)); // clear
+
+            if (health < 2.0) {
+                stat.classList.add(sensHlthBg[0])
+            } else if (health >= 2.0 && health <= 5.0) {
+                stat.classList.add(sensHlthBg[1]);
+            } else {
+                stat.classList.add(sensHlthBg[2]);
+            }
+
             // Check bounds once processed to ensure correct coloring.
             checkBounds(data, reRO, altRO);
         }
@@ -1860,7 +1882,7 @@ const char MAINpage[] = R"rawliteral(
     }
 
     let handleSoil = () => { // Handles all soil containers updating RO.
-        const cont = [soil1Con, soil2Con, soil3Con, soil4Con]; // estab cont.
+        const cont = [soil0Con, soil1Con, soil2Con, soil3Con]; // estab cont.
 
         // Changes RO display color if value exceeds bounds.
         let checkBounds = (data, eleAltID) => {
@@ -1876,7 +1898,7 @@ const char MAINpage[] = R"rawliteral(
         }
 
         // processes data from the allData object, to diplay the current setting
-        // and values in the RO portion of each soilCon.
+        // and values in the RO portion of each soilCon. Iterated for each sens.
         let proc = (cont, data, name) => {
             const [val, altCon, altVal] = data;
 
@@ -1894,9 +1916,20 @@ const char MAINpage[] = R"rawliteral(
                 `Alert set to ${reAltCond(altCon, altVal)}` : 
                 "Alert Disabled in AP Mode";
 
-            sensUpBg.forEach(cls => stat.classList.remove(cls)); // rmv all
-            stat.classList.add(sensUpBg[allData["SHTUp"]]);
-            stat.innerText = sensUpTxt[allData["SHTUp"]];
+            const health = Number(allData[`${name}H`]);
+
+            stat.innerText = 
+                `Health: ${(sensHlthErr - health).toFixed(2)} / ${sensHlthErr}`;
+            
+            sensHlthBg.forEach(cls => stat.classList.remove(cls)); // clear
+
+            if (health < 2.0) {
+                stat.classList.add(sensHlthBg[0])
+            } else if (health >= 2.0 && health <= 5.0) {
+                stat.classList.add(sensHlthBg[1]);
+            } else {
+                stat.classList.add(sensHlthBg[2]);
+            }
 
             checkBounds(data, altRO);
         }
@@ -1957,9 +1990,20 @@ const char MAINpage[] = R"rawliteral(
             durRO.innerText = `Light duration: ${timeStr(dur)}`;
             darkRO.innerText = `Dark val set to ${ADCConv(true, dark)}%`;
 
-            sensUpBg.forEach(cls => stat.classList.remove(cls)); // rmv all
-            stat.classList.add(sensUpBg[allData["SHTUp"]]);
-            stat.innerText = sensUpTxt[allData["SHTUp"]];
+            const health = Number(allData["photoH"]);
+            stat.innerText = 
+                `Health: ${(sensHlthErr - health).toFixed(2)} / ${sensHlthErr}`;
+
+            sensHlthBg.forEach(cls => stat.classList.remove(cls)); // clear
+
+            if (health < 2.0) {
+                stat.classList.add(sensHlthBg[0])
+            } else if (health >= 2.0 && health <= 5.0) {
+                stat.classList.add(sensHlthBg[1]);
+            } else {
+                stat.classList.add(sensHlthBg[2]);
+            }
+
             checkBounds(data, reRO, darkRO, durRO);
         }
 
@@ -2032,9 +2076,19 @@ const char MAINpage[] = R"rawliteral(
             bar.style.width = `${width}px`;
         });
 
-        sensUpBg.forEach(cls => stat.classList.remove(cls)); // rmv all
-        stat.classList.add(sensUpBg[allData["SHTUp"]]);
-        stat.innerText = sensUpTxt[allData["SHTUp"]];
+        const health = Number(allData["specH"]);
+        stat.innerText = 
+            `Health: ${(sensHlthErr - health).toFixed(2)} / ${sensHlthErr}`;
+
+        sensHlthBg.forEach(cls => stat.classList.remove(cls)); // clear
+
+        if (health < 2.0) {
+            stat.classList.add(sensHlthBg[0])
+        } else if (health >= 2.0 && health <= 5.0) {
+            stat.classList.add(sensHlthBg[1]);
+        } else {
+            stat.classList.add(sensHlthBg[2]);
+        }
     }
 
     const handleRelays = () => { // Handles all relay containers and activity.
@@ -2629,10 +2683,10 @@ const char MAINpage[] = R"rawliteral(
         return soilCon;
     }
 
-    const soil1Con = soilBuilder(0);
-    const soil2Con = soilBuilder(1);
-    const soil3Con = soilBuilder(2);
-    const soil4Con = soilBuilder(3);
+    const soil0Con = soilBuilder(0);
+    const soil1Con = soilBuilder(1);
+    const soil2Con = soilBuilder(2);
+    const soil3Con = soilBuilder(3);
 
     const lightCon = buildCon("light", 
         new cmdBuild("ATTACH_RELAYS", handlePhoto),
@@ -2676,8 +2730,8 @@ const char MAINpage[] = R"rawliteral(
     const re3Con = relayBuilder(2);
     const re4Con = relayBuilder(3);
 
-    const allCon = [mainCon, tempCon, humCon, soil1Con, soil2Con, soil3Con, 
-        soil4Con, lightCon, specCon, re1Con, re2Con, re3Con, re4Con];
+    const allCon = [mainCon, tempCon, humCon, soil0Con, soil1Con, soil2Con, 
+        soil3Con, lightCon, specCon, re1Con, re2Con, re3Con, re4Con];
 
     // END CONTAINER OBJECTS. ==================================================
     // START OPENERS AND BUILDERS. =============================================

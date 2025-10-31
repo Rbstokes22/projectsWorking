@@ -11,7 +11,6 @@ namespace Peripheral {
 #define SOIL_SENSORS 4 // total soil sensors
 #define SOIL_HYSTERESIS 20 // padding for reset value
 #define SOIL_NOISE 10 // Used to prevent noise in the analog read. Must be > 0
-#define SOIL_ERR_MAX 3 // Max Error counts before display shows error.
 #define SOIL_CONSECUTIVE_CTS 5 // consecutive counts before sending alert.
 #define SOIL_ALT_MSG_SIZE 64 // Alert message size
 #define SOIL_ALT_MSG_ATT 3 // Attempts to send an alert
@@ -44,9 +43,8 @@ struct SoilParams {
 // is an immeidate or diplay level error.
 struct SoilReadings {
     int16_t val; // Read value
-    bool noDispErr; // Used for display after consecutive errors
-    bool noErr; // Used immediately to prevent errors, shows datasafe.
-    size_t errCt; // error count.
+    float sensHealth; // Used to keep track of sensor health.
+    bool readErr; // Used to show if there was a read err to block analysis
 };
 
 class Soil {

@@ -9,6 +9,7 @@
 #include "Common/FlagReg.hpp"
 #include "string.h"
 #include "Common/Timing.hpp"
+#include "Config/config.hpp"
 
 namespace Peripheral {
 
@@ -16,10 +17,17 @@ const char* TempHum::tag(TEMP_HUM_TAG);
 char TempHum::log[LOG_MAX_ENTRY]{0};
 Threads::Mutex TempHum::mtx(TEMP_HUM_TAG); // define static mutex instance
 
+// Requires tag of sensor name. Ensure tag is less than 31 chars.
+SensDownPkg::SensDownPkg(const char* tag) : status(false), prevStatus(false),
+    counts(0), lastAlt(LAST_SENT::UP) {
+
+    snprintf(this->sensor, sizeof(this->sensor), "%s", tag);
+}
+
 // Singleton class. Pass all params upon first init.
 TempHum::TempHum(TempHumParams &params) : 
 
-    data{0.0f, 0.0f, 0.0f, true}, flags(TEMP_HUM_FLAG_TAG), 
+    data{0.0f, 0.0f, 0.0f, true}, sensHealth(0.0f), readErr(false), 
     humConf{{0, ALTCOND::NONE, ALTCOND::NONE, 0, 0, true, 0},
         {0, RECOND::NONE, RECOND::NONE, nullptr, TEMP_HUM_NO_RELAY, 0, 0, 0}},
 
@@ -46,7 +54,7 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
 
     // Primary checks to ensure usability for relay. Special conditions are
     // with the appropriate case, if they exist.
-    if (conf.relay == nullptr || !this->flags.getFlag(THFLAGS::NO_ERR) ||
+    if (conf.relay == nullptr || this->readErr ||
         ct < TEMP_HUM_CONSECUTIVE_CTS) return; // Block 
     
     // Checks if the relay is set to be energized or de-energized. 
@@ -72,8 +80,7 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
 void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) { 
 
     // Mirrors the same setup as the relay activity.
-    if (!this->flags.getFlag(THFLAGS::NO_ERR) || 
-        ct < TEMP_HUM_CONSECUTIVE_CTS || 
+    if (this->readErr || ct < TEMP_HUM_CONSECUTIVE_CTS || 
         conf.condition == ALTCOND::NONE) { 
 
         return; // Block.
@@ -319,12 +326,12 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 // driver. Upon successful reading, data is available to include temp, hum,
 // and their averages. Returns true if read is successful, or false if not.
 bool TempHum::read() {
-    static size_t errCt{0};
+
     SHT_DRVR::SHT_RET read;
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Used to handle alerts for the sensor being down/impacted long term.
-    static SensDownPkg pkg = {"(TEMPHUM)", true, true, 0, LAST_SENT::UP};
+    static SensDownPkg pkg(this->tag);
 
     Alert* alt = Alert::get();
 
@@ -342,11 +349,10 @@ bool TempHum::read() {
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
         this->data = tempVal; // Set actual value to temp val if success.
+        this->readErr = false;
         this->computeAvgs();
         this->computeTrends();
-        this->flags.setFlag(THFLAGS::NO_ERR_DISP);
-        this->flags.setFlag(THFLAGS::NO_ERR);
-        errCt = 0; // resets count.
+        this->sensHealth *= HEALTH_EXP_DECAY; // Decay unit per good read.
 
         if (!logOnce) {
             snprintf(TempHum::log, sizeof(TempHum::log), "%s err fixed",
@@ -357,20 +363,15 @@ bool TempHum::read() {
         }
 
     } else { // If error, set flag to false. No err handling necessary here.
-        this->flags.releaseFlag(THFLAGS::NO_ERR);
-        errCt++; // inc count by one.
+        this->sensHealth += HEALTH_ERR_UNIT; // Adds one unit perbad read.
+        this->readErr = true;
     }
 
     // Handle sensor checks and alerts if sensor is broken or fixed.
-    alt->monitorSens(pkg, errCt);
+    alt->monitorSens(pkg, this->sensHealth); 
 
-    // Sets the display to true if the error count is less than maxed allowed.
-    // If exceeded, the display will be set to false alerting client of error.
-    // This is to filter the bad reads from constantly alerting the client.
-    if (errCt < TEMP_HUM_ERR_CT_MAX) {
-        this->flags.setFlag(THFLAGS::NO_ERR_DISP);
-
-    } else {
+    // Logs if sensor becomes unresponsive.
+    if (this->sensHealth > HEALTH_ERR_MAX) {
 
         if (logOnce) {
             snprintf(TempHum::log, sizeof(TempHum::log), "%s read err",
@@ -379,12 +380,9 @@ bool TempHum::read() {
             TempHum::sendErr(TempHum::log);
             logOnce = false; // Prevents re-log, allows fixed error log.
         }
-
-        this->flags.releaseFlag(THFLAGS::NO_ERR_DISP);
-    }
-
+    } 
     // Returns true of data is ok.
-    return this->flags.getFlag(THFLAGS::NO_ERR);
+    return !this->readErr;
 }
 
 // Returns humidity value float.
@@ -417,7 +415,7 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // the SHT driver.
 bool TempHum::checkBounds() { 
 
-    if (!this->flags.getFlag(THFLAGS::NO_ERR)) return false; // Filter bad data.
+    if (this->readErr) return false; // Prevent bad data from being used.
 
     // Checks each individual bound after confirming data is safe.
     this->relayBounds(this->data.tempC, this->tempConf.relay, true);
@@ -428,10 +426,8 @@ bool TempHum::checkBounds() {
     return true;
 }
 
-// Require no params. Returns pointer to the flags object.
-Flag::FlagReg* TempHum::getFlags() {
-    return &this->flags;
-}
+// Require no params. Returns current sensor health.
+float TempHum::getHealth() {return this->sensHealth;}
 
 // Returns current, and previous averages structure for modification or viewing.
 TH_Averages* TempHum::getAverages() { 

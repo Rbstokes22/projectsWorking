@@ -21,8 +21,8 @@ namespace Peripheral {
 
 // Alert sensors data. Counts that will trigger a DOWN status alert, and an
 // UP status alert.
-#define SENS_DOWN_CT 50 // sends sensor DOWN.
-#define SENS_UP_CT 10 // sends sensor UP.
+#define SENS_DOWN_CT 30 // sends sensor DOWN.
+#define SENS_UP_CT 30 // sends sensor UP.
 #define SENS_SEND_RETRIES 3 // Attempt to send alert.
 
 // 2048 from socket handler buffer size. Cannot include sockethandler due to 
@@ -44,6 +44,7 @@ struct SensDownPkg {
     bool prevStatus; // Was the sensor in violation of exceeding count.
     size_t counts; // Consecutive count capture.
     LAST_SENT lastAlt; // Last alert that was sent.
+    SensDownPkg(const char* tag);
 };
 
 class Alert {
@@ -73,7 +74,7 @@ class Alert {
     static Alert* get();
     bool sendAlert(const char* msg, const char* caller);
     bool sendReport(const char* JSONmsg);
-    bool monitorSens(SensDownPkg &pkg, size_t errCt);
+    bool monitorSens(SensDownPkg &pkg, float health);
 };
 
 }
