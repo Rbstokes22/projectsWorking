@@ -172,7 +172,7 @@ bool I2C::reInitMaster() {return this->i2c_master_init(I2C_SET_FREQ);}
 bool I2C::reInitDev(I2CPacket *pkt) { 
 
     if (pkt == nullptr) { // Block if nullptr.
-        snprintf(this->log, sizeof(this->log), "%s pkt is nullptr", this->log);
+        snprintf(this->log, sizeof(this->log), "%s pkt is nullptr", this->tag);
         this->sendErr(this->log);
     }
 
