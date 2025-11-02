@@ -364,6 +364,10 @@ bool TempHum::read() {
 
     } else { // If error, set flag to false. No err handling necessary here.
         this->sensHealth += HEALTH_ERR_UNIT; // Adds one unit perbad read.
+        if (this->sensHealth > HEALTH_ERR_MAX) { // Sets max value.
+            this->sensHealth = HEALTH_ERR_MAX;
+        }
+
         this->readErr = true;
     }
 
@@ -371,7 +375,7 @@ bool TempHum::read() {
     alt->monitorSens(pkg, this->sensHealth); 
 
     // Logs if sensor becomes unresponsive.
-    if (this->sensHealth > HEALTH_ERR_MAX) {
+    if (this->sensHealth > HEALTH_ERR_BAD) {
 
         if (logOnce) {
             snprintf(TempHum::log, sizeof(TempHum::log), "%s read err",

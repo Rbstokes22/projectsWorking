@@ -273,7 +273,7 @@ void app_main() {
 
     // Init I2C at frequency 50 khz. INIT before building any devices.
     Serial::I2C* i2c = Serial::I2C::get();
-    i2c->i2c_master_init(Serial::I2C_FREQ::SLOW); 
+    i2c->i2c_master_init(Serial::I2C_SET_FREQ); 
 
     // ALL I2C Devices. OLED is not attached directly to the driver and inits
     // the driver within the Display class. The rest are initialized here since

@@ -23,6 +23,7 @@ namespace heartbeat {
 #define HEARTBEAT_RESET_FAILS 3 // allowable consecutive HB fails before restart
 #define HEARTBEAT_MAX_REASON 64 // bytes allowed for suspension reason
 #define HEARTBEAT_DEFAULT_REASON "N/A" // used when reason exceeds limit
+#define HEARTBEAT_REL_EXT 3 // Extends heartbeats after release to avoid err
 
 class Heartbeat {
     private:

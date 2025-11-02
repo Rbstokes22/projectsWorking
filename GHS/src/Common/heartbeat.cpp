@@ -180,7 +180,13 @@ void Heartbeat::suspendAll(const char* reason) {
 // Requires chunk/block ID. Unflags the suspension registry, allowing normal
 // heartbeat behavior.
 void Heartbeat::release(uint8_t chunkID) {
-    this->suspensionReg &= ~(1 << chunkID);
+
+    // Upon release, add extension to heartbeat due to sync up errors between
+    // the threads rogering up, and the routine manager function due to 
+    // differences in the thread execution times.
+    this->reg[chunkID] += HEARTBEAT_REL_EXT;
+
+    this->suspensionReg &= ~(1 << chunkID); // Release register.
     
     snprintf(this->log, sizeof(this->log), "%s ID %u (%s) released", 
         this->tag, chunkID, this->callers[chunkID]);
@@ -191,7 +197,16 @@ void Heartbeat::release(uint8_t chunkID) {
 
 // Requires no params. Removes suspended flag by setting to false.
 void Heartbeat::releaseAll() {
-    this->allSus = false;
+
+    // Upon release, add extension to heartbeat due to sync up errors between
+    // the threads rogering up, and the routine manager function due to 
+    // differences in the thread execution times. Iterate each register to add
+    // the extension to.
+    for (int i = 0; i < this->blockNum; i++) {
+        this->reg[i] += HEARTBEAT_REL_EXT;
+    }
+
+    this->allSus = false; // Unsuspend.
 
     snprintf(this->log, sizeof(this->log), "%s (ALL) released", this->tag);
 

@@ -188,6 +188,11 @@ void Soil::readAll() {
         // Handles all flags and values.
         if (tempVal == ADC_BAD_VAL) {
             this->data[i].sensHealth += HEALTH_ERR_UNIT; // Adds unit for err.
+            
+            if (this->data[i].sensHealth > HEALTH_ERR_MAX) { // Sets max value.
+                this->data[i].sensHealth = HEALTH_ERR_MAX;
+            }
+
             this->data[i].readErr = true;
 
         } else { // Good read.
@@ -217,7 +222,7 @@ void Soil::readAll() {
         alt->monitorSens(pkg[i], this->data[i].sensHealth);
 
         // If several consecutive bad reads, log sensor issue.
-        if (this->data[i].sensHealth > HEALTH_ERR_MAX && logOnce[i]) {
+        if (this->data[i].sensHealth > HEALTH_ERR_BAD && logOnce[i]) {
             snprintf(Soil::log, sizeof(Soil::log), "%s snsr %d read err",
                 Soil::tag, i);
 

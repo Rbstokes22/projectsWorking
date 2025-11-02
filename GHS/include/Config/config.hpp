@@ -24,7 +24,8 @@ extern char confLog[128]; // Reusable log for config src.
 // ATTENTION. if the error max is changed, update the station html.
 #define HEALTH_ERR_UNIT 1.0f // Added per error
 #define HEALTH_EXP_DECAY 0.9f // Decays rate upon each non-error.
-#define HEALTH_ERR_MAX 5.0f // Will flag device as problematic when err score
+#define HEALTH_ERR_MAX 10.0f // Will not exceed this score.
+#define HEALTH_ERR_BAD 5.0f // Will flag device as problematic when err score
                             // exceeds  this value.
 
 // Threads. The following values are in bytes. The documentation defines 
@@ -76,6 +77,8 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 #define ADC2_ADDR 0x49 // Bridged to VDD (PhotoResistor)
 
 #define I2C_DEF_ADDR 0xFF // Used only as a placeholder until overwritten.
+
+// ATTENTION. I2C Default frequency params in I2C.hpp. Set to SLOW @ 50kHz.
 
 // Developer mode, This affects certain things like NGROK server headers.
 #define DEVmode true // When set to false, production mode.

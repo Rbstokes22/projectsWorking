@@ -181,27 +181,11 @@ bool AS7341basic::init(uint8_t address) {
         Serial::I2C* i2c = Serial::I2C::get();
 
         this->i2c.config = i2c->configDev(address);
+
+        // addDev handles retries within its addDev functionality. NReq here.
         bool devAdded = i2c->addDev(this->i2c); // Populates handle.
 
-        // Use retry logic here if failed to add device.
-        if (!devAdded) {
-
-            for (int i = 0; i < I2C_ADDDEV_RETRIES; i++) {
-                vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay
-
-                devAdded = i2c->addDev(this->i2c);
-                if (devAdded) break;
-            }
-
-            if (!devAdded) {
-                snprintf(this->log, sizeof(this->log), 
-                    "%s Device not added after %d retries", this->tag, 
-                    I2C_ADDDEV_RETRIES);
-
-                this->sendErr(this->log, Messaging::Levels::CRITICAL);
-                return false;
-            }
-        }
+        if (!devAdded) return false; // Block code if not added.
 
         this->initFlag.setFlag(static_cast<uint8_t>(AS7341_INIT::I2C_INIT));
     }

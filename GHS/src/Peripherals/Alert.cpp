@@ -424,7 +424,7 @@ bool Alert::monitorSens(SensDownPkg &pkg, float health) {
     LAST_SENT type = LAST_SENT::NONE;
 
     // Set the current status based on current health conditions.
-    pkg.status = (health > HEALTH_ERR_MAX) ? true : false;
+    pkg.status = (health > HEALTH_ERR_BAD) ? true : false;
 
     // A change of status resets the counts to 0 to begin re-accumulation.
     if (pkg.status != pkg.prevStatus) pkg.counts = 0;

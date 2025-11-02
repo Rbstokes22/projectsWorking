@@ -288,6 +288,9 @@ bool Light::readSpectrum() {
 
         this->health.specReadErr = true;
         this->health.spec += HEALTH_ERR_UNIT; // Adds unit per bad read.
+        if (this->health.spec > HEALTH_ERR_MAX) { // Sets max value.
+            this->health.spec = HEALTH_ERR_MAX;
+        }
     }
 
     alt->monitorSens(pkg, this->health.spec);
@@ -297,7 +300,7 @@ bool Light::readSpectrum() {
     // This is to filter bad reads from constantly alerting client.
 
     // Logs if sensor becomes unresponsive.
-    if (this->health.spec > HEALTH_ERR_MAX && logOnce) {
+    if (this->health.spec > HEALTH_ERR_BAD && logOnce) {
         snprintf(Light::log, sizeof(Light::log), "%s spec read err", 
             Light::tag);
 
@@ -331,6 +334,11 @@ bool Light::readPhoto() {
     // single point mode, there are no negative values, as opp to differential.
     if (tempVal == ADC_BAD_VAL) {
         this->health.photo += HEALTH_ERR_UNIT; // Adds unit per bad read.
+
+        if (this->health.photo > HEALTH_ERR_MAX) { // Sets max value.
+            this->health.photo = HEALTH_ERR_MAX;
+        }
+
         this->health.photoReadErr = true;
 
     } else {
@@ -356,7 +364,7 @@ bool Light::readPhoto() {
 
     alt->monitorSens(pkg, this->health.photo);
 
-    if (this->health.photo > HEALTH_EXP_DECAY && logOnce) {
+    if (this->health.photo > HEALTH_ERR_BAD && logOnce) {
         snprintf(Light::log, sizeof(Light::log), "%s photo read err", 
             Light::tag);
 
