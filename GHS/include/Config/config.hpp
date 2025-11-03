@@ -27,6 +27,8 @@ extern char confLog[128]; // Reusable log for config src.
 #define HEALTH_ERR_MAX 10.0f // Will not exceed this score.
 #define HEALTH_ERR_BAD 5.0f // Will flag device as problematic when err score
                             // exceeds  this value.
+#define HEALTH_RECON_BAD 10.0f // Used for I2C reconnect health.
+#define HEALTH_RECON_EXP_DECAY 0.99f // Decays rate upon each normal operation.
 
 // Threads. The following values are in bytes. The documentation defines 
 // StackType_t as 1 byte, as opposed to 4 bytes, which would explain a word 

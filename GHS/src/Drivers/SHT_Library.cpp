@@ -25,30 +25,37 @@ void RWPacket::reset(bool resetTimeout, int timeout_ms) {
 // if write failed, or WRITE_OK if successful. 
 SHT_RET SHT::write() {
 
-    esp_err_t err = i2c_master_transmit(
-        this->i2c.handle,
-        this->packet.writeBuffer, sizeof(this->packet.writeBuffer), 
-        this->packet.timeout
-    );
+    if (this->i2c.txrxOK) {
 
-    this->packet.dataSafe = (err == ESP_OK);
+        this->i2c.response = i2c_master_transmit(this->i2c.handle,
+            this->packet.writeBuffer, sizeof(this->packet.writeBuffer), 
+            this->packet.timeout);
 
-    if (err == ESP_ERR_TIMEOUT) {
+        Serial::I2C::get()->monitor(this->i2c);
+        this->packet.dataSafe = (this->i2c.response == ESP_OK);
+
+        if (this->i2c.response == ESP_ERR_TIMEOUT) {
+
+            snprintf(this->log, sizeof(this->log), "%s write timeout", 
+                this->tag);
+
+            this->sendErr(this->log);
+            return SHT_RET::WRITE_TIMEOUT;
+
+        } else if (this->i2c.response != ESP_OK) {
+
+            snprintf(this->log, sizeof(this->log), "%s write err. %s", 
+                this->tag, esp_err_to_name(this->i2c.response));
+
+            this->sendErr(this->log);
+            return SHT_RET::WRITE_FAIL;
+        }
+
+        return SHT_RET::WRITE_OK;
+    } 
         
-        snprintf(this->log, sizeof(this->log), "%s write timeout", this->tag);
-        this->sendErr(this->log);
-        return SHT_RET::WRITE_TIMEOUT;
-
-    } else if (err != ESP_OK) {
-
-        snprintf(this->log, sizeof(this->log), "%s write err. %s", this->tag,
-            esp_err_to_name(err));
-
-        this->sendErr(this->log);
-        return SHT_RET::WRITE_FAIL;
-    }
-
-    return SHT_RET::WRITE_OK;
+    this->packet.dataSafe = false;
+    return SHT_RET::WRITE_FAIL;
 }
 
 // Requires the readSize. This is from 2 - 6, 2 being status reading,
@@ -61,42 +68,46 @@ SHT_RET SHT::read(size_t readSize) {
 
     // The reading format is specified by pg 11 of the datasheet.
 
-    esp_err_t transErr = i2c_master_transmit(
-        this->i2c.handle,
-        this->packet.writeBuffer, sizeof(this->packet.writeBuffer),
-        this->packet.timeout
-    );
+    if (this->i2c.txrxOK) {
+        esp_err_t tx, rx;
 
-    // This value was set to 20, and caused I2C issues, when changed to 
-    // 50, zero issues have occured.
-    vTaskDelay(pdMS_TO_TICKS(SHT_READ_DELAY)); 
+        tx = this->i2c.response = i2c_master_transmit(this->i2c.handle,
+            this->packet.writeBuffer, sizeof(this->packet.writeBuffer),
+            this->packet.timeout);
 
-    esp_err_t receiveErr = i2c_master_receive(
-        this->i2c.handle,
-        this->packet.readBuffer, readSize,
-        this->packet.timeout
-    );
+        Serial::I2C::get()->monitor(this->i2c);
 
-    // If no errors, updates dataSafe to true.
-    this->packet.dataSafe = (transErr == ESP_OK && receiveErr == ESP_OK);
+        // ATTENTION: This value was set to 20, and caused I2C issues, when 
+        // changed to 50, zero issues have occured.
+        vTaskDelay(pdMS_TO_TICKS(SHT_READ_DELAY)); 
 
-    if (transErr == ESP_ERR_TIMEOUT || receiveErr == ESP_ERR_TIMEOUT) {
+        rx = this->i2c.response = i2c_master_receive(this->i2c.handle,
+            this->packet.readBuffer, readSize, this->packet.timeout);
 
-        snprintf(this->log, sizeof(this->log), "%s read timeout", this->tag);
-        this->sendErr(this->log);
-        return SHT_RET::READ_TIMEOUT;
+        Serial::I2C::get()->monitor(this->i2c);
 
-    } else if (transErr != ESP_OK || receiveErr != ESP_OK) {
+        this->packet.dataSafe = (tx == ESP_OK && rx == ESP_OK);
 
-        snprintf(this->log, sizeof(this->log), 
-            "%s read err. Transmit- %s, Receive- %s", this->tag, 
-            esp_err_to_name(transErr), esp_err_to_name(receiveErr));
+        if (tx == ESP_ERR_TIMEOUT || rx == ESP_ERR_TIMEOUT) {
+            snprintf(this->log, sizeof(this->log), "%s read timeout", 
+                this->tag);
 
-        this->sendErr(this->log);
-        return SHT_RET::READ_FAIL;
+            this->sendErr(this->log);
+            return SHT_RET::READ_TIMEOUT;
+
+        } else if (tx != ESP_OK || rx != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s read err. Transmit- %s, Receive- %s", this->tag, 
+                esp_err_to_name(tx), esp_err_to_name(rx));
+
+            this->sendErr(this->log);
+            return SHT_RET::READ_FAIL;
+        }
+
+        return SHT_RET::READ_OK;
     }
 
-    return SHT_RET::READ_OK;
+    return SHT_RET::READ_FAIL; // Returns if i2c device txrx disabled.
 }
 
 // Requires bool dataSafe to be passed by reference to ensure data

@@ -58,16 +58,24 @@ bool ADC::config(uint8_t pinNum, bool refreshConf) {
         static_cast<uint8_t>(conf & 0xFF) // LSB
     };
 
-    esp_err_t err = i2c_master_transmit(this->i2c.handle, writeBuf, 
-        sizeof(writeBuf), ADC_I2C_TIMEOUT);
+    if(this->i2c.txrxOK) {
 
-    if (err != ESP_OK) {
-        snprintf(this->log, sizeof(this->log), "%s writing config", this->tag);
-        this->sendErr(this->log);
-        return false; 
+        this->i2c.response = i2c_master_transmit(this->i2c.handle, writeBuf, 
+            sizeof(writeBuf), ADC_I2C_TIMEOUT);
+
+        Serial::I2C::get()->monitor(this->i2c);
+
+        if (this->i2c.response != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s writing config", 
+                this->tag);
+
+            this->sendErr(this->log);
+            return false; 
+        }
     }
 
-    return true;
+    // Returns true only upon successful I2C tx.
+    return ((this->i2c.txrxOK) && (this->i2c.response == ESP_OK)); 
 
 }
 
@@ -112,25 +120,28 @@ int16_t ADC::getVal() {
 
     uint8_t writeBuf[1] = {static_cast<uint8_t>(REG::CONVERSION)};
     uint8_t readBuf[2] = {0, 0}; // Init to 0.
-    
-    // Request to read 16 bits from the conversion register.
-    esp_err_t err = i2c_master_transmit_receive(
-        this->i2c.handle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
-        ADC_I2C_TIMEOUT
-    );
 
-    if (err == ESP_OK) { // Good read, populate data into int16_t
-        val = (readBuf[0] << 8) | readBuf[1]; // Combine MSB and LSB
+    if (this->i2c.txrxOK) {
+ 
+        this->i2c.response = i2c_master_transmit_receive(this->i2c.handle, 
+            writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf), 
+            ADC_I2C_TIMEOUT);
 
-        float scaled = val * multiplier; // Check scaled range
+        Serial::I2C::get()->monitor(this->i2c);
 
-        // Check for bounds.
-        if (scaled > INT16_MAX) scaled = INT16_MAX;
-        else if (scaled < INT16_MIN) scaled = INT16_MIN;
+        if (this->i2c.response == ESP_OK) {
+            val = (readBuf[0] << 8) | readBuf[1]; // Combine MSB and LSB
 
-        val = static_cast<int16_t>(scaled);
+            float scaled = val * multiplier; // Check scaled range
+
+            // Check for bounds.
+            if (scaled > INT16_MAX) scaled = INT16_MAX;
+            else if (scaled < INT16_MIN) scaled = INT16_MIN;
+
+            val = static_cast<int16_t>(scaled);
+        }
     }
-
+    
     return val; // -1 indicates a bad read.
 }
 
@@ -142,17 +153,25 @@ bool ADC::isConverting() {
     uint8_t writeBuf[1] = {static_cast<uint8_t>(REG::CONFIG)};
     uint8_t readBuf[2] = {0, 0};
 
-    esp_err_t err = i2c_master_transmit_receive(
-        this->i2c.handle, writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
-        ADC_I2C_TIMEOUT
-    );
+    if (this->i2c.txrxOK) {
 
-    if (err != ESP_OK) {
-        snprintf(this->log, sizeof(this->log), "%s error reading conf reg", 
-            this->tag);
+        this->i2c.response = i2c_master_transmit_receive(this->i2c.handle, 
+            writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf),
+            ADC_I2C_TIMEOUT);
 
-        this->sendErr(this->log);
-        return true; // Returns true since this will be a blocker.
+        Serial::I2C::get()->monitor(this->i2c);
+
+        if (this->i2c.response != ESP_OK) {
+            snprintf(this->log, sizeof(this->log), "%s error reading conf reg", 
+                this->tag);
+
+            this->sendErr(this->log);
+            return true; // Returns true since this will be a blocker.
+        }
+        
+    } else {
+        return true; // Returns true as a blocker, i2 never went through.
+                     // Signals that it is still converting.
     }
 
     // Per datasheet, a 0 indicates the device is currently performing a conv,

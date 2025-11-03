@@ -21,7 +21,6 @@ bool AS7341basic::setBank(REG reg) {
     // This is the buffer to send if the desired register is >= 0x80.
     uint8_t buffer[2] = {static_cast<uint8_t>(REG::REG_BANK), 0x00};
     uint8_t addr = static_cast<uint8_t>(reg);
-    esp_err_t err = ESP_OK;
 
     // Used for init only. Sets the last address to a range that is different
     // that the current register address. This will trigger a send.
@@ -34,7 +33,14 @@ bool AS7341basic::setBank(REG reg) {
     // IAW datasheet Pg.53.
     if (addr >= cutoff && lastAddr < cutoff) {
 
-        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
+        if (this->i2c.txrxOK) {
+
+            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
+                2, AS7341_TIMEOUT);
+
+            Serial::I2C::get()->monitor(this->i2c);
+        }
+
         lastAddr = addr; // 00000001
 
     } else if(addr < cutoff && lastAddr >= cutoff) {
@@ -42,16 +48,25 @@ bool AS7341basic::setBank(REG reg) {
         // Register map (pg26) says shift 3, details (pg54) say shift 4. 
         // Does not work with 4, only works with 3. 
         buffer[1] |= (1 << 3); // Sets byte to 0x08 for register below 0x80.
-        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
+
+        if (this->i2c.txrxOK) {
+
+            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
+                2, AS7341_TIMEOUT);
+
+            Serial::I2C::get()->monitor(this->i2c);
+        }
+
         lastAddr = addr;
     } 
 
     vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
 
-    if (err != ESP_OK) {
+    // If error with device or respons is not OK, log.
+    if (!this->i2c.txrxOK || this->i2c.response != ESP_OK) {
 
         snprintf(this->log, sizeof(this->log), "%s Register bank err. %s", 
-            this->tag, esp_err_to_name(err));
+            this->tag, esp_err_to_name(this->i2c.response));
         
         this->sendErr(this->log);
         
@@ -63,29 +78,39 @@ bool AS7341basic::setBank(REG reg) {
 
 // Requires register and value to write. Writes value to register address.
 bool AS7341basic::writeRegister(REG reg, uint8_t val) {
-    esp_err_t err;
+
     uint8_t addr = static_cast<uint8_t>(reg);
 
     if (this->setBank(reg)) { // Ensure bank is set. Then write to register.
 
         uint8_t buffer[2] = {addr, val};
-        err = i2c_master_transmit(this->i2c.handle, buffer, 2, AS7341_TIMEOUT);
-        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
 
-        if (err != ESP_OK) {
+        if (this->i2c.txrxOK) {
 
-            snprintf(this->log, sizeof(this->log), "%s Register write err. %s", 
-                this->tag, esp_err_to_name(err));
+            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
+                2, AS7341_TIMEOUT);
 
-            this->sendErr(this->log);
-            return false;
+            Serial::I2C::get()->monitor(this->i2c);
+
+            // Brief delay after write.
+            vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); 
+
+            if (this->i2c.response != ESP_OK) {
+
+                snprintf(this->log, sizeof(this->log), 
+                    "%s Register write err. %s", this->tag, 
+                    esp_err_to_name(this->i2c.response));
+
+                this->sendErr(this->log);
+                return false;
+            }
+
+            return true; // Success.
         }
-
-    } else { // Bank not set. Log captured in set bank.
-        return false;
     }
 
-    return true;
+    // Bank not set. Log captured in set bank. Default return.
+    return false;
 }
 
 // Requires register and dataSafe boolean. Writes to I2C the register 
@@ -95,7 +120,7 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
 // dataSafe = false indicates error. ATTENTION: This will be called twice,
 // per read, once for the MSB and once for the LSB.
 uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
-    esp_err_t err;
+
     uint8_t addr = static_cast<uint8_t>(reg);
 
     if (this->setBank(reg)) { // Set bank and read from register.
@@ -103,35 +128,38 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
         uint8_t readBuf[1]{0}; // Single byte value. Will have data populated.
         uint8_t writeBuf[1] = {addr}; // Address to send to.
 
-        // transmit receive since must write a command to read data.
-        err = i2c_master_transmit_receive(
-            this->i2c.handle,
-            writeBuf, sizeof(writeBuf),
-            readBuf, sizeof(readBuf), AS7341_TIMEOUT
-        );
+        if (this->i2c.txrxOK) {
 
-        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay after write.
+            this->i2c.response = i2c_master_transmit_receive(this->i2c.handle,
+                writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf), 
+                AS7341_TIMEOUT);
 
-        if (err != ESP_OK) { // Bad read
+            Serial::I2C::get()->monitor(this->i2c);
 
-            snprintf(this->log, sizeof(this->log), "%s Register Read err. %s", 
-                this->tag, esp_err_to_name(err));
+            // Brief delay following write.
+            vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); 
 
-            this->sendErr(this->log);
-            dataSafe = false;
+            if (this->i2c.response != ESP_OK) {
+                snprintf(this->log, sizeof(this->log), 
+                    "%s Register Read err. %s", this->tag, 
+                    esp_err_to_name(this->i2c.response));
 
-        } else {
+                this->sendErr(this->log);
+                dataSafe = false;
 
-            dataSafe = true;
+            } else {
+
+                // Only return when data is solid.
+                dataSafe = true;
+                return (uint8_t)readBuf[0];
+            }
         }
-
-        return (uint8_t)readBuf[0];
-
-    } else { // bank not set, logging in set bank function.
-
-        dataSafe = false;
-        return 0;
-    }
+    } 
+    
+    // bank not set, logging in set bank function.
+    dataSafe = false;
+    return 0;
+    
 }
 
 // Requires register, data to write, and verbose is set to true. Writes to 

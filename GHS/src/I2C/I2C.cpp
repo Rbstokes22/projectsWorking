@@ -8,23 +8,6 @@
 #include "Peripherals/saveSettings.hpp"
 #include "Common/FlagReg.hpp"
 
-// Nearly complete at like 95%. Finish the remove and re-init inthe monitor
-// class. Once complete, consider separating into some sub functions as well
-// to handle certainthings, instead of having monitor extra long. Once complete
-// with the project, ensure accuracy and capture of all devices and the master
-// The default settings should have everything suspended and first init the master
-// bus changing the init flag to true. Before any devices are added, the master
-// need to be checked. The devices will then be added which should zero the err
-// score, and flag reg and txtx to true allowing communication. Upon removal of 
-// device, Checks should be made to ensure the master bus is active and the 
-// device is registered. If it is, it can then be removed, and setting its 
-// reg and txrx to false. If resetting master, ensure all devices are removed
-// first. remove master first checking it is functional, and then add it back
-// changing the init flag to true. Once up, each device can be added back to 
-// the master, of course ensuring it is active before adding. If removing 
-// individual devices the same check and flag changes must occur, and should 
-// already be good.
-
 namespace Serial {
 
 Threads::Mutex I2C::mtx(I2C_TAG); // define instance of mtx
@@ -32,7 +15,7 @@ Threads::Mutex I2C::mtx(I2C_TAG); // define instance of mtx
 // I2C packet will be assigned to each device class, and will follow the device
 // for its life containing all required data.
 I2CPacket::I2CPacket() : handle(NULL), arrayIdx(I2C_NEW_IDX), txrxOK(false),
-    errScore(0.0f), isRegistered(false) { 
+    errScore(0.0f), isRegistered(false), reConScore(0.0f) { 
     
     memset(&this->config, 0, sizeof(this->config));
 }
@@ -57,13 +40,15 @@ void I2C::sendErr(const char* msg, Messaging::Levels lvl, bool ignoreRepeat) {
         ignoreRepeat);
 }
 
+// Requires no params. Removes master bus and returns true or false depending
+// on success.
 bool I2C::removeMaster() {
 
     if (!this->masterInit) return true; // True, signal the master is not init.
 
     int retries = (I2C_ADDDEV_RETRIES > 0) ? I2C_ADDDEV_RETRIES : 1;
 
-    for (int i = 0; i < retries; i++) {
+    for (int i = 0; i < retries; i++) { // Iterate to remove bus.
 
         esp_err_t err = i2c_del_master_bus(this->busHandle);
 
@@ -99,7 +84,8 @@ bool I2C::removeMaster() {
     return false; // Required in the event of for loop fail.
 }
 
-// Requires pointer to packet.
+// Requires pointer to packet. Removes device from master bus. Returns true
+// is successfully removed, and false if not.
 bool I2C::removeDev(I2CPacket* pkt) {
 
     if (pkt == nullptr) { // Block and log if nullptr.
@@ -107,7 +93,7 @@ bool I2C::removeDev(I2CPacket* pkt) {
         this->sendErr(this->log);
         return false;
 
-    } else if (this->masterInit) {
+    } else if (!this->masterInit) { // Block if not init.
         snprintf(this->log, sizeof(this->log), 
             "%s dev cannot be removed from un-init master", this->tag);
 
@@ -116,15 +102,17 @@ bool I2C::removeDev(I2CPacket* pkt) {
 
     } else if (!pkt->isRegistered) {
         return true; // Will not remove unregistered device, returns true 
-                     // indicating that the device is removed.
+                     // indicating that the device is already removed.
     }
 
     pkt->txrxOK = false; // Blocks use of trans/receive during removal. Will 
-                         // Not be clear until device is added back to bus.
+                         // Not be be set to true until adding from bus. This
+                         // prevents txrx on a bad device until it is 
+                         // successfully operating.
 
     int retries = (I2C_ADDDEV_RETRIES > 0) ? I2C_ADDDEV_RETRIES : 1;
 
-    for (int i = 0; i < retries; i++) {
+    for (int i = 0; i < retries; i++) { // Iterate to remove device
 
         esp_err_t err = i2c_master_bus_rm_device(pkt->handle);
 
@@ -174,9 +162,89 @@ bool I2C::reInitDev(I2CPacket *pkt) {
     if (pkt == nullptr) { // Block if nullptr.
         snprintf(this->log, sizeof(this->log), "%s pkt is nullptr", this->tag);
         this->sendErr(this->log);
+        return false; // Block.
+    }
+
+    pkt->reConScore += HEALTH_ERR_UNIT; // Increment score upon each re-init.
+
+    // If the score is showing the device as being problematic. By disabling
+    // txrx here, it will serve as a block to prevent the monitor function from
+    // being called in any follow on calls, permanently disabling the device.
+    if (pkt->reConScore >= HEALTH_RECON_BAD) {
+        pkt->txrxOK = false;
+
+        snprintf(this->log, sizeof(this->log), "%s Device at addr %#x Disabled",
+            this->tag, pkt->config.device_address);
+
+        this->sendErr(this->log);
+        return false;
     }
 
     return this->addDev(*pkt, true);
+}
+
+// Requires no parameters. If bus is detected as being fault, this logic 
+// removes all devices, then the bus, then adds the bus, and adds each device.
+bool I2C::restartBus() {
+
+    // ATTENTION. Each device removal or init, as well as the master bus, will
+    // execute retries within its function scope. Applied a secondary retry 
+    // logic in device removal, since device removal is performed due to a 
+    // faulty bus at this point. It serves as additional redundancy. For 
+    // device re-init, a single try using the implemented retry logic due to
+    // bus no longer being faulty if successfully reconnected. If this results
+    // in error, implement other logic to handle.
+
+    size_t total = 0;
+
+    // Remove devices first.
+    for (uint8_t i = 0; i < this->devNum; i++) {
+        total += this->removeDev(this->allPkts[i]);
+    }
+
+    if (total != this->devNum) { // Attempt one more iteration
+
+        // Reset, since we will reiterate all packets, and packets that 
+        // have been successfully registered will return true allowing
+        // capture of all removed devices in the array as well.
+        total = 0; 
+
+        for (uint8_t i = 0; i < this->devNum; i++) {
+            total += this->removeDev(this->allPkts[i]);
+        }
+
+        if (total != this->devNum) {
+            snprintf(this->log, sizeof(this->log), 
+                "%s I2C devices unable to be removed will restart system",
+                this->tag);
+
+            this->sendErr(this->log);
+            NVS::settingSaver::get()->saveAndRestart();
+            return false; // Should not be executed due to restart.
+        }
+    } 
+
+    // Devices successfully removed at this point. Remove and re-init master.
+    // Once re-init, add the devices back, and return success.
+
+    bool master = this->removeMaster();
+
+    if (master) {
+        master = this->reInitMaster();
+
+        if (master) {
+
+            total = 0; // Will ensure all devices are re-added.
+
+            for (uint8_t i = 0; i < this->devNum; i++) {
+                total += this->reInitDev(this->allPkts[i]);
+            }
+        }
+
+        return (total == this->devNum); // true if all devices added back.
+    }
+
+    return false; // Unsuccessful removal and reinit of bus.
 }
 
 // Returns a pointer to the I2C instance.
@@ -220,7 +288,6 @@ bool I2C::i2c_master_init(I2C_FREQ freq) {
                 "%s master bus not added. Try %d / %d", this->tag, i, retries);
 
             this->sendErr(this->log);
-            this->masterInit = false;
             vTaskDelay(pdMS_TO_TICKS(20));
             continue; // Break into new loop.
 
@@ -275,7 +342,7 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
         this->sendErr(this->log);
         return false;
 
-    } else if (!this->masterInit) { // Ensures master is init.
+    } else if (!this->masterInit) { // Ensures master is init before add.
         snprintf(this->log, sizeof(this->log), "%s Master unInit", this->tag);
         this->sendErr(this->log);
         return false;
@@ -285,7 +352,7 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
             this->tag);
 
         this->sendErr(this->log, Messaging::Levels::ERROR);
-        return false;
+        return true; // Device is already registered and working.
     }
 
     int retries = (I2C_ADDDEV_RETRIES > 0) ? I2C_ADDDEV_RETRIES : 1;
@@ -302,8 +369,6 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
                 pkt.config.device_address, i, retries);
 
             this->sendErr(this->log);
-            pkt.txrxOK = false; // Prevent use until init.
-
             vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay added.
             continue; // Break into new loop.
 
@@ -321,10 +386,11 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
                 this->devNum++; // Increment to signal successful device add.
             }
 
+            pkt.reConScore = 0.0f; // Ensures good score on new addition.
             pkt.errScore = 0.0f; // Reset to 0 on new addition.
             pkt.txrxOK = true; // Set OK to transmit and receive.
             pkt.isRegistered = true; // Shows device is registered with master.
-            
+
             snprintf(this->log, sizeof(this->log), "%s dev added at addr %#x", 
                 this->tag, pkt.config.device_address);
 
@@ -345,6 +411,12 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
     return false; // Required in the event of for loop fail.
 }
 
+// Requires packet. ENSURE that packet is updated before sending with the
+// txrx response for analysis. Ensures that any timeouts are captured and
+// checks for potential device and/or bus failures. If individual devices are
+// failing, removes and adds back to master. If bus is detected, removes all
+// devices, bus, and re-inits devices. Returns true based on function working
+// as advertised, and false if operations are unsuccessful.
 bool I2C::monitor(I2CPacket &pkt) {
 
     // Used statically in this singleton class to check the overall bus health.
@@ -395,63 +467,30 @@ bool I2C::monitor(I2CPacket &pkt) {
     // ATTENTION. Upon restart attempts, ensure to change the I2C packet
     // txrxOK to false, which will be used to check before any transmission.
     // This prevents a device from txrx while a restart is being attempted.
+    // This is built into to removeDev();
 
     if (busFailures >= I2C_RESTART_FLAGS) { // Restart the main bus
 
-        size_t totalRemoved = 0;
+        this->restartBus();
 
-        // Remove devices first.
-        for (uint8_t i = 0; i < this->devNum; i++) {
-            totalRemoved += this->removeDev(this->allPkts[i]);
-        }
+    // Prompt the restart of individual client if the bus itself is healthy.
+    // Will continue to run with failing health score, because the error 
+    // score is only reset naturally by good txrx or by adding a device.
+    } else if (pkt.errScore > HEALTH_ERR_BAD) { 
 
-        if (totalRemoved != this->devNum) { // Attempt one more iteration
-
-            // Reset, since we will reiterate all packets, and packets that 
-            // have been successfully registered will return true allowing
-            // capture of all removed devices.
-            totalRemoved = 0; 
-
-            for (uint8_t i = 0; i < this->devNum; i++) {
-                totalRemoved += this->removeDev(this->allPkts[i]);
-            }
-
-            if (totalRemoved != this->devNum) {
-                snprintf(this->log, sizeof(this->log), 
-                    "%s I2C devices unable to be removed will restart system",
-                    this->tag);
-
-                this->sendErr(this->log);
-                NVS::settingSaver::get()->saveAndRestart();
-                return false; // Should not be executed due to restart.
-            }
-        } 
-
-        bool master = this->removeMaster();
-
-        if (master) {
-            master = this->reInitMaster();
-
-            if (master) {
-
-                for (uint8_t i = 0; i < this->devNum; i++) {
-                    this->reInitDev(this->allPkts[i]);
-                }
-            }
-        }
-
-    } else { // Prompt the restart of individual clients.
-
-        // Analyze the master bus at this point to flag the actual unreponsive packets before removing and reinit
-
+        // Remove the device, upon success re-init the device. 
         bool removed = this->removeDev(&pkt);
-        if (removed) this->reInitDev(&pkt);
-        return true;
+
+        if (removed) return this->reInitDev(&pkt);
+
+        return false; // Indicate unsuccessful remove and reinit.
 
     }
 
-
+    pkt.reConScore *= HEALTH_RECON_EXP_DECAY; // Decay upon normal function
     return true; // Indicates no violations at the moment.
 }
+
+
 
 }

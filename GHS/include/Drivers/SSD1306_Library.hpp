@@ -36,9 +36,7 @@ enum class DIM { // Dimensions.
 // Text commands to start and end. Using START will ensure that you can 
 // write multiple chars to the display without breaking the line. Using
 // END will automatically increment to the next page once complete.
-enum class TXTCMD { 
-    START, END
-};
+enum class TXTCMD {START, END};
 
 // Used to prevent re-initialization.
 enum class SSD_INIT : uint8_t {INIT, I2C_INIT, MK_TEMP};

@@ -170,17 +170,22 @@ bool OLEDbasic::init(uint8_t address) {
 
     // If I2C is init, init the remainder of the device.
 
-    esp_err_t err = i2c_master_transmit( // Transmit init sequence
-        this->i2c.handle, this->init_sequence,
-        sizeof(this->init_sequence), SSD1306_I2C_TIMEOUT);
+    if (this->i2c.txrxOK) {
 
-    // Handle monitor here using err from above.
-    if (err == ESP_OK) {
-        this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::INIT));
-        this->reset(true);
-        return true;
+        // Transmit init sequence
+        this->i2c.response = i2c_master_transmit(this->i2c.handle, 
+            this->init_sequence, sizeof(this->init_sequence), 
+            SSD1306_I2C_TIMEOUT);
+
+        Serial::I2C::get()->monitor(this->i2c);
+
+        if (this->i2c.response == ESP_OK) {
+            this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::INIT));
+            this->reset(true);
+            return true;
+        }
     }
-    
+
     return false;
 }
 
@@ -452,19 +457,31 @@ void OLEDbasic::send() {
     // transmitting the 1088 byte ((129 + 7) * 8) buffer.
     while(i < static_cast<int>(Size::bufferSize)) {
         if (toggle) {
-            err = i2c_master_transmit(this->i2c.handle, &Display[i],
-                this->cmdSeqLgth, SSD1306_I2C_TIMEOUT);
 
-            errHandle(err);
+            if (this->i2c.txrxOK) {
 
+                this->i2c.response = i2c_master_transmit(this->i2c.handle, 
+                    &Display[i], this->cmdSeqLgth, SSD1306_I2C_TIMEOUT);
+
+                errHandle(this->i2c.response);
+
+                Serial::I2C::get()->monitor(this->i2c);
+            }
+
+            // Always run regardless of i2c status.
             toggle = false;
             i += this->cmdSeqLgth;
-            
-        } else {
-            err = i2c_master_transmit(this->i2c.handle, &Display[i],
-                this->lineLgth, SSD1306_I2C_TIMEOUT);
 
-            errHandle(err);
+        } else {
+
+            if (this->i2c.txrxOK) {
+
+                this->i2c.response = i2c_master_transmit(this->i2c.handle, 
+                    &Display[i], this->lineLgth, SSD1306_I2C_TIMEOUT);
+
+                errHandle(this->i2c.response);
+                Serial::I2C::get()->monitor(this->i2c);
+            }
 
             toggle = true;
             i += this->lineLgth;

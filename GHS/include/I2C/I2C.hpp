@@ -15,9 +15,11 @@ namespace Serial {
 #define I2C_LOG_METHOD Messaging::Method::SRL_LOG
 #define I2C_MAX_DEV 8 // This is based on this programs archtecture.
 #define I2C_TAG "(I2C)"
-#define I2C_RESTART_RETRIES 5 // Attempts made to restart I2C.
-#define I2C_FLAG_TAG "(I2C Flag)"
-#define I2C_RESTART_FLAGS 3 // Number of problematic devices prompting master 
+
+// WARNING. I am not sure yet, but removing two devices from 5 for example,
+// will prompt a master restart if a single device fails, Set to the number
+// of devices which are sure to indicate a problem, and adjust if needed.
+#define I2C_RESTART_FLAGS 5 // Number of problematic devices prompting master 
                             // restart.
 
 #define I2C_ADDDEV_RETRIES 3 // Number of retries to add device to I2C.
@@ -39,6 +41,7 @@ struct I2CPacket {
     bool txrxOK; // Ensures that I2C is up before transmission/receive.
     float errScore; // Exponentially decayed var to display sensor health.
     bool isRegistered; // Flags if device is currently active or not.
+    float reConScore; // Reconnect score to disable device if very problematic.
     I2CPacket();
 };
 
@@ -70,6 +73,7 @@ class I2C {
     bool removeDev(I2CPacket* pkt); // Retries/err hand captured in function.
     bool reInitMaster();
     bool reInitDev(I2CPacket *pkt);
+    bool restartBus();
 
     public:
     static I2C* get();
