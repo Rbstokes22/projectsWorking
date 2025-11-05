@@ -9,7 +9,7 @@
 namespace Peripheral {
 
 #define REPORT_LOG_METHOD Messaging::Method::SRL_LOG
-#define REPORT_TIME_PADDING 10 // 10 seconds range, do not exceed 60;
+#define REPORT_TIME_PADDING 50 // 50 seconds range, do not exceed 60;
 #define REPORT_TAG "(REPORT)"
 
 #define SEND_ATTEMPTS 3 // Max attempts to try to send average message 0 - 255

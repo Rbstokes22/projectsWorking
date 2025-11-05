@@ -9,6 +9,9 @@
 namespace Clock {
 
 #define SEC_PER_DAY 86400 // Seconds per day
+#define CALIB_BLOCK_TIME 10 // Radius of time from midnight where calibrations
+                            // will be blocked in order to prevent reporting
+                            // and log errors.
 
 struct TIME {
     uint8_t hour; 

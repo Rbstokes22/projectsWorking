@@ -1,0 +1,2 @@
+/usr/bin/ar qc libasyncProj.a CMakeFiles/asyncProj.dir/async.cpp.o
+/usr/bin/ranlib libasyncProj.a

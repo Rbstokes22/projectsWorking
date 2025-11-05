@@ -422,15 +422,17 @@ const char MAINpage[] = R"rawliteral(
     // Intervals (millis)
     const POLL_INTV = 1000; // Poll interval (ms) to run GET_ALL.
     const CHK_OTA_INTV = 86400000; // OTA check run.
-    const CLEAR_REQ_INTV = 60000; // Clear exp skt req if non-response.
+    const CLEAR_REQ_INTV_MS = 10000; // Clear exp skt req if non-response.
     const FW_CHECK_INTV = 12 * 60 * 60 * 1000; // Check for new firmware.
     const TIME_ERROR = 5; // Seconds deviation from time to prompt re-calib.
+
 
     // Flags 
     let Flags = {SKTconn:false, openLog:true};
 
     // Other
     const maxID = 255; // Used to reset ID num to 0 when this value is reached.
+    const NO_CALIB_RAD = 10; // Prevents calib from radius from midnight.
     const logDelim = ';'; // Delimiter used in logging from the server.
     const RE_OFF = 255; // Signals relay is not attached.
     let isCelcius = false;
@@ -639,7 +641,7 @@ const char MAINpage[] = R"rawliteral(
                     const ID = getID(defResp, {"avgClrTime": sendTime}, 
                         handleMain);
 
-                    socket.send(`${cmd}/${sendTime}/${ID}`);
+                    socket.send(`${cmd}/${sendTime}/${ID}/`);  
                 }
             });
 
@@ -686,7 +688,7 @@ const char MAINpage[] = R"rawliteral(
                     case "light": output |= (2 << 4); break;
                 }
 
-                socket.send(`${cmd}/${output}/${ID}`);
+                socket.send(`${cmd}/${output}/${ID}/`);
             }
         });
     }
@@ -751,7 +753,7 @@ const char MAINpage[] = R"rawliteral(
                     break;
                 }
 
-                socket.send(`${cmd}/${output}/${ID}`);  
+                socket.send(`${cmd}/${output}/${ID}/`);  
             }
         });
     }
@@ -817,7 +819,7 @@ const char MAINpage[] = R"rawliteral(
                     output |= (val & 0xFFFF); // Lower 16 is value.
                 }
 
-                socket.send(`${cmd}/${output}/${ID}`);  
+                socket.send(`${cmd}/${output}/${ID}/`);  
             }
         });
     }
@@ -841,7 +843,7 @@ const char MAINpage[] = R"rawliteral(
                 val = ADCConv(false, val); // Adjust from % to int16_t.
                 const ID = getID(defResp, {"darkVal": val}, obj.callBack);
                 let output = val & 0xFFFF; // No other requirements besides val.
-                socket.send(`${cmd}/${output}/${ID}`);
+                socket.send(`${cmd}/${output}/${ID}/`);
             }
             }
         );
@@ -875,7 +877,7 @@ const char MAINpage[] = R"rawliteral(
 
                 let output = ATIME & 0xFF; // Establish Atime on init.
                 output |= ((ASTEP & 0xFFFF) << 8);
-                socket.send(`${cmd}/${output}/${ID}`);
+                socket.send(`${cmd}/${output}/${ID}/`);
             }
             }
         );
@@ -895,7 +897,7 @@ const char MAINpage[] = R"rawliteral(
 
             if (QC(AGAIN, ranges.again, `${name}Again`)) {
                 const ID = getID(defResp, {"again": AGAIN}, obj.callBack);
-                socket.send(`${cmd}/${AGAIN}/${ID}`);
+                socket.send(`${cmd}/${AGAIN}/${ID}/`);
             }
             }
         );
@@ -968,7 +970,7 @@ const char MAINpage[] = R"rawliteral(
 
                     output |= ((reNum & 0xF) << 28); // MSNibble
                     output |= (duration & 0x7FF); // bits 0 - 10
-                    socket.send(`${cmd}/${output}/${ID}`); 
+                    socket.send(`${cmd}/${output}/${ID}/`); 
                 }
             }
             }
@@ -1142,7 +1144,7 @@ const char MAINpage[] = R"rawliteral(
                 let output = ((reNum & 0xF) << 4); // Set renum to init
                 output |= (b.value & 0xF); // Set the control value.
                 
-                socket.send(`${cmd}/${output}/${ID}`);
+                socket.send(`${cmd}/${output}/${ID}/`);
             }
 
             parent.appendChild(b);
@@ -1304,7 +1306,7 @@ const char MAINpage[] = R"rawliteral(
             let output = (reNum & 0xF) << 8; // Init with relay number.
             output |= (reDays[reNum] & 0x7F); // 7 bits only, 1 for each day.
  
-            socket.send(`${cmd}/${output}/${ID}`);
+            socket.send(`${cmd}/${output}/${ID}/`);
         }
 
         butDisp.appendChild(submit);
@@ -1631,9 +1633,9 @@ const char MAINpage[] = R"rawliteral(
     // the JSON has been updated, to immediately update display if occured 
     // between polling all data. Returns ID which will be used for handling.
     const getID = (callback1 = null, KVs = null, callback2 = null) => {
-        const id = idNum++; // between 0 and 255, rotating.
-        requestIDs[id] = [callback1, KVs, callback2]; 
-        idNum = (idNum >= maxID) ? 0 : idNum; // Reset to 0 if == max.
+        const id = idNum % 256; // Sets between 0 and 255.
+        idNum++; // increment by one.
+        requestIDs[id] = [callback1, KVs, callback2, Date.now()]; 
         return id;
     }
 
@@ -1653,7 +1655,7 @@ const char MAINpage[] = R"rawliteral(
         console.log("Connected to server");
         Flags.SKTconn = true;
         poll = setInterval(pollServer, POLL_INTV); // Set intervals
-        clearReqID = setInterval(clearOldRequests, 10000); 
+        clearReqID = setInterval(clearOldRequests, CLEAR_REQ_INTV_MS); 
     }
 
     const socketClose = () => { // Close socket handler
@@ -1671,15 +1673,21 @@ const char MAINpage[] = R"rawliteral(
     // Polls the server at a set interval requesting all data.
     const pollServer = () => {
         if (isSocketOpen()) {
-            socket.send(`${convert("GET_ALL")}/${0x00}/${getID(getAll)}`);
+            socket.send(`${convert("GET_ALL")}/${0x00}/${getID(getAll)}/`);
         }
     }
 
     // Clears requests that will not be satisfied by the server to 
     // prevent the from accumulating to non responses.
     const clearOldRequests = () => {
+
+        let ms = Date.now();
+        
+        // Parses each member of of request IDs. If ID is over 10 seconds old,
+        // it is cleared signaling no reply from socket, which will leave the
+        // callers data inside this object.
         Object.keys(requestIDs).forEach(id => {
-            if (Number(id) < (idNum - 3)) delete requestIDs[id];
+            if ((requestIDs[3] + CLEAR_REQ_INTV_MS) < ms) delete requestIDs[id];
         });
     }
 
@@ -1710,7 +1718,7 @@ const char MAINpage[] = R"rawliteral(
         allData = data; // Allows use between poll interval waits by copying.
         MODE = data.netMode; // Update the mode to handle particular functions.
         document.getElementById("title").innerText = TITLE[MODE === 2 ? 1 : 0];
-        
+
         calibrateTime(data.sysTime); // Ensures sys clock is calib to client
         blockAP(); // Remove any elements that must be in station mode.
 
@@ -1732,6 +1740,12 @@ const char MAINpage[] = R"rawliteral(
     // Pass the current time in seconds from the ESP. If different than
     // real time, sends socket cmd to calibrate to real time.
     let calibrateTime = (seconds) => { // calibrates time if different
+
+        // Ensure calibration does not occur within a certain radius of midnight
+        // since sensitive information is handled at the period. 
+        if (seconds >= (86400 - NO_CALIB_RAD) || seconds <= NO_CALIB_RAD) 
+            return;
+
         const time = new Date();
         
         let secPastMid = (time.getHours() * 3600) + (time.getMinutes() * 60) 
@@ -1750,7 +1764,7 @@ const char MAINpage[] = R"rawliteral(
             let output = (secPastMid & 0x1FFFF); // init with sec past midnight.
             output |= ((day & 0b111) << 17);
             socket.send(`${convert("CALIBRATE_TIME")}/${output}/` +
-                `${getID(defResp)}`);
+                `${getID(defResp)}/`);
         }
     }
 
@@ -2243,7 +2257,7 @@ const char MAINpage[] = R"rawliteral(
         
             // Is a receipt only, Allows server to remove flag.
             if (!isSocketOpen()) return; // Block
-            socket.send(`${convert("NEW_LOG_RCVD")}/${0x00}/${getID()}`); 
+            socket.send(`${convert("NEW_LOG_RCVD")}/${0x00}/${getID()}/`); 
         })
         .catch(err => console.log(err));
     }
@@ -2273,7 +2287,7 @@ const char MAINpage[] = R"rawliteral(
     let getTrends = (qty = 6) => {
         if (!isSocketOpen()) return; // Block
         qty = (qty < 1 || qty > 12) ? 6 : qty; // Ensure within bounds, def set.
-        socket.send(`${convert("GET_TRENDS")}/${qty}/${getID(setTrends)}`); 
+        socket.send(`${convert("GET_TRENDS")}/${qty}/${getID(setTrends)}/`); 
     }
 
     // Requires bool from int to percent, and the value. Computes the perc
@@ -2569,7 +2583,7 @@ const char MAINpage[] = R"rawliteral(
 
     // Saves and resets the esp32 without countdown to reload window.
     const saveReset = () => {
-        socket.send(`${convert("SAVE_AND_RESTART")}/0/${getID()}`);
+        socket.send(`${convert("SAVE_AND_RESTART")}/0/${getID()}/`);
         const disp = document.getElementById("SR"); // Save and reset button
         disp.onclick = ""; // Blocks further clicking until reset.
         let secToReload = 30; // Reloads after firmware update.

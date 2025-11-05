@@ -68,6 +68,12 @@ DateTime* DateTime::get() {
 // Requires an int of the seconds past midnight. Calibrates the hhmmss,
 // and sets baseline for future computations.
 void DateTime::calibrate(int secsPastMid, uint8_t day) {
+
+    // Prevents time calibration during reporting and log events at the 
+    // midnight mark. 
+    if (secsPastMid <= CALIB_BLOCK_TIME || 
+            secsPastMid >= (SEC_PER_DAY - CALIB_BLOCK_TIME)) return;
+
     this->time.raw = static_cast<uint32_t>(secsPastMid);
     this->setHHMMSS(secsPastMid);
     this->timeCalibrated = secsPastMid; // Time this was calibrated

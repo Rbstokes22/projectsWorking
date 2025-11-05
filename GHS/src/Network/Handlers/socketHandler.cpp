@@ -70,15 +70,12 @@ void argPool::releaseArg(async_resp_arg* arg) {
 esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
     async_resp_arg* arg) {
 
-    // parse/tokenize the data for the cmd, supp, and id. Must be ran 
-    // sequentially. cmd is the command, supp is supplementary data such 
-    // as temperature value, and id is the message ID sent by the client to
-    // ensure the async response is to the requested message.
-    const char* cmd = strtok((char*)arg->Buf, "/");
-    const char* supp = strtok(NULL, "/");
-    const char* id = strtok(NULL, "/");
+    int cmd = -1, supp = -1, id = -1;
 
-    if (cmd == NULL || supp == NULL || id == NULL) {
+    // Parse the incoming delimited string, for the required data.
+    int parsed = sscanf((char*)arg->Buf, "%d/%d/%d/", &cmd, &supp, &id);
+
+    if (parsed != 3) {
         snprintf(MASTERHAND::log, sizeof(MASTERHAND::log),
             "%s Invalid command input format", SOCKHAND::tag);
         
@@ -90,9 +87,9 @@ esp_err_t SOCKHAND::trigger_async_send(httpd_handle_t handle, httpd_req_t* req,
     // Set up the arg struct with the required data for the queue.
     arg->hd = req->handle; // hd = handle
     arg->fd = httpd_req_to_sockfd(req); // fd = file desriptor
-    arg->data.cmd = static_cast<CMDS>(atoi(cmd)); // Convert str to int
-    arg->data.suppData = atoi(supp); // Convert to str to int
-    arg->data.idNum = atoi(id); // Will be between 0 and 255.
+    arg->data.cmd = static_cast<CMDS>(cmd); // Convert str to int
+    arg->data.suppData = supp; // Convert to str to int
+    arg->data.idNum = id; // Will be between 0 and 255.
 
     return httpd_queue_work(handle, SOCKHAND::ws_async_send, arg); 
 }
@@ -287,6 +284,8 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
             SOCKHAND::pool.releaseArg(arg); // Release arg if error.
             return ESP_OK; // NOTE 1. BLOCK.
         }
+
+        ((char*)arg->Buf)[wsPkt.len] = '\0'; // Ensure null termination.
 
         // printf("Received packet with msg: %s\n", wsPkt.payload); // TS
     }

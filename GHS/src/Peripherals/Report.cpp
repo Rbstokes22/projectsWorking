@@ -138,8 +138,8 @@ void Report::manageTimer() {
         clrT = true; // Reset
     }
 
-    // daily log timer. Logs between 23:59:55 and midnight.
-    inRange = (sysTime >= 86390) && (sysTime <= 86400);
+    // daily log timer. Logs between midnight and 00:00::50
+    inRange = (sysTime <= REPORT_TIME_PADDING);
 
     if (dayT && inRange) { // Not logged yet and in range.
         dayT = false;
