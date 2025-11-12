@@ -8,6 +8,7 @@
 #include "UI/MsgLogHandler.hpp"
 #include "Network/Handlers/socketHandler.hpp"
 #include "Threads/Mutex.hpp"
+#include "xtensa/hal.h"
 
 // No mutex required, Accessed from a single thread
 
@@ -23,7 +24,7 @@ Report::Report() : tag(REPORT_TAG), clrTimeSet(MAX_SET_TIME) {
 
 // Returns pointer to that static instance.
 Report* Report::get() {
-    Threads::MutexLock(Report::mtx);
+
     static Report instance;
     return &instance; 
 }
@@ -96,6 +97,11 @@ void Report::sendErr(const char* msg, Messaging::Levels lvl) {
 // exceeds 86340, or 23:59:00, it will be set to that default time. 
 void Report::setTimer(uint32_t seconds) {
 
+    Threads::MutexLock guard(Report::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
+
     // Filter to ensure that MAX set time is not exceeded.
     this->clrTimeSet = (seconds >= MAX_SET_TIME) ? MAX_SET_TIME : seconds;
 
@@ -114,6 +120,11 @@ void Report::setTimer(uint32_t seconds) {
 // class that will be sent to the client. Also handles secondary control of
 // logging a new day in the 10 secs before midnight.
 void Report::manageTimer() { 
+
+    Threads::MutexLock guard(Report::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
 
     Clock::TIME* dtg = Clock::DateTime::get()->getTime();
     uint8_t hour = dtg->hour;
@@ -173,6 +184,6 @@ void Report::manageTimer() {
     }
 }
 
-// gets the current set time and returns.
+// gets the current set time and returns. No mtx required.
 uint32_t Report::getTime() {return this->clrTimeSet;}
 }

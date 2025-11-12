@@ -3,6 +3,7 @@
 #include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
+#include "Threads/Mutex.hpp"
 
 namespace NVS {
 
@@ -12,18 +13,17 @@ char Creds::log[LOG_MAX_ENTRY] = {0}; // Static def of log.
 
 // namespace must be under 12 chars long. Manages credentials and works as 
 // an interface between the program and the NVS.
-Creds::Creds(CredParams &params) :
+Creds::Creds(CredParams &params) : mtx(Creds::tag), nvs(params.nameSpace), 
+    params(params) {
 
-    nvs(params.nameSpace), params(params) {
+    memset(this->credData, 0, sizeof(this->credData));
+    memset(this->smsreq.phone, 0, sizeof(this->smsreq.phone));
+    memset(this->smsreq.APIkey, 0, sizeof(this->smsreq.APIkey));
+    // this->nvs.eraseAll(); // UNCOMMENT AS NEEDED FOR TESTING.
 
-        memset(this->credData, 0, sizeof(this->credData));
-        memset(this->smsreq.phone, 0, sizeof(this->smsreq.phone));
-        memset(this->smsreq.APIkey, 0, sizeof(this->smsreq.APIkey));
-        // this->nvs.eraseAll(); // UNCOMMENT AS NEEDED FOR TESTING.
-
-        snprintf(Creds::log, sizeof(Creds::log), "%s Ob created", Creds::tag);
-        Creds::sendErr(Creds::log, Messaging::Levels::INFO, true);
-    }
+    snprintf(Creds::log, sizeof(Creds::log), "%s Ob created", Creds::tag);
+    Creds::sendErr(Creds::log, Messaging::Levels::INFO, true);
+}
 
 // Requires message, message level, and if repeating log analysis should be 
 // ignored. Messaging default to ERROR, ignoreRepeat default to false.
@@ -71,6 +71,11 @@ Creds* Creds::get(CredParams* parameter) {
 // checksum value. Returns NVS_WRITE_OK or NVS_WRITE_FAIL.
 nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
 
+    Threads::MutexLock guard(Creds::mtx);
+    if (!guard.LOCK()) {
+        return nvs_ret_t::NVS_WRITE_FAIL; // Block if unlocked.
+    }
+
     nvs_ret_t stat = this->nvs.write(key, (uint8_t*)buffer, bytes);
 
     if (stat != nvs_ret_t::NVS_WRITE_OK) {
@@ -84,19 +89,23 @@ nvs_ret_t Creds::write(const char* key, const char* buffer, size_t bytes) {
 // Requires the key. If key exists in the key array in the configuration header
 // it will return a const char* that will be available to copy.
 const char* Creds::read(const char* key) {
+
+    Threads::MutexLock guard(Creds::mtx);
+    if (!guard.LOCK()) {
+        return (const char*)('\0'); // Block if bad return nothing.
+    }
    
     // lambda to in key iteration. Reads the entry matching the key and 
     // copies it over to credData array. If error, creddata will = 0.
     auto getCred = [this](const char* key) {
 
         nvs_ret_t stat = this->nvs.read(
-            key, this->credData, sizeof(this->credData)
-            );
+            key, this->credData, sizeof(this->credData));
 
         if (stat != nvs_ret_t::NVS_READ_OK) {
             snprintf(Creds::log, sizeof(Creds::log), "%s readErr", Creds::tag);
             Creds::sendErr(Creds::log);
-            }
+        }
     };
 
     // Iterates each key in the netKeys comparing the passed key variable to
@@ -120,6 +129,11 @@ const char* Creds::read(const char* key) {
 // occur returning the object if successful, or a nullptr if error. Handle 
 // nullptr on the requesting code.
 SMSreq* Creds::getSMSReq(bool bypassCheck) {
+
+    Threads::MutexLock guard(Creds::mtx);
+    if (!guard.LOCK()) {
+        return nullptr;
+    }
 
     // Bypassed when populating the struct, called by WAP setup handler.
     if (bypassCheck) return &this->smsreq;

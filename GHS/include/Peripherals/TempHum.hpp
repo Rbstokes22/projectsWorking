@@ -15,7 +15,7 @@ namespace Peripheral {
 #define TEMP_HUM_HYSTERESIS 2.0f // Padding for reset value
 #define TEMP_HUM_CONSECUTIVE_CTS 5 // Action isnt taken until cts are read
 #define TEMP_HUM_ALT_MSG_ATT 3 // Alert Message Attempts to avoid request excess
-#define TEMP_HUM_ALT_MSG_SIZE 64 // Alert message size to send to server.
+#define TEMP_HUM_ALT_MSG_SIZE 74 // Alert message size to send to server.
 #define TEMP_HUM_NO_RELAY 255 // Used to show no relay attached.
 #define TEMP_HUM_LOG_METHOD Messaging::Method::SRL_LOG
 #define TEMP_HUM_TAG "(TEMPHUM)"

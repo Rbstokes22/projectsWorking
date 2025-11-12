@@ -33,13 +33,7 @@ bool AS7341basic::setBank(REG reg) {
     // IAW datasheet Pg.53.
     if (addr >= cutoff && lastAddr < cutoff) {
 
-        if (this->i2c.txrxOK) {
-
-            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
-                2, AS7341_TIMEOUT);
-
-            Serial::I2C::get()->monitor(this->i2c);
-        }
+        Serial::I2C::get()->TX(this->i2c, buffer, sizeof(buffer));
 
         lastAddr = addr; // 00000001
 
@@ -49,13 +43,7 @@ bool AS7341basic::setBank(REG reg) {
         // Does not work with 4, only works with 3. 
         buffer[1] |= (1 << 3); // Sets byte to 0x08 for register below 0x80.
 
-        if (this->i2c.txrxOK) {
-
-            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
-                2, AS7341_TIMEOUT);
-
-            Serial::I2C::get()->monitor(this->i2c);
-        }
+        Serial::I2C::get()->TX(this->i2c, buffer, sizeof(buffer));
 
         lastAddr = addr;
     } 
@@ -85,28 +73,20 @@ bool AS7341basic::writeRegister(REG reg, uint8_t val) {
 
         uint8_t buffer[2] = {addr, val};
 
-        if (this->i2c.txrxOK) {
+        bool tx = Serial::I2C::get()->TX(this->i2c, buffer, sizeof(buffer));
 
-            this->i2c.response = i2c_master_transmit(this->i2c.handle, buffer, 
-                2, AS7341_TIMEOUT);
+        // Brief delay
+        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY));
 
-            Serial::I2C::get()->monitor(this->i2c);
-
-            // Brief delay after write.
-            vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); 
-
-            if (this->i2c.response != ESP_OK) {
-
-                snprintf(this->log, sizeof(this->log), 
-                    "%s Register write err. %s", this->tag, 
-                    esp_err_to_name(this->i2c.response));
+        if (!tx) { // Log
+            snprintf(this->log, sizeof(this->log), "%s Register write err. %s", 
+                this->tag, esp_err_to_name(this->i2c.response));
 
                 this->sendErr(this->log);
                 return false;
-            }
-
-            return true; // Success.
         }
+
+        return true;
     }
 
     // Bank not set. Log captured in set bank. Default return.
@@ -128,32 +108,23 @@ uint8_t AS7341basic::readRegister(REG reg, bool &dataSafe) {
         uint8_t readBuf[1]{0}; // Single byte value. Will have data populated.
         uint8_t writeBuf[1] = {addr}; // Address to send to.
 
-        if (this->i2c.txrxOK) {
+        bool txrx = Serial::I2C::get()->TXRX(this->i2c, writeBuf, 
+            sizeof(writeBuf), readBuf, sizeof(readBuf));
 
-            this->i2c.response = i2c_master_transmit_receive(this->i2c.handle,
-                writeBuf, sizeof(writeBuf), readBuf, sizeof(readBuf), 
-                AS7341_TIMEOUT);
+        dataSafe = txrx; // true upon success, false if not.
 
-            Serial::I2C::get()->monitor(this->i2c);
+        vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); // Brief delay
 
-            // Brief delay following write.
-            vTaskDelay(pdMS_TO_TICKS(AS7341_I2C_DELAY)); 
-
-            if (this->i2c.response != ESP_OK) {
-                snprintf(this->log, sizeof(this->log), 
-                    "%s Register Read err. %s", this->tag, 
-                    esp_err_to_name(this->i2c.response));
+        if (!txrx) {
+            snprintf(this->log, sizeof(this->log), "%s Register Read err. %s", 
+                this->tag, esp_err_to_name(this->i2c.response));
 
                 this->sendErr(this->log);
-                dataSafe = false;
-
-            } else {
-
-                // Only return when data is solid.
-                dataSafe = true;
-                return (uint8_t)readBuf[0];
-            }
+                return 0;
         }
+
+        // Else successful txrx
+        return (uint8_t)readBuf[0];
     } 
     
     // bank not set, logging in set bank function.

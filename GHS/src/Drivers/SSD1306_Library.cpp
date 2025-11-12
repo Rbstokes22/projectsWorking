@@ -127,7 +127,7 @@ OLEDbasic::OLEDbasic() :
     // Despite the exclusion of 0x40 data signal, it is captured exactly once.
     cmdSeqLgth(sizeof(OLEDbasic::charCMD) - 1), // excludes the 0x40
     lineLgth(static_cast<int>(Size::columns) + 1), // includes 0x40
-
+    i2c(SSD1306_I2C_TIMEOUT),
     Worker{this->bufferA}, // sets worker pointer to buffer A
     Display{this->bufferB},
     bufferIDX{0}, isBufferA{true} {
@@ -170,20 +170,13 @@ bool OLEDbasic::init(uint8_t address) {
 
     // If I2C is init, init the remainder of the device.
 
-    if (this->i2c.txrxOK) {
+    bool tx = Serial::I2C::get()->TX(this->i2c, this->init_sequence,
+        sizeof(this->init_sequence));
 
-        // Transmit init sequence
-        this->i2c.response = i2c_master_transmit(this->i2c.handle, 
-            this->init_sequence, sizeof(this->init_sequence), 
-            SSD1306_I2C_TIMEOUT);
-
-        Serial::I2C::get()->monitor(this->i2c);
-
-        if (this->i2c.response == ESP_OK) {
-            this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::INIT));
-            this->reset(true);
-            return true;
-        }
+    if (tx) {
+        this->initFlag.setFlag(static_cast<uint8_t>(SSD_INIT::INIT));
+        this->reset(true);
+        return true;
     }
 
     return false;
@@ -413,8 +406,7 @@ void OLEDbasic::cleanWrite(const char* msg, TXTCMD cmd) {
 
 // Sends the Worker buffer via i2c to the OLED display.
 void OLEDbasic::send() {
-    esp_err_t err;
-
+  
     auto errHandle = [this](esp_err_t err) { // Prints to serial.
         if (err != ESP_OK) {
 
@@ -458,15 +450,9 @@ void OLEDbasic::send() {
     while(i < static_cast<int>(Size::bufferSize)) {
         if (toggle) {
 
-            if (this->i2c.txrxOK) {
+            Serial::I2C::get()->TX(this->i2c, &Display[i], this->cmdSeqLgth);
 
-                this->i2c.response = i2c_master_transmit(this->i2c.handle, 
-                    &Display[i], this->cmdSeqLgth, SSD1306_I2C_TIMEOUT);
-
-                errHandle(this->i2c.response);
-
-                Serial::I2C::get()->monitor(this->i2c);
-            }
+            errHandle(this->i2c.response);
 
             // Always run regardless of i2c status.
             toggle = false;
@@ -474,14 +460,9 @@ void OLEDbasic::send() {
 
         } else {
 
-            if (this->i2c.txrxOK) {
+            Serial::I2C::get()->TX(this->i2c, &Display[i], this->lineLgth);
 
-                this->i2c.response = i2c_master_transmit(this->i2c.handle, 
-                    &Display[i], this->lineLgth, SSD1306_I2C_TIMEOUT);
-
-                errHandle(this->i2c.response);
-                Serial::I2C::get()->monitor(this->i2c);
-            }
+            errHandle(this->i2c.response);
 
             toggle = true;
             i += this->lineLgth;

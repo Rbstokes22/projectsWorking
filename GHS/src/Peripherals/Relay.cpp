@@ -138,7 +138,15 @@ Relay::Relay(gpio_num_t pin, uint8_t ReNum) :
 // of the relay, if not, returns false. If successful, changes the client
 // state and energizes relay, returning true.
 bool Relay::on(uint8_t ID) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s on mtx locked", this->tag);
+        this->sendErr(this->log);
+
+        return false; // Block if unlocked.
+    }
 
     // Will not run if relay is forced off or bad ID.
     bool frcOff = this->relayState == RESTATE::FORCED_OFF;
@@ -181,7 +189,15 @@ bool Relay::on(uint8_t ID) {
 // to prevent client from shutting off relay being used by another client. 
 // Returns true when client is detached from relay, and false if not.
 bool Relay::off(uint8_t ID) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s off mtx locked", this->tag);
+        this->sendErr(this->log);
+
+        return false; // Block if unlocked.
+    }
 
     bool badID = ((ID == RELAY_NO_ID) || (ID >= RELAY_IDS));
 
@@ -227,7 +243,17 @@ bool Relay::off(uint8_t ID) {
 // clients. Does not delete the clients, but acts as a suspension, rather than
 // a switch. Works well for emergencies.
 void Relay::forceOff() { // No ID req, since it is global to the relay.
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s Force off mtx locked", 
+            this->tag);
+
+        this->sendErr(this->log);
+
+        return; // Block if unlocked.
+    }
 
     if (gpio_set_level(this->pin, 0) != ESP_OK) { 
         snprintf(Relay::log, sizeof(Relay::log), "%s unable to turn off", 
@@ -245,7 +271,17 @@ void Relay::forceOff() { // No ID req, since it is global to the relay.
 
 // Requires no parameters. Removes the Force Off block to allow normal op.
 void Relay::removeForce() {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s Remove Force mtx locked", 
+            this->tag);
+
+        this->sendErr(this->log);
+
+        return; // Block if unlocked.
+    }
 
     // Block if the relay state was not previously forced off.
     if (this->relayState != RESTATE::FORCED_OFF) return; 
@@ -275,7 +311,17 @@ void Relay::removeForce() {
 // Returns 255 if no allocations are available, or there was an error. This
 // will prevent use of class features.
 uint8_t Relay::getID(const char* caller) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s get ID mtx locked", 
+            this->tag);
+
+        this->sendErr(this->log);
+
+        return RELAY_NO_ID; // Block if unlocked.
+    }
 
     for (int i = 0; i < RELAY_IDS; i++) {
 
@@ -300,7 +346,15 @@ uint8_t Relay::getID(const char* caller) {
 // you do not have to call off() specifically before removing ID.
 // Returns true if successful, and false if ID is out of range.
 bool Relay::removeID(uint8_t ID) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        snprintf(this->log, sizeof(this->log), "%s rmID mtx locked", this->tag);
+        this->sendErr(this->log);
+
+        return false; // Block if unlocked.
+    }
 
     if (ID >= RELAY_IDS || ID == RELAY_NO_ID) return false; // prevent error.
 
@@ -315,20 +369,23 @@ bool Relay::removeID(uint8_t ID) {
 
 // Requires no params. Gets the current state of the relay. Returns 0, 1, 2, 3
 // for off, on, forced off, and force removed, respectively.
-RESTATE Relay::getState() {
-    Threads::MutexLock(this->mtx);
+RESTATE Relay::getState() { // Mtx not req.
     return this->relayState;
 }
 
 // Return the current client quantity.
-uint8_t Relay::getQty() {
-    Threads::MutexLock(this->mtx);
+uint8_t Relay::getQty() { // mtx not req.
     return this->clientQty;
 }
 
 // Checks if the relay is being energized manually. Returns true if yes.
 bool Relay::isManual() {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        return false; // Block if unlocked.
+    }
 
     for (int i = 0; i < RELAY_IDS; i++) {
         char caller[10] = {0}; // Just interested in the first 9 chars
@@ -343,7 +400,12 @@ bool Relay::isManual() {
 // either the on or off seconds, or they are equal in value, the timer will
 // disable to its default settings. Returns true if successful, false if not.
 bool Relay::timerSet(uint32_t onSeconds, uint32_t offSeconds) {
-    Threads::MutexLock(this->mtx);
+    
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+
+        return false; // Block if unlocked.
+    }
 
     if (onSeconds == RELAY_TIMER_OFF || offSeconds == RELAY_TIMER_OFF ||
         onSeconds == offSeconds) { // Set to default if conditions are met.
@@ -383,9 +445,16 @@ bool Relay::timerSet(uint32_t onSeconds, uint32_t offSeconds) {
 // to be enabled, monday = 0, sunday = 6. They will be stored in bits 0 - 6,
 // with bit 6 being sunday, and bit 0 being monday. Returns true.
 bool Relay::timerSetDays(uint8_t bitwise) {
-    Threads::MutexLock(this->mtx);
-    this->timer.days = bitwise; // No err checking needed, either good or not.
-    return true;
+    
+    Threads::MutexLock guard(this->mtx);
+    if (guard.LOCK()) {
+
+        this->timer.days = bitwise; // No err checking needed.
+
+        return true; 
+    }
+
+    return false;
 }
 
 // Requires no params. This manages any set relay timers and will both
@@ -446,8 +515,7 @@ void Relay::manageTimer() {
 }
 
 // Returns timer for modication or review.
-Timer* Relay::getTimer() {
-    Threads::MutexLock(this->mtx);
+Timer* Relay::getTimer() { // No mutex req.
     return &this->timer;
 }
 

@@ -15,7 +15,19 @@
 
 // TO DO:
 
-// Notes on I2C.cpp
+// Mutexs are up and running. Had some TO issues for sending the report. Ensure
+// this is solid before moving on. I suspect it can be problematic when the 
+// URL is unresolved. Continue to troubleshoot the alerts class to ensure it is
+// safe. If not, maybe consider a one and done method, because if the server
+// cant have the client connect to it, chances are that it is down. 
+
+// Once mutex is solid, implement the median filter for the peripheral devices
+// to avoid any noise or outliers.
+
+// Finally move back to I2C. With true mutex protection, try to remove and add
+// devices again to make the decision if devices can be safetly re-init 
+// individually, or if a master bus hard reset is the best method. Once complete
+// the project should be very solid at that point and can be built.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods

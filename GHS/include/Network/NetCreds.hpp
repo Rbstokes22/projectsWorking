@@ -4,6 +4,7 @@
 #include "NVS2/NVS.hpp"
 #include "Config/config.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Threads/Mutex.hpp"
 
 namespace NVS {
 
@@ -24,6 +25,7 @@ class Creds { // Singleton
     private:
     static const char* tag; // Tag used in logging.
     static char log[LOG_MAX_ENTRY];
+    Threads::Mutex mtx;
     NVSctrl nvs; // nvs object
     char credData[static_cast<int>(Comms::IDXSIZE::PASS)]; // largest array size
     SMSreq smsreq; // SMS request structure.

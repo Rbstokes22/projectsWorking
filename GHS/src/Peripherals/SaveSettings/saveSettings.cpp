@@ -36,15 +36,24 @@ void settingSaver::sendErr(const char* msg, Messaging::Levels lvl) {
 
 // Returns a pointer to the singleton instance.
 settingSaver* settingSaver::get() {
-    Threads::MutexLock(settingSaver::mtx);
+
     static settingSaver instance;
-    
     return &instance;
 }
 
 // No params. Attempts an NVS save for all the peripheral settings. Returns
 // true if all items saved, and false if not.
 bool settingSaver::save() { 
+
+    Threads::MutexLock guard(settingSaver::mtx);
+    if (!guard.LOCK()) {
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            "%s Unable to save settings due to mutex lock",
+            Messaging::Method::SRL_LOG);
+
+        return false; // Block code if locked.
+    }
 
     // Even though NVS has the functionality, manage all savings here and 
     // only write what is intended to change. All logic within these calls.
@@ -58,6 +67,16 @@ bool settingSaver::save() {
 // No params. Attempts an NVS read/load for all the peripheral settings. 
 // Returns true if all settings loaded, and false if not.
 bool settingSaver::load() {
+
+    Threads::MutexLock guard(settingSaver::mtx);
+    if (!guard.LOCK()) {
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            "Unable to load settings due to mutex lock",
+            Messaging::Method::SRL_LOG);
+
+        return false; // Block code if locked.
+    }
 
     // Load will load the settings from NVS, and copy them over to the
     // classes. Separated to ensure all functions are executed.
@@ -95,6 +114,17 @@ bool settingSaver::load() {
 
 // Requires no params. Saves settings, and logs the last 3 entries.
 void settingSaver::saveAndRestart() {
+
+    Threads::MutexLock guard(settingSaver::mtx);
+    if (!guard.LOCK()) {
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            "Unable to save and restart due to mutex lock",
+            Messaging::Method::SRL_LOG);
+
+        return; // Block code if locked.
+    }
+
     this->save(); // Save settings.
     Clock::DateTime* dtg = Clock::DateTime::get();
 
@@ -160,6 +190,17 @@ void settingSaver::saveAndRestart() {
 // Requires relay array to be passed. Array must be global or static to ensure
 // it stays within scope.
 void settingSaver::initRelays(Peripheral::Relay* relayArray) {
+
+    Threads::MutexLock guard(settingSaver::mtx);
+    if (!guard.LOCK()) {
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::ERROR,
+            "Unable to init relays due to mutex lock",
+            Messaging::Method::SRL_LOG);
+
+        return; // Block code if locked.
+    }
+
     this->relays = relayArray;
     snprintf(this->log, sizeof(this->log), "%s: Relays init", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);

@@ -57,10 +57,6 @@ DateTime::DateTime() :
 // Singleton class, returns instance a pointer instance of this class.
 DateTime* DateTime::get() {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(DateTime::mtx);
-    
     static DateTime instance;
     return &instance;
 }
@@ -68,6 +64,11 @@ DateTime* DateTime::get() {
 // Requires an int of the seconds past midnight. Calibrates the hhmmss,
 // and sets baseline for future computations.
 void DateTime::calibrate(int secsPastMid, uint8_t day) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Block if not acquired.
+    }
 
     // Prevents time calibration during reporting and log events at the 
     // midnight mark. 
@@ -85,18 +86,31 @@ void DateTime::calibrate(int secsPastMid, uint8_t day) {
 
 // Returns TIME struct with hour, minute, second.
 TIME* DateTime::getTime() {
-    this->adjustTime(); // Adjusts before returning time.
+
+    Threads::MutexLock guard(this->mtx);
+    if (guard.LOCK()) {
+        this->adjustTime(); // Adjusts before returning time.
+    }
+
     return &this->time;  
 }
 
 // Returns if the clock has been calibrated.
-bool DateTime::isCalibrated() {
-    return this->calibrated;
+bool DateTime::isCalibrated() { 
+
+    bool isCal = false;
+
+    Threads::MutexLock guard(this->mtx);
+    if (guard.LOCK()) {
+        isCal = this->calibrated;
+    }
+
+    return isCal;
 }
 
 // Returns int64_t system runtime in micros. Can run for 
 // 2924 centuries before rollover at this level of precision.
-int64_t DateTime::micros() {
+int64_t DateTime::micros() { // No mutex required for this call.
     return esp_timer_get_time();
 }
 
@@ -104,8 +118,8 @@ int64_t DateTime::micros() {
 // lost due to division operation, meaning the result will be always be floored.
 // The precison is ranged from 0, dead accurate, to 999 micros being floored to
 // zero, resulting in an accurace range of 0 - 999 micros, or 0 to 0.999 millis.
-int64_t DateTime::millis() {
-    return micros() / 1000;
+int64_t DateTime::millis() { // No mutex required for this call.
+    return this->micros() / 1000;
 }
 
 // Returns uint32_t system runtime in seconds. WARNING: there is some precision
@@ -114,8 +128,8 @@ int64_t DateTime::millis() {
 // to zero, resulting in an accuracy range of 0 - 999 millis, or 0 - 0.999 sec.
 // Combined with the millis() accuracy range, seconds will be anywhere from 0
 // to 0.999999 seconds off.
-uint32_t DateTime::seconds() {
-    return millis() / 1000;
+uint32_t DateTime::seconds() { // No mutex required for this call.
+    return this->micros() / 1000000;
 }
 
 }

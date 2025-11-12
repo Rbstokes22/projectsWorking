@@ -35,26 +35,32 @@ Mutex::Mutex(const char* tag) :
 }
 
 // Requires no parameters. Attemps to take a lock, only delaying acquisition
-// by the set LOCK_DELAY. If acquired, locks and returns true. If not, 
+// by the set LOCK_TIMEOUT. If acquired, locks and returns true. If not, 
 // returns false.
 bool Mutex::lock() {
     if (!init) return false; // Prevents mutex noise before mutex is init.
 
     // Attempt to take the semaphore recursively.
     BaseType_t semph = xSemaphoreTakeRecursive(this->xMutex, 
-        pdMS_TO_TICKS(LOCK_DELAY));
+        pdMS_TO_TICKS(LOCK_TIMEOUT));
 
-
-    // Attempts to lock the mutex and delays for LOCK_DELAY amount of millis
-    // allowing non-permanent-blocking code. Once acquired, changes the 
-    // isLocked bool to true.
+    // Attempts to lock the mutex and delays for LOCK_TIMEOUT amount of millis
+    // allowing non-permanent-blocking code. 
     if (semph == pdTRUE) {return true;}
     else {
-
+        // printf("%s LOCK ERR\n", caller);
         // Attempt repeats to try to lock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
+
+            snprintf(this->log, sizeof(this->log), 
+                "%s Lock timeout after %d ms (%d / %d retries)",
+                this->tag, LOCK_TIMEOUT, attempt, MTX_REPEAT - 1);
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                this->log, Messaging::Method::SRL_LOG);
+
             semph = xSemaphoreTakeRecursive(this->xMutex, 
-                pdMS_TO_TICKS(LOCK_DELAY));
+                pdMS_TO_TICKS(LOCK_TIMEOUT));
 
             if (semph == pdTRUE) {return true;}
         }
@@ -75,8 +81,15 @@ bool Mutex::unlock() {
     if (semph == pdTRUE) {return true;} 
     else {
 
-        // Attempt repeats to try to lock.
+        // Attempt repeats to try to unlock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
+
+            snprintf(this->log, sizeof(this->log), 
+                "%s Lock release timeout after %d ms (%d / %d retries)",
+                this->tag, LOCK_TIMEOUT, attempt, MTX_REPEAT - 1);
+
+            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                this->log, Messaging::Method::SRL_LOG);
 
             semph = xSemaphoreGiveRecursive(this->xMutex);
 
@@ -93,8 +106,10 @@ Mutex::~Mutex() {vSemaphoreDelete(this->xMutex);}
 // Since CPP doesn't have a finally block, this is a scope guard or
 // simple Resource Acquisition Is Initialization (RAII) pattern to 
 // ensure the mutex is always unlocked when it goes out of scope.
-MutexLock::MutexLock(Mutex &mtx) : mtx(mtx) {
-    this->mtx.lock();
+MutexLock::MutexLock(Mutex &mtx) : mtx(mtx) {}
+
+bool MutexLock::LOCK() {
+    return this->mtx.lock();
 }
 
 // Automatically releases the mutex lock.

@@ -27,10 +27,6 @@ Alert::Alert() : tag(ALT_TAG), flags(ALT_FLAG_TAG) {
 // Returns pointer to Alert instance.
 Alert* Alert::get() {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(Alert::mtx);
-
     static Alert instance;
     return &instance;
 }
@@ -354,10 +350,20 @@ void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, ALT_LOG_METHOD);
 }
 
+// ATTENTION. For send alert and send report, introduced a delay of 300 us
+// just like the I2C mutex acquisition to prevent repeated calls from timing
+// out by trying to take a mutex before it has been released, by the same call.
+// This is to handle retries.
+
 // Requires message and caller. Generates a POSt request in JSON format and
 // sends to the server. Ensure that the server responds with "OK" or "FAIL"
 // depending on success. If "OK" returns true, returns false if not "OK".
 bool Alert::sendAlert(const char* msg, const char* caller) {
+
+    Threads::MutexLock guard(Alert::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
 
     // Block if not STA mode.
     if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false; 
@@ -379,13 +385,20 @@ bool Alert::sendAlert(const char* msg, const char* caller) {
         
     this->sendErr(this->log, Messaging::Levels::INFO);
 
-    return this->prepMsg(jsonData);
+    bool msgOK = this->prepMsg(jsonData); // Allows mutex protection.
+
+    return msgOK;
 }
 
 // Requires message of json type that have KV pairs of the average type, such
 // as tempCAvg. Ensure that server response with "OK" or "FAIL" depending on 
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
+
+    Threads::MutexLock guard(Alert::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
 
     // Block if not STA mode.
     if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false;
@@ -410,7 +423,9 @@ bool Alert::sendReport(const char* JSONmsg) {
     snprintf(this->log, sizeof(this->log), "%s sending report", this->tag);
     this->sendErr(this->log, Messaging::Levels::INFO);
 
-    return this->prepMsg(this->report, true);
+    bool msgOK = this->prepMsg(this->report, true); // ALlows mutex protection.
+
+    return msgOK;
 }
 
 // Requires the sensor down package reference and the current health.
@@ -418,6 +433,9 @@ bool Alert::sendReport(const char* JSONmsg) {
 // a sensor down or sensor up message will be sent as an alert using 
 // this->sendAlert(). Returns true if working as advertised, or false if not.
 bool Alert::monitorSens(SensDownPkg &pkg, float health) {
+
+    // Mutex not required here, Calls function with mutex already established
+    // and changes no global or class variables.
 
     char msg[64]{0}; // 64 bytes is plenty large with some padding.
     bool send = false; // trigger to send message.
@@ -460,6 +478,7 @@ bool Alert::monitorSens(SensDownPkg &pkg, float health) {
 
     if (send) { // If flagged to send, send and return true if successful.
         for (size_t i = 0; i < tries; i++) {
+
             if (this->sendAlert(msg, ALT_TAG)) {
                 pkg.lastAlt = type; // Set last alert upon success only.
                 return true; // Indiates working properly.

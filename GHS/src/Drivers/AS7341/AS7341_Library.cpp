@@ -156,9 +156,8 @@ void AS7341basic::sendErr(const char* msg, Messaging::Levels lvl,
         ignoreRepeat);
 }
 
-AS7341basic::AS7341basic(CONFIG &conf) : 
-
-    tag(AS7341_TAG), conf(conf), initFlag(AS7341_TAG), specEn(false) {
+AS7341basic::AS7341basic(CONFIG &conf) : tag(AS7341_TAG), i2c(AS7341_TIMEOUT),
+    conf(conf), initFlag(AS7341_TAG), specEn(false) {
 
         snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
         this->sendErr(this->log, Messaging::Levels::INFO, true);

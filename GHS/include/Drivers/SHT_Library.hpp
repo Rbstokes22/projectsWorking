@@ -43,8 +43,7 @@ struct RWPacket {
     bool dataSafe; // Updated upon successful read/write and checksum.
     uint8_t writeBuffer[2]; // Contains the MSB and LSB of the command.
     uint8_t readBuffer[6]; // Data read from i2c to this buffer
-    int timeout; // timeout in ms
-    void reset(bool resetTimeout = false, int timeout_ms = SHT_READ_TIMEOUT); 
+    void reset(); 
 };
 
 // Return types for the SHT31.
@@ -94,9 +93,7 @@ class SHT {
     public:
     SHT();
     bool init(uint8_t address); 
-    SHT_RET readAll(START_CMD cmd, SHT_VALS &carrier, 
-        int timeout_ms = SHT_READ_TIMEOUT);
-        
+    SHT_RET readAll(START_CMD cmd, SHT_VALS &carrier);
     SHT_RET enableHeater(bool enable);
     bool isHeaterEn(bool &dataSafe);
     SHT_RET clearStatus();

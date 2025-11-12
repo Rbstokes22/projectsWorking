@@ -17,7 +17,7 @@
 
 namespace Threads {
 
-#define LOCK_DELAY 100 // Delay in millis to attempt to acquire lock
+#define LOCK_TIMEOUT 100 // Delay in millis to attempt to acquire lock
 #define MTX_LOG_SIZE 128 
 #define MTX_REPEAT 3 // Times to repeat attempting to lock or unlock mutex.
 
@@ -44,6 +44,7 @@ class MutexLock {
 
     public:
     MutexLock(Mutex &mtx);
+    bool LOCK();
     ~MutexLock();
 };
 

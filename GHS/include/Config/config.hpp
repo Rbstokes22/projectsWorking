@@ -19,6 +19,10 @@ extern char confLog[128]; // Reusable log for config src.
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
 
+// I2C GPIO PINS
+#define I2C_SCL_PIN GPIO_NUM_22
+#define I2C_SDA_PIN GPIO_NUM_21
+
 // Sensor health information. These are used to monitor the health of all 
 // sensors by accumulating upon error, and decaying upon each non-error.
 // ATTENTION. if the error max is changed, update the station html.

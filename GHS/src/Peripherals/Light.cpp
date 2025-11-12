@@ -224,10 +224,6 @@ void Light::sendErr(const char* msg, Messaging::Levels lvl) {
 // without proper init, since nullptr will not be able to command.
 Light* Light::get(LightParams* parameter) {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(Light::mtx);
-
     static bool isInit{false};
 
     // Gate. If nullptr is passed, and hasnt been init, returns nullptr.
@@ -250,6 +246,11 @@ Light* Light::get(LightParams* parameter) {
 // Requires no parameters. Uses the AS7341 driver to read all spectral channels.
 // Returns true for a successful read, and false if not.
 bool Light::readSpectrum() {
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
 
     bool read{false};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
@@ -317,6 +318,11 @@ bool Light::readSpectrum() {
 // false if not.
 bool Light::readPhoto() {
 
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
+
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Used to handle alerts for the sensor being down/impacted long term.
@@ -375,17 +381,17 @@ bool Light::readPhoto() {
     return !this->health.photoReadErr;
 }
 
-// Returns pointer to spectrum data.
+// Returns pointer to spectrum data. MUTEX not required.
 AS7341_DRVR::COLOR* Light::getSpectrum() {
     return &this->readings;
 }
 
-// Returns value of photoresistor analog read.
+// Returns value of photoresistor analog read. Mutex not required.
 int Light::getPhoto() {
     return this->photoVal; 
 }
 
-// Returns the health of the sensor data.
+// Returns the health of the sensor data. Mutex not required.
 LightHealth* Light::getHealth() {return &this->health;}
 
 // Requires no parameters. Checks the boundaries of the photoresistor settings.
@@ -393,7 +399,13 @@ LightHealth* Light::getHealth() {return &this->health;}
 // appropriately. Returns true if successful, and false if there is an error
 // reading the photoresistor.
 bool Light::checkBounds() { // Acts as a gate to ensure data integ.
-    if (this->health.photoReadErr) return false;
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
+
+    if (this->health.photoReadErr) return false; // Blocks if read err.
 
     // Bounds of the allowable range.
     int lowerBound = this->conf.tripVal - LIGHT_HYSTERESIS;
@@ -460,21 +472,31 @@ bool Light::checkBounds() { // Acts as a gate to ensure data integ.
     return true;
 }
 
+// ATTENTION. No mutex required for the simple returns. Mutex would go out of
+// scope anyway after returning the requests. This is not bulletproof but will
+// be effective for this design and these are non-critical and all read only.
+// The calling class methods do have mutex protection however to manage control.
+
 // returns a pointer to the light relay configuration for the photoresistor.
-RelayConfigLight* Light::getConf() {return &this->conf;}
+RelayConfigLight* Light::getConf() {return &this->conf;} // No mtx req.
 
 // Returns a pointer to the spectral configuration.
-Spec_Conf* Light::getSpecConf() {return &this->specConf;}
+Spec_Conf* Light::getSpecConf() {return &this->specConf;} // No mtx req.
 
 // Returns a pointer to the spectral, and photoresistor averages.
-Light_Averages* Light::getAverages() {return &this->averages;}
+Light_Averages* Light::getAverages() {return &this->averages;} // No mtx req.
 
 // Returns a pointer to the trends.
-Light_Trends* Light::getTrends() {return &this->trends;}
+Light_Trends* Light::getTrends() {return &this->trends;} // No mtx req.
 
 // Requires no parameters. Clears the current data after moving current values
 // over to previous values.
 void Light::clearAverages() {
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if unlocked.
+    }
 
     char log[BIGLOG_MAX_ENTRY / 2]{0}; // Can use up to 256 bytes
 
@@ -508,13 +530,19 @@ void Light::clearAverages() {
         log, LIGHT_LOG_METHOD, true, true); 
 }
 
-// Returns duration of light above the trip value.
+// Returns duration of light above the trip value. No mtx req.
 uint32_t Light::getDuration() {return this->lightDuration;}
 
 // Requires ATIME value. This is part of the integration method, with larger
 // values increasing the duration of light reading. Returns true if successful,
 // and false if not. Range 0 - 255. Sets class specConf variable if success.
 bool Light::setATIME(uint8_t val) {
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
+
     if (this->params.as7341.setATIME(val)) {
         this->specConf.ATIME = val;
         return true;
@@ -527,6 +555,12 @@ bool Light::setATIME(uint8_t val) {
 // values increasing the duration of light reading. Returns true if successful,
 // and false if not. Range 0 - 65534. Sets class specConf variable if success.
 bool Light::setASTEP(uint16_t val) {
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
+
     if (this->params.as7341.setASTEP(val)) {
         this->specConf.ASTEP = val;
         return true;
@@ -539,6 +573,12 @@ bool Light::setASTEP(uint16_t val) {
 // overall gain of the existing light reading. Returns true if successful,
 // and false if not. Sets class specConf variable if success.
 bool Light::setAGAIN(AS7341_DRVR::AGAIN val) {
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
+    
     if (this->params.as7341.setAGAIN(val)) {
         this->specConf.AGAIN = val;
         return true;

@@ -37,12 +37,16 @@ struct I2CPacket {
     i2c_master_dev_handle_t handle; // Device i2c handle.
     i2c_device_config_t config; // Device configuration.
     uint8_t arrayIdx; // position in allPkts array.
+    bool allowReinit; // Allows device to be re-init.
     esp_err_t response; // Captures response after transmission/receive
     bool txrxOK; // Ensures that I2C is up before transmission/receive.
     float errScore; // Exponentially decayed var to display sensor health.
     bool isRegistered; // Flags if device is currently active or not.
     float reConScore; // Reconnect score to disable device if very problematic.
-    I2CPacket();
+    uint32_t timeout_ms; // Timeout for the device i2c txrx
+    float delta_ms; // millis used for txrx.
+    void setDelta(uint32_t start, uint32_t end); // Computes & sets delta_ms 
+    I2CPacket(uint32_t timeOut_MS);
 };
 
 // WARNING. Ensure that all I2C packets are either static or a class variable
@@ -67,13 +71,14 @@ class I2C {
     void sendErr(const char* msg, Messaging::Levels lvl = 
         Messaging::Levels::CRITICAL, bool ignoreRepeat = false);
 
-    // The below four functions are used only to remove and reinit devices that
+    // The below functions are used only to remove and reinit devices that
     // have already been added.
     bool removeMaster();
-    bool removeDev(I2CPacket* pkt); // Retries/err hand captured in function.
+    bool removeDevices();
     bool reInitMaster();
-    bool reInitDev(I2CPacket *pkt);
-    bool restartBus();
+    void checkHang(I2CPacket &pkt);
+    void recoverPins();
+    bool hardResetBus(I2CPacket &pkt);
 
     public:
     static I2C* get();
@@ -81,6 +86,12 @@ class I2C {
     i2c_device_config_t configDev(uint8_t i2cAddr);
     bool addDev(I2CPacket &pkt, bool reInit = false);
     bool monitor(I2CPacket &pkt);
+    bool TX(I2CPacket &pkt, const uint8_t* writeBuf, size_t bufSize);
+    bool RX(I2CPacket &pkt, uint8_t* readBuf, size_t bufSize);
+    bool TXRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
+        uint8_t* readBuf, size_t readBufSize);
+    bool TXthenRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
+        uint8_t* readBuf, size_t readBufSize, size_t delay);
 };
 
 }

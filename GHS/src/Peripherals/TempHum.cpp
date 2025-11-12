@@ -300,10 +300,6 @@ void TempHum::sendErr(const char* msg, Messaging::Levels lvl) {
 // init, will return a pointer to the class instance.
 TempHum* TempHum::get(TempHumParams* parameter) {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(TempHum::mtx);
-
     static bool isInit{false};
 
     if (parameter == nullptr && !isInit) {
@@ -326,6 +322,11 @@ TempHum* TempHum::get(TempHumParams* parameter) {
 // driver. Upon successful reading, data is available to include temp, hum,
 // and their averages. Returns true if read is successful, or false if not.
 bool TempHum::read() {
+
+    Threads::MutexLock guard(TempHum::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if locked.
+    }
 
     SHT_DRVR::SHT_RET read;
     static bool logOnce = true; // Used to log errors once, and log fixed once.
@@ -389,26 +390,30 @@ bool TempHum::read() {
     return !this->readErr;
 }
 
-// Returns humidity value float.
+// ATTENTION. No mutex required for simple returns of class variables. This
+// does open to modification, but all methods that call this method are also
+// mutex protected.
+
+// Returns humidity value float. No mtx req.
 float TempHum::getHum() {
     return this->data.hum;
 }
 
 // Defaults to Celcius. Celcius is the standard for this device, and
 // F is built in but not used, for potential future employment. Returns
-// the temperature in requested value. 
+// the temperature in requested value. No mtx req.
 float TempHum::getTemp(char CorF) { // Cel or Faren
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;
 }
 
 // Returns the humidity configuation for modification or viewing.
-TH_TRIP_CONFIG* TempHum::getHumConf() {
+TH_TRIP_CONFIG* TempHum::getHumConf() { // No mtx req.
     return &this->humConf;
 }
 
 // Returns the temperature configuration for modification or viewing.
-TH_TRIP_CONFIG* TempHum::getTempConf() {
+TH_TRIP_CONFIG* TempHum::getTempConf() { // mtx req.
     return &this->tempConf;
 }
 
@@ -418,6 +423,11 @@ TH_TRIP_CONFIG* TempHum::getTempConf() {
 // true if successful, and false if the data is marked as being corrupt by 
 // the SHT driver.
 bool TempHum::checkBounds() { 
+
+    Threads::MutexLock guard(TempHum::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if locked.
+    }
 
     if (this->readErr) return false; // Prevent bad data from being used.
 
@@ -430,21 +440,26 @@ bool TempHum::checkBounds() {
     return true;
 }
 
-// Require no params. Returns current sensor health.
+// Require no params. Returns current sensor health. No mtx req.
 float TempHum::getHealth() {return this->sensHealth;}
 
 // Returns current, and previous averages structure for modification or viewing.
-TH_Averages* TempHum::getAverages() { 
+TH_Averages* TempHum::getAverages() { // No mtx req.
     return &this->averages;
 }
 
 // Requires no params. Returns the current temp/hum trend struct.
-TH_Trends* TempHum::getTrends() {
+TH_Trends* TempHum::getTrends() { // No mtx req.
     return &this->trends;
 }
 
 // Clears the current data after copying it over to the previous values.
 void TempHum::clearAverages() {
+
+    Threads::MutexLock guard(TempHum::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
 
     // Write averages into log. Prep log, do not send until complete. First
     // in order to capture current averages before resetting.

@@ -367,11 +367,8 @@ bool MsgLogHandler::OLEDQueueRemove() {
 // Requires no params. Returns static instance to class.
 MsgLogHandler* MsgLogHandler::get() {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(MsgLogHandler::mtx);
     static MsgLogHandler instance;
-    
+
     return &instance;
 }
 
@@ -380,6 +377,12 @@ MsgLogHandler* MsgLogHandler::get() {
 // interval, in order to properly execute. If not called, messages will never
 // send or be removed. Recommend calling this function at 1 Hz.
 void MsgLogHandler::OLEDMessageMgr() {
+
+    Threads::MutexLock guard(MsgLogHandler::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
+
     if (!this->OLEDcheck()) return; // BLOCK
 
     this->OLEDQueueSend();
@@ -392,6 +395,11 @@ void MsgLogHandler::OLEDMessageMgr() {
 // bytes, and serial is unrestricted.
 void MsgLogHandler::handle(Levels level, const char* message, Method method,
     bool ignoreRepeat, bool bigLog) {
+
+    Threads::MutexLock guard(MsgLogHandler::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
    
     uint32_t seconds = Clock::DateTime::get()->seconds();
 
@@ -436,7 +444,7 @@ void MsgLogHandler::handle(Levels level, const char* message, Method method,
 // Requires no parameters. Returns true if new log available. Used to
 // alert client that a new log entry is available to avoid constant polling
 // of data.
-bool MsgLogHandler::newLogAvail() {
+bool MsgLogHandler::newLogAvail() { // No mtx req Read Only.
     return this->newLogEntry; 
 }
 
@@ -444,10 +452,14 @@ bool MsgLogHandler::newLogAvail() {
 // client command to reset the new log entry back to false after receiving
 // msg.
 void MsgLogHandler::resetNewLogFlag() {
-    this->newLogEntry = false;
+
+    Threads::MutexLock guard(MsgLogHandler::mtx);
+    if (guard.LOCK()) {
+        this->newLogEntry = false;
+    }
 }
 
-// Requires no parameters. Returns log.
+// Requires no parameters. Returns log. No mutex req Read Only.
 const char* MsgLogHandler::getLog() {
     return this->log;
 }
@@ -456,6 +468,12 @@ const char* MsgLogHandler::getLog() {
 // OLED to features, since this class must be init immediately since all other
 // classes depend on it.
 bool MsgLogHandler::addOLED(UI::IDisplay &OLED) {
+
+    Threads::MutexLock guard(MsgLogHandler::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if locked.
+    }
+
     this->OLED = &OLED;
 
     if (this->OLED == nullptr) {

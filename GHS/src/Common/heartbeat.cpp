@@ -30,6 +30,7 @@ Heartbeat::Heartbeat(const char* tag) : tag(tag), suspensionReg(0),
 // requiring it. Also returns true if suspension flag is active. Returning 
 // false indicates that there is no suspension or error. 
 bool Heartbeat::checkSus(uint8_t ID) {
+
     if (this->allSus || ID >= HEARTBEAT_CLIENTS_MAX) return true;
 
     return (this->suspensionReg >> ID) & 0x1;
@@ -40,6 +41,7 @@ bool Heartbeat::checkSus(uint8_t ID) {
 // unresponsiveness and restarts if unresponsive and directed, and grace period
 // is unmet.
 void Heartbeat::alert(uint8_t ID) {
+
     snprintf(this->log, sizeof(this->log), "%s ID %u Caller %s unresponsive", 
         this->tag, ID, this->callers[ID]);
 
@@ -64,10 +66,6 @@ void Heartbeat::alert(uint8_t ID) {
 // Singleton class, returns instance pointer of this class.
 Heartbeat* Heartbeat::get() {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calss made after requesting this instance.
-    Threads::MutexLock(Heartbeat::mtx); 
-
     static Heartbeat instance(HEARTBEAT_TAG);
     return &instance;
 }
@@ -79,6 +77,12 @@ Heartbeat* Heartbeat::get() {
 // chars or less, with the 16th char being the null terminator. Caller will be
 // truncated if in violation.
 uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return HEARTBEAT_CLIENTS_FULL; // Blocks use 
+    }
+
     if (blockNum < HEARTBEAT_CLIENTS_MAX) {
 
         snprintf(this->log, sizeof(this->log), 
@@ -112,6 +116,12 @@ uint8_t Heartbeat::getBlockID(const char* caller, uint8_t initVal) {
 // rogered up, the updated time will be placed into the correct chunk, to be
 // later iterated. 
 void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
+
     if (this->checkSus(chunkID)) return; // Blocks if suspended.
 
     if (resetSec == 0) resetSec = 1;
@@ -124,6 +134,11 @@ void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
 // it says it will. WARNING: In order to function properly, this should be 
 // called at exactly 1hz. 
 void Heartbeat::manage() {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
    
     // If the blockNum is 0, this means there have been no registrations at the
     // time. Checks both that and if all has been suspended. Block if either
@@ -150,6 +165,12 @@ void Heartbeat::manage() {
 // Requires chunk/block ID and reason for suspension to be logged. Flags the 
 // suspension registry, prevent normal heartbeat behavior.
 void Heartbeat::suspend(uint8_t chunkID, const char* reason) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
+
     this->suspensionReg |= (1 << chunkID);
 
     const char* _reason = strlen(reason) > HEARTBEAT_MAX_REASON ? 
@@ -165,6 +186,12 @@ void Heartbeat::suspend(uint8_t chunkID, const char* reason) {
 // Requires the reason for suspension to be logged. Sets the suspended flag
 // to true, the ultimate flag, and overrides individual flag checks.
 void Heartbeat::suspendAll(const char* reason) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
+
     this->allSus = true;
 
     const char* _reason = strlen(reason) > HEARTBEAT_MAX_REASON ? 
@@ -180,6 +207,11 @@ void Heartbeat::suspendAll(const char* reason) {
 // Requires chunk/block ID. Unflags the suspension registry, allowing normal
 // heartbeat behavior.
 void Heartbeat::release(uint8_t chunkID) {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
 
     // Upon release, add extension to heartbeat due to sync up errors between
     // the threads rogering up, and the routine manager function due to 
@@ -197,6 +229,11 @@ void Heartbeat::release(uint8_t chunkID) {
 
 // Requires no params. Removes suspended flag by setting to false.
 void Heartbeat::releaseAll() {
+
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Blocks use 
+    }
 
     // Upon release, add extension to heartbeat due to sync up errors between
     // the threads rogering up, and the routine manager function due to 

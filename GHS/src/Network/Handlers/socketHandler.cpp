@@ -30,7 +30,10 @@ argPool::argPool() : mtx(POOL_TAG) {
 // allocation. Returns NULL if no availabilities.
 async_resp_arg* argPool::getArg() {
 
-    Threads::MutexLock(this->mtx); // Lock the mutex.
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return NULL; // Block if unlocked.
+    }
 
     // Iterate Pool, and if in use is false, changes flag to true, zeros it
     // out, and returns a pointer to the pool.
@@ -50,7 +53,10 @@ async_resp_arg* argPool::getArg() {
 // to allow re-allocation.
 void argPool::releaseArg(async_resp_arg* arg) {
 
-    Threads::MutexLock(this->mtx); // Lock the mutex.
+    Threads::MutexLock guard(this->mtx);
+    if (!guard.LOCK()) {
+        return; // Block if unlocked.
+    }
 
     // Iterates and changes flag to false if passed arg matches a pool arg.
     for (int i = 0; i < SKT_MAX_RESP_ARGS; i++) {

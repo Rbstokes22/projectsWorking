@@ -130,10 +130,6 @@ void Soil::computeTrends(uint8_t indexNum) {
 // instance, and will return a pointer to the instance upon proper completion.
 Soil* Soil::get(SoilParams* parameter) {
 
-    // Single use of mutex lock which will ensure to protect any subsequent
-    // calls made after requesting this instance.
-    Threads::MutexLock(Soil::mtx);
-
     static bool isInit{false};
     
     if (parameter == nullptr && !isInit) {
@@ -156,12 +152,20 @@ Soil* Soil::get(SoilParams* parameter) {
 // pointer to its conf for modification. Will return a nullptr if the 
 // correct index value is not reached, and the configuration if it is correct.
 AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
-    if (indexNum >= SOIL_SENSORS) return nullptr;
+
+    Threads::MutexLock guard(Soil::mtx);
+
+    if (indexNum >= SOIL_SENSORS || !guard.LOCK()) return nullptr;
     return &conf[indexNum];
 }
 
 // Reads all soil sensors and stores the data in the data variable.
 void Soil::readAll() {
+
+    Threads::MutexLock guard(Soil::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
 
     static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
 
@@ -235,6 +239,12 @@ void Soil::readAll() {
 // Requires the sensor number you are trying to read. Returns pointer to the
 // soil reading data if correct sensor index value is used, and nullptr if not.
 SoilReadings* Soil::getReadings(uint8_t indexNum) {
+
+    Threads::MutexLock guard(Soil::mtx);
+    if (!guard.LOCK()) {
+        return nullptr; // Block if locked.
+    }
+
     if (indexNum >= SOIL_SENSORS) {
         snprintf(Soil::log, sizeof(Soil::log), 
             "%s index num %u exceeds %u ret nullptr", Soil::tag, indexNum, 
@@ -252,6 +262,11 @@ SoilReadings* Soil::getReadings(uint8_t indexNum) {
 // and compares it against the actual value to trip the alert if configured
 // to do so.
 void Soil::checkBounds() {
+
+    Threads::MutexLock guard(Soil::mtx);
+    if (!guard.LOCK()) {
+        return; // Block if locked.
+    }
     
     // Iterates through each of the soil sensors to check its current value
     // against the value set to trip the alarm.
@@ -320,7 +335,8 @@ void Soil::checkBounds() {
     }
 }
 
-// Requires no params. Returns all trends for the sensor/index number.
+// Requires no params. Returns all trends for the sensor/index number. No mtx
+// required.
 int16_t* Soil::getTrends(uint8_t indexNum) {return this->trends[indexNum];}
 
 // Used for testing. Comment out when done.
