@@ -219,6 +219,51 @@ void Light::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, LIGHT_LOG_METHOD);
 }
 
+// requires the int16_t readval as a reference. Adds new value into the 5 index
+// array, and then sorts them from least to greatest, setting the actual value
+// to the median value to combat and filter random spiked data. Call if you
+// want to filter data before actual setting. 
+void Light::median5(int16_t &val) {
+
+    // NOTE: Spectrum does not use median, it is read only and spectral reads 
+    // must be packaged together to see ratio, thus analysis is pointless.
+
+    const uint8_t IDX_TOT = 5;
+    static uint8_t idx = 0;
+
+    // Set these immediately, because upon the first call, they will be 
+    // be populated which will return a median other than 0.
+    static int16_t vals[IDX_TOT] = {val, val, val, val, val};
+
+    vals[idx] = val;
+    idx = (idx + 1) % IDX_TOT;
+
+    auto sort = [](int16_t *arr) {
+
+        for (uint8_t i = 0; i < IDX_TOT; i++) {
+
+            for (uint8_t j = 0; j < IDX_TOT - 1; j++) {
+
+                if (arr[j] > arr[j + 1]) {
+                    int16_t temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+    };
+
+    sort(vals);
+
+    if (IDX_TOT % 2 == 0) { // Indicates even value
+        uint8_t center = IDX_TOT / 2;
+        val = (vals[center - 1] + vals[center]) / 2.0f;
+   
+    } else {
+        val = vals[IDX_TOT / 2];
+    }
+}
+
 // Singleton class object, require light parameters for first init. Once init
 // will trun a point to the class instance for use. WARNING! Will not function
 // without proper init, since nullptr will not be able to command.
@@ -347,7 +392,9 @@ bool Light::readPhoto() {
 
         this->health.photoReadErr = true;
 
-    } else {
+    } else { // Good read
+
+        this->median5(tempVal); // Allows median extraction at idx 2.
 
         // Adjust photo value by reducing noise. If noise is set to 10, this
         // means that all values from 1500 to 1509 are rep by 1500.

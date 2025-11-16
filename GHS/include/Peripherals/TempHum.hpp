@@ -94,6 +94,7 @@ class TempHum {
     void alertBounds(float value, alertConfigTH &conf, bool isTemp);
     void computeAvgs();
     void computeTrends();
+    void median3(SHT_DRVR::SHT_VALS &vals);
     static void sendErr(const char* msg, Messaging::Levels lvl = 
         Messaging::Levels::ERROR);
 

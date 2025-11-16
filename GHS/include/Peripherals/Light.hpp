@@ -113,6 +113,7 @@ class Light {
     void handleRelay(bool relayOn, size_t ct);
     static void sendErr(const char* msg, Messaging::Levels lvl = 
             Messaging::Levels::ERROR);
+    void median5(int16_t &val);
 
     public:
     static Light* get(LightParams* parameter = nullptr);

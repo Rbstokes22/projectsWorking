@@ -66,6 +66,7 @@ class Soil {
         Messaging::Levels::ERROR);
 
     void computeTrends(uint8_t indexNum);
+    void median3(int16_t &val, uint8_t indexNum);
     
     public:
     // set to nullptr to reduce arguments when calling after init.

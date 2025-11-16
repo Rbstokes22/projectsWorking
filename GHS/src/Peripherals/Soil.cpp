@@ -125,6 +125,50 @@ void Soil::computeTrends(uint8_t indexNum) {
     }
 }
 
+// requires the int16_t readval as a reference. Adds new value into the 3 index
+// array, and then sorts them from least to greatest, setting the actual value
+// to the median value to combat and filter random spiked data. Call if you
+// want to filter data before actual setting.
+void Soil::median3(int16_t &val, uint8_t indexNum) {
+
+    const uint8_t IDX_TOT = 3;
+    static uint8_t idx[SOIL_SENSORS] = {0, 0, 0, 0};
+
+    // Ommitted setting initial values to passed value for static declaration.
+    // This is because all the values are not known after first call and will
+    // be filtered out after the second reading.
+    static int16_t vals[SOIL_SENSORS][IDX_TOT] = {0};
+
+    vals[indexNum][idx[indexNum]] = val;
+   
+    idx[indexNum] = (idx[indexNum] + 1) % IDX_TOT;
+
+    auto sort = [](int16_t *arr) {
+
+        for (uint8_t i = 0; i < IDX_TOT; i++) {
+
+            for (uint8_t j = 0; j < IDX_TOT - 1; j++) {
+
+                if (arr[j] > arr[j + 1]) {
+                    int16_t temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+    };
+
+    sort(vals[indexNum]);
+
+    if (IDX_TOT % 2 == 0) { // Indicates even value
+        uint8_t center = IDX_TOT / 2;
+        val = (vals[indexNum][center - 1] + vals[indexNum][center]) / 2.0f;
+   
+    } else {
+        val = vals[indexNum][IDX_TOT / 2];
+    }
+}
+
 // Requires SoilParms* parameter.
 // Default setting = nullptr. Must be init with a non nullptr to create the 
 // instance, and will return a pointer to the instance upon proper completion.
@@ -200,6 +244,8 @@ void Soil::readAll() {
             this->data[i].readErr = true;
 
         } else { // Good read.
+
+            this->median3(tempVal, i); // Extracts the median value
 
             this->data[i].sensHealth *= HEALTH_EXP_DECAY; // Decay for no err.
             this->data[i].readErr = false;

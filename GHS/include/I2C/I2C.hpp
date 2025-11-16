@@ -74,24 +74,27 @@ class I2C {
     // The below functions are used only to remove and reinit devices that
     // have already been added.
     bool removeMaster();
+    bool removeDevice(I2CPacket &pkt);
     bool removeDevices();
     bool reInitMaster();
     void checkHang(I2CPacket &pkt);
     void recoverPins();
     bool hardResetBus(I2CPacket &pkt);
+    bool monitor(I2CPacket &pkt);
 
     public:
     static I2C* get();
     bool i2c_master_init(I2C_FREQ freq = I2C_FREQ::STD);
     i2c_device_config_t configDev(uint8_t i2cAddr);
     bool addDev(I2CPacket &pkt, bool reInit = false);
-    bool monitor(I2CPacket &pkt);
     bool TX(I2CPacket &pkt, const uint8_t* writeBuf, size_t bufSize);
     bool RX(I2CPacket &pkt, uint8_t* readBuf, size_t bufSize);
     bool TXRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
         uint8_t* readBuf, size_t readBufSize);
     bool TXthenRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
         uint8_t* readBuf, size_t readBufSize, size_t delay);
+    Threads::Mutex* getMutex();
+    void returnMtx();
 };
 
 }

@@ -3,25 +3,24 @@
 #include "Config/config.hpp"
 #include "driver/i2c_master.h"
 #include "string.h"
-#include "UI/MsgLogHandler.hpp" 
+#include "UI/MsgLogHandler.hpp"
 #include "freertos/task.h"
 #include "Peripherals/saveSettings.hpp"
 #include "Common/FlagReg.hpp"
 #include "xtensa/hal.h"
 #include "rom/ets_sys.h"
 #include "esp_private/periph_ctrl.h"
+#include <atomic>
 
 namespace Serial {
 
-// Having reconnect issues, currently have the capability to restart the bus and
-// remove and readd all devices and the bus. Having some assert failure, probably
-// when everything is being removed and added, if a client is currently in the 
-// middle of a tx/rx, this will cause that issue. So implement a tx, rx, and 
-// txrx central feature in this class. This will guarantee the protection mtx.
-// This will ensure that the bus and or devices are not changed in anyway until
-// the flag is released. Might have to incorporate a flag system as well, like
-// we did with the master bus flag. Once done, maybe implement back the remove
-// device logic we one had (on desktop or github), and go from there.
+// WARNING. Issues were consistently present and during testing of i2c recovery,
+// we unplugged the VCC cable from a peripheral device. Despite having an 
+// attempted graceful restart, usually the entire device will restart instead.
+// If a device is faulty or not present, this means it will not start up upon a 
+// re-init. During this process, running averages and trends will be lost, so
+// due to this exclusive problem, an external webserver will be the primary
+// using this as a secondary in the event the primary goes down.
 
 Threads::Mutex I2C::mtx(I2C_TAG); // define instance of mtx
 
@@ -108,22 +107,28 @@ bool I2C::removeMaster() {
     return false; // Required in the event of for loop fail.
 }
 
-bool I2C::removeDevices() {
+// NOTE: If using this function, ensure that txrxOK = false prior to call.
+bool I2C::removeDevice(I2CPacket &pkt) {
 
     // Block, master must be init to remove devices.
-    if (!this->masterInit) return false; 
+    if (!this->masterInit) {
+        return false;
+    } else if (!pkt.isRegistered) {
+        return true; // Returns true because the device is already removed.
+                     // This allows a proper count of removed devices.
+    }
 
     int retries = (I2C_ADDDEV_RETRIES > 0) ? I2C_ADDDEV_RETRIES : 1;
 
     for (int i = 0; i < retries; i++) { // Iterate to remove bus.
 
-        esp_err_t err = i2c_master_bus_rm_device(this->allPkts[i]->handle);
+        esp_err_t err = i2c_master_bus_rm_device(pkt.handle);
 
         if (err != ESP_OK) {
 
             snprintf(this->log, sizeof(this->log), 
                 "%s device @ addr %#x not removed. Try %d / %d", this->tag, 
-                this->allPkts[i]->config.device_address, i, retries - 1);
+                pkt.config.device_address, i, retries - 1);
 
             this->sendErr(this->log);
             vTaskDelay(pdMS_TO_TICKS(5)); // Brief delay added.
@@ -131,12 +136,11 @@ bool I2C::removeDevices() {
 
         } else {
 
-            this->allPkts[i]->isRegistered = false;
-            this->allPkts[i]->txrxOK = false;
-            
+            pkt.isRegistered = false;
+    
             snprintf(this->log, sizeof(this->log), 
                 "%s device @ addr %#x removed", this->tag,
-                this->allPkts[i]->config.device_address);
+                pkt.config.device_address);
 
             this->sendErr(this->log, Messaging::Levels::INFO);
             return true; // Successful removal.
@@ -146,30 +150,26 @@ bool I2C::removeDevices() {
 
         snprintf(this->log, sizeof(this->log), 
             "%s device @ addr %#x remove fail", this->tag,
-            this->allPkts[i]->config.device_address);
+            pkt.config.device_address);
 
         this->sendErr(this->log);
         return false; // Unsuccessful removal.
     }
     
     return false; // Required in the event of for loop fail.
+}
 
+bool I2C::removeDevices() {
+
+    size_t rmDevCt = 0;
 
     for (int i = 0; i < this->devNum; i++) {
-        printf("Removing Device\n");
-
-        esp_err_t err = i2c_master_bus_rm_device(this->allPkts[i]->handle);
-
-        if (err == ESP_OK) {
-            printf("Device Removed\n");
-            this->allPkts[i]->isRegistered = false;
-            this->allPkts[i]->txrxOK = false;
-        } else {
-            printf("Device Not Removed\n");
-        }
-
+  
+        rmDevCt += this->removeDevice(*(this->allPkts[i]));
         vTaskDelay(pdMS_TO_TICKS(1));
     }
+
+    return (rmDevCt == this->devNum);
 }
 
 // Requires no params, reinits master. Returns true if successful or false if
@@ -230,6 +230,7 @@ void I2C::recoverPins() {
 
 bool I2C::hardResetBus(I2CPacket &pkt) {
 
+    printf("STARTING HARD RESET\n");
     // First stop all tx/rx for each i2c device. This will be re-enabled only
     // when the devices are re-init after bus reset.
     for (uint8_t i = 0; i < this->devNum; i++) {
@@ -251,44 +252,87 @@ bool I2C::hardResetBus(I2CPacket &pkt) {
             "%s Device @ Addr %#x has been permanently disabled\n", this->tag,
             pkt.config.device_address);
 
-        this->sendErr(this->log);
-    }
+        this->sendErr(this->log); 
+    } 
 
     // Take control of the bus and recover pins, pulsing scl.
     this->recoverPins();
 
     // After pins are recovered, first remove devices
     bool delDev = this->removeDevices();
+    bool delMaster = false;
 
     // Next remove the master bus.
-    bool delMaster = this->removeMaster();
+    if (delDev) {
+        delMaster = this->removeMaster();
+    }
 
     // Block if master unable to remove. All err handling and logging within
     // called functions.
     if (!delMaster) return false; 
 
-    if (delMaster) {
+    // Once pins are toggle, add master.
+    bool initMaster = this->reInitMaster();
 
-        // Once pins are toggle, add master.
-        bool initMaster = this->reInitMaster();
+    // ATTENTION.
+    // No logic below to ensure devices added back to bus equal the original
+    // quantity. This is by design by flagging problematic devices to prevent
+    // re-init. If devices are somehow not added back, then implement err
+    // handling logic.
 
-        if (initMaster) { // Master has been init, add back all devices.
+    if (initMaster) { // Master has been init, add back all devices.
 
-            for (uint8_t i = 0; i < this->devNum; i++) {
-                this->addDev(*(this->allPkts[i]), true);
-            }
+        for (uint8_t i = 0; i < this->devNum; i++) {
+            this->addDev(*(this->allPkts[i]), true);
         }
-
-        return initMaster; // True if re-init, false if not.
     }
 
-    return false;
+    return (initMaster); // True if re-init, false if not.
 }
 
-// Requires dataSafe reference. This is to ensure that the thread is actually
-// locked, so that we dont run any tx/rx with an unlocked class, since each
-// peripheral device requires a true or false return to ensure sensor health.
-// Returns pointer to class instance.  !!!!!!!!!!!!!!!!!!!!!!!!!!! CHANGE AFTER UPDATE
+// Requires packet. ENSURE that packet is updated before sending with the
+// txrx response for analysis. Ensures that any timeouts are captured and
+// checks for potential device and/or bus failures. If individual devices are
+// failing, removes and adds back to master. If bus is detected, removes all
+// devices, bus, and re-inits devices. Returns true based on function working
+// as advertised, and false if operations are unsuccessful.
+bool I2C::monitor(I2CPacket &pkt) { 
+
+    // No mutex required here, already under mutex protection.
+
+    // WARNING. Do not attempt to remove individual devices. Testing showed 
+    // this to be extremely problematic, with the i2c bus freezing if attempt
+    // while a device might be holding the SDA low. Instead take control of 
+    // bus, remove all devices and bus, and re-init, keeping track of a 
+    // reconnection score.
+
+    // Check the error score and compare it against the value that flags
+    // the device as unresponsive. If unresponsive attempt to reset the entire
+    // bus. 
+    if ((pkt.errScore > HEALTH_ERR_BAD) && (pkt.arrayIdx < I2C_MAX_DEV)) { 
+
+        snprintf(this->log, sizeof(this->log), 
+            "%s device @ addr %#x unresponsive @ %0.2f / %0.2f", this->tag,
+            pkt.config.device_address, pkt.errScore, HEALTH_ERR_BAD);
+
+        this->sendErr(this->log);
+
+        this->hardResetBus(pkt); // Attempt bus reset. Temp Block
+        return false;
+
+    } else if (pkt.errScore >= HEALTH_ERR_BAD / 2.0f) { // BECMG unresponsive
+
+        snprintf(this->log, sizeof(this->log), 
+            "%s device @ addr %#x failing @ %0.2f / %0.2f", this->tag,
+            pkt.config.device_address, pkt.errScore, HEALTH_ERR_BAD);
+
+        this->sendErr(this->log, Messaging::Levels::WARNING);
+    } 
+
+    return true; // Indicates that device is within params.
+}
+
+// Returns class instance to singleton.
 I2C* I2C::get() {
     static I2C instance;
     return &instance;
@@ -420,13 +464,16 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
             &pkt.handle);
 
         if (err != ESP_OK) {
+
+            pkt.txrxOK = false;
+            pkt.isRegistered = false;
+
             snprintf(this->log, sizeof(this->log), 
                 "%s dev not added at addr %#x. Try %d / %d", this->tag, 
                 pkt.config.device_address, i, retries - 1);
 
             this->sendErr(this->log);
-            pkt.txrxOK = false;
-            pkt.isRegistered = false;
+            
             vTaskDelay(pdMS_TO_TICKS(20)); // Brief delay added.
             continue; // Break into new loop.
 
@@ -469,51 +516,6 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
     return false; // Required in the event of for loop fail.
 }
 
-// Requires packet. ENSURE that packet is updated before sending with the
-// txrx response for analysis. Ensures that any timeouts are captured and
-// checks for potential device and/or bus failures. If individual devices are
-// failing, removes and adds back to master. If bus is detected, removes all
-// devices, bus, and re-inits devices. Returns true based on function working
-// as advertised, and false if operations are unsuccessful.
-bool I2C::monitor(I2CPacket &pkt) {
-
-    Threads::MutexLock guard(this->mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
-    // WARNING. Do not attempt to remove individual devices. Testing showed 
-    // this to be extremely problematic, with the i2c bus freezing if attempt
-    // while a device might be holding the SDA low. Instead take control of 
-    // bus, remove all devices and bus, and re-init, keeping track of a 
-    // reconnection score.
-
-    // Check the error score and compare it against the value that flags
-    // the device as unresponsive. If unresponsive attempt to reset the entire
-    // bus. 
-    if ((pkt.errScore > HEALTH_ERR_BAD) && (pkt.arrayIdx < I2C_MAX_DEV)) { 
-
-        snprintf(this->log, sizeof(this->log), 
-            "%s device @ addr %#x unresponsive @ %0.2f / %0.2f", this->tag,
-            pkt.config.device_address, pkt.errScore, HEALTH_ERR_BAD);
-
-        this->sendErr(this->log);
-
-        this->hardResetBus(pkt); // Attempt bus reset. Temp Block
-        return false;
-
-    } else if (pkt.errScore >= HEALTH_ERR_BAD / 2.0f) { // BECMG unresponsive
-
-        snprintf(this->log, sizeof(this->log), 
-            "%s device @ addr %#x failing @ %0.2f / %0.2f", this->tag,
-            pkt.config.device_address, pkt.errScore, HEALTH_ERR_BAD);
-
-        this->sendErr(this->log, Messaging::Levels::WARNING);
-    } 
-
-    return true; // Indicates that device is within params.
-}
-
 // ATTENTION. Keep all TX/RX centralized in this mutex protected singleton.
 // This will ensure proper and centralized control required to monitor and 
 // ensure maximum bus health. Each TX/RX has a brief delay. This is because
@@ -524,14 +526,14 @@ bool I2C::monitor(I2CPacket &pkt) {
 // via i2c. Returns true if successful, and false if not.
 bool I2C::TX(I2CPacket &pkt, const uint8_t* writeBuf, size_t bufSize) {
 
-    ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
-
-    Threads::MutexLock guard(this->mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
     if (pkt.txrxOK) {
+
+        ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
+        
+        Threads::MutexLock guard(this->mtx);
+        if (!guard.LOCK()) {
+            return false; // Block if unlocked.
+        }
 
         uint32_t start = xthal_get_ccount();
 
@@ -569,14 +571,14 @@ bool I2C::TX(I2CPacket &pkt, const uint8_t* writeBuf, size_t bufSize) {
 // via i2c. Returns true if successful, and false if not.
 bool I2C::RX(I2CPacket &pkt, uint8_t* readBuf, size_t bufSize) {
 
-    ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
-
-    Threads::MutexLock guard(this->mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-    
     if (pkt.txrxOK) {
+
+        ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
+        
+        Threads::MutexLock guard(this->mtx);
+        if (!guard.LOCK()) {
+            return false; // Block if unlocked.
+        }
 
         uint32_t start = xthal_get_ccount();
 
@@ -616,14 +618,14 @@ bool I2C::RX(I2CPacket &pkt, uint8_t* readBuf, size_t bufSize) {
 bool I2C::TXRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
     uint8_t* readBuf, size_t readBufSize) {
 
-    ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
-
-    Threads::MutexLock guard(this->mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
     if (pkt.txrxOK) {
+
+        ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
+
+        Threads::MutexLock guard(this->mtx);
+        if (!guard.LOCK()) {
+            return false; // Block if unlocked.
+        }
 
         uint32_t start = xthal_get_ccount();
 
@@ -665,8 +667,11 @@ bool I2C::TXRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize,
 bool I2C::TXthenRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
     uint8_t* readBuf, size_t readBufSize, size_t delay) {
 
+    // Acquires and locks mutex.
     bool tx = this->TX(pkt, writeBuf, writeBufSize);
     
+    // Mtx unlocked after TX, introduce delay and reacquire and lock mutex
+    // for RX.
     if (tx) {
         vTaskDelay(pdMS_TO_TICKS(delay));
         return this->RX(pkt, readBuf, readBufSize);

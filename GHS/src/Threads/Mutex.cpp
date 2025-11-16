@@ -52,18 +52,17 @@ bool Mutex::lock() {
         // Attempt repeats to try to lock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
 
-            snprintf(this->log, sizeof(this->log), 
-                "%s Lock timeout after %d ms (%d / %d retries)",
-                this->tag, LOCK_TIMEOUT, attempt, MTX_REPEAT - 1);
-
-            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
-                this->log, Messaging::Method::SRL_LOG);
-
             semph = xSemaphoreTakeRecursive(this->xMutex, 
                 pdMS_TO_TICKS(LOCK_TIMEOUT));
 
             if (semph == pdTRUE) {return true;}
         }
+
+        snprintf(this->log, sizeof(this->log),
+            "%s Lock release timeout after %d retries", this->tag, MTX_REPEAT);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                this->log, Messaging::Method::SRL_LOG);
 
         return false;
     }
@@ -84,17 +83,17 @@ bool Mutex::unlock() {
         // Attempt repeats to try to unlock.
         for (uint8_t attempt = 0; attempt < MTX_REPEAT; ++attempt) {
 
-            snprintf(this->log, sizeof(this->log), 
-                "%s Lock release timeout after %d ms (%d / %d retries)",
-                this->tag, LOCK_TIMEOUT, attempt, MTX_REPEAT - 1);
-
-            Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
-                this->log, Messaging::Method::SRL_LOG);
-
             semph = xSemaphoreGiveRecursive(this->xMutex);
 
             if (semph == pdTRUE) {return true;}
         }
+
+        snprintf(this->log, sizeof(this->log),
+            "%s Unlock release timeout after %d retries", this->tag, 
+            MTX_REPEAT);
+
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::WARNING,
+                this->log, Messaging::Method::SRL_LOG);
 
         return false;
     }

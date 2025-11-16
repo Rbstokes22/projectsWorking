@@ -73,7 +73,7 @@ int16_t ADC::getVal() {
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 
-    if (count > ADC_CONV_WAIT_MS) { // Timed out due to counting.
+    if (count >= ADC_CONV_WAIT_MS) { // Timed out due to counting.
         snprintf(this->log, sizeof(this->log), "%s get val T/O", this->tag);
         this->sendErr(this->log);
         return ADC_BAD_VAL; 

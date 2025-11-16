@@ -290,6 +290,56 @@ void TempHum::computeTrends() {
     }
 }
 
+// requires the SHT values as a reference. Adds new value into the 3 index
+// array, and then sorts them from least to greatest, setting the actual value
+// to the median value to combat and filter random spiked data. Call if you
+// want to filter data before actual setting.
+void TempHum::median3(SHT_DRVR::SHT_VALS &vals) {
+
+    const uint8_t IDX_TOT = 3;
+
+    static uint8_t idx = 0;
+
+    // Set these immediately, because upon the first call, they will be 
+    // be populated which will return a median other than 0.
+    static float tempC[IDX_TOT] = {vals.tempC, vals.tempC, vals.tempC};
+    static float hum[IDX_TOT] = {vals.hum, vals.hum, vals.hum};
+
+    tempC[idx] = vals.tempC;
+    hum[idx] = vals.hum; 
+    idx = (idx + 1) % IDX_TOT;
+
+    auto sort = [](float *arr) {
+
+        for (uint8_t i = 0; i < IDX_TOT; i++) {
+
+            for (uint8_t j = 0; j < IDX_TOT - 1; j++) {
+
+                if (arr[j] > arr[j + 1]) {
+                    float temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+    };
+
+    sort(tempC);
+    sort(hum);
+
+    if (IDX_TOT % 2 == 0) { // Indicates even value
+        uint8_t center = IDX_TOT / 2;
+
+        vals.tempC = (tempC[center - 1] + tempC[center]) / 2.0f;
+        vals.hum = (hum[center - 1] + hum[center]) / 2.0f;
+
+    } else {
+        vals.tempC = tempC[IDX_TOT / 2];
+        vals.hum = hum[IDX_TOT / 2];
+    }
+
+    vals.tempF = (vals.tempC * 1.8) + 32;
+}
 
 // Requires messand and messaging level. Level default to ERROR.
 void TempHum::sendErr(const char* msg, Messaging::Levels lvl) {
@@ -349,6 +399,8 @@ bool TempHum::read() {
     // consecutive error read, display flag is set to false allowing the 
     // clients display to show the temp/hum reading to be down.
     if (read == SHT_DRVR::SHT_RET::READ_OK) {
+
+        this->median3(tempVal); // Will extract the median value.
         this->data = tempVal; // Set actual value to temp val if success.
         this->readErr = false;
         this->computeAvgs();

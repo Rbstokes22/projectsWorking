@@ -13,21 +13,25 @@
 // WARNING. Max I2C clients set to 8. Currently at 5, extend this value on
 // config.hpp if places to exceed 8 in the future.
 
+// ATTENTION. This is a tested system with instability existing in the i2c 
+// layer. Layers of handling were built into the system to gracefully revive
+// the i2c from small faults, but the device still restarts. So the device is
+// able to be used as it by going to greenhouse.local, but there is instability
+// in that a restart will destroy log entries, trends, and averages. As a 
+// result, this is going to become a peripheral device to a much more robust
+// server, that will act as a client to this device completely cataloging all
+// info outside of the embedded world. This will also provide remote access
+// capabilities. The device is still functional as is, with the low-probability
+// instability with the i2c bus, so the proper way will be accessing it via 
+// webserver hosted external to embedded system acting as a client.
+
 // TO DO:
 
-// Mutexs are up and running. Had some TO issues for sending the report. Ensure
-// this is solid before moving on. I suspect it can be problematic when the 
-// URL is unresolved. Continue to troubleshoot the alerts class to ensure it is
-// safe. If not, maybe consider a one and done method, because if the server
-// cant have the client connect to it, chances are that it is down. 
-
-// Once mutex is solid, implement the median filter for the peripheral devices
-// to avoid any noise or outliers.
-
-// Finally move back to I2C. With true mutex protection, try to remove and add
-// devices again to make the decision if devices can be safetly re-init 
-// individually, or if a master bus hard reset is the best method. Once complete
-// the project should be very solid at that point and can be built.
+// !!! When ready to begin changing the esp code to connect via http to the
+// LAN server, make changes, but comment out the old code in order to show as
+// reference, https methods. Check into the old WEBURL at ngrok, ensure that 
+// and maybe inDev or whatever it is, is handle properly, since we are going to
+// default to LAN server now.
 
 // Ensure reports and alerts, or pretty much anything reaching out is disabled
 // when not in STA mode. Disabled alerts and reports, as well as public methods
@@ -193,6 +197,7 @@
 #include "Peripherals/Relay.hpp"
 #include "Peripherals/saveSettings.hpp"
 #include "Drivers/ADC.hpp"
+#include "esp_log.h"
 
 extern "C" {
     void app_main();
@@ -273,6 +278,7 @@ static StaticTask_t netTCB, shtTCB, lightTCB, soilTCB, routineTCB;
 OTA::OTAhandler ota(OLED, station, toSuspend, TOTAL_THREADS); 
 
 void app_main() { 
+    esp_log_level_set("i2c.master", ESP_LOG_NONE); // disable I2C logging.
 
     Messaging::MsgLogHandler::get()->addOLED(OLED);
 
