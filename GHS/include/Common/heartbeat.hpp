@@ -3,6 +3,7 @@
 
 #include "Threads/Mutex.hpp"
 #include "UI/MsgLogHandler.hpp"
+#include "Network/NetSTA.hpp"
 
 // ATTENTION. This is a software implementation of the watchdog timer used for
 // troubleshooting and general performance. All calling functions will be able
@@ -46,6 +47,7 @@ class Heartbeat {
     static Heartbeat* get();
     uint8_t getBlockID(const char* caller, uint8_t initVal);
     void rogerUp(uint8_t chunkID, uint8_t resetSec);
+    void pingServer(Comms::STAdetails &details);
     void manage();
     void suspend(uint8_t chunkID, const char* reason);
     void suspendAll(const char* reason);

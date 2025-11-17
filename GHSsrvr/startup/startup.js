@@ -2,27 +2,36 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
+// Checks the RAMDISK path, returns path if exists. If not-exists, creates
+// a fallback tempdir that is not RAMDISK but is temporary.
 let resolveRAMPath = () => {
 
     const ramPaths = [
         "/ramdisk", // Dockers tmpfs mount and primary target
         "/dev/shm", // Guaranteed RAM on Linux hosts
-        path.join(os.tempdir(), "ramdisk") // Last resort not RAM.
     ];
 
     for (const p of ramPaths) {
-        try {
-            if (fs.existsSync(p)) {
-                return p;
-            }
-        } catch (e) {}
+        if (fs.existsSync(p)) {
+            console.log("RAMDISK ACTIVE");
+            return p;
+        }
     }
 
     // If no directories exist, attempt to create a fallback temp dir.
-    const fallback = path.join(os.tempdir(), "ramdisk");
+    const fallback = path.join(os.tmpdir(), "ramdisk");
+
     try {
+
         fs.mkdirSync(fallback, {recursive: true});
-    } catch (e) {}
+        console.log("RAMDISK NOT ACTIVE USING FALLBACK");
+
+    } catch (e) {
+        
+        console.log("RAMDISK NOT CREATED BAD FALLBACK");
+    }
 
     return fallback;
 }
+
+module.exports = {resolveRAMPath};

@@ -2,6 +2,10 @@
 #include "UI/MsgLogHandler.hpp"
 #include "string.h"
 #include "Peripherals/saveSettings.hpp"
+#include "Network/NetSTA.hpp"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 // ATTENTION. Avoid logging any heartbeat suspensions and releases. This is 
 // because it has the potential to be called frequently and we do not want to
@@ -126,6 +130,33 @@ void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
 
     if (resetSec == 0) resetSec = 1;
     this->reg[chunkID] = resetSec; // Set the heartbeat to its limit.
+}
+
+// Requires referene to the station details. Some of this information will be
+// included when pinging the UDP server, to communicate its status. Run at 1 Hz,
+// the receiving server will keep devices alive as long as they have checked in
+// the past 5 seconds.
+void Heartbeat::pingServer(Comms::STAdetails &details) {
+
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP); // Create socket.
+
+    if (sock < 0) return;
+
+    // Prep JSON message to send UDP server with details about the current
+    // connection status.
+    char msg[128] = {0};
+    snprintf(msg, sizeof(msg), 
+        "{\"mdns\": \"%s\", \"rssi\": \"%s\", \"mem\": \"%s\"}", 
+        details.mdns, details.signalStrength, details.heap);  
+
+    struct sockaddr_in dest; 
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(HEARTBEAT_UDP_PORT);
+    dest.sin_addr.s_addr = inet_addr(UDP_URL);
+
+    sendto(sock, msg, strlen(msg), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+    close(sock);
 }
 
 // Iterates the register array. Checks if the value is equal to 0, if so, it 

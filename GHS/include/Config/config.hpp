@@ -13,11 +13,13 @@ extern char confLog[128]; // Reusable log for config src.
 
 // Network connection and broadcasting information
 #define AP_SSID "GreenHouse"
-#define MDNS_NAME "greenhouse"
+#define MDNS_NAME "greenhouse" // Can change, will modify upon creation if 
+                               // more than one device is on network.
 #define MDNS_ACTUAL "http://greenhouse" // Used for whitelist
 #define AP_DEF_PASS "12345678"
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
+#define HEARTBEAT_UDP_PORT 6842 // Uses UDP to check in with server.
 
 // I2C GPIO PINS
 #define I2C_SCL_PIN GPIO_NUM_22
@@ -60,7 +62,8 @@ extern char confLog[128]; // Reusable log for config src.
 
 // Uncomment whichever WEBURL you are using
 // #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
-#define WEBURL "http://mysterygraph.local:8080"
+#define WEBURL "http://ghmain.local:5702"
+#define UDP_URL "ghmain.local" // mDNS of the primary node exp server.
 #define WEB_TIMEOUT_MS 3000 // timeout when in client mode in milliseconds.
 
 // White list domains used in STAOTAHandler.cpp

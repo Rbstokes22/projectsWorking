@@ -187,6 +187,7 @@ void NetManager::runningWifi(NetMain &mode) {
     } else if (curSrvr == NetMode::STA) {
         STAdetails details;
         station.getDetails(details);
+        heartbeat::Heartbeat::get()->pingServer(details);
         OLED.printSTA(details);
     }   
 

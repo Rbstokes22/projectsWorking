@@ -348,8 +348,10 @@ void routineTask(void* parameter) {
     // Convert ms delay to to ticks.
     const TickType_t period = pdMS_TO_TICKS(params->delay);
 
+    heartbeat::Heartbeat* HB = heartbeat::Heartbeat::get();
+
      // Register task with heartbeat.
-    uint8_t HBID = heartbeat::Heartbeat::get()->getBlockID("ROUTINE", HB_DELAY);
+    uint8_t HBID = HB->getBlockID("ROUTINE", HB_DELAY);
 
     while (true) {
 
@@ -378,11 +380,15 @@ void routineTask(void* parameter) {
         }
 
         // Check in to reset heart beat expiration.
-        heartbeat::Heartbeat::get()->rogerUp(HBID, ROUTINE_HEATBEAT);
+        HB->rogerUp(HBID, ROUTINE_HEATBEAT);
 
-        // Call at a 1 hz frequency to properly employ.
-        heartbeat::Heartbeat::get()->manage();
+        // Call manage and pingServer at a 1 hz frequency to employ 
+        // properly.
+        HB->manage();
 
+        // ATTENTION. External heartbeat for UDP check in will belong in the 
+        // Net Manager class. 
+ 
         highWaterMark("Routine", uxTaskGetStackHighWaterMark(NULL));
         
         TickType_t t_f = xTaskGetTickCount(); // Run after work.
