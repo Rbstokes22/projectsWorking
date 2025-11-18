@@ -1,6 +1,6 @@
 
-let ramPaths = ["/ramdisk", "/tmp/shm"];
+let n = "http://greenhouse2.local";
 
-ramPaths.forEach((path, idx) => {
-    console.log(idx);
-});
+let re = /^http:\/\/(greenhouse\d+)\.local$/;
+
+console.log(re.exec(n)[1]);

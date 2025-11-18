@@ -1,7 +1,5 @@
 const dgram = require("dgram");
-const UDP_PORT = 6842;
-const DEV_MAP_CLEAR = 5000; // Clear inactive after n ms.
-const DEV_MAP_INTERVAL = 1000; // run interval at n frequency.
+const {config} = require("../config/config");
 
 const socket = dgram.createSocket("udp4"); // UDP socket to comm with esp32.
 
@@ -22,8 +20,8 @@ socket.on("message", (msg, rInfo) => {
 });
 
 // Bind the socket to the udp port.
-socket.bind(UDP_PORT, () => {
-    console.log(`Heartbeat UDP listener up on UDP port ${UDP_PORT}`);
+socket.bind(config.UDP_PORT, () => {
+    console.log(`Heartbeat UDP listener up on UDP port ${config.UDP_PORT}`);
 });
 
 // Set interval to run at n seconds. This iterates the device map looking for
@@ -34,11 +32,12 @@ setInterval(() => {
     const current = Date.now(); 
 
     Object.keys(devMap).forEach(mdns => {
-        if ((current - devMap[mdns]) > DEV_MAP_CLEAR) {
-            devMap.delete[mdns];
+
+        if ((current - devMap[mdns].lastSeen) > config.DEV_MAP_EXPIRE) {
+            delete devMap[mdns];
         }
     });
 
-}, DEV_MAP_INTERVAL);
+}, config.DEV_MAP_CHK_INT);
 
 module.exports = { devMap };

@@ -1,9 +1,10 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const Bonjour = require("bonjour-service").default; // mDNS
+const { config } = require("../config/config");
 
-// Checks the RAMDISK path, returns path if exists. If not-exists, creates
-// a fallback tempdir that is not RAMDISK but is temporary.
+// Checks the RAMDISK path. Populates config.RAM_PATH upon running this func.
 let resolveRAMPath = () => {
 
     const ramPaths = [
@@ -14,7 +15,8 @@ let resolveRAMPath = () => {
     for (const p of ramPaths) {
         if (fs.existsSync(p)) {
             console.log("RAMDISK ACTIVE");
-            return p;
+            config.RAM_PATH = p;
+            return 1;
         }
     }
 
@@ -31,7 +33,23 @@ let resolveRAMPath = () => {
         console.log("RAMDISK NOT CREATED BAD FALLBACK");
     }
 
-    return fallback;
+    config.RAM_PATH = fallback;
 }
 
-module.exports = {resolveRAMPath};
+// Requires no params. Starts mDNS service and listener when called.
+let startmDNS = () => {
+
+    const bonjour = new Bonjour();
+    
+    bonjour.publish(config.mDNSConfig);
+
+    process.on("SIGINT", () => {
+        console.log("Unpublishing mDNS services and shutting down");
+        bonjour.unpublishAll(() => {
+            bonjour.destroy();
+            process.exit();
+        });
+    });
+}
+
+module.exports = {resolveRAMPath, startmDNS};

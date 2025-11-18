@@ -1,34 +1,34 @@
-const {resolveRAMPath} = require("./startup/startup");
+const { config } = require("./config/config");
+const { resolveRAMPath, startmDNS } = require("./startup/startup");
 const express = require("express");
 const cors = require("cors");
-const { devMap } = require("./controllers/heartbeat");
-const Bonjour = require("bonjour-service").default; // mDNS
-const bonjour = new Bonjour();
-
-const RAM_PATH = resolveRAMPath(); // Gets the RAMDISK path.
-const WEB_PATH = "https://www.mysterygraph.org"; // PWA site.
-const mDNSConfig = { // MDNS will be broadcast with this info.
-    name: "ghmain",
-    type: "http",
-    port: 5702,
-    host: "ghmain.local",
-    txt: {version: "1.0"}
-};
 
 const app = express(); // Create express app.
 
-bonjour.publish(mDNSConfig); 
+resolveRAMPath(); // Sets the config object RAM_PATH to path.
+startmDNS();
 
 const mainRoute = require("./routes/main.route");
 
-app.set("view engine", "ejs");
-app.set("views", `${__dirname}/views`);
+// set the static file paths served
+app.use("/css", express.static(`${__dirname}/css`));
+app.use("/clientJS", express.static(`${__dirname}/clientJS`));
+app.use("/images", express.static(`${__dirname}/images`));
+
+// set url json and cors.
+app.use(express.urlencoded({extended: true}));
+app.use(express.json());
 app.use(cors({
-    origin: WEB_PATH, // Allow outside access from our site only.
+    origin: config.WEB_PATH, // Allow outside access from our site only.
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true // Allow cookies and auth headers if needed.
 }));
 
+// Set viewing.
+app.set("view engine", "ejs");
+app.set("views", `${__dirname}/views`);
+
+// Set routes
 app.use("/", mainRoute);
 
 
@@ -38,14 +38,8 @@ app.use("/", mainRoute);
 
 
 
-app.listen(mDNSConfig.port, () => {
-    console.log(`Running Server @ ${mDNSConfig.host}:${mDNSConfig.port}`);
+app.listen(config.mDNSConfig.port, () => {
+    console.log(
+        `Running Server @ ${config.mDNSConfig.host}:${config.mDNSConfig.port}`);
 });
 
-process.on("SIGINT", () => {
-    console.log("Unpublishing mDNS services and shutting down");
-    bonjour.unpublishAll(() => {
-        bonjour.destroy();
-        process.exit();
-    });
-});
