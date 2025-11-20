@@ -1,6 +1,14 @@
 
-let n = "http://greenhouse2.local";
+let id = 250;
 
-let re = /^http:\/\/(greenhouse\d+)\.local$/;
+const getID = () => {
+    const _id = id;
+    id++;
+    id %= 256;
+    
+    return _id;
+}
 
-console.log(re.exec(n)[1]);
+for (let i = 250; i < 260; i++) {
+    console.log(getID());
+}

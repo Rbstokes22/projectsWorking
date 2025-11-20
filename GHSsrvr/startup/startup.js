@@ -2,7 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const Bonjour = require("bonjour-service").default; // mDNS
-const { config } = require("../config/config");
+const {config} = require("../config/config");
 
 // Checks the RAMDISK path. Populates config.RAM_PATH upon running this func.
 let resolveRAMPath = () => {

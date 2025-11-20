@@ -23,6 +23,11 @@ const config = {
     // resoloveRAMPath().
     RAM_PATH: undefined,
 
+    // Polling data 
+    POLL_FREQ: 1000, // polls each device at this interval accumulating data.
+    POLL_SKT_PORT: 6153, // Port to reply to with polling data from esp.
+    RE_INIT_SKT_DELTA: 5000, // If no comm in n ms, restart web socket to esp.
+
 
 
     

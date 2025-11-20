@@ -2,6 +2,7 @@ const { config } = require("./config/config");
 const { resolveRAMPath, startmDNS } = require("./startup/startup");
 const express = require("express");
 const cors = require("cors");
+require("./controllers/heartbeat/heartbeat"); // Starts the heartbeat check.
 
 const app = express(); // Create express app.
 

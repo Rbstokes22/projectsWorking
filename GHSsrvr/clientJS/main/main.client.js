@@ -1,29 +1,36 @@
 const DEV_FINDER_POLL_INT = 2000; // Used to look at all active devices
 
-let populateDevices = (devMap) => {
+// Populates all active devices on the html page. 
+const populateDevices = (devMap) => {
     const dispID = document.getElementById("availableDev");
     dispID.innerText = ""; // clear old data upon each run.
-    const regex = //
 
     Object.keys(devMap).forEach(device => {
 
         let button = document.createElement("button");
+        button.id = devMap[device].ip;
+        button.innerText = devMap[device].name;
 
-        // Strip the button of the entire URL and just include the device 
-        // name.
-        let re = /^http:\/\/(greenhouse\d*)\.local$/;
+        if (!devMap[device].isUp) {
+            button.className = "devUp";
+            
+            button.onclick = () => {
 
-        button.innerText = re.exec(device)[1];
+                window.location.href = `http://${url}/getDashboard?ip=` +
+                    `${devMap[device].ip}&ws=${devMap[device].sockURL}`;
+            }
 
-        button.onclick = () => {
-            console.log(`${device} clicked`);
+        } else { // Device down, disable functionality and change color.
+            button.className = "devDown";
+            button.classList.remove();
         }
 
         dispID.appendChild(button);
     });
-
 }
 
+// Sets a interval that polls for all active peripheral devices communicating
+// with the server. Upon discovery, populates them into display feature.
 let findActive = setInterval(() => {
 
     fetch(`http://${url}/getActive`)
