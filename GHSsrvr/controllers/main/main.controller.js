@@ -1,4 +1,4 @@
-const {devMap} = require("../devMgr/newDevice");
+const {devMap} = require("../devMgr/config.devMgr");
 const {config} = require("../../config/config");
 const URL = `${config.mDNSConfig.host}:${config.mDNSConfig.port}`;
 

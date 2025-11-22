@@ -1,16 +1,14 @@
-const {manageSocket, updateDev, sktSend} = 
+const {manageSocket, updateDev, sktSend, poll, startPoll, stopPoll} = 
     require("../devMgr/newDevice.methods");
 
-const devMap = {}; // Maps and manages all devices.
-let sktMsgID = 0; // Will be sent with each socket command to allow async 
-                  // returns to know which callback to call. Must be between
-                  // 0 and 255. Handled by getID().
+const {devMap} = require("./config.devMgr");
 
 // Adds a new Device to the devMap. Will carry all information related to
 // the device to include websocket management, updates, and the polled data
 // received from the device once sockets are established.
 const newDevice = function (devData, ip) {
 
+    // Regex for each mdns to extract the name. 
     const re = /^http:\/\/(greenhouse\d*)\.local$/; 
 
     this.devData = devData;
@@ -24,12 +22,16 @@ const newDevice = function (devData, ip) {
     this.sockURL = `ws://${this.ip}/ws`;
     this.ws = null;
     this.isUp = true;
+    this.pollInt = null; // Polling interval
     this.devSysData = {}; // This will store the most current allData string
                           // from the esp device as JS object once parsed.
 
     this.manageSocket = manageSocket;
     this.updateDev = updateDev;
     this.sktSend = sktSend;
+    this.poll = poll;
+    this.startPoll = startPoll;
+    this.stopPoll = stopPoll;
     
     // Establish socket immediately upon creation
     this.manageSocket();
@@ -39,13 +41,4 @@ const newDevice = function (devData, ip) {
     return this;
 };
 
-// Requires no params. Returns consecutive IDs between 0 and 255 as req by
-// esp32 device.
-const getID = () => {
-    const id = sktMsgID;
-    sktMsgID++;
-    sktMsgID %= 256; // Keeps value between 0 and 255.
-    return id;
-}
-
-module.exports = {newDevice, devMap, getID};
+module.exports = {newDevice, devMap};

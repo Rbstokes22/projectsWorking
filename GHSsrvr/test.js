@@ -1,14 +1,22 @@
 
-let id = 250;
-
-const getID = () => {
-    const _id = id;
-    id++;
-    id %= 256;
-    
-    return _id;
+const myObj = function() {
+    this.a = 22;
+    this.b = 33;
+    this.myFunc = myFunc;
+    this.myFunc2 = myFunc2;
+    return this;
 }
 
-for (let i = 250; i < 260; i++) {
-    console.log(getID());
+let myFunc = function() {
+    console.log(this.a);
 }
+
+let myFunc2 = () => {
+    console.log(this.a);
+}
+
+let b = new myObj;
+b.myFunc();
+b.myFunc2(); // Undefines as expected due to arrow.
+
+myFunc(); // Ret undefined as expected.

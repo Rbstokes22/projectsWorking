@@ -1,7 +1,8 @@
 const dgram = require("dgram");
 const {config} = require("../../config/config");
 const socket = dgram.createSocket("udp4"); // UDP socket to comm with esp32.
-const {newDevice, devMap} = require("../devMgr/newDevice");
+const {newDevice} = require("../devMgr/newDevice");
+const {devMap} = require("../devMgr/config.devMgr");
 
 // Set even for socket upon message receipt. Add device info to the device 
 // map indicating it is ready for use.
