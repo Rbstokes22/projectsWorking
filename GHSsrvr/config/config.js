@@ -28,6 +28,10 @@ const config = {
     POLL_SKT_PORT: 6153, // Port to reply to with polling data from esp.
     RE_INIT_SKT_DELTA: 5000, // If no comm in n ms, restart web socket to esp.
 
+    // SKT data
+    SKT_TIMEOUT: 2000, // Rejects socket response if not received in this time.
+    SKT_ASYNC_BUS_EVENT: "sktRet", // event name for async socket return.
+
 
 
     

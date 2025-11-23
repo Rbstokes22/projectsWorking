@@ -35,7 +35,7 @@ const manageSocket = function() {
     });
 
     this.ws.on("message", (msg) => {
-        handleResponse(this, msg); 
+        handleResponse(this.mDNS, msg); // Pass devMap key, and message.
     });
 
     this.ws.on("close", () => {
@@ -96,7 +96,11 @@ const sktSend = function(msg) {
 const poll = function() {
 
     const params = this.mDNS; // Key for devMap.
-    const msg = `${SKT_CMD["GET_ALL"]}/0/${getID(getAll, params, null)}`;
+    const {id, promise} = getID(getAll, params, null);
+
+    promise.catch(err => console.error(err));
+
+    const msg = `${SKT_CMD["GET_ALL"]}/0/${id}`;
     this.sktSend(msg);
 }
 

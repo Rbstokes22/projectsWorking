@@ -1,22 +1,53 @@
+const EventEmitter = require("events");
 
-const myObj = function() {
-    this.a = 22;
-    this.b = 33;
-    this.myFunc = myFunc;
-    this.myFunc2 = myFunc2;
-    return this;
+const bus = new EventEmitter();
+
+bus.on("special-alert", (msg) => {
+    console.log(msg);
+});
+
+const myMsg = "What is up";
+
+// bus.emit("special-alert", myMsg);
+
+const sktProm = {};
+let id = 0;
+
+const getID = (CB) => {
+
+    sktProm[id] = new Promise((resolve, reject) => {
+
+        const _CB = CB;
+
+        let to = setTimeout(() => {
+            reject("REJ");
+        }, 5000);
+
+        const clearTO = function() {
+            clearTimeout(to);
+            console.log("CLR Called");
+            resolve("OK");
+        }
+
+        bus.on("special-alert", (msg) => {
+            _CB();
+            clearTO();
+        })
+    });
+
+    sktProm[id].then(res => console.log(res)).catch(err => console.error(err));
+    return id++;
 }
 
-let myFunc = function() {
-    console.log(this.a);
+const print = function() {
+    console.log("printed");
 }
 
-let myFunc2 = () => {
-    console.log(this.a);
-}
+let a = getID(print);
 
-let b = new myObj;
-b.myFunc();
-b.myFunc2(); // Undefines as expected due to arrow.
+setTimeout(() => {
 
-myFunc(); // Ret undefined as expected.
+    bus.emit("special-alert", "msg");
+
+}, 3000);
+
