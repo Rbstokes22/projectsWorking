@@ -22,68 +22,9 @@ Report::Report() : tag(REPORT_TAG), clrTimeSet(MAX_SET_TIME) {
     this->sendErr(this->log, Messaging::Levels::INFO);
 }
 
-// Returns pointer to that static instance.
-Report* Report::get() {
-
-    static Report instance;
-    return &instance; 
-}
-
-// Requires pointer to json report, and its size in bytes. Populates the
-// report of the average temp/hum and spectral/photo readings over duration, 
-// the duration of being light, and current soil readings. Returns true if 
-// populated, and false if not.
-bool Report::compileAll(char* jsonRep, size_t bytes) { 
-    
-    TH_Averages* th = TempHum::get()->getAverages();
-    Soil* soil = Soil::get();
-    Light_Averages* light = Light::get()->getAverages();
-    int written = -1;
-    bool isErr = false; // Used to log if error occurs.
-
-    // All colors will be the average accumulation over the previous capture
-    // time. The counts should always be a float between 0 and 65535 or 
-    // 16-bit max. Soil values are smooth, so averages will not be computed,
-    // and current values will be populated.
-    written = snprintf(jsonRep, bytes, 
-    "{\"temp\":%0.2f,\"hum\":%0.2f,"
-    "\"violet\":%0.2f,\"indigo\":%0.2f,\"blue\":%0.2f,\"cyan\":%0.2f,"
-    "\"green\":%0.2f,\"yellow\":%0.2f,\"orange\":%0.2f,\"red\":%0.2f,"
-    "\"nir\":%0.2f,\"clear\":%0.2f,\"photo\":%0.2f,\"lightDur\":%lu,"
-    "\"soil1\":%d,\"soil2\":%d,\"soil3\":%d,\"soil4\":%d}",
-    th->temp, th->hum,
-    light->color.violet, light->color.indigo,
-    light->color.blue, light->color.cyan,
-    light->color.green, light->color.yellow,
-    light->color.orange, light->color.red,
-    light->color.nir, light->color.clear,
-    light->photoResistor, Light::get()->getDuration(),
-    soil->getReadings(0)->val, soil->getReadings(1)->val,
-    soil->getReadings(2)->val, soil->getReadings(3)->val
-    );
-
-    if (written == -1) { // Not written
-        snprintf(this->log, sizeof(this->log), "%s write err", this->tag);
-        isErr = true;
-
-    } else if (written == 0) { // Nothing written
-        snprintf(this->log, sizeof(this->log), "%s zero write", this->tag);
-        isErr = true;
-
-    } else if (written > bytes) { // Too much data.
-        snprintf(this->log, sizeof(this->log), "%s write exceeds length @ %d", 
-            this->tag, written);
-        isErr = true;
-    }
-
-    if (isErr) this->sendErr(this->log);
-
-    return (written > 0 && written <= bytes); // false if bad write
-}
-
 // Clears all averages. Called after sending the data to the server or 
 // once per day if timer is unset.
-void Report::clearAll() {
+void Report::clearAll() { // Mtx is suspended before this call.
     TempHum::get()->clearAverages();
     Light::get()->clearAverages(); 
 }
@@ -91,6 +32,13 @@ void Report::clearAll() {
 // Requires message and messaging level. Level set default to ERROR.
 void Report::sendErr(const char* msg, Messaging::Levels lvl) {
     Messaging::MsgLogHandler::get()->handle(lvl, msg, REPORT_LOG_METHOD);
+}
+
+// Returns pointer to that static instance.
+Report* Report::get() {
+
+    static Report instance;
+    return &instance; 
 }
 
 // Requires the seconds past midnight to clear the averages. If the value 
@@ -121,18 +69,20 @@ void Report::setTimer(uint32_t seconds) {
 // logging a new day in the 10 secs before midnight.
 void Report::manageTimer() { 
 
+    Clock::TIME dtg;
+    Clock::DateTime::get()->getTime(&dtg);
+
     Threads::MutexLock guard(Report::mtx);
     if (!guard.LOCK()) {
         return; // Block if locked.
     }
 
-    Clock::TIME* dtg = Clock::DateTime::get()->getTime();
-    uint8_t hour = dtg->hour;
+    uint8_t hour = dtg.hour;
     static uint8_t lastHour = hour; // Set static upon init.
     static uint8_t attempts = 0; // Sending attempts
 
     // Raw systime gives the seconds past midnight from 0 - 86399.
-    uint32_t sysTime = dtg->raw;
+    uint32_t sysTime = dtg.raw;
 
     // clear toggle, day toggle.
     static bool clrT = true, dayT = true;
@@ -143,7 +93,10 @@ void Report::manageTimer() {
     // Clear all timer
     if (clrT && inRange) { // Not cleared, systime is in range.
         clrT = false;
-        this->clearAll();
+
+        if (!guard.UNLOCK()) return;
+        this->clearAll(); // Clears external class variables.
+        if (!guard.LOCK()) return;
 
     } else if (!clrT && !inRange) { // Has cleared and systime is out of range.
         clrT = true; // Reset
@@ -166,8 +119,10 @@ void Report::manageTimer() {
     // assuming it is not between midnight and 0100.
     if (hour != lastHour) {
 
-        // Attempt to send report via alert class.
+        // Attempt to send report via alert class. Potential big call.
+        if (!guard.UNLOCK()) return;
         bool sent = Alert::get()->sendReport(Comms::SOCKHAND::getReportBuf());
+        if (!guard.LOCK()) return; 
 
         // Set the attempts to 0 if successful, or increment if failed.
         attempts = (sent) ? 0 : (attempts + 1);
@@ -184,6 +139,20 @@ void Report::manageTimer() {
     }
 }
 
-// gets the current set time and returns. No mtx required.
-uint32_t Report::getTime() {return this->clrTimeSet;}
+// Param data ptr def to nullptr. If mtx not locked, sets data to and returns
+// 0. If locked, sets data to and returns clear time setting.
+uint32_t Report::getTime(uint32_t* data) {
+
+    Threads::MutexLock guard(Report::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0;
+        return 0;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->clrTimeSet;
+
+    return this->clrTimeSet;
+}
 }

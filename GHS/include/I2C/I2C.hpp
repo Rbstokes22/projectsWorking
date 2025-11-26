@@ -93,8 +93,6 @@ class I2C {
         uint8_t* readBuf, size_t readBufSize);
     bool TXthenRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize, 
         uint8_t* readBuf, size_t readBufSize, size_t delay);
-    Threads::Mutex* getMutex();
-    void returnMtx();
 };
 
 }

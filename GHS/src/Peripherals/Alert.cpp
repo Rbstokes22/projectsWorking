@@ -353,17 +353,18 @@ void Alert::sendErr(const char* msg, Messaging::Levels lvl) {
 // ATTENTION. For send alert and send report, introduced a delay of 300 us
 // just like the I2C mutex acquisition to prevent repeated calls from timing
 // out by trying to take a mutex before it has been released, by the same call.
-// This is to handle retries.
+// This is to handle retries. UPDATE. Removed mutex functionality, not required
+// at the moment, for this class. Kept code in play, just not used.
 
 // Requires message and caller. Generates a POSt request in JSON format and
 // sends to the server. Ensure that the server responds with "OK" or "FAIL"
 // depending on success. If "OK" returns true, returns false if not "OK".
 bool Alert::sendAlert(const char* msg, const char* caller) {
 
-    Threads::MutexLock guard(Alert::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
+    // Threads::MutexLock guard(Alert::mtx);
+    // if (!guard.LOCK()) {
+    //     return false; // Block if unlocked.
+    // }
 
     // Block if not STA mode.
     if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false; 
@@ -395,10 +396,10 @@ bool Alert::sendAlert(const char* msg, const char* caller) {
 // success. If "OK", returns true, if anything else, returns false.
 bool Alert::sendReport(const char* JSONmsg) {
 
-    Threads::MutexLock guard(Alert::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
+    // Threads::MutexLock guard(Alert::mtx);
+    // if (!guard.LOCK()) {
+    //     return false; // Block if unlocked.
+    // }
 
     // Block if not STA mode.
     if (Comms::NetMain::getNetType() != Comms::NetMode::STA) return false;
@@ -433,9 +434,6 @@ bool Alert::sendReport(const char* JSONmsg) {
 // a sensor down or sensor up message will be sent as an alert using 
 // this->sendAlert(). Returns true if working as advertised, or false if not.
 bool Alert::monitorSens(SensDownPkg &pkg, float health) {
-
-    // Mutex not required here, Calls function with mutex already established
-    // and changes no global or class variables.
 
     char msg[64]{0}; // 64 bytes is plenty large with some padding.
     bool send = false; // trigger to send message.

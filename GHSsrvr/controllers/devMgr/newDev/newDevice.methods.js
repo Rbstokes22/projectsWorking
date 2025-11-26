@@ -1,8 +1,8 @@
 const WebSocket = require('ws');
-const {handleResponse, getID} = require("./sktHand");
-const {getAll} = require("./sktHand.callbacks");
-const {config} = require("../../config/config");
-const {SKT_CMD} = require("../../Common/socketCmds");
+const {handleResponse, getID} = require("../sktHand/sktHand");
+const {getAll} = require("../sktHand/sktHand.callbacks");
+const {config} = require("../../../config/config");
+const {SKT_CMD} = require("../../../Common/socketCmds");
 
 // Manages web socket connection between this server acting as a client, to
 // the esp32 device socket server.
@@ -127,4 +127,30 @@ const stopPoll = function() {
     } catch (err) {console.error(err);}
 }
 
-module.exports = {manageSocket, updateDev, sktSend, poll, startPoll, stopPoll};
+// Requires no params. Iterates averages and changes values back to 0.
+// Handles all data types.
+const clearAvgs = function() {
+    
+    Object.keys(this.averages).forEach(ele => {
+
+        if (typeof this.averages[ele] === "object") {
+
+            if (Array.isArray(this.averages[ele])) { // Indicates array.
+                this.averages[ele].forEach((v, idx) => {
+                    this.averages[ele][idx] = 0;
+                });
+
+            } else { // Indicates object.
+                Object.keys(this.averages[ele]).forEach(key => {
+                    this.averages[ele][key] = 0;
+                });
+            }
+
+        } else { // Indicates primative.
+            this.averages[ele] = 0;
+        }
+    });
+}
+
+module.exports = {manageSocket, updateDev, sktSend, poll, startPoll, stopPoll,
+    clearAvgs};

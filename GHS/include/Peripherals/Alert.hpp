@@ -52,7 +52,7 @@ class Alert {
     const char* tag;
     char log[LOG_MAX_ENTRY];
     char report[ALT_REPORT_SIZE]; // Allows additional space for data.
-    static Threads::Mutex mtx;
+    static Threads::Mutex mtx; // NOT USED AT THE MOMENT, NREQ for this class.
     Flag::FlagReg flags;
     esp_http_client_config_t config; // http client configuration for alert
     esp_http_client_handle_t client; // http client handle for alert

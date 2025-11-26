@@ -367,14 +367,46 @@ bool Relay::removeID(uint8_t ID) {
     return false; // Unable to turn off.
 }
 
-// Requires no params. Gets the current state of the relay. Returns 0, 1, 2, 3
-// for off, on, forced off, and force removed, respectively.
-RESTATE Relay::getState() { // Mtx not req.
+// ATTENTION: the get functions that return by ptr will lose mutex protection
+// upon return. Instead, allow a return as normal, but also allow a local 
+// to be passed by ptr, allowing modification in the mtx protection block.
+// This hybrid approach allows a return for writing to, or a read only, which
+// will be the passed by ptr local var.
+
+// Param data is def to nullptr. If mutex unlocked sets data to and returns
+// empty state OFF. If locked, sets data to and returns restate. Returns are 
+// 0, 1, 2, 3 mapped to off, on, forced off, and force removed.
+RESTATE Relay::getState(RESTATE* data) { 
+
+    static RESTATE safeEmpty = RESTATE::OFF;
+
+    Threads::MutexLock guard(this->mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->relayState;
+
     return this->relayState;
 }
 
-// Return the current client quantity.
-uint8_t Relay::getQty() { // mtx not req.
+// Param data is def to nullptr. If mutex unlocked sets data to and returns
+// 0. If locked, sets data to and returns client qty.
+uint8_t Relay::getQty(uint8_t* data) { 
+
+    Threads::MutexLock guard(this->mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0;
+        return 0;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->clientQty;
+
     return this->clientQty;
 }
 
@@ -461,17 +493,20 @@ bool Relay::timerSetDays(uint8_t bitwise) {
 // turn them on and off during their set times.
 void Relay::manageTimer() { 
     
-    // ATTENTION: Mutex locking not required for this. Used only by the Routine
-    // Task, and the clock functionality is already RAII mutex protected.
+    Threads::MutexLock guard(this->mtx);
+
+    if (!guard.LOCK()) return; 
 
     if (this->timer.isReady) {
-        Clock::TIME* tm = Clock::DateTime::get()->getTime();
+
+        Clock::TIME tm;
+        Clock::DateTime::get()->getTime(&tm);
 
         // Logis applies to see if the timer runs through midnight.
         bool runsThruMid = (this->timer.offTime < this->timer.onTime);
 
-        uint32_t curTime = tm->raw; // current time
-        uint8_t day = tm->day; // Current day.
+        uint32_t curTime = tm.raw; // current time
+        uint8_t day = tm.day; // Current day.
 
         // Run bitwise checks to see if the timer is expected to be used today.
         // Works by using the bitwise storage of active days, and shifting by
@@ -514,8 +549,22 @@ void Relay::manageTimer() {
     }
 }
 
-// Returns timer for modication or review.
-Timer* Relay::getTimer() { // No mutex req.
+// Param data is def to nullptr. If mutex unlocked sets data to and returns
+// empty set. If locked, sets data to and returns timer.
+Timer* Relay::getTimer(Timer* data) { 
+
+    static Timer safeEmpty = {};
+
+    Threads::MutexLock guard(this->mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->timer;
+
     return &this->timer;
 }
 

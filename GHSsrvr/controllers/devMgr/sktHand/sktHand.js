@@ -1,6 +1,6 @@
 const { clearTimeout } = require("timers");
-const {config} = require("../../config/config");
-const {devMap} = require("../devMgr/config.devMgr");
+const {config} = require("../../../config/config");
+const {devMap} = require("../config.devMgr");
 const EventEmitter = require("events");
 const bus = new EventEmitter();
 

@@ -79,13 +79,13 @@ class Relay {
     void removeForce();
     uint8_t getID(const char* caller);
     bool removeID(uint8_t ID);
-    RESTATE getState();
-    uint8_t getQty();
+    RESTATE getState(RESTATE* data = nullptr);
+    uint8_t getQty(uint8_t* data = nullptr);
     bool isManual();
     bool timerSet(uint32_t onSeconds, uint32_t offSeconds);
     bool timerSetDays(uint8_t bitwise);
     void manageTimer();
-    Timer* getTimer();
+    Timer* getTimer(Timer* data = nullptr);
 };
 
 }

@@ -115,7 +115,7 @@ class MsgLogHandler {
 
     bool newLogAvail();
     void resetNewLogFlag();
-    const char* getLog();
+    const char* getLog(char* data = nullptr);
     bool addOLED(UI::IDisplay &OLED);
 };
 

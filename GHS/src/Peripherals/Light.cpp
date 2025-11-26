@@ -176,6 +176,7 @@ void Light::computeLightTime(size_t ct, bool isLight) {
 
         case false: // If dark
         onToggle = true; // reset toggle for next light period
+
         if (offToggle) { // If true, captures and logs the dark time.
             offToggle = false;
 
@@ -292,11 +293,6 @@ Light* Light::get(LightParams* parameter) {
 // Returns true for a successful read, and false if not.
 bool Light::readSpectrum() {
 
-    Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
     bool read{false};
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
@@ -304,10 +300,15 @@ bool Light::readSpectrum() {
     static SensDownPkg pkg("(SPEC)");
 
     Alert* alt = Alert::get();
-
     AS7341_DRVR::COLOR tempVal;
 
+    // ATTENTION. This is a big call, ensure to execute outside of mtx lock.
     read = this->params.as7341.readAll(tempVal);
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
 
     // Upon success, updates the averages and changes the flags to true.
     // If not, will change the noErr flag to false indicating an immediate
@@ -339,7 +340,9 @@ bool Light::readSpectrum() {
         }
     }
 
+    if (!guard.UNLOCK()) return false;
     alt->monitorSens(pkg, this->health.spec);
+    if (!guard.LOCK()) return false;
 
     // Sets the diplay to true if the error count is less than max allowed.
     // If exceeded the display will be set to false telling client of error.
@@ -363,11 +366,6 @@ bool Light::readSpectrum() {
 // false if not.
 bool Light::readPhoto() {
 
-    Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
     static bool logOnce = true; // Used to log errors once, and log fixed once.
 
     // Used to handle alerts for the sensor being down/impacted long term.
@@ -380,6 +378,11 @@ bool Light::readPhoto() {
     // Read the analog value from the ADC
     this->params.photo.read(tempVal, 
         static_cast<uint8_t>(CONF_PINS::ADC2::PHOTO));
+
+    Threads::MutexLock guard(Light::mtx);
+    if (!guard.LOCK()) {
+        return false; // Block if unlocked.
+    }
 
     // Check value to ensure integrity. Bad val set to -1, since we are using
     // single point mode, there are no negative values, as opp to differential.
@@ -415,7 +418,9 @@ bool Light::readPhoto() {
         }
     }
 
+    if (!guard.UNLOCK()) return false;
     alt->monitorSens(pkg, this->health.photo);
+    if (!guard.LOCK()) return false;
 
     if (this->health.photo > HEALTH_ERR_BAD && logOnce) {
         snprintf(Light::log, sizeof(Light::log), "%s photo read err", 
@@ -428,18 +433,70 @@ bool Light::readPhoto() {
     return !this->health.photoReadErr;
 }
 
-// Returns pointer to spectrum data. MUTEX not required.
-AS7341_DRVR::COLOR* Light::getSpectrum() {
+// ATTENTION: the get functions that return by ptr will lose mutex protection
+// upon return. Instead, allow a return as normal, but also allow a local 
+// to be passed by ptr, allowing modification in the mtx protection block.
+// This hybrid approach allows a return for writing to, or a read only, which
+// will be the passed by ptr local var.
+
+// Params data ptr is def to nullptr. This is a mutex safe protection that 
+// allows client to pass local object to this function, and populated in the
+// mtx protection. Returns pointer to readings upon success, and and empty
+// struct upon failure.
+AS7341_DRVR::COLOR* Light::getSpectrum(AS7341_DRVR::COLOR* data) {
+
+    static AS7341_DRVR::COLOR safeEmpty = {}; // Fallback on failure.
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Lock succeeded, populate the passed data ptr.
+    if (data != nullptr) *data = this->readings;
+    
     return &this->readings;
 }
 
-// Returns value of photoresistor analog read. Mutex not required.
-int Light::getPhoto() {
+// Returns value of photoresistor analog read. Returns 0 if mtx lock fail.
+// Params data ptr is def to nullptr. Pass local by pointer to have mutex
+// protection. Returns and sets data to 0 if failed lock.
+int Light::getPhoto(int* data) {
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0;
+        return 0;
+    }
+
+    // Lock succeeded, populate the passed data ptr.
+    if (data != nullptr) *data = this->photoVal;
+
     return this->photoVal; 
 }
 
-// Returns the health of the sensor data. Mutex not required.
-LightHealth* Light::getHealth() {return &this->health;}
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns health and updates data to health, if not,
+// returns an empty struct.
+LightHealth* Light::getHealth(LightHealth* data) {
+
+    static LightHealth safeEmpty = {};
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Lock succeeded.
+    if (data != nullptr) *data = this->health;
+
+    return &this->health;
+}
 
 // Requires no parameters. Checks the boundaries of the photoresistor settings.
 // If the read values are outside of the boundaries, the relay is handled
@@ -448,10 +505,8 @@ LightHealth* Light::getHealth() {return &this->health;}
 bool Light::checkBounds() { // Acts as a gate to ensure data integ.
 
     Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
+    if (!guard.LOCK()) return false; // Block if unlocked.
+    
     if (this->health.photoReadErr) return false; // Blocks if read err.
 
     // Bounds of the allowable range.
@@ -519,32 +574,93 @@ bool Light::checkBounds() { // Acts as a gate to ensure data integ.
     return true;
 }
 
-// ATTENTION. No mutex required for the simple returns. Mutex would go out of
-// scope anyway after returning the requests. This is not bulletproof but will
-// be effective for this design and these are non-critical and all read only.
-// The calling class methods do have mutex protection however to manage control.
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns config and updates data to config. If not,
+// returns and updates to an empty struct.
+RelayConfigLight* Light::getConf(RelayConfigLight* data) {
 
-// returns a pointer to the light relay configuration for the photoresistor.
-RelayConfigLight* Light::getConf() {return &this->conf;} // No mtx req.
+    static RelayConfigLight safeEmpty = {};
 
-// Returns a pointer to the spectral configuration.
-Spec_Conf* Light::getSpecConf() {return &this->specConf;} // No mtx req.
+    Threads::MutexLock guard(Light::mtx);
 
-// Returns a pointer to the spectral, and photoresistor averages.
-Light_Averages* Light::getAverages() {return &this->averages;} // No mtx req.
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
 
-// Returns a pointer to the trends.
-Light_Trends* Light::getTrends() {return &this->trends;} // No mtx req.
+    // Locked
+    if (data != nullptr) *data = this->conf;
+
+    return &this->conf;
+} 
+
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns config and updates data to config. If not,
+// returns and updates to an empty struct.
+Spec_Conf* Light::getSpecConf(Spec_Conf* data) {
+
+    static Spec_Conf safeEmpty = {};
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->specConf;
+
+    return &this->specConf;
+} 
+
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns avgs and updates data to avgs. If not,
+// returns and updates to an empty struct.
+Light_Averages* Light::getAverages(Light_Averages* data) {
+
+    static Light_Averages safeEmpty = {};
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->averages;
+
+    return &this->averages;
+} 
+
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns trends and updates data to trends. If not,
+// returns and updates to an empty struct.
+Light_Trends* Light::getTrends(Light_Trends* data) {
+
+    static Light_Trends safeEmpty = {};
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->trends;
+
+    return &this->trends;
+} 
 
 // Requires no parameters. Clears the current data after moving current values
 // over to previous values.
 void Light::clearAverages() {
 
     Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return; // Block if unlocked.
-    }
-
+    if (!guard.LOCK()) return; // Block if unlocked.
+    
     char log[BIGLOG_MAX_ENTRY / 2]{0}; // Can use up to 256 bytes
 
     // Write averages into log. Prep log, do not send until complete. First
@@ -577,8 +693,23 @@ void Light::clearAverages() {
         log, LIGHT_LOG_METHOD, true, true); 
 }
 
-// Returns duration of light above the trip value. No mtx req.
-uint32_t Light::getDuration() {return this->lightDuration;}
+// Params data ptr is def to nullptr. Pass local by ptr to have mtx protection.
+// If mutex is locked, returns duration and updates data to duration. If not,
+// returns and updates to 0.
+uint32_t Light::getDuration(uint32_t* data) {
+
+    Threads::MutexLock guard(Light::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0;
+        return 0;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->lightDuration;
+
+    return this->lightDuration;
+}
 
 // Requires ATIME value. This is part of the integration method, with larger
 // values increasing the duration of light reading. Returns true if successful,
@@ -586,10 +717,8 @@ uint32_t Light::getDuration() {return this->lightDuration;}
 bool Light::setATIME(uint8_t val) {
 
     Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
+    if (!guard.LOCK()) return false; // Block if unlocked.
+    
     if (this->params.as7341.setATIME(val)) {
         this->specConf.ATIME = val;
         return true;
@@ -604,10 +733,8 @@ bool Light::setATIME(uint8_t val) {
 bool Light::setASTEP(uint16_t val) {
 
     Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
-
+    if (!guard.LOCK()) return false; // Block if unlocked.
+    
     if (this->params.as7341.setASTEP(val)) {
         this->specConf.ASTEP = val;
         return true;
@@ -622,9 +749,7 @@ bool Light::setASTEP(uint16_t val) {
 bool Light::setAGAIN(AS7341_DRVR::AGAIN val) {
 
     Threads::MutexLock guard(Light::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if unlocked.
-    }
+    if (!guard.LOCK()) return false; // Block if unlocked.
     
     if (this->params.as7341.setAGAIN(val)) {
         this->specConf.AGAIN = val;
@@ -635,3 +760,4 @@ bool Light::setAGAIN(AS7341_DRVR::AGAIN val) {
 }
 
 }
+

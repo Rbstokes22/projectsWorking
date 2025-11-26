@@ -53,15 +53,107 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         static bool copyBuf = true; // Copies working to master buffer.
 
         // Commonly used pointers in the scope of GET_ALL. Declared them here
-        // to avoid using verbose commands.
-        Clock::TIME* dtg = Clock::DateTime::get()->getTime();
+        // to avoid using verbose commands, as well as ease the mutex 
+        // calls. Most of these functions are protected by mtx, and when there
+        // are several back to back calls, it introduces complexity. Get values
+        // outside of function.
+        bool newLog = Messaging::MsgLogHandler::get()->newLogAvail();
+        uint8_t net = static_cast<uint8_t>(NetMain::getNetType());
+
+        // Date and time.
+        Clock::TIME dtg; bool isCal;
+
+        Clock::DateTime* dt = Clock::DateTime::get();
+        dt->getTime(&dtg);
+        dt->isCalibrated(&isCal);
+
+        // Relays. Pass by ptr to ensure mtx protection.
+        Peripheral::RESTATE re0st, re1st, re2st, re3st;
+        SOCKHAND::Relays[0].getState(&re0st);
+        SOCKHAND::Relays[1].getState(&re1st);
+        SOCKHAND::Relays[2].getState(&re2st);
+        SOCKHAND::Relays[3].getState(&re3st);
+
+        Peripheral::Timer re0Timer, re1Timer, re2Timer, re3Timer;
+
+        SOCKHAND::Relays[0].getTimer(&re0Timer);
+        SOCKHAND::Relays[1].getTimer(&re1Timer);
+        SOCKHAND::Relays[2].getTimer(&re2Timer);
+        SOCKHAND::Relays[3].getTimer(&re3Timer);
+
+        uint8_t re0Qty, re1Qty, re2Qty, re3Qty;
+
+        SOCKHAND::Relays[0].getQty(&re0Qty);
+        SOCKHAND::Relays[1].getQty(&re1Qty);
+        SOCKHAND::Relays[2].getQty(&re2Qty);
+        SOCKHAND::Relays[3].getQty(&re3Qty);
+
+        // No mtx required for isManual(); Direct set.
+        bool re0man = SOCKHAND::Relays[0].isManual();
+        bool re1man = SOCKHAND::Relays[1].isManual();
+        bool re2man = SOCKHAND::Relays[2].isManual();
+        bool re3man = SOCKHAND::Relays[3].isManual();
+
+        // Temperature and humidity
+        float temp, hum;
+        
         Peripheral::TempHum* th = Peripheral::TempHum::get();
-        Peripheral::Timer* re0Timer = SOCKHAND::Relays[0].getTimer();
-        Peripheral::Timer* re1Timer = SOCKHAND::Relays[1].getTimer();
-        Peripheral::Timer* re2Timer = SOCKHAND::Relays[2].getTimer();
-        Peripheral::Timer* re3Timer = SOCKHAND::Relays[3].getTimer();
+        th->getTemp('C', &temp);
+        th->getHum(&hum);
+
+        Peripheral::TH_TRIP_CONFIG tempConf, humConf;
+        th->getTempConf(&tempConf);
+        th->getHumConf(&humConf);
+
+        float thHlth;
+        th->getHealth(&thHlth);
+
+        bool thRdOK;
+        th->getReadOK(&thRdOK);
+
+        Peripheral::TH_Averages thAvg;
+        th->getAverages(&thAvg);
+
+        // Soil
+
+        // ATTENTION. Ensure for ALL readings/conf you include each sensor in 
+        // arr size.
+
+        Peripheral::SoilReadings soReadings[SOIL_SENSORS]; 
+
         Peripheral::Soil* soil = Peripheral::Soil::get();
+        soil->getAllReadings(soReadings);
+
+        Peripheral::AlertConfigSo soConf[SOIL_SENSORS];
+        soil->getAllConfig(soConf);
+
+        // Light. 
+        AS7341_DRVR::COLOR spec;
+
         Peripheral::Light* light = Peripheral::Light::get();
+        light->getSpectrum(&spec);
+        
+        Peripheral::Light_Averages ltAv;
+        light->getAverages(&ltAv); 
+
+        Peripheral::LightHealth ltH;
+        light->getHealth(&ltH);
+
+        int photoVal;
+        light->getPhoto(&photoVal);
+   
+        Peripheral::RelayConfigLight ltConf;
+        light->getConf(&ltConf);
+
+        Peripheral::Spec_Conf specConf;
+        light->getSpecConf(&specConf);
+
+        uint32_t ltDur;
+        light->getDuration(&ltDur);
+
+        // Report
+        uint32_t clrTime;
+        Peripheral::Report::get()->getTime(&clrTime);
 
         // Primary JSON response object. Populates every setting and value that
         // is critical to the operation of this device, and returns it to the
@@ -81,12 +173,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"tempAltCond\":%u,\"tempAltVal\":%d,"
         "\"hum\":%.2f,\"humRe\":%d,\"humReCond\":%u,\"humReVal\":%d,"
         "\"humAltCond\":%u,\"humAltVal\":%d,"
-        "\"SHTH\":%.2f,\"tempAvg\":%0.1f,\"humAvg\":%0.1f,"
+        "\"SHTH\":%.2f,\"SHTRdOK\":%d,\"tempAvg\":%0.1f,\"humAvg\":%0.1f,"
         "\"tempAvgPrev\":%0.1f,\"humAvgPrev\":%0.1f,"
         "\"soil0\":%d,\"soil0AltCond\":%u,\"soil0AltVal\":%d,\"soil0H\":%0.2f,"
         "\"soil1\":%d,\"soil1AltCond\":%u,\"soil1AltVal\":%d,\"soil1H\":%0.2f,"
         "\"soil2\":%d,\"soil2AltCond\":%u,\"soil2AltVal\":%d,\"soil2H\":%0.2f,"
         "\"soil3\":%d,\"soil3AltCond\":%u,\"soil3AltVal\":%d,\"soil3H\":%0.2f,"
+        "\"soil0RdOK\":%d,\"soil1RdOK\":%d,\"soil2RdOK\":%d,\"soil3RdOK\":%d,"
         "\"violet\":%u,\"indigo\":%u,\"blue\":%u,\"cyan\":%u,\"green\":%u,"
         "\"yellow\":%u,\"orange\":%u,\"red\":%u,\"nir\":%u,\"clear\":%u,"
         "\"photo\":%d,"
@@ -98,112 +191,80 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"cyanAvgPrev\":%0.1f,\"greenAvgPrev\":%0.1f,\"yellowAvgPrev\":%0.1f,"
         "\"orangeAvgPrev\":%0.1f,\"redAvgPrev\":%0.1f,\"nirAvgPrev\":%0.1f,"
         "\"clearAvgPrev\":%0.1f,\"photoAvgPrev\":%0.1f,"
+        "\"photoRdOK\":%d,\"specRdOK\":%d,\"photoH\":%0.2f,\"specH\":%0.2f,"
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
-        "\"lightDur\":%lu,\"photoH\":%0.2f,\"specH\":%0.2f,\"darkVal\":%u,"
+        "\"lightDur\":%lu,\"darkVal\":%u,"
         "\"atime\":%u,\"astep\":%u,\"again\":%u,"
         "\"avgClrTime\":%lu}",
-        FIRMWARE_VERSION, 
-        data.idNum,
-        Messaging::MsgLogHandler::get()->newLogAvail(),
-        static_cast<uint8_t>(NetMain::getNetType()),
-        dtg->raw, dtg->hour, dtg->minute, dtg->second, dtg->day,
-        Clock::DateTime::get()->isCalibrated(),
-        static_cast<uint8_t>(SOCKHAND::Relays[0].getState()),
-        re0Timer->isReady, (size_t)re0Timer->onTime, (size_t)re0Timer->offTime,
-        static_cast<uint8_t>(SOCKHAND::Relays[1].getState()),
-        re1Timer->isReady, (size_t)re1Timer->onTime, (size_t)re1Timer->offTime,
-        static_cast<uint8_t>(SOCKHAND::Relays[2].getState()),
-        re2Timer->isReady, (size_t)re2Timer->onTime, (size_t)re2Timer->offTime,
-        static_cast<uint8_t>(SOCKHAND::Relays[3].getState()),
-        re3Timer->isReady, (size_t)re3Timer->onTime, (size_t)re3Timer->offTime,
-        re0Timer->days, re1Timer->days, re2Timer->days, re3Timer->days,
-        SOCKHAND::Relays[0].getQty(), SOCKHAND::Relays[1].getQty(),
-        SOCKHAND::Relays[2].getQty(), SOCKHAND::Relays[3].getQty(),
-        SOCKHAND::Relays[0].isManual(), SOCKHAND::Relays[1].isManual(),
-        SOCKHAND::Relays[2].isManual(), SOCKHAND::Relays[3].isManual(),
-        th->getTemp(),
-        th->getTempConf()->relay.num,
-        static_cast<uint8_t>(th->getTempConf()->relay.condition),
-        th->getTempConf()->relay.tripVal,
-        static_cast<uint8_t>(th->getTempConf()->alt.condition),
-        th->getTempConf()->alt.tripVal,
-        th->getHum(),
-        th->getHumConf()->relay.num,
-        static_cast<uint8_t>(th->getHumConf()->relay.condition),
-        th->getHumConf()->relay.tripVal,
-        static_cast<uint8_t>(th->getHumConf()->alt.condition),
-        th->getHumConf()->alt.tripVal,
-        th->getHealth(),
-        th->getAverages()->temp,
-        th->getAverages()->hum,
-        th->getAverages()->prevTemp,
-        th->getAverages()->prevHum,
-        soil->getReadings(0)->val, 
-        static_cast<uint8_t>(soil->getConfig(0)->condition),
-        soil->getConfig(0)->tripVal, soil->getReadings(0)->sensHealth,
-        soil->getReadings(1)->val, 
-        static_cast<uint8_t>(soil->getConfig(1)->condition),
-        soil->getConfig(1)->tripVal, soil->getReadings(1)->sensHealth,
-        soil->getReadings(2)->val, 
-        static_cast<uint8_t>(soil->getConfig(2)->condition),
-        soil->getConfig(2)->tripVal, soil->getReadings(2)->sensHealth,
-        soil->getReadings(3)->val, 
-        static_cast<uint8_t>(soil->getConfig(3)->condition),
-        soil->getConfig(3)->tripVal, soil->getReadings(3)->sensHealth,
-        light->getSpectrum()->F1_415nm_Violet,
-        light->getSpectrum()->F2_445nm_Indigo,
-        light->getSpectrum()->F3_480nm_Blue,
-        light->getSpectrum()->F4_515nm_Cyan,
-        light->getSpectrum()->F5_555nm_Green,
-        light->getSpectrum()->F6_590nm_Yellow,
-        light->getSpectrum()->F7_630nm_Orange,
-        light->getSpectrum()->F8_680nm_Red,
-        light->getSpectrum()->NIR,
-        light->getSpectrum()->Clear,
-        light->getPhoto(),
-        light->getAverages()->color.violet,
-        light->getAverages()->color.indigo,
-        light->getAverages()->color.blue,
-        light->getAverages()->color.cyan,
-        light->getAverages()->color.green,
-        light->getAverages()->color.yellow,
-        light->getAverages()->color.orange,
-        light->getAverages()->color.red,
-        light->getAverages()->color.nir,
-        light->getAverages()->color.clear,
-        light->getAverages()->photoResistor,
-        light->getAverages()->prevColor.violet,
-        light->getAverages()->prevColor.indigo,
-        light->getAverages()->prevColor.blue,
-        light->getAverages()->prevColor.cyan,
-        light->getAverages()->prevColor.green,
-        light->getAverages()->prevColor.yellow,
-        light->getAverages()->prevColor.orange,
-        light->getAverages()->prevColor.red,
-        light->getAverages()->prevColor.nir,
-        light->getAverages()->prevColor.clear,
-        light->getAverages()->prevPhotoResistor,
-        light->getConf()->num,
-        static_cast<uint8_t>(light->getConf()->condition),
-        light->getConf()->tripVal,
-        light->getDuration(),
-        light->getHealth()->photo,
-        light->getHealth()->spec,
-        light->getConf()->darkVal,
-        light->getSpecConf()->ATIME,
-        light->getSpecConf()->ASTEP,
-        static_cast<uint8_t>(light->getSpecConf()->AGAIN),
-        Peripheral::Report::get()->getTime()
+        FIRMWARE_VERSION, data.idNum, newLog, net,
+        dtg.raw, dtg.hour, dtg.minute, dtg.second, dtg.day, isCal,
+
+        static_cast<uint8_t>(re0st),
+        re0Timer.isReady, (size_t)re0Timer.onTime, (size_t)re0Timer.offTime,
+        static_cast<uint8_t>(re1st),
+        re1Timer.isReady, (size_t)re1Timer.onTime, (size_t)re1Timer.offTime,
+        static_cast<uint8_t>(re2st),
+        re2Timer.isReady, (size_t)re2Timer.onTime, (size_t)re2Timer.offTime,
+        static_cast<uint8_t>(re3st),
+        re3Timer.isReady, (size_t)re3Timer.onTime, (size_t)re3Timer.offTime,
+        re0Timer.days, re1Timer.days, re2Timer.days, re3Timer.days,
+        re0Qty, re1Qty, re2Qty, re3Qty, re0man, re1man, re2man, re3man,
+
+        temp, tempConf.relay.num,
+        static_cast<uint8_t>(tempConf.relay.condition), tempConf.relay.tripVal,
+        static_cast<uint8_t>(tempConf.alt.condition), tempConf.alt.tripVal,
+        hum, humConf.relay.num,
+        static_cast<uint8_t>(humConf.relay.condition), humConf.relay.tripVal, 
+        static_cast<uint8_t>(humConf.alt.condition), humConf.alt.tripVal,
+        thHlth, thRdOK,
+        thAvg.temp, thAvg.hum, thAvg.prevTemp, thAvg.prevHum,
+        
+        soReadings[0].val, static_cast<uint8_t>(soConf[0].condition),
+        soConf[0].tripVal, soReadings[0].sensHealth,
+        soReadings[1].val, static_cast<uint8_t>(soConf[1].condition),
+        soConf[1].tripVal, soReadings[1].sensHealth,
+        soReadings[2].val, static_cast<uint8_t>(soConf[2].condition),
+        soConf[2].tripVal, soReadings[2].sensHealth,
+        soReadings[3].val, static_cast<uint8_t>(soConf[3].condition),
+        soConf[3].tripVal, soReadings[3].sensHealth,
+
+        // Negate the soil readings, to show read OK if set to false.
+        !soReadings[0].readErr,
+        !soReadings[1].readErr,
+        !soReadings[2].readErr,
+        !soReadings[3].readErr,
+
+        spec.F1_415nm_Violet, spec.F2_445nm_Indigo, spec.F3_480nm_Blue,
+        spec.F4_515nm_Cyan, spec.F5_555nm_Green, spec.F6_590nm_Yellow,
+        spec.F7_630nm_Orange, spec.F8_680nm_Red, spec.NIR, spec.Clear,
+
+        photoVal,
+        ltAv.color.violet, ltAv.color.indigo, ltAv.color.blue,
+        ltAv.color.cyan, ltAv.color.green, ltAv.color.yellow,
+        ltAv.color.orange, ltAv.color.red, ltAv.color.nir,
+        ltAv.color.clear, ltAv.photoResistor, ltAv.prevColor.violet,
+        ltAv.prevColor.indigo, ltAv.prevColor.blue, ltAv.prevColor.cyan,
+        ltAv.prevColor.green, ltAv.prevColor.yellow, ltAv.prevColor.orange,
+        ltAv.prevColor.red, ltAv.prevColor.nir, ltAv.prevColor.clear,
+        ltAv.prevPhotoResistor,
+
+        // negate the read errors to show OK if set to false.
+        !ltH.photoReadErr,
+        !ltH.specReadErr,
+
+        ltH.photo, ltH.spec, ltConf.num, static_cast<uint8_t>(ltConf.condition),
+        ltConf.tripVal, ltDur, ltConf.darkVal, specConf.ATIME, specConf.ASTEP,
+        static_cast<uint8_t>(specConf.AGAIN), clrTime
         );
 
         // Copies the working buffer to the master buffer at the end of each
         // hour. This allows the master buffer to be sent to a server for 
         // client preview.
-        if (dtg->minute >= 59 && dtg->second >= 50 && copyBuf) {
+        if (dtg.minute >= 59 && dtg.second >= 50 && copyBuf) {
             memcpy(SOCKHAND::reportBuf, buffer, sizeof(SOCKHAND::reportBuf));
             copyBuf = false;
 
-        } else if (!copyBuf && dtg->minute < 59) {
+        } else if (!copyBuf && dtg.minute < 59) {
             copyBuf = true;
         }
         }
@@ -788,6 +849,12 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
             // Populate buffers above with requested data.
             int16_t* soilX = Peripheral::Soil::get()->getTrends(0);
+
+            // This will only be true if an index value exceeds the array
+            // length. This will break this command, and error printing
+            // will be handled in the soil src file.
+            if (soilX == nullptr) break;
+            
             SOCKHAND::Trends(soilX, 'i', soil0, SKT_REPLY_SIZE, iter);
 
             soilX = Peripheral::Soil::get()->getTrends(1);

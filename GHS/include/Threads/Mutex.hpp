@@ -41,10 +41,12 @@ class Mutex {
 class MutexLock {
     private:
     Mutex &mtx;
+    bool isLocked;
 
     public:
     MutexLock(Mutex &mtx);
     bool LOCK();
+    bool UNLOCK();
     ~MutexLock();
 };
 

@@ -31,7 +31,7 @@ Soil::Soil(SoilParams &params) :
 // Requires SOIL_TRIP_CONFIG data, readings data, whether to sound alert or 
 // reset alert, and the count number of consecutive trips. 
 void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data, 
-    bool alertOn, size_t ct) {
+    bool alertOn, size_t ct, Threads::MutexLock &guard) {
     
     // Acts as a gate to ensure that all of this criteria is met before
     // altering alerts.
@@ -70,7 +70,9 @@ void Soil::handleAlert(AlertConfigSo &conf, SoilReadings &data,
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed. Sends tag because the alert takes care of 
         // logging. No logging required.
+        if (!guard.UNLOCK()) return;
         conf.toggle = !alt->sendAlert(msg, Soil::tag);
+        if (!guard.LOCK()) return;
 
         // Increment or clear depending on success. 
         conf.attempts = conf.toggle ? conf.attempts + 1 : 0;
@@ -192,25 +194,72 @@ Soil* Soil::get(SoilParams* parameter) {
     return &instance;
 }
 
-// Requires the index number of the soil sensor, and returns a 
-// pointer to its conf for modification. Will return a nullptr if the 
-// correct index value is not reached, and the configuration if it is correct.
-AlertConfigSo* Soil::getConfig(uint8_t indexNum) {
+// ATTENTION: the get functions that return by ptr will lose mutex protection
+// upon return. Instead, allow a return as normal, but also allow a local 
+// to be passed by ptr, allowing modification in the mtx protection block.
+// This hybrid approach allows a return for writing to, or a read only, which
+// will be the passed by ptr local var.
+
+// Requires the index number, and data ptr to a local var to have mtx 
+// protection. If mutex is locked, returns config and updates data. If not,
+// returns and updates to an empty struct.
+AlertConfigSo* Soil::getConfig(uint8_t indexNum, AlertConfigSo* data) {
+
+    // Ensure the index num is within range.
+    if (indexNum >= SOIL_SENSORS) {
+        snprintf(Soil::log, sizeof(Soil::log), 
+            "%s idx value exceeds arr size", Soil::tag);
+
+        Soil::sendErr(Soil::log, Messaging::Levels::CRITICAL);
+        return nullptr;
+    }
+
+    static AlertConfigSo safeEmpty = {};
+
+    // Idx within range lock to prevent modification.
+    Threads::MutexLock guard(Soil::mtx);
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->conf[indexNum];
+    
+    return &this->conf[indexNum];
+}
+
+// Requires the data ptr to a local var to have mtx protection. If mutex is 
+// locked, returns all config and updates data. If not, returns and updates 
+// to an array of empty struct.
+AlertConfigSo* Soil::getAllConfig(AlertConfigSo* data) {
+
+    static AlertConfigSo safeEmpty[SOIL_SENSORS] = {};
 
     Threads::MutexLock guard(Soil::mtx);
 
-    if (indexNum >= SOIL_SENSORS || !guard.LOCK()) return nullptr;
-    return &conf[indexNum];
+    if (!guard.LOCK()) {
+        if (data != nullptr) {
+            memcpy(data, safeEmpty, sizeof(safeEmpty));
+        }
+
+        return safeEmpty;
+    }
+    
+    // Locked
+    if (data != nullptr) {
+        memcpy(data, this->conf, sizeof(this->conf));
+    }
+
+    return this->conf;
 }
 
 // Reads all soil sensors and stores the data in the data variable.
 void Soil::readAll() {
 
     Threads::MutexLock guard(Soil::mtx);
-    if (!guard.LOCK()) {
-        return; // Block if locked.
-    }
-
+    if (!guard.LOCK()) return; // Block if locked.
+    
     static bool logOnce[SOIL_SENSORS] = {true, true, true, true};
 
     // Used to handle alerts for the sensor being down/impacted long term.
@@ -228,7 +277,10 @@ void Soil::readAll() {
         int16_t tempVal = 0; 
 
         // Read the sensor.
+        if (!guard.UNLOCK()) continue;
         this->params.soil.read(tempVal, i);
+        if (!guard.LOCK()) continue;
+
         vTaskDelay(pdMS_TO_TICKS(5)); // Very brief delay in loop.
 
         // Check data to ensure integrity. Bad val set to -1, since we are not
@@ -269,7 +321,9 @@ void Soil::readAll() {
             }
         }
 
+        if (!guard.UNLOCK()) return;
         alt->monitorSens(pkg[i], this->data[i].sensHealth);
+        if (!guard.LOCK()) return;
 
         // If several consecutive bad reads, log sensor issue.
         if (this->data[i].sensHealth > HEALTH_ERR_BAD && logOnce[i]) {
@@ -282,26 +336,60 @@ void Soil::readAll() {
     }  
 }   
 
-// Requires the sensor number you are trying to read. Returns pointer to the
-// soil reading data if correct sensor index value is used, and nullptr if not.
-SoilReadings* Soil::getReadings(uint8_t indexNum) {
+// Requires the sensor number, and data ptr that is def to nullptr. If mtx
+// locked, updates data with mtx protection, and returns readings. If not,
+// updates to and returns empty struct.
+SoilReadings* Soil::getReadings(uint8_t indexNum, SoilReadings* data) {
 
-    Threads::MutexLock guard(Soil::mtx);
-    if (!guard.LOCK()) {
-        return nullptr; // Block if locked.
-    }
-
+    // Ensure the index num is within range.
     if (indexNum >= SOIL_SENSORS) {
         snprintf(Soil::log, sizeof(Soil::log), 
-            "%s index num %u exceeds %u ret nullptr", Soil::tag, indexNum, 
-            SOIL_SENSORS);
+            "%s idx value exceeds arr size", Soil::tag);
 
         Soil::sendErr(Soil::log, Messaging::Levels::CRITICAL);
         return nullptr;
     }
 
+    static SoilReadings safeEmpty = {};
+
+    // Idx within range lock to prevent modification.
+    Threads::MutexLock guard(Soil::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->data[indexNum];
+
     // IDx num is good, return pointer to data.
     return &this->data[indexNum];
+}
+
+// Requires the data ptr that is def to nullptr. If mtx locked, updates data
+// with mtx protection, and returns readings. If not, updates to and returns 
+// empty struct. WARNING. If passing data as pointer, ensure that you include
+// an array of 4 soil readings to populate data correctly.
+SoilReadings* Soil::getAllReadings(SoilReadings* data) {
+
+    static SoilReadings safeEmpty[SOIL_SENSORS] = {};
+
+    Threads::MutexLock guard(Soil::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) {
+            memcpy(data, safeEmpty, sizeof(safeEmpty));
+            return safeEmpty;
+        }
+    }
+
+    // Locked
+    if (data != nullptr) {
+        memcpy(data, this->data, sizeof(this->data));
+    }
+
+    return this->data;
 }
 
 // Requires no parameters. Checks the configuration setting for each sensor
@@ -310,9 +398,7 @@ SoilReadings* Soil::getReadings(uint8_t indexNum) {
 void Soil::checkBounds() {
 
     Threads::MutexLock guard(Soil::mtx);
-    if (!guard.LOCK()) {
-        return; // Block if locked.
-    }
+    if (!guard.LOCK()) return; // Block if locked.
     
     // Iterates through each of the soil sensors to check its current value
     // against the value set to trip the alarm.
@@ -347,13 +433,13 @@ void Soil::checkBounds() {
                 this->conf[i].onCt++;
                 this->conf[i].offCt = 0;
                 this->handleAlert(this->conf[i], this->data[i], true, 
-                    this->conf[i].onCt);
+                    this->conf[i].onCt, guard);
 
             } else if (this->data[i].val >= upperBound) {
                 this->conf[i].onCt = 0;
                 this->conf[i].offCt++;
                 this->handleAlert(this->conf[i], this->data[i], false,
-                this->conf[i].offCt); 
+                this->conf[i].offCt, guard); 
             }
 
             break;
@@ -364,13 +450,13 @@ void Soil::checkBounds() {
                 this->conf[i].onCt++;
                 this->conf[i].offCt = 0;
                 this->handleAlert(this->conf[i], this->data[i], true, 
-                this->conf[i].onCt);
+                this->conf[i].onCt, guard);
 
             } else if (this->data[i].val <= lowerBound) {
                 this->conf[i].onCt = 0;
                 this->conf[i].offCt++;
                 this->handleAlert(this->conf[i], this->data[i], false,
-                this->conf[i].offCt); 
+                this->conf[i].offCt, guard); 
             }
 
             break;
@@ -381,9 +467,41 @@ void Soil::checkBounds() {
     }
 }
 
-// Requires no params. Returns all trends for the sensor/index number. No mtx
-// required.
-int16_t* Soil::getTrends(uint8_t indexNum) {return this->trends[indexNum];}
+// Requires the sensor numbe, and data ptr that is default to nullptr. 
+// WARNING: If passing a data pointer, ensure a width of 12 int16_t type, for
+// a total of 24 bytes. If mtx is locked, updates data under mtx protection,
+// and returns trends. If not, does this same but with an empty set.
+int16_t* Soil::getTrends(uint8_t indexNum, int16_t* data) {
+
+    // Ensure the index num is within range.
+    if (indexNum >= SOIL_SENSORS) {
+        snprintf(Soil::log, sizeof(Soil::log), 
+            "%s idx value exceeds arr size", Soil::tag);
+
+        Soil::sendErr(Soil::log, Messaging::Levels::CRITICAL);
+        return nullptr;
+    }
+
+    static int16_t safeEmpty[TREND_HOURS] = {};
+
+    // Idx within range lock to prevent modification.
+    Threads::MutexLock guard(Soil::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) {
+            memcpy(data, safeEmpty, sizeof(safeEmpty));
+        }
+
+        return safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) {
+        memcpy(data, this->trends[indexNum], sizeof(this->trends[indexNum]));
+    }
+
+    return this->trends[indexNum];
+}
 
 // Used for testing. Comment out when done.
 // void Soil::test(int val, int sensorIdx) {

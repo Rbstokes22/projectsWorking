@@ -105,15 +105,36 @@ Mutex::~Mutex() {vSemaphoreDelete(this->xMutex);}
 // Since CPP doesn't have a finally block, this is a scope guard or
 // simple Resource Acquisition Is Initialization (RAII) pattern to 
 // ensure the mutex is always unlocked when it goes out of scope.
-MutexLock::MutexLock(Mutex &mtx) : mtx(mtx) {}
+MutexLock::MutexLock(Mutex &mtx) : mtx(mtx), isLocked(false) {}
 
 bool MutexLock::LOCK() {
-    return this->mtx.lock();
+    if (this->isLocked) return true; // Already locked.
+
+    if (this->mtx.lock()) {
+        this->isLocked = true;
+        return true;
+    }
+
+    return false;
+}
+
+bool MutexLock::UNLOCK() {
+    if (!this->isLocked) return true; // Already unlocked.
+
+    if (this->mtx.unlock()) {
+        this->isLocked = false;
+        return true;
+    }
+
+    return false;
 }
 
 // Automatically releases the mutex lock.
 MutexLock::~MutexLock() {
-    this->mtx.unlock();
+    if (this->isLocked) {
+        this->mtx.unlock();
+        this->isLocked = false;
+    }
 }
 
 }

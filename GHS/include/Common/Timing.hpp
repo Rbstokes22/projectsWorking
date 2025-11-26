@@ -38,8 +38,8 @@ class DateTime { // Singleton class
     public:
     static DateTime* get();
     void calibrate(int secsPastMid, uint8_t day); 
-    TIME* getTime();
-    bool isCalibrated();
+    TIME* getTime(TIME* data = nullptr);
+    bool isCalibrated(bool* data = nullptr);
     int64_t micros();
     int64_t millis();
     uint32_t seconds();

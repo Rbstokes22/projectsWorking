@@ -119,16 +119,16 @@ class Light {
     static Light* get(LightParams* parameter = nullptr);
     bool readSpectrum(); // read as7341 spectral.
     bool readPhoto(); // read photoresistor.
-    AS7341_DRVR::COLOR* getSpectrum();
-    int getPhoto();
-    LightHealth* getHealth();
+    AS7341_DRVR::COLOR* getSpectrum(AS7341_DRVR::COLOR* data = nullptr);
+    int getPhoto(int* data = nullptr);
+    LightHealth* getHealth(LightHealth* data = nullptr);
     bool checkBounds();
-    RelayConfigLight* getConf();
-    Spec_Conf* getSpecConf();
-    Light_Averages* getAverages();
-    Light_Trends* getTrends();
+    RelayConfigLight* getConf(RelayConfigLight* data = nullptr);
+    Spec_Conf* getSpecConf(Spec_Conf* data = nullptr);
+    Light_Averages* getAverages(Light_Averages* data = nullptr);
+    Light_Trends* getTrends(Light_Trends * data = nullptr);
     void clearAverages();
-    uint32_t getDuration();
+    uint32_t getDuration(uint32_t* data = nullptr);
     bool setATIME(uint8_t val);
     bool setASTEP(uint16_t val);
     bool setAGAIN(AS7341_DRVR::AGAIN val);

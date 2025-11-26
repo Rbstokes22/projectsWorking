@@ -23,7 +23,7 @@ bool settingSaver::saveLight() {
 
     Peripheral::RelayConfigLight* lt = Peripheral::Light::get()->getConf();
     Peripheral::Spec_Conf* spec = Peripheral::Light::get()->getSpecConf();
-
+ 
     if (lt == nullptr || spec == nullptr) {
         snprintf(this->log, sizeof(this->log), "%s light is nullptr", 
             this->tag);

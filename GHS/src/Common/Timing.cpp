@@ -65,7 +65,7 @@ DateTime* DateTime::get() {
 // and sets baseline for future computations.
 void DateTime::calibrate(int secsPastMid, uint8_t day) {
 
-    Threads::MutexLock guard(this->mtx);
+    Threads::MutexLock guard(DateTime::mtx);
     if (!guard.LOCK()) {
         return; // Block if not acquired.
     }
@@ -84,28 +84,44 @@ void DateTime::calibrate(int secsPastMid, uint8_t day) {
     this->calibratedAt = this->seconds(); // calibrated at this sys runtime
 }
 
-// Returns TIME struct with hour, minute, second.
-TIME* DateTime::getTime() {
+// Param data is def to nullptr. If mutex is unlocked, sets data to and returns
+// an empty TIME struct. If locked, sets data to and returns TIME struct with
+// hour, minute, and second.
+TIME* DateTime::getTime(TIME* data) {
 
-    Threads::MutexLock guard(this->mtx);
-    if (guard.LOCK()) {
-        this->adjustTime(); // Adjusts before returning time.
+    static TIME safeEmpty = {};
+
+    Threads::MutexLock guard(DateTime::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
     }
+
+    // Locked
+    this->adjustTime(); // Adjust before setting and returning.
+
+    if (data != nullptr) *data = this->time;
 
     return &this->time;  
 }
 
-// Returns if the clock has been calibrated.
-bool DateTime::isCalibrated() { 
+// Param data is def to nullptr. If mtx is unlcoked, sets data to and returns
+// false. If locked, sets data to and returns true if locked, or false of not.
+// Shows if the clock has been calibrated by a client.
+bool DateTime::isCalibrated(bool* data) { 
 
-    bool isCal = false;
+    Threads::MutexLock guard(DateTime::mtx);
 
-    Threads::MutexLock guard(this->mtx);
-    if (guard.LOCK()) {
-        isCal = this->calibrated;
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = false;
+        return false;
     }
 
-    return isCal;
+    // Locked
+    if (data != nullptr) *data = this->calibrated;
+
+    return this->calibrated;
 }
 
 // Returns int64_t system runtime in micros. Can run for 

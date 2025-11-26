@@ -77,7 +77,8 @@ void TempHum::handleRelay(relayConfigTH &conf, bool relayOn, size_t ct) {
 // Requires alert configuration, alert on or (to send), and the count of 
 // consecutive value trips. Works like the relay; however, the alerts will be
 // reset once the values are back within range.
-void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) { 
+void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct,
+    Threads::MutexLock &guard) { 
 
     // Mirrors the same setup as the relay activity.
     if (this->readErr || ct < TEMP_HUM_CONSECUTIVE_CTS || 
@@ -106,7 +107,9 @@ void TempHum::handleAlert(alertConfigTH &conf, bool alertOn, size_t ct) {
 
         // Upon success, set to false. If no success, it will keep trying until
         // attempts are maxed.
+        if (!guard.UNLOCK()) return;
         conf.toggle = !alt->sendAlert(msg, TempHum::tag); 
+        if (!guard.LOCK()) return;
 
         // Increment or clear, depending on success.
         conf.attempts = conf.toggle ? conf.attempts + 1 : 0;
@@ -194,7 +197,8 @@ void TempHum::relayBounds(float value, relayConfigTH &conf, bool isTemp) {
 // than steps of celcius degrees. Once the value exceeds the bound, it is
 // handled appropriately to energize or de-energize the attached relay. 
 // Hysteresis is applied to dampen the osciallations around the trip val.
-void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
+void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp,
+    Threads::MutexLock &guard) {
 
     float tripVal = static_cast<float>(conf.tripVal);
 
@@ -220,12 +224,12 @@ void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
         if (value < tripVal) {
             conf.onCt++;
             conf.offCt = 0;
-            this->handleAlert(conf, true, conf.onCt);
+            this->handleAlert(conf, true, conf.onCt, guard);
 
         } else if (value >= upperBound) { 
             conf.onCt = 0;
             conf.offCt++;
-            this->handleAlert(conf, false, conf.offCt); 
+            this->handleAlert(conf, false, conf.offCt, guard); 
         }        
         break;
 
@@ -233,12 +237,12 @@ void TempHum::alertBounds(float value, alertConfigTH &conf, bool isTemp) {
         if (value > tripVal) {
             conf.onCt++;
             conf.offCt = 0;
-            this->handleAlert(conf, true, conf.onCt);
+            this->handleAlert(conf, true, conf.onCt, guard);
 
         } else if (value <= lowerBound) {
             conf.onCt = 0;
             conf.offCt++;
-            this->handleAlert(conf, false, conf.offCt); 
+            this->handleAlert(conf, false, conf.offCt, guard); 
         }
         break;
 
@@ -368,15 +372,15 @@ TempHum* TempHum::get(TempHumParams* parameter) {
     return &instance;
 }
 
+// WARNING. Mutex locks are placed in the simple return functions below
+// to get temp/hum, amongst other values. The returns will be 0, nullptr, or
+// some other null value. This does not have to be handled on the other side,
+// because if this occurs, the system is in a catastrophic state as is.
+
 // Requires no parameters. Reads the temperature and humidity from the SHT
 // driver. Upon successful reading, data is available to include temp, hum,
 // and their averages. Returns true if read is successful, or false if not.
 bool TempHum::read() {
-
-    Threads::MutexLock guard(TempHum::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if locked.
-    }
 
     SHT_DRVR::SHT_RET read;
     static bool logOnce = true; // Used to log errors once, and log fixed once.
@@ -392,6 +396,9 @@ bool TempHum::read() {
     // struct carrier.
     read = this->params.sht.readAll(SHT_DRVR::START_CMD::NSTRETCH_HIGH_REP, 
         tempVal);
+
+    Threads::MutexLock guard(TempHum::mtx);
+    if (!guard.LOCK()) return false; // Block if locked.
 
     // upon success, updates averages/trends and changes both flags to true.
     // If unsuccessful, will change the noErr flag to false indicating an
@@ -425,7 +432,9 @@ bool TempHum::read() {
     }
 
     // Handle sensor checks and alerts if sensor is broken or fixed.
+    if (!guard.UNLOCK()) return false;
     alt->monitorSens(pkg, this->sensHealth); 
+    if (!guard.LOCK()) return false;
 
     // Logs if sensor becomes unresponsive.
     if (this->sensHealth > HEALTH_ERR_BAD) {
@@ -438,34 +447,95 @@ bool TempHum::read() {
             logOnce = false; // Prevents re-log, allows fixed error log.
         }
     } 
+
     // Returns true of data is ok.
     return !this->readErr;
 }
 
-// ATTENTION. No mutex required for simple returns of class variables. This
-// does open to modification, but all methods that call this method are also
-// mutex protected.
+// ATTENTION: the get functions that return by ptr will lose mutex protection
+// upon return. Instead, allow a return as normal, but also allow a local 
+// to be passed by ptr, allowing modification in the mtx protection block.
+// This hybrid approach allows a return for writing to, or a read only, which
+// will be the passed by ptr local var.
 
-// Returns humidity value float. No mtx req.
-float TempHum::getHum() {
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to 0.0. If locked, returns and sets data to hum val.
+float TempHum::getHum(float* data) {
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0.0f;
+        return 0.0f;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->data.hum;
+
     return this->data.hum;
 }
 
-// Defaults to Celcius. Celcius is the standard for this device, and
-// F is built in but not used, for potential future employment. Returns
-// the temperature in requested value. No mtx req.
-float TempHum::getTemp(char CorF) { // Cel or Faren
+// Requires Celcius or Faren, defaults to C, all functionality of this program
+// uses C in all computation. param data ptr is def to nullptr. If mtx not 
+// locked, returns and sets data to 0.0. If locked, returns and sets temp val.
+float TempHum::getTemp(char CorF, float* data) { // Cel or Faren
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0.0f;
+        return 0.0f;
+    }
+
+    // Locked
+    if (data != nullptr) {
+        
+        if (CorF == 'F' || CorF == 'f') {
+            *data = this->data.tempF;
+        } else {
+            *data = this->data.tempC;
+        }
+    }
+
     if (CorF == 'F' || CorF == 'f') return this->data.tempF;
     return this->data.tempC;
 }
 
-// Returns the humidity configuation for modification or viewing.
-TH_TRIP_CONFIG* TempHum::getHumConf() { // No mtx req.
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to empty set. If locked, returns and sets data to hum config.
+TH_TRIP_CONFIG* TempHum::getHumConf(TH_TRIP_CONFIG* data) { 
+
+    static TH_TRIP_CONFIG safeEmpty = {};
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->humConf;
+
     return &this->humConf;
 }
 
-// Returns the temperature configuration for modification or viewing.
-TH_TRIP_CONFIG* TempHum::getTempConf() { // mtx req.
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to empty set. If locked, returns and sets data to temp config.
+TH_TRIP_CONFIG* TempHum::getTempConf(TH_TRIP_CONFIG* data) {
+
+    static TH_TRIP_CONFIG safeEmpty = {};
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->tempConf;
+
     return &this->tempConf;
 }
 
@@ -477,31 +547,71 @@ TH_TRIP_CONFIG* TempHum::getTempConf() { // mtx req.
 bool TempHum::checkBounds() { 
 
     Threads::MutexLock guard(TempHum::mtx);
-    if (!guard.LOCK()) {
-        return false; // Block if locked.
-    }
-
+    if (!guard.LOCK()) return false; // Block if locked.
+    
     if (this->readErr) return false; // Prevent bad data from being used.
 
     // Checks each individual bound after confirming data is safe.
     this->relayBounds(this->data.tempC, this->tempConf.relay, true);
     this->relayBounds(this->data.hum, this->humConf.relay, false);
-    this->alertBounds(this->data.tempC, this->tempConf.alt, true);
-    this->alertBounds(this->data.hum, this->humConf.alt, false);
+    this->alertBounds(this->data.tempC, this->tempConf.alt, true, guard);
+    this->alertBounds(this->data.hum, this->humConf.alt, false, guard);
 
     return true;
 }
 
-// Require no params. Returns current sensor health. No mtx req.
-float TempHum::getHealth() {return this->sensHealth;}
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to 0.0. If locked, returns and sets data to sensor health.
+float TempHum::getHealth(float* data) {
 
-// Returns current, and previous averages structure for modification or viewing.
-TH_Averages* TempHum::getAverages() { // No mtx req.
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = 0.0f;
+        return 0.0f;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->sensHealth;
+
+    return this->sensHealth;
+}
+
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to empty set. If locked, returns and sets data to temphum averages.
+TH_Averages* TempHum::getAverages(TH_Averages* data) { 
+
+    static TH_Averages safeEmpty = {};
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->averages;
+
     return &this->averages;
 }
 
-// Requires no params. Returns the current temp/hum trend struct.
-TH_Trends* TempHum::getTrends() { // No mtx req.
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to empty set. If locked, returns and sets data to temphum trends.
+TH_Trends* TempHum::getTrends(TH_Trends* data) { 
+
+    static TH_Trends safeEmpty = {};
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = safeEmpty;
+        return &safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) *data = this->trends;
+
     return &this->trends;
 }
 
@@ -509,10 +619,8 @@ TH_Trends* TempHum::getTrends() { // No mtx req.
 void TempHum::clearAverages() {
 
     Threads::MutexLock guard(TempHum::mtx);
-    if (!guard.LOCK()) {
-        return; // Block if locked.
-    }
-
+    if (!guard.LOCK()) return; // Block if locked.
+    
     // Write averages into log. Prep log, do not send until complete. First
     // in order to capture current averages before resetting.
     snprintf(TempHum::log, sizeof(TempHum::log),
@@ -535,6 +643,24 @@ void TempHum::clearAverages() {
     // Send log
     Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
         TempHum::log, TEMP_HUM_LOG_METHOD, true, false);
+}
+
+// Param data ptr is def to nullptr. If mtx not locked, returns and sets data
+// to empty false. If locked, returns and sets data to true of OK, and false
+// if not.
+bool TempHum::getReadOK(bool* data) {
+
+    Threads::MutexLock guard(TempHum::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) *data = false;
+        return false;
+    }
+
+    // Locked
+    if (data != nullptr) *data = !this->readErr;
+
+    return !this->readErr;
 }
 
 // void TempHum::test(bool isTemp, float val) { // !!!COMMENT OUT WHEN NOT TEST

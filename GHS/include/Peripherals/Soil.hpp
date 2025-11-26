@@ -30,7 +30,7 @@ struct AlertConfigSo {
     size_t onCt; // Consecutive on counts to send alert.
     size_t offCt; // Consecutive off counts to reset alert.
     bool toggle; // Blocker to ensure that only 1 message is sent per violation.
-    const uint8_t ID; // ID number of soil sensor
+    uint8_t ID; // ID number of soil sensor
     uint8_t attempts; // Attempts to send alert before timeout
 };
 
@@ -60,7 +60,7 @@ class Soil {
     Soil(const Soil&) = delete; // prevent copying
     Soil &operator=(const Soil&) = delete; // prevent assignment
     static void handleAlert(AlertConfigSo &conf, SoilReadings &data, 
-        bool alertOn, size_t ct);
+        bool alertOn, size_t ct, Threads::MutexLock &guard);
 
     static void sendErr(const char* msg, Messaging::Levels lvl =
         Messaging::Levels::ERROR);
@@ -71,11 +71,13 @@ class Soil {
     public:
     // set to nullptr to reduce arguments when calling after init.
     static Soil* get(SoilParams* parameter = nullptr);
-    AlertConfigSo* getConfig(uint8_t indexNum);
+    AlertConfigSo* getConfig(uint8_t indexNum, AlertConfigSo* data = nullptr);
+    AlertConfigSo* getAllConfig(AlertConfigSo* data = nullptr);
     void readAll();
-    SoilReadings* getReadings(uint8_t indexNum);
+    SoilReadings* getReadings(uint8_t indexNum, SoilReadings* data = nullptr);
+    SoilReadings* getAllReadings(SoilReadings* data = nullptr);
     void checkBounds();
-    int16_t* getTrends(uint8_t indexNum);
+    int16_t* getTrends(uint8_t indexNum, int16_t* data = nullptr);
     // void test(int val, int sensorIdx); // Comment out for production
 };
 

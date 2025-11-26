@@ -459,8 +459,26 @@ void MsgLogHandler::resetNewLogFlag() {
     }
 }
 
-// Requires no parameters. Returns log. No mutex req Read Only.
-const char* MsgLogHandler::getLog() {
+// Param data is def to nullptr. If mtx is unlocked, sets to empty string and
+// returns empty string. If locked, sets data to and returns log.
+// WARNING. If data is passed as a local var pointer, ensure that the size is
+// 16384, as this is the log size.
+const char* MsgLogHandler::getLog(char* data) {
+
+    static const char safeEmpty[] = "";
+
+    Threads::MutexLock guard(MsgLogHandler::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) data[0] = '\0';
+        return safeEmpty;
+    }
+
+    // Locked
+    if (data != nullptr) {
+        memcpy(data, this->log, sizeof(this->log));
+    }
+
     return this->log;
 }
 

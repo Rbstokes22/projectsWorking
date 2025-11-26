@@ -26,7 +26,6 @@ class Report {
     Report(const Report&) = delete; // prevent copying
     Report &operator=(const Report&) = delete; // prevent assignment
     uint32_t clrTimeSet;
-    bool compileAll(char* jsonRep, size_t bytes);
     void clearAll();
     void sendErr(const char* msg, Messaging::Levels lvl = 
         Messaging::Levels::ERROR);
@@ -35,7 +34,7 @@ class Report {
     static Report* get();
     void setTimer(uint32_t seconds);
     void manageTimer();
-    uint32_t getTime();
+    uint32_t getTime(uint32_t* data = nullptr);
 };
 
 }

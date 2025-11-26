@@ -25,6 +25,15 @@
 // instability with the i2c bus, so the proper way will be accessing it via 
 // webserver hosted external to embedded system acting as a client.
 
+// ATTENTION. Mutex protection exists within the peripherals as well as other
+// shared data. Some functions are designed to be read and write enabled. This
+// means that if writing is required, you can call your getFunc() that returns
+// a pointer, for modificiation. Note that there is no mutex protection after
+// the return, so ensure to manage appropriate data handling externally if 
+// modification is forecast to be problematic. Elsewise, if read only is the
+// target, you can pass local variables to these functions as pointers, and
+// within the mutex lock, the local variables will be updated with the info.
+
 // TO DO:
 
 // !!! When ready to begin changing the esp code to connect via http to the

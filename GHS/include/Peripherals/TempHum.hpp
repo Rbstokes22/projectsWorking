@@ -89,9 +89,13 @@ class TempHum {
     TempHum(const TempHum&) = delete; // prevent copying
     TempHum &operator=(const TempHum&) = delete; // prevent assignment
     void handleRelay(relayConfigTH &conf, bool relayOn, size_t ct);
-    void handleAlert(alertConfigTH &config, bool alertOn, size_t ct);
+    void handleAlert(alertConfigTH &config, bool alertOn, size_t ct,
+        Threads::MutexLock &guard);
+
     void relayBounds(float value, relayConfigTH &conf, bool isTemp);
-    void alertBounds(float value, alertConfigTH &conf, bool isTemp);
+    void alertBounds(float value, alertConfigTH &conf, bool isTemp,
+        Threads::MutexLock &guard);
+        
     void computeAvgs();
     void computeTrends();
     void median3(SHT_DRVR::SHT_VALS &vals);
@@ -101,15 +105,16 @@ class TempHum {
     public:
     static TempHum* get(TempHumParams* parameter = nullptr);
     bool read();
-    float getHum();
-    float getTemp(char CorF = 'C');
-    TH_TRIP_CONFIG* getHumConf();
-    TH_TRIP_CONFIG* getTempConf();
+    float getHum(float* data = nullptr);
+    float getTemp(char CorF = 'C', float* data = nullptr);
+    TH_TRIP_CONFIG* getHumConf(TH_TRIP_CONFIG* data = nullptr);
+    TH_TRIP_CONFIG* getTempConf(TH_TRIP_CONFIG* data = nullptr);
     bool checkBounds();
-    float getHealth();
-    TH_Averages* getAverages();
-    TH_Trends* getTrends();
+    float getHealth(float* data = nullptr);
+    TH_Averages* getAverages(TH_Averages* data = nullptr);
+    TH_Trends* getTrends(TH_Trends* data = nullptr);
     void clearAverages();
+    bool getReadOK(bool* data = nullptr);
     // void test(bool isTemp, float val); // Uncomment out when testing.
 };
 
