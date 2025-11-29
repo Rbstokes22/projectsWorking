@@ -46,8 +46,8 @@ socket.on("message", (msg, rInfo) => {
 });
 
 // Bind the socket to the udp port.
-socket.bind(config.UDP_PORT, () => {
-    console.log(`Heartbeat UDP listener up on UDP port ${config.UDP_PORT}`);
+socket.bind(config.UDP_PORT_HB, () => {
+    console.log(`Heartbeat UDP listener up on UDP port ${config.UDP_PORT_HB}`);
 });
 
 // Set interval to run at n seconds. This iterates the device map looking for

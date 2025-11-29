@@ -9,7 +9,6 @@
 namespace Comms {
 
 // Static Setup
-char SOCKHAND::reportBuf[SKT_BUF_SIZE]= "{\"status\":\"EMPTY\"}"; 
 const char* SOCKHAND::tag(SKT_TAG);
 Peripheral::Relay* SOCKHAND::Relays{nullptr};
 bool SOCKHAND::isInit{false};
@@ -307,8 +306,5 @@ esp_err_t SOCKHAND::wsHandler(httpd_req_t* req) {
 
     return ESP_OK;
 }
-
-// Returns report Buffer.
-char* SOCKHAND::getReportBuf() {return SOCKHAND::reportBuf;}
 
 }

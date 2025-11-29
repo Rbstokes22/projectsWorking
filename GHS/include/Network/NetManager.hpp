@@ -48,6 +48,7 @@ class NetManager {
     NetManager(NetSTA &station, NetWAP &wap,  UI::Display &OLED);
     void handleNet();
     scan_ret_t scan(uint8_t heartbeatID, uint8_t ext);
+    static bool onLAN(char* mdns = nullptr, size_t bytes = 0);
 };
 
 }

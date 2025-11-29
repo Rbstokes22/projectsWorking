@@ -106,6 +106,7 @@ class MsgLogHandler {
     bool OLEDcheck();
     bool OLEDQueueSend();
     bool OLEDQueueRemove();
+    void sendUDPLog(Levels level, const char* msg, uint32_t seconds);
    
     public:
     static MsgLogHandler* get();

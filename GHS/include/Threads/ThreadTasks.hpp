@@ -26,6 +26,7 @@ namespace ThreadTask {
 TickType_t delay(TickType_t work, TickType_t period);
 
 void highWaterMark(const char* tag, UBaseType_t HWM);
+void endOfDay();
 void netTask(void* parameter);
 void SHTTask(void* parameter);
 void LightTask(void* parameter);

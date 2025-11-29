@@ -9,7 +9,6 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Light.hpp"
 #include "Peripherals/Soil.hpp"
-#include "Peripherals/Report.hpp"
 #include "Common/Timing.hpp"
 #include "Drivers/SHT_Library.hpp" 
 #include "UI/MsgLogHandler.hpp" 
@@ -50,7 +49,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         case CMDS::GET_ALL: {
         
         writeLog = false; // Commonly used command, do not want to log.
-        static bool copyBuf = true; // Copies working to master buffer.
 
         // Commonly used pointers in the scope of GET_ALL. Declared them here
         // to avoid using verbose commands, as well as ease the mutex 
@@ -151,10 +149,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         uint32_t ltDur;
         light->getDuration(&ltDur);
 
-        // Report
-        uint32_t clrTime;
-        Peripheral::Report::get()->getTime(&clrTime);
-
         // Primary JSON response object. Populates every setting and value that
         // is critical to the operation of this device, and returns it to the
         // client. Ensure client uses same JSON and same commands.
@@ -194,8 +188,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         "\"photoRdOK\":%d,\"specRdOK\":%d,\"photoH\":%0.2f,\"specH\":%0.2f,"
         "\"lightRe\":%d,\"lightReCond\":%u,\"lightReVal\":%u,"
         "\"lightDur\":%lu,\"darkVal\":%u,"
-        "\"atime\":%u,\"astep\":%u,\"again\":%u,"
-        "\"avgClrTime\":%lu}",
+        "\"atime\":%u,\"astep\":%u,\"again\":%u}",
+
         FIRMWARE_VERSION, data.idNum, newLog, net,
         dtg.raw, dtg.hour, dtg.minute, dtg.second, dtg.day, isCal,
 
@@ -254,19 +248,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         ltH.photo, ltH.spec, ltConf.num, static_cast<uint8_t>(ltConf.condition),
         ltConf.tripVal, ltDur, ltConf.darkVal, specConf.ATIME, specConf.ASTEP,
-        static_cast<uint8_t>(specConf.AGAIN), clrTime
+        static_cast<uint8_t>(specConf.AGAIN)
         );
-
-        // Copies the working buffer to the master buffer at the end of each
-        // hour. This allows the master buffer to be sent to a server for 
-        // client preview.
-        if (dtg.minute >= 59 && dtg.second >= 50 && copyBuf) {
-            memcpy(SOCKHAND::reportBuf, buffer, sizeof(SOCKHAND::reportBuf));
-            copyBuf = false;
-
-        } else if (!copyBuf && dtg.minute < 59) {
-            copyBuf = true;
-        }
         }
 
         break;
@@ -452,8 +435,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         uint8_t device = (data.suppData >> 4) & 0b1111;
         uint8_t reNum = data.suppData & 0b1111;
         writeLog = false; // Will be written to log using attach function.
-        Peripheral::Light* lt = Peripheral::Light::get();
-        Peripheral::TempHum* th = Peripheral::TempHum::get();
+
+        static Peripheral::TH_TRIP_CONFIG tempConf, humConf;
+        static Peripheral::RelayConfigLight ltConf;
+
+        Peripheral::TempHum::get()->getTempConf(&tempConf);
+        Peripheral::TempHum::get()->getHumConf(&humConf);
+        Peripheral::Light::get()->getConf(&ltConf);
 
         // Run some range checks
         bool devRange = SOCKHAND::inRange(0, 2, device);
@@ -469,21 +457,21 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         // Checks good, within range. Continue.
         switch (device) {
             case 0: // Temperature
-            SOCKHAND::attachRelayTH(reNum, th->getTempConf(), "Temp");
+            SOCKHAND::attachRelayTH(reNum, &tempConf, "Temp");
             written = snprintf(buffer, size, reply, 1, "Temp Relay att", 
                 reNum, data.idNum);
 
             break;
 
             case 1: // Humidity
-            SOCKHAND::attachRelayTH(reNum, th->getHumConf(), "Hum");
+            SOCKHAND::attachRelayTH(reNum, &humConf, "Hum");
             written = snprintf(buffer, size, reply, 1, "Hum Relay att", 
                 reNum, data.idNum);
 
             break;
 
             case 2: // Light
-            SOCKHAND::attachRelayLT(reNum, lt->getConf(), "light");
+            SOCKHAND::attachRelayLT(reNum, &ltConf, "light");
             written = snprintf(buffer, size, reply, 1, "Light Relay att", 
                 reNum, data.idNum);
 
@@ -548,7 +536,10 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         // Sets either the relay or alert based on bit 24. If the conditon is
-        // NONE or value 2, set tripval to 0.
+        // NONE or value 2, set tripval to 0. WARNING, writing to conf struct
+        // it outside of mutex protection, but this is not expected to be
+        // problematic, and is what we want.
+
         if (controlType == 1) { // Indicates Alert
 
             // If using alert, ensure you are in station mode.
@@ -611,6 +602,9 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         }
 
         // Ranges are good, connected to STA, establish sensor configuration.
+        // conf struct will be outside of mutex protection, not expected to be
+        // problematic.
+
         Peripheral::AlertConfigSo* conf = 
             Peripheral::Soil::get()->getConfig(num);
 
@@ -651,7 +645,8 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             break; // Break if range error
         }
 
-        // Checks are good, go ahead an make the setting change.
+        // Checks are good, go ahead an make the setting change. Writes to 
+        // conf struct outside of mtx protection, not expected to be a problem.
         Peripheral::RelayConfigLight* conf = 
             Peripheral::Light::get()->getConf();
 
@@ -767,23 +762,6 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
 
         break;
 
-        // Sets the second past midnight that the averages will be cleared. 
-        // Defaults to 23:59:00 or 86340.
-        case CMDS::CLEAR_AVG_SET_TIME:
-
-        if (!SOCKHAND::inRange(0, MAX_SET_TIME, data.suppData)) {
-
-            written = snprintf(buffer, size, reply, 0, "Avg Clr timer bust", 0, 
-                data.idNum);
-        } else {
-            Peripheral::Report::get()->setTimer(data.suppData);
-
-            written = snprintf(buffer, size, reply, 1, "Avg Clr Time set", 
-                data.suppData, data.idNum);
-        }
-
-        break;
-
         // When called, the device will save all configuration settings to the
         // NVS and restart the system.
         case CMDS::SAVE_AND_RESTART:
@@ -806,15 +784,16 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             writeLog = false; // Prevent large log of data
             int iter = data.suppData; // Iterations or hours to compute.
 
-            Peripheral::TH_Trends* th = Peripheral::TempHum::get()->getTrends();
+            static Peripheral::TH_Trends th;
+            Peripheral::TempHum::get()->getTrends(&th); 
 
            // Create all float buffers to populate data into.
             char tempBuf[SKT_REPLY_SIZE]{0};
             char humBuf[SKT_REPLY_SIZE]{0};
 
             // Populate buffers above with requested data.
-            SOCKHAND::Trends(th->temp, 'f', tempBuf, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(th->hum, 'f', humBuf, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(th.temp, 'f', tempBuf, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(th.hum, 'f', humBuf, SKT_REPLY_SIZE, iter);
 
             // Create all unit16_t buffers to populate data into.
             char ltClr[SKT_REPLY_SIZE]{0}; char ltVio[SKT_REPLY_SIZE]{0}; 
@@ -826,20 +805,20 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             char ltPho[SKT_REPLY_SIZE]{0}; // Photoresistor
 
             // Populate buffers above with requested data.
-            Peripheral::Light_Trends* lt = 
-                Peripheral::Light::get()->getTrends();
+            Peripheral::Light_Trends lt;
+            Peripheral::Light::get()->getTrends(&lt);
 
-            SOCKHAND::Trends(lt->clear, 'u', ltClr, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->violet, 'u', ltVio, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->indigo, 'u', ltInd, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->blue, 'u', ltBlu, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->cyan, 'u', ltCya, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->green, 'u', ltGre, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->yellow, 'u', ltYel, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->orange, 'u', ltOra, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->red, 'u', ltRed, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->nir, 'u', ltNir, SKT_REPLY_SIZE, iter);
-            SOCKHAND::Trends(lt->photo, 'i', ltPho, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.clear, 'u', ltClr, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.violet, 'u', ltVio, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.indigo, 'u', ltInd, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.blue, 'u', ltBlu, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.cyan, 'u', ltCya, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.green, 'u', ltGre, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.yellow, 'u', ltYel, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.orange, 'u', ltOra, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.red, 'u', ltRed, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.nir, 'u', ltNir, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(lt.photo, 'i', ltPho, SKT_REPLY_SIZE, iter);
 
             // Create all int16_t buffers to populate soil data into.
             char soil0[SKT_REPLY_SIZE]{0};
@@ -848,23 +827,13 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
             char soil3[SKT_REPLY_SIZE]{0};
 
             // Populate buffers above with requested data.
-            int16_t* soilX = Peripheral::Soil::get()->getTrends(0);
+            int16_t soil[SOIL_SENSORS][TREND_HOURS] = {};
+            Peripheral::Soil::get()->getAllTrends(&soil[0][0]);
 
-            // This will only be true if an index value exceeds the array
-            // length. This will break this command, and error printing
-            // will be handled in the soil src file.
-            if (soilX == nullptr) break;
-            
-            SOCKHAND::Trends(soilX, 'i', soil0, SKT_REPLY_SIZE, iter);
-
-            soilX = Peripheral::Soil::get()->getTrends(1);
-            SOCKHAND::Trends(soilX, 'i', soil1, SKT_REPLY_SIZE, iter);
-
-            soilX = Peripheral::Soil::get()->getTrends(2);
-            SOCKHAND::Trends(soilX, 'i', soil2, SKT_REPLY_SIZE, iter);
-
-            soilX = Peripheral::Soil::get()->getTrends(3);
-            SOCKHAND::Trends(soilX, 'i', soil3, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(soil[0], 'i', soil0, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(soil[1], 'i', soil1, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(soil[2], 'i', soil2, SKT_REPLY_SIZE, iter);
+            SOCKHAND::Trends(soil[3], 'i', soil3, SKT_REPLY_SIZE, iter);
 
             // Write JSON data back to client.
             written = snprintf(buffer, size, 

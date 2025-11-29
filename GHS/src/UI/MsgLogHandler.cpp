@@ -6,6 +6,10 @@
 #include "Common/Timing.hpp"
 #include "freertos/FreeRTOS.h"
 #include "Config/config.hpp"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "Network/NetManager.hpp"
 
 namespace Messaging {
 
@@ -364,6 +368,46 @@ bool MsgLogHandler::OLEDQueueRemove() {
     return false; // Indicates no removal occured.
 }
 
+// Requires level, message, and time in seconds. This is prepared by the 
+// handle function.
+void MsgLogHandler::sendUDPLog(Levels level, const char* msg, 
+    uint32_t seconds) {
+
+    char mDNS[64];
+
+    // Only allow UDP if conn to LAN. If successful return, mDNS is updated.
+    if (!Comms::NetManager::onLAN(mDNS, sizeof(mDNS))) return; 
+   
+    // ATTENTION. All logs will attempt to be sent by UDP, which will only work
+    // after device connected to LAN. Until then, they will just fire into the
+    // abyss. Upon the receipt of a log, it is the responsibility of the client
+    // to get the total log, inspect it, and aggregate the log entries together.
+
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP); // Create socket.
+
+    if (sock < 0) return;
+
+    char log[BIGLOG_MAX_ENTRY + 64] = {0}; // Some padding for mdns.
+
+    // Before processing and mtx, send log entry. WARNING. Logs will be sent
+    // to the UDP abyss, and will only be received once this is connected to 
+    // the LAN.
+    int written = snprintf(log, sizeof(log), 
+        "{\"mdns\": \"%s\", \"entry\": \"%s (%lu): %s%c\"}", mDNS,
+        LevelsMap[static_cast<uint8_t>(level)], seconds, msg, MLH_DELIM);
+
+    if (written <= 0) return; // Indicates unsuccessful write.
+
+    struct sockaddr_in dest; 
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(LOG_UDP_PORT);
+    dest.sin_addr.s_addr = inet_addr(UDP_URL);
+
+    sendto(sock, log, strlen(log), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+    close(sock);
+}
+
 // Requires no params. Returns static instance to class.
 MsgLogHandler* MsgLogHandler::get() {
 
@@ -396,13 +440,15 @@ void MsgLogHandler::OLEDMessageMgr() {
 void MsgLogHandler::handle(Levels level, const char* message, Method method,
     bool ignoreRepeat, bool bigLog) {
 
+    uint32_t seconds = Clock::DateTime::get()->seconds();
+
+    this->sendUDPLog(level, message, seconds); // Sends UDP upon every msg.
+
     Threads::MutexLock guard(MsgLogHandler::mtx);
     if (!guard.LOCK()) {
         return; // Block if locked.
     }
    
-    uint32_t seconds = Clock::DateTime::get()->seconds();
-
     switch (method) {
         case Method::SRL: 
         this->writeSerial(level, message, seconds);

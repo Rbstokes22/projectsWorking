@@ -12,6 +12,7 @@
 #include "Peripherals/saveSettings.hpp" // Used for destruction fail reset
 #include "Common/Timing.hpp"
 #include "Common/heartbeat.hpp"
+#include "mdns.h"
 
 namespace Comms {
 
@@ -174,7 +175,7 @@ void NetManager::startServer(NetMain &mode) {
 
 // Requires mode (STA or WAP). Handles active connections only. Handles events
 // where reconnection is necessary, as well as prints to OLED, current network
-// status.
+// status. Ensure to run at 1 Hz, 
 void NetManager::runningWifi(NetMain &mode) {
     NetMode curSrvr = NetMain::getNetType();
     static uint8_t reconAttempt{0}; // Reconnection attempt
@@ -279,6 +280,23 @@ void NetManager::sendErr(const char* msg, Messaging::Levels lvl,
 
     Messaging::MsgLogHandler::get()->handle(lvl, msg, NET_LOG_METHOD, 
         ignoreRepeat);
+}
+
+// Constructor. Takes station, wap, and OLED references.
+NetManager::NetManager(NetSTA &station, NetWAP &wap, UI::Display &OLED) :
+
+    tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED) {
+
+        memset(this->log, 0, sizeof(this->log));
+        snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
+        this->sendErr(this->log);
+    }
+
+// Requires no params. This is the first part of the process and checks the 
+// position of the netswitch, and sends the mode to be handled.
+void NetManager::handleNet() { 
+    NetMode mode = this->checkNetSwitch();
+    setNetType(mode);
 }
 
 // Requires heartbeat ID and extension time in seconds. Designed for mesh nets
@@ -394,21 +412,31 @@ scan_ret_t NetManager::scan(uint8_t heartbeatID, uint8_t ext) { // STA only
     return scan_ret_t::SCAN_NOT_REQ; // Signals scan within bounds. 
 }
 
-// Constructor. Takes station, wap, and OLED references.
-NetManager::NetManager(NetSTA &station, NetWAP &wap, UI::Display &OLED) :
+// Requires mdns char array, and its size, if mDNS name is requested in call.
+// They are def to nullptr and not required. Returns true if LAN connected and 
+// false if not. Populates the mdns name upon request, will return all 0's if
+// mdns name error. 
+bool NetManager::onLAN(char* mdns, size_t bytes) {
 
-    tag("(NetMan)"), station{station}, wap{wap}, OLED(OLED) {
+    // NOTE. This is primarily used for UDP sending, since they are fire and 
+    // forget, to ensure the device is on the LAN.
 
-        memset(this->log, 0, sizeof(this->log));
-        snprintf(this->log, sizeof(this->log), "%s Ob created", this->tag);
-        this->sendErr(this->log);
+    if (mdns != nullptr && bytes > 0) { // First ensure mDNS is requested.
+
+        char hostname[32];
+        esp_err_t mdnsName = mdns_hostname_get(hostname);
+
+        if (mdnsName != ESP_OK) {
+            memset(mdns, 0, bytes);
+            return false; // Block, if MDNS is requested, this must populate.
+        }
+
+        // Populate the mdns key.
+        snprintf(mdns, bytes, "http://%s.local", hostname);
     }
 
-// Requires no params. This is the first part of the process and checks the 
-// position of the netswitch, and sends the mode to be handled.
-void NetManager::handleNet() { 
-    NetMode mode = this->checkNetSwitch();
-    setNetType(mode);
+    wifi_ap_record_t rec;
+    return (esp_wifi_sta_get_ap_info(&rec) == ESP_OK);
 }
 
 }

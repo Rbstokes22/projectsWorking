@@ -10,13 +10,13 @@
 #include "Peripherals/TempHum.hpp"
 #include "Peripherals/Soil.hpp"
 #include "Peripherals/Light.hpp"
-#include "Peripherals/Report.hpp"
 #include "UI/MsgLogHandler.hpp"
 #include "math.h"
 #include "Peripherals/saveSettings.hpp"
 #include "Common/heartbeat.hpp"
 #include "Drivers/ADC.hpp"
 #include "Network/NetManager.hpp"
+#include "Common/Timing.hpp"
 
 namespace ThreadTask {
 
@@ -56,6 +56,35 @@ void highWaterMark(const char* tag, UBaseType_t HWM) {
 
         Messaging::MsgLogHandler::get()->handle(Messaging::Levels::CRITICAL,
             msg, Messaging::Method::SRL_LOG, true, false);
+    }
+}
+
+// Requires no params. Runs end of day checks. Hard coded to clear all avgs
+// at 23:59:50 and to log NEW day @ 00:00:00, both with the padding of 10 
+// seconds, meaning this must be ran < 10 Hz interval to capture all.
+void endOfDay() {
+    static Clock::TIME t;
+    static bool clrTog = true, dayTog = true;
+
+    Clock::DateTime::get()->getTime(&t);
+
+    uint32_t sysTime = t.raw; // seconds for the day from 0 - 86399.
+
+    if (sysTime >= 86350 && clrTog) { // Clear avgs at 23:59:50
+        clrTog = false;
+        Peripheral::TempHum::get()->clearAverages();
+        Peripheral::Light::get()->clearAverages(); 
+
+    } else if (sysTime <= 10 && dayTog) { // Log new day @ 00:00:00
+        dayTog = false;
+        Messaging::MsgLogHandler::get()->handle(Messaging::Levels::INFO,
+            "NEW DAY", Messaging::Method::SRL_LOG);
+    }
+
+    if (sysTime < 86350 && !clrTog) {
+        clrTog = true;
+    } else if (sysTime > 10 && !dayTog) {
+        dayTog = true;
     }
 }
 
@@ -365,9 +394,9 @@ void routineTask(void* parameter) {
             params->relays[i].manageTimer(); 
         }
 
-        // Manage the timer of the daily report. If a timer is not enabled,
-        // will clear averages at 23:59:50 each day.
-        Peripheral::Report::get()->manageTimer();
+        // Manage the clearing of averages at the end of the day as well as 
+        // new day logging. Att must run < 10 Hz, which we already are.
+        endOfDay(); 
 
         // Calls the message check on an interval to ensure that display
         // messages are both sent and cleared from the queue.

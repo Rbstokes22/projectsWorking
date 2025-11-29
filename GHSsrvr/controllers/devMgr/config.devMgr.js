@@ -2,5 +2,6 @@
 // dependencies.
 
 const devMap = {}; // Maps and manages all esp devices.
+const IPmap = {};
 
 module.exports = {devMap};

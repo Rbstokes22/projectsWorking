@@ -19,7 +19,8 @@ extern char confLog[128]; // Reusable log for config src.
 #define AP_DEF_PASS "12345678"
 #define CRED_NAMESPACE "netcreds"
 #define WAP_MAX_CONNECTIONS 4 // Max allowable users.
-#define HEARTBEAT_UDP_PORT 6842 // Uses UDP to check in with server.
+#define HEARTBEAT_UDP_PORT 51002 // Uses UDP to check in with server.
+#define LOG_UDP_PORT 51003
 
 // I2C GPIO PINS
 #define I2C_SCL_PIN GPIO_NUM_22
@@ -62,7 +63,7 @@ extern char confLog[128]; // Reusable log for config src.
 
 // Uncomment whichever WEBURL you are using
 // #define WEBURL "https://major-absolutely-bluejay.ngrok-free.app"
-#define WEBURL "http://ghmain.local:5702"
+#define WEBURL "http://ghmain.local:51001"
 #define UDP_URL "ghmain.local" // mDNS of the primary node exp server.
 #define WEB_TIMEOUT_MS 3000 // timeout when in client mode in milliseconds.
 
@@ -104,7 +105,7 @@ extern const char* whiteListDomains[3]; // WEBURL, LOCAL_IP and MDNS_ACTUAL
 
 // Sample/polling frequencies in ms that each thread is executed. If any of
 // these change, ensure to change the hearbeat checks on threadTasks.hpp.
-#define NET_FRQ 1000
+#define NET_FRQ 1000 // Keep 1000 due to UDP heartbeat.
 #define SHT_FRQ 1000
 #define LIGHT_FRQ 3000 // Overruns at 2000 for polling, use 3000 min.
 #define SOIL_FRQ 1000

@@ -521,6 +521,8 @@ bool I2C::addDev(I2CPacket &pkt, bool reInit) {
 // ensure maximum bus health. Each TX/RX has a brief delay. This is because
 // the mutex was constantly timing out, now this forces separation between 
 // calls to the I2C bus via phase desynchronization to allow for proper flow.
+// Ensure that the mutex tx and rx is protected, the rest of the data does not
+// protect shared variables.
 
 // Requires i2c packet, a pointer to the write buffer, and its size. Transmits
 // via i2c. Returns true if successful, and false if not.
@@ -531,14 +533,13 @@ bool I2C::TX(I2CPacket &pkt, const uint8_t* writeBuf, size_t bufSize) {
         ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
         
         Threads::MutexLock guard(this->mtx);
-        if (!guard.LOCK()) {
-            return false; // Block if unlocked.
-        }
-
+        
         uint32_t start = xthal_get_ccount();
 
+        if (!guard.LOCK()) return false;
         pkt.response = i2c_master_transmit(pkt.handle, writeBuf, bufSize,
             pkt.timeout_ms);
+        if (!guard.UNLOCK()) return false;
 
         pkt.setDelta(start, xthal_get_ccount());
 
@@ -576,14 +577,13 @@ bool I2C::RX(I2CPacket &pkt, uint8_t* readBuf, size_t bufSize) {
         ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
         
         Threads::MutexLock guard(this->mtx);
-        if (!guard.LOCK()) {
-            return false; // Block if unlocked.
-        }
-
+    
         uint32_t start = xthal_get_ccount();
 
+        if (!guard.LOCK()) return false;
         pkt.response = i2c_master_receive(pkt.handle, readBuf, bufSize,
             pkt.timeout_ms);
+        if (!guard.UNLOCK()) return false;
 
         pkt.setDelta(start, xthal_get_ccount());
 
@@ -623,14 +623,13 @@ bool I2C::TXRX(I2CPacket &pkt, const uint8_t* writeBuf, size_t writeBufSize,
         ets_delay_us(300); // 0.3ms brief delay to clear mtx race problems.
 
         Threads::MutexLock guard(this->mtx);
-        if (!guard.LOCK()) {
-            return false; // Block if unlocked.
-        }
 
         uint32_t start = xthal_get_ccount();
 
+        if (!guard.LOCK()) return false;
         pkt.response = i2c_master_transmit_receive(pkt.handle, writeBuf, 
             writeBufSize, readBuf, readBufSize, pkt.timeout_ms);
+        if (!guard.UNLOCK()) return false;
 
         pkt.setDelta(start, xthal_get_ccount());
 

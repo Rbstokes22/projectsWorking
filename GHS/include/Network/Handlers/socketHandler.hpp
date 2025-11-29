@@ -30,7 +30,7 @@ enum class CMDS : uint8_t {
     GET_ALL = 1, CALIBRATE_TIME, NEW_LOG_RCVD, 
     RELAY_CTRL, RELAY_TIMER, RELAY_TIMER_DAY, ATTACH_RELAYS, 
     SET_TEMPHUM, SET_SOIL, SET_LIGHT, SET_SPEC_INTEGRATION_TIME, SET_SPEC_GAIN, 
-    CLEAR_AVERAGES, CLEAR_AVG_SET_TIME, SAVE_AND_RESTART, GET_TRENDS
+    CLEAR_AVERAGES, SAVE_AND_RESTART, GET_TRENDS
 };
 
 struct cmdData { // Command Data
@@ -67,7 +67,6 @@ class argPool {
 
 class SOCKHAND : public MASTERHAND {
     private:
-    static char reportBuf[SKT_BUF_SIZE]; // Used for report sending in Alert.
     static const char* tag;
     static Peripheral::Relay* Relays; // Pointer to relays, init from main.cpp
     static bool isInit; // Shows if the handler is initialized.
@@ -95,8 +94,6 @@ class SOCKHAND : public MASTERHAND {
 
     static void attachRelayLT(uint8_t relayNum,
         Peripheral::RelayConfigLight* conf, const char* caller);
-
-    static char* getReportBuf();
 };
 
 }

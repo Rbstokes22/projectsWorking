@@ -78,6 +78,7 @@ class Soil {
     SoilReadings* getAllReadings(SoilReadings* data = nullptr);
     void checkBounds();
     int16_t* getTrends(uint8_t indexNum, int16_t* data = nullptr);
+    int16_t* getAllTrends(int16_t* data = nullptr);
     // void test(int val, int sensorIdx); // Comment out for production
 };
 

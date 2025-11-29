@@ -2,6 +2,34 @@ const {devMap} = require("../config.devMgr");
 const {getTime} = require("../../../Common/timeMgr");
 let avgClrFlag = false; // Used to track average clearing.
 
+// Rounds all averages to decimal precision. Iterates the devices averages,
+// and converts them to avoid have several decimal places.
+const roundAvgs = function(mdnsKey, decPlaces) {
+
+    const avgs = devMap[mdnsKey].averages;
+
+    Object.keys(avgs).forEach(key => {
+
+        if (typeof avgs[key] === "number") { // Check if number.
+            avgs[key] = Number(avgs[key].toFixed(decPlaces));
+
+        } else if (typeof avgs[key] === "object") { // Check if object.
+
+            if (Array.isArray(avgs[key])) {
+                avgs[key].forEach((v, idx) => {
+                    avgs[key][idx] = Number(avgs[key][idx].toFixed(decPlaces));
+                });
+
+            } else {
+                Object.keys(avgs[key]).forEach(obKey => {
+                    avgs[key][obKey] = 
+                        Number(avgs[key][obKey].toFixed(decPlaces));
+                });
+            }
+        }
+    });
+}
+
 // Requires the mdnsKey value that maps to devMap. Iterates all of the data
 // from the esp, extracting prescribed kv pairs, and computes the running avgs.
 // Averages will be running in hour long intervals before resetting, capturing
@@ -32,7 +60,7 @@ const handleAverages = function(mdnsKey) {
         // Good data
         const delta = sysData[`soil${i}`] - dev.averages["soil"][i];
         dev.averages["soilP"][i] += 1; // increment denominator.
-        dev.averages[`soil${i}`] += (delta / dev.averages["soilP"][i]);
+        dev.averages["soil"][i] += (delta / dev.averages["soilP"][i]);
     }
 
     // Set the photo resistor averages.
@@ -49,18 +77,18 @@ const handleAverages = function(mdnsKey) {
         // All object keys for each channel of the spec read. 
         const channels = ["violet", "indigo", "blue", "cyan", "green", 
             "yellow", "orange", "red", "nir", "clear"
-        ]
+        ];
 
         dev.averages["specP"] += 1; // increment denominator once for all chan.
 
         channels.forEach(channel => {
 
-            const delta = sysData[channel] - dev.averages[channel];
-            dev.averages[channel] += (delta / dev.averages["specP"]);
+            const delta = sysData[channel] - dev.averages["spec"][channel];
+            dev.averages["spec"][channel] += (delta / dev.averages["specP"]);
         });
     }
 
-    console.log(devMap[mdnsKey].averages);
+    roundAvgs(mdnsKey, 2); // Rounds averages to ensure two point precision.
 }
 
 // Requires the hour. When called, the device manager will clone the averages

@@ -46,6 +46,8 @@ const newDevice = function (devData, ip) {
         this.trends[i] = {};
     }
 
+    this.log = {"lastSysLog": 0, "entries": []};
+
     this.manageSocket = manageSocket; 
     this.updateDev = updateDev;
     this.sktSend = sktSend;

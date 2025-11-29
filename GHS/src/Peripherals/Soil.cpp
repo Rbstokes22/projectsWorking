@@ -467,8 +467,8 @@ void Soil::checkBounds() {
     }
 }
 
-// Requires the sensor numbe, and data ptr that is default to nullptr. 
-// WARNING: If passing a data pointer, ensure a width of 12 int16_t type, for
+// Requires the sensor number, and data ptr that is default to nullptr. 
+// WARNING: If passing a data pointer, ensure a 1D array int16_t arr[12], for
 // a total of 24 bytes. If mtx is locked, updates data under mtx protection,
 // and returns trends. If not, does this same but with an empty set.
 int16_t* Soil::getTrends(uint8_t indexNum, int16_t* data) {
@@ -501,6 +501,31 @@ int16_t* Soil::getTrends(uint8_t indexNum, int16_t* data) {
     }
 
     return this->trends[indexNum];
+}
+
+// Param data pointer is def to nullptr. If passing by pointer, ensure a 2D
+// array int16_t arr[4][12] is passed, for a total of 96 butes. If mtx is 
+// locked, updates data under mtx protection, and returns all trends. If not,
+// does the same but with an empty set.
+int16_t* Soil::getAllTrends(int16_t *data) {
+
+    static int16_t safeEmpty[SOIL_SENSORS][TREND_HOURS] = {}; 
+
+    Threads::MutexLock guard(Soil::mtx);
+
+    if (!guard.LOCK()) {
+        if (data != nullptr) {
+            memcpy(data, safeEmpty, sizeof(safeEmpty));
+            return &safeEmpty[0][0];
+        }
+    }
+
+    // Locked
+    if (data != nullptr) {
+        memcpy(data, this->trends, sizeof(this->trends));
+    }
+
+    return &this->trends[0][0];
 }
 
 // Used for testing. Comment out when done.

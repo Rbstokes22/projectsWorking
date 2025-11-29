@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "Network/NetManager.hpp"
 
 // ATTENTION. Avoid logging any heartbeat suspensions and releases. This is 
 // because it has the potential to be called frequently and we do not want to
@@ -137,6 +138,8 @@ void Heartbeat::rogerUp(uint8_t chunkID, uint8_t resetSec) {
 // the receiving server will keep devices alive as long as they have checked in
 // the past 5 seconds.
 void Heartbeat::pingServer(Comms::STAdetails &details) {
+
+    if (!Comms::NetManager::onLAN()) return; // Block if not conn to LAN.
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP); // Create socket.
 
