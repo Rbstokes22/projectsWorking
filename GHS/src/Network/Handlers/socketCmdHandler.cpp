@@ -850,8 +850,23 @@ void SOCKHAND::compileData(cmdData &data, char* buffer, size_t size) {
         break;
     }
 
-    if (writeLog) { // Will log the JSON response string.
-        MASTERHAND::sendErr(buffer, Messaging::Levels::INFO);
+    // Will log the JSON response string, but not as JSON. This prevents any
+    // client JSON parse from having issues since logs are Read Only anyway.
+    if (writeLog) { 
+
+        static char tempBuf[SKT_REPLY_SIZE] = {0};
+
+        snprintf(tempBuf, sizeof(tempBuf), "%s", buffer);
+
+        size_t iterSize = strlen(tempBuf);
+
+        for (size_t i = 0; i < iterSize; i++) {
+            if (tempBuf[i] == '{' or tempBuf[i] == '}') {
+                tempBuf[i] = '|';
+            }
+        }
+
+        MASTERHAND::sendErr(tempBuf, Messaging::Levels::INFO);
     }
 
     if (written <= 0) {

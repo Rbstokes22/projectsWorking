@@ -10,6 +10,7 @@ socket.on("message", (msg, rInfo) => {
         let log = JSON.parse(msg.toString());
         const mDNS = log.mdns;
         const entry = log.entry;
+        console.log(entry);
         
         devMap[mDNS].log["lastSysLog"] = 0; // USE REGEX TO GET SYS LOG TIME
 

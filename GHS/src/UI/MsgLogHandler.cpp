@@ -376,7 +376,8 @@ void MsgLogHandler::sendUDPLog(Levels level, const char* msg,
     char mDNS[64];
 
     // Only allow UDP if conn to LAN. If successful return, mDNS is updated.
-    if (!Comms::NetManager::onLAN(mDNS, sizeof(mDNS))) return; 
+    if (!Comms::NetManager::onLAN(mDNS, sizeof(mDNS)) || msg == nullptr ||
+        msg[0] == '\0') return; 
    
     // ATTENTION. All logs will attempt to be sent by UDP, which will only work
     // after device connected to LAN. Until then, they will just fire into the
